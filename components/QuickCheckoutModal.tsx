@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { useData } from '../context/DataContext';
 import { Customer, Project, Sample } from '../types';
-import { X, User, Briefcase, CheckCircle, Calendar } from 'lucide-react';
+import { X, User, Briefcase, CheckCircle, Calendar, Printer } from 'lucide-react';
 import CustomerSelector from './CustomerSelector';
 import ProjectSelector from './ProjectSelector';
 import SampleSelector from './SampleSelector';
 import { toast } from 'react-hot-toast';
+import { PrintableCheckout } from './PrintableCheckout';
 
 const getTwoWeeksFromNowISO = () => {
     const date = new Date();
@@ -25,8 +26,8 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [samplesToCheckout, setSamplesToCheckout] = useState<Sample[]>([]);
   const [expectedReturnDate, setExpectedReturnDate] = useState(getTwoWeeksFromNowISO());
-  const [checkoutComplete, setCheckoutComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutComplete, setCheckoutComplete] = useState(false);
 
   const handleSamplesChange = useCallback((newSamples: Sample[]) => {
     setSamplesToCheckout(newSamples);
@@ -53,10 +54,8 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
       toast.error("Please ensure a project, samples, and a return date are selected.");
       return;
     }
-
     setIsSubmitting(true);
     const toastId = toast.loading(`Checking out ${samplesToCheckout.length} sample(s)...`);
-
     try {
         const checkoutPromises = samplesToCheckout.map(sample => 
             addSampleCheckout({
@@ -65,16 +64,12 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                 expectedReturnDate: new Date(expectedReturnDate).toISOString(),
             })
         );
-        
         await Promise.all(checkoutPromises);
-
-        toast.success(`${samplesToCheckout.length} sample(s) checked out successfully to "${selectedProject.projectName}".`, {
+        toast.success(`${samplesToCheckout.length} sample(s) checked out successfully.`, {
             id: toastId,
             icon: <CheckCircle className="text-green-500" />
         });
-        
         setCheckoutComplete(true);
-
     } catch (error) {
         console.error("Failed to checkout samples:", error);
         toast.error('An error occurred during checkout.', { id: toastId });
@@ -86,63 +81,33 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   if (!isOpen) {
     return null;
   }
-  
-  if (checkoutComplete) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-2xl flex flex-col">
-           <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-text-primary">Checkout Summary</h2>
-              <button onClick={handleClose} className="p-2 rounded-full hover:bg-gray-700">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="space-y-4 mb-8">
-              <p><strong>Customer:</strong> {selectedCustomer?.fullName}</p>
-              <p><strong>Project:</strong> {selectedProject?.projectName}</p>
-              <p><strong>Return Date:</strong> {new Date(expectedReturnDate).toLocaleDateString()}</p>
-              <h4 className="font-bold mt-4">Samples Checked Out:</h4>
-              <ul className="list-disc list-inside bg-gray-800 p-4 rounded-md max-h-48 overflow-y-auto">
-                {samplesToCheckout.map(s => <li key={s.id}>{s.styleColor}</li>)}
-              </ul>
-            </div>
-            <div className="mt-auto pt-6 border-t border-border flex justify-end gap-4">
-              <button type="button" onClick={handleClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => alert('Printing...')}
-                className="py-2 px-6 bg-accent hover:bg-blue-700 rounded text-white"
-              >
-                Print Summary
-              </button>
-            </div>
-        </div>
-      </div>
-    );
-  }
-
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+      
+      <div className="print-only">
+        <PrintableCheckout 
+            customer={selectedCustomer}
+            project={selectedProject}
+            samples={samplesToCheckout}
+            returnDate={expectedReturnDate}
+        />
+      </div>
+
       <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 no-print">
           <h2 className="text-2xl font-bold text-text-primary">New Sample Checkout</h2>
           <button onClick={handleClose} className="p-2 rounded-full hover:bg-gray-700">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-4 space-y-8">
-          {/* Section 1: Customer */}
+        {/* The <fieldset> tag now correctly locks the form into a read-only state after checkout. */}
+        <fieldset disabled={checkoutComplete} className="flex-1 overflow-y-auto pr-4 space-y-8">
           <section>
             <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2">1. Customer</h3>
             {!selectedCustomer ? (
-              <>
-                <p className="text-text-secondary mb-4">Search for an existing customer or create a new one.</p>
-                <CustomerSelector onCustomerSelect={handleCustomerSelect} />
-              </>
+              <CustomerSelector onCustomerSelect={handleCustomerSelect} />
             ) : (
               <div className="bg-gray-800 p-4 rounded-lg flex justify-between items-center">
                 <div className="flex items-center gap-3">
@@ -152,31 +117,31 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                     <p className="text-sm text-text-secondary">{selectedCustomer.email}</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => {
-                    setSelectedCustomer(null);
-                    setSelectedProject(null);
-                  }}
-                  className="text-sm font-semibold text-accent hover:underline"
-                >
-                  Change
-                </button>
+                {/* --- THIS IS THE FIX --- */}
+                {/* The "Change" button is now hidden after checkout is complete. */}
+                {!checkoutComplete && (
+                  <button 
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setSelectedProject(null);
+                    }}
+                    className="text-sm font-semibold text-accent hover:underline no-print"
+                  >
+                    Change
+                  </button>
+                )}
               </div>
             )}
           </section>
 
-          {/* Section 2: Project (Conditional) */}
           {selectedCustomer && (
             <section>
               <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2">2. Project</h3>
               {!selectedProject ? (
-                <>
-                    <p className="text-text-secondary mb-4">Select one of {selectedCustomer.fullName}'s projects or create a new one.</p>
-                    <ProjectSelector 
-                        customer={selectedCustomer} 
-                        onProjectSelect={(project) => setSelectedProject(project)} 
-                    />
-                </>
+                <ProjectSelector 
+                    customer={selectedCustomer} 
+                    onProjectSelect={(project) => setSelectedProject(project)} 
+                />
               ) : (
                 <div className="bg-gray-800 p-4 rounded-lg flex justify-between items-center">
                     <div className="flex items-center gap-3">
@@ -186,18 +151,21 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                             <p className="text-sm text-text-secondary">{selectedProject.projectType}</p>
                         </div>
                     </div>
-                    <button 
-                        onClick={() => setSelectedProject(null)}
-                        className="text-sm font-semibold text-accent hover:underline"
-                    >
-                        Change
-                    </button>
+                    {/* --- THIS IS THE FIX --- */}
+                    {/* This "Change" button is also hidden after checkout. */}
+                    {!checkoutComplete && (
+                      <button 
+                          onClick={() => setSelectedProject(null)}
+                          className="text-sm font-semibold text-accent hover:underline no-print"
+                      >
+                          Change
+                      </button>
+                    )}
                 </div>
               )}
             </section>
           )}
 
-          {/* Section 3: Samples (Conditional) */}
           {selectedProject && (
             <section>
               <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2">3. Samples & Return Date</h3>
@@ -218,20 +186,38 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
               <SampleSelector onSamplesChange={handleSamplesChange} />
             </section>
           )}
-        </div>
+        </fieldset>
 
-        <div className="mt-8 pt-6 border-t border-border flex justify-end gap-4">
-          <button type="button" onClick={handleClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white" disabled={isSubmitting}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleFinishCheckout}
-            disabled={!selectedCustomer || !selectedProject || samplesToCheckout.length === 0 || isSubmitting}
-            className="py-2 px-6 bg-primary hover:bg-secondary rounded text-white disabled:bg-gray-500 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? 'Checking Out...' : `Finish Checkout (${samplesToCheckout.length})`}
-          </button>
+        <div className="mt-8 pt-6 border-t border-border flex justify-end gap-4 no-print">
+          {checkoutComplete ? (
+            <>
+              <button type="button" onClick={handleClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="py-2 px-6 bg-accent hover:bg-blue-700 rounded text-white flex items-center gap-2"
+              >
+                <Printer size={18} />
+                Print Summary
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={handleClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white" disabled={isSubmitting}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleFinishCheckout}
+                disabled={!selectedCustomer || !selectedProject || samplesToCheckout.length === 0 || isSubmitting}
+                className="py-2 px-6 bg-primary hover:bg-secondary rounded text-white disabled:bg-gray-500 disabled-cursor-not-allowed"
+              >
+                {isSubmitting ? 'Checking Out...' : `Finish Checkout (${samplesToCheckout.length})`}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

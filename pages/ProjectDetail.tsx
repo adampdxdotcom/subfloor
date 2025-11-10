@@ -21,9 +21,12 @@ const ProjectDetail: React.FC = () => {
     const { 
         projects, customers, samples, sampleCheckouts, quotes, jobs, installers, changeOrders, materialOrders,
         addSample, updateProject, deleteProject, addSampleCheckout, updateSampleCheckout, addQuote, updateQuote, 
-        saveJobDetails, addInstaller, addChangeOrder, updateChangeOrder, addMaterialOrder, updateMaterialOrder
+        saveJobDetails, addInstaller, addChangeOrder, updateChangeOrder, addMaterialOrder, updateMaterialOrder,
+        // --- MODIFICATION: Destructure the new function from useData ---
+        extendSampleCheckout 
     } = useData();
     
+    // ... (rest of the state and hooks are unchanged)
     const [activeModal, setActiveModal] = useState<'sample' | 'quote' | 'order' | null>(null);
     const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
     const [editingQuoteForModal, setEditingQuoteForModal] = useState<Quote | null>(null);
@@ -90,7 +93,6 @@ const ProjectDetail: React.FC = () => {
         <div className="space-y-8">
             <ProjectInfoHeader project={localProject} customerName={customer?.fullName || 'N/A'} updateProject={updateProject} onEdit={() => setIsEditProjectModalOpen(true)} />
             
-            {/* --- MODIFICATION: Grid is now responsive --- */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                 <div className="space-y-8">
                     <CollapsibleSection
@@ -100,6 +102,8 @@ const ProjectDetail: React.FC = () => {
                         <SampleCheckoutsSection 
                             project={localProject} projectCheckouts={projectCheckouts} samples={samples} 
                             addSample={addSample} addSampleCheckout={addSampleCheckout} updateSampleCheckout={updateSampleCheckout}
+                            // --- MODIFICATION: Pass the new function down as a prop ---
+                            extendSampleCheckout={extendSampleCheckout}
                             isModalOpen={activeModal === 'sample'}
                             onCloseModal={() => setActiveModal(null)}
                         />
@@ -116,7 +120,8 @@ const ProjectDetail: React.FC = () => {
                         </CollapsibleSection>
                     )}
                 </div>
-
+                
+                {/* ... (rest of the JSX is unchanged) ... */}
                 <div className="space-y-8">
                     <CollapsibleSection
                         title="Quotes" icon={<FileText className="w-6 h-6" />}

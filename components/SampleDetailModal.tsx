@@ -3,7 +3,7 @@ import { useData } from '../context/DataContext';
 import { Sample } from '../types';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
-import { Edit, X, Calendar, ChevronsRight, Undo2, Link as LinkIcon, Download, Trash2, QrCode, Printer } from 'lucide-react';
+import { Edit, X, Calendar, ChevronsRight, Undo2, Link as LinkIcon, Download, Trash2, QrCode, Printer, Clock } from 'lucide-react';
 
 interface SampleDetailModalProps {
   isOpen: boolean;
@@ -12,9 +12,12 @@ interface SampleDetailModalProps {
 }
 
 const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, sample }) => {
-  const { sampleCheckouts, projects, fetchSamples, updateSample, updateSampleCheckout, deleteSample } = useData();
-  const [isEditing, setIsEditing] = useState(false);
+  const { 
+    sampleCheckouts, projects, fetchSamples, updateSample, 
+    updateSampleCheckout, deleteSample, extendSampleCheckout 
+  } = useData();
   
+  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ manufacturer: '', styleColor: '', sku: '', type: '', productUrl: '' });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -139,6 +142,18 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
       toast.error("An error occurred while returning the sample.");
     }
   };
+
+  const handleExtendCheckout = async () => {
+    if (!sample || !currentCheckout) {
+        toast.error("Could not find active checkout record to extend.");
+        return;
+    }
+    try {
+        await extendSampleCheckout(currentCheckout);
+    } catch (error) {
+        toast.error("An error occurred while extending the checkout.");
+    }
+  };
   
   const handleDeleteSample = async () => {
     if (!sample) return;
@@ -255,7 +270,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                     <div>
                         <p className="font-semibold text-text-primary">Checked out to <Link to={`/projects/${h.projectId}`} className="text-accent hover:underline">{h.projectName}</Link></p>
                         <p className="text-xs text-text-secondary">
-                          {/* --- THIS IS THE FIX --- */}
                           {new Date(h.checkoutDate).toLocaleDateString()} <ChevronsRight className="inline w-4 h-4 mx-1" /> {h.actualReturnDate ? new Date(h.actualReturnDate).toLocaleDateString() : 'Present'}
                         </p>
                     </div>
@@ -280,7 +294,14 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
             ) : (
                 <div className="flex items-center gap-4">
                     {!sample.isAvailable && (
-                        <button type="button" onClick={handleReturnSample} className="flex items-center py-2 px-4 bg-green-600 hover:bg-green-700 rounded text-white"><Undo2 className="w-4 h-4 mr-2"/> Return Sample</button>
+                        <>
+                          <button type="button" onClick={handleExtendCheckout} className="flex items-center py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded text-white">
+                            <Clock className="w-4 h-4 mr-2"/> Extend
+                          </button>
+                          <button type="button" onClick={handleReturnSample} className="flex items-center py-2 px-4 bg-green-600 hover:bg-green-700 rounded text-white">
+                            <Undo2 className="w-4 h-4 mr-2"/> Return Sample
+                          </button>
+                        </>
                     )}
                     <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">Close</button>
                     <button type="button" onClick={() => setIsEditing(true)} className="flex items-center py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded text-white"><Edit className="w-4 h-4 mr-2"/> Edit Sample</button>

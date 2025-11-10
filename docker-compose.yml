@@ -1,28 +1,44 @@
 services:
   server:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.server
     container_name: joblogger_server
-    command: npm run server
     volumes:
-      - .:/app
-      - /app/node_modules
+      # This correctly mounts ONLY the server's user-generated content folders.
+      - ./server/uploads:/app/uploads
+      - ./server/temp-uploads:/app/temp-uploads
     ports:
       - "3001:3001"
     environment:
       - DATABASE_URL=postgresql://user:password@db:5432/joblogger
+      - POSTG-ES_USER=user
+      - PGPASSWORD=password 
+      - POSTGRES_DB=joblogger
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: joblogger_app
-    command: npm run vite
     ports:
       - "5173:5173"
+    # --- THIS IS THE FINAL, SURGICAL FIX ---
+    # We now mount each necessary frontend file/folder individually.
+    # This prevents the 'app' container from seeing and locking the 'server' folder.
     volumes:
-      - .:/app
+      - ./src:/app/src
+      - ./index.html:/app/index.html
+      - ./index.css:/app/index.css
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      # This anonymous volume is crucial for node_modules persistence.
       - /app/node_modules
     restart: unless-stopped
     depends_on:
@@ -36,12 +52,8 @@ services:
       - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       - POSTGRES_USER=user
-      # --- THIS IS THE FIX ---
       - POSTGRES_PASSWORD=password 
       - POSTGRES_DB=joblogger
-    # No need to expose ports to the host unless you want to connect with an external tool
-    # ports:
-    #   - "5432:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d joblogger"]

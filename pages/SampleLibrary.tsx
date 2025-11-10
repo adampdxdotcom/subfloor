@@ -1,14 +1,12 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useData } from '../context/DataContext';
-import { PlusCircle, Search, Download } from 'lucide-react';
+import { PlusCircle, Search, Download, Clock, Undo2 } from 'lucide-react';
 import { Sample } from '../types';
 import { Link } from 'react-router-dom';
 import SampleDetailModal from '../components/SampleDetailModal';
 import { toast } from 'react-hot-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-const initialFormState: Omit<Sample, 'id' | 'isAvailable' | 'imageUrl' | 'checkoutProjectId' | 'checkoutProjectName' | 'checkoutCustomerName'> = {
+const initialFormState: Omit<Sample, 'id' | 'isAvailable' | 'imageUrl' | 'checkoutProjectId' | 'checkoutProjectName' | 'checkoutCustomerName' | 'checkoutId'> = {
   manufacturer: '',
   styleColor: '',
   sku: '',
@@ -17,9 +15,13 @@ const initialFormState: Omit<Sample, 'id' | 'isAvailable' | 'imageUrl' | 'checko
 };
 
 const SampleLibrary: React.FC = () => {
-  const { samples, addSample, isLoading, fetchSamples } = useData();
-  const [searchTerm, setSearchTerm] = useState('');
+  const { 
+    samples, addSample, isLoading, fetchSamples, 
+    sampleCheckouts, updateSampleCheckout, extendSampleCheckout,
+    fetchInitialData 
+  } = useData();
   
+  const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newSample, setNewSample] = useState(initialFormState);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -27,14 +29,12 @@ const SampleLibrary: React.FC = () => {
   const [importUrl, setImportUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
 
   const filteredSamples = useMemo(() => {
     const lowercasedTerm = searchTerm.toLowerCase();
     if (!lowercasedTerm) return samples;
-
     return samples.filter(sample => 
       sample.styleColor.toLowerCase().includes(lowercasedTerm) ||
       (sample.manufacturer && sample.manufacturer.toLowerCase().includes(lowercasedTerm)) ||
@@ -42,6 +42,34 @@ const SampleLibrary: React.FC = () => {
       (sample.sku && sample.sku.toLowerCase().includes(lowercasedTerm))
     );
   }, [samples, searchTerm]);
+
+  const handleExtend = async (sample: Sample, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!sample.checkoutId) {
+      toast.error("Could not find checkout record to extend.");
+      return;
+    };
+    const checkoutToExtend = sampleCheckouts.find(sc => sc.id === sample.checkoutId);
+    if (checkoutToExtend) {
+      await extendSampleCheckout(checkoutToExtend);
+      // The DataContext handles the state update, no fetch needed here.
+    }
+  };
+
+  const handleReturn = async (sample: Sample, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!sample.checkoutId) {
+      toast.error("Could not find checkout record to return.");
+      return;
+    };
+    if (confirm(`Are you sure you want to return "${sample.styleColor}"?`)) {
+      const checkoutToReturn = sampleCheckouts.find(sc => sc.id === sample.checkoutId);
+      if (checkoutToReturn) {
+        await updateSampleCheckout(checkoutToReturn);
+        // The DataContext handles the state update, no fetch needed here.
+      }
+    }
+  };
 
   const resetAddModal = () => {
     setNewSample(initialFormState);
@@ -67,13 +95,9 @@ const SampleLibrary: React.FC = () => {
       toast.error('Style/Color and Type are required.');
       return;
     }
-    
     setIsSaving(true);
     try {
-      // Step 1: Create the sample with text data
       const createdSample = await addSample(newSample);
-      
-      // Step 2 (Conditional): If there's a photo, upload it now that we have an ID
       if (selectedFile) {
         const uploadData = new FormData();
         uploadData.append('photo', selectedFile);
@@ -89,9 +113,8 @@ const SampleLibrary: React.FC = () => {
         });
         if (!res.ok) throw new Error('Photo import failed');
       }
-
       toast.success('Sample added successfully!');
-      await fetchSamples(); // Refresh all sample data
+      await fetchSamples();
       resetAddModal();
     } catch (error) {
       console.error(error);
@@ -138,7 +161,7 @@ const SampleLibrary: React.FC = () => {
         {filteredSamples.map(sample => (
           <div 
             key={sample.id} 
-            className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group cursor-pointer"
+            className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer"
             onClick={() => handleSampleClick(sample)}
           >
             <div className="w-full h-40 bg-gray-800 flex items-center justify-center text-text-secondary">
@@ -149,26 +172,38 @@ const SampleLibrary: React.FC = () => {
               )}
             </div>
             
-            <div className="p-4">
+            <div className="p-4 flex flex-col flex-grow">
               <h3 className="font-bold text-lg text-text-primary truncate" title={sample.styleColor}>{sample.styleColor}</h3>
               <p className="text-sm text-text-secondary truncate" title={sample.manufacturer || ''}>{sample.manufacturer || 'N/A'}</p>
-              <div className="flex justify-between items-center mt-4 text-xs">
+              <div className="flex-grow" />
+
+              <div className="flex justify-between items-end mt-4 text-xs">
                 <span className="font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded-full">{sample.type}</span>
                 
                 {sample.isAvailable ? (
                   <span className="font-bold text-green-400">Available</span>
                 ) : (
-                  <div className="text-yellow-400 text-right">
-                    <span className="font-bold block">Checked Out</span>
-                    {sample.checkoutProjectName && sample.checkoutProjectId && (
-                      <Link 
-                        to={`/projects/${sample.checkoutProjectId}`} 
-                        className="text-accent hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                         to {sample.checkoutProjectName}
-                      </Link>
-                    )}
+                  <div className="text-right">
+                    <div className="text-yellow-400 mb-2">
+                      <span className="font-bold block">Checked Out</span>
+                      {sample.checkoutProjectName && sample.checkoutProjectId && (
+                        <Link 
+                          to={`/projects/${sample.checkoutProjectId}`} 
+                          className="text-accent hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                           to {sample.checkoutProjectName}
+                        </Link>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 justify-end">
+                      <button onClick={(e) => handleExtend(sample, e)} className="text-xs bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded flex items-center gap-1">
+                        <Clock size={12} /> Extend
+                      </button>
+                      <button onClick={(e) => handleReturn(sample, e)} className="text-xs bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded flex items-center gap-1">
+                        <Undo2 size={12} /> Return
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

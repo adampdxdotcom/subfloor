@@ -43,3 +43,20 @@ export const returnSampleCheckout = async (checkout: SampleCheckout): Promise<Sa
     }
     return response.json();
 };
+
+// --- NEW FUNCTION TO EXTEND CHECKOUTS ---
+/**
+ * Partially updates a sample checkout record, e.g., to change the return date.
+ */
+export const patchSampleCheckout = async (checkoutId: number, data: Partial<Omit<SampleCheckout, 'id'>>): Promise<SampleCheckout> => {
+    const response = await fetch(`${API_BASE_URL}/${checkoutId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to update sample checkout.');
+    }
+    return response.json();
+};
+// --- END NEW FUNCTION ---

@@ -8,19 +8,16 @@ import CustomerDetail from './pages/CustomerDetail';
 import ProjectDetail from './pages/ProjectDetail';
 import CalendarView from './pages/CalendarView';
 import SampleLibrary from './pages/SampleLibrary';
+// --- THIS IS THE CORRECTED LINE ---
 import InstallerList from './pages/InstallerList';
 import InstallerDetail from './pages/InstallerDetail';
 import QuoteDetail from './pages/QuoteDetail';
+import Settings from './pages/Settings';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
     <DataProvider>
-      {/* 
-        --- THIS IS THE FIX ---
-        We are adding a 'containerStyle' with a very high zIndex.
-        This ensures the notifications appear on top of all other page content.
-      */}
       <Toaster 
         position="top-center" 
         reverseOrder={false}
@@ -41,6 +38,7 @@ function App() {
             <Route path="installers/:installerId" element={<InstallerDetail />} />
             <Route path="quotes/:quoteId" element={<QuoteDetail />} />
             <Route path="calendar" element={<CalendarView />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
       </HashRouter>

@@ -9,7 +9,6 @@ export const PROJECT_TYPES = [
 
 export type ProjectType = typeof PROJECT_TYPES[number];
 
-// --- NEW CODE START ---
 export const INSTALLATION_TYPES = [
   'Managed Installation',
   'Materials Only Sale',
@@ -17,7 +16,6 @@ export const INSTALLATION_TYPES = [
 ] as const;
 
 export type InstallationType = typeof INSTALLATION_TYPES[number];
-// --- NEW CODE END ---
 
 export enum ProjectStatus {
   NEW = "New",
@@ -65,6 +63,8 @@ export interface Sample {
   checkoutProjectId?: number | null;
   checkoutProjectName?: string | null;
   checkoutCustomerName?: string | null;
+  // --- THIS IS THE NEW PROPERTY ---
+  checkoutId?: number | null;
 }
 
 export interface Project {
@@ -101,7 +101,6 @@ export interface Installer {
   }[];
 }
 
-// --- MODIFIED: Added installationType property ---
 export interface Quote {
   id: number;
   projectId: number;
@@ -188,6 +187,8 @@ export interface DataContextType extends AppData {
   deleteProject: (projectId: number) => Promise<void>;
   addSampleCheckout: (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>) => Promise<void>;
   updateSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
+  // --- We've already added this in a previous step, so it should be present. ---
+  extendSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
   addQuote: (quote: Omit<Quote, 'id'|'dateSent'>) => Promise<void>;
   updateQuote: (quote: Partial<Quote> & {id: number}) => Promise<void>;
   saveJobDetails: (jobDetails: Omit<Job, 'id' | 'paperworkSignedUrl'>) => Promise<void>;

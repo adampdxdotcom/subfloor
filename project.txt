@@ -1,33 +1,29 @@
-____index.css
+.
+|____index.css
 |____context
 | |____DataContext.tsx
 |____server
+| |____temp-uploads
 | |____routes
 | | |____photos.js
 | | |____projects.js
 | | |____customers.js
 | | |____calendar.js
 | | |____search.js
+| | |____restore.js
 | | |____samples.js
 | | |____installers.js
 | | |____orders.js
+| | |____backup.js
 | | |____jobs.js
 | | |____sampleCheckouts.js
 | | |____change-orders.js
 | | |____quotes.js
 | |____index.js
 | |____uploads
-| | |____photo-1762705750104-121879699.jpeg
-| | |____photo-1762725541780-203593309.jpeg
-| | |____photo-1762706494949-518537399.jpeg
-| | |____photo-1762697778265-104491356.jpg
-| | |____photo-1762652802557-41371136.jpg
-| | |____photo-1762651296946-276169435.jpg
-| | |____photo-1762728357598-394921334.jpeg
-| | |____photo-1762706711588-50890738.jpeg
-| | |____photo-1762728309643-556402683.jpeg
 | |____db.js
 | |____utils.js
+| |____tree.txt
 |____backup.bak
 |____package-lock.json
 |____vite.config.ts
@@ -47,16 +43,22 @@ ____index.css
 |____Dockerfile
 |____index.js.bak
 |____.env
+|____temp-uploads
 |____.dockerignore
+|____.gitignore
+|____src
 |____project_1old.txt
 |____components
 | |____SampleCheckoutsSection.tsx
+| |____AddSampleInlineModal.tsx
 | |____FinalizeJobSection.tsx
 | |____SampleSelector.tsx
 | |____ProjectInfoHeader.tsx
 | |____Layout.tsx
+| |____RestoreForm.tsx
 | |____EditInstallerModal.tsx
 | |____ChangeOrderSection.tsx
+| |____PrintableCheckout.tsx
 | |____QrScanner.tsx
 | |____UniversalSearch.tsx
 | |____CollapsibleSection.tsx
@@ -73,8 +75,8 @@ ____index.css
 |____package.json
 |____schema.sql
 |____types.ts
+|____Dockerfile.server
 |____index.html
-|____node_modules
 |____tree.txt
 |____README.md
 |____index.tsx
@@ -82,6 +84,7 @@ ____index.css
 | |____CustomerDetail.tsx
 | |____InstallerDetail.tsx
 | |____CalendarView.tsx
+| |____Settings.tsx
 | |____SampleLibrary.tsx
 | |____CustomerList.tsx
 | |____InstallerList.tsx
@@ -91,6 +94,7 @@ ____index.css
 |____data
 | |____mockData.ts
 |____project.txt
+
 
 
 
@@ -174,3 +178,80 @@ We've made incredible progress, completing almost all of the core CRUD functiona
 
 *   **Authentication & Users:**
     *   The app remains a single-user system. This is a major future epic.
+
+    Session 4:
+
+    Changes We've Made in This Session
+
+This was a massive session focused on adding a critical new administrative feature, enhancing existing workflows, and hardening the application's core architecture.
+1. Full-Stack Backup & Restore System (New Major Feature)
+
+We built a complete, UI-driven system for backing up and restoring the application's critical data, designed to be run by the user without needing command-line access.
+
+    New "Settings" Page:
+
+        Created a new dedicated page at /settings to house administrative functions.
+
+        Added a link to this page in the main sidebar navigation.
+
+    Robust Backup Functionality:
+
+        Backend API (backup.js): Built two new GET endpoints (/api/backup/database and /api/backup/images) that generate and stream ZIP archives to the user.
+
+        Reliable Database Dumps: The final implementation is robust. It uses pg_dump to save a complete backup to a temporary file on the server first, ensuring the file is not corrupted, before zipping and sending it. This fixed a critical bug where streaming directly was creating empty/broken backups.
+
+        UI Integration: The Settings page has "Download Database" and "Download Images" buttons that work correctly.
+
+    Disaster-Proof Restore Functionality:
+
+        Backend API (restore.js): Built two new POST endpoints to handle file uploads for restoring the database and images.
+
+        "Atomic Swap" for Images: Solved a critical EBUSY: resource busy or locked error by implementing an "atomic swap" strategy. The code no longer tries to delete the live uploads directory. Instead, it unzips the backup to a temporary uploads_new directory and then instantly renames the folders, which is a foolproof way to avoid file-locking conflicts.
+
+        Correct Tooling: The server is now built with the correct version of the postgresql-client tools (pg_restore), fixing version mismatch errors during the restore process.
+
+        UI Integration: The "Danger Zone" on the Settings page now contains working forms to upload and restore the database and images, complete with warnings and page reloads on success.
+
+2. Architectural & Docker Hardening (Major Stability Improvement)
+
+The process of debugging the Backup/Restore feature forced us to make significant, permanent improvements to the Docker architecture.
+
+    Dedicated Server Dockerfile (Dockerfile.server): We created a separate, dedicated Dockerfile for the backend service. This allowed us to install the necessary postgresql-client tools without bloating the frontend image.
+
+    Eliminated Volume Conflicts (The EBUSY Fix): We completely reconfigured the docker-compose.yml file to solve the root cause of the file-locking issues.
+
+        The server service no longer uses a volume for its source code, running the code baked into its image for maximum stability.
+
+        The app (frontend) service now uses specific, surgical volume mounts (./src:/app/src, etc.) instead of mounting the entire project. This prevents Vite's file watcher from "spying on" and locking the server's files—the true cause of the EBUSY error.
+
+        A dedicated volume for server/uploads was created to ensure user-uploaded images are persistent and correctly stored on the host machine.
+
+3. "Extend Checkout" Functionality (New Feature)
+
+We added the ability for a user to extend a sample's due date by two days from multiple places in the UI.
+
+    Full Stack Implementation: This involved creating a new PATCH endpoint, a new service function (patchSampleCheckout), and a new extendSampleCheckout function in the DataContext.
+
+    UI Integration: The "Extend" button was successfully added and is fully functional in all three requested locations:
+
+        The Job Detail page's checkout list.
+
+        The Sample Detail modal.
+
+        The Sample Library card view.
+
+4. Critical Bug Fixes & Workflow Enhancements
+
+    Fixed "Return" Button Race Condition: Solved a bug where returning a sample from the Sample Library card would fail because the UI was re-fetching data too quickly. We fixed this by removing the aggressive fetchInitialData() call and trusting the local state update.
+
+    Fixed "Window Slamming Shut": Corrected the behavior of the SampleDetailModal so that returning a sample no longer causes the modal to close immediately, improving the user experience.
+
+Features We Talked About But Didn't Implement
+
+We successfully completed all the primary goals of this session. The remaining items are primarily quality-of-life improvements and future enhancements related to the features we just built.
+
+    Graceful "Empty State" Handling: We observed that when the database is completely empty (after a docker-compose down -v), some parts of the UI, like the calendar, can get stuck in a "Loading..." state. We have not yet added the frontend logic to gracefully handle this "zero data" scenario and show a message like "No data found. Try restoring from a backup."
+
+    Automatic Pre-Restore Snapshot: The current restore process is destructive. We discussed but did not implement a safety feature where clicking "Restore" would first automatically trigger a new backup of the current state before proceeding with the overwrite.
+
+    Automated, Scheduled Backups: Our initial brainstorming mentioned automated, off-site backups (e.g., using a cron job to run the backup and upload it to a cloud service). We intentionally pivoted to a UI-driven local backup system, so the automated/cloud functionality remains unimplemented.

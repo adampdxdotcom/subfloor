@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Project, Sample, SampleCheckout } from '../types';
-import { Check } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
 
 interface SampleCheckoutsSectionProps {
     project: Project;
@@ -9,11 +9,22 @@ interface SampleCheckoutsSectionProps {
     addSample: (sample: Omit<Sample, 'id' | 'isAvailable' | 'imageUrl' | 'checkoutProjectId' | 'checkoutProjectName' | 'checkoutCustomerName' | 'productUrl'>) => Promise<Sample>;
     addSampleCheckout: (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>) => Promise<void>;
     updateSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
+    extendSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
     isModalOpen: boolean;
     onCloseModal: () => void;
 }
 
-const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project, projectCheckouts, samples, addSample, addSampleCheckout, updateSampleCheckout, isModalOpen, onCloseModal }) => {
+const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ 
+    project, 
+    projectCheckouts, 
+    samples, 
+    addSample, 
+    addSampleCheckout, 
+    updateSampleCheckout, 
+    extendSampleCheckout,
+    isModalOpen, 
+    onCloseModal 
+}) => {
     const [selectedType, setSelectedType] = useState<string | null>(null); 
     const [searchTerm, setSearchTerm] = useState(''); 
     const [selectedSample, setSelectedSample] = useState<Sample | null>(null); 
@@ -41,6 +52,15 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
     const handleSaveNewSample = async (e: React.FormEvent) => { e.preventDefault(); if (!newSampleForm.styleColor || !selectedType) return; try { const newlyAddedSample = await addSample({ ...newSampleForm, type: selectedType as string }); setIsAddingNew(false); handleSelectSample(newlyAddedSample); } catch (error) { console.error("Failed to save new sample:", error); } }; 
     const handleCheckoutSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!selectedSample || !returnDate) return; try { await addSampleCheckout({ projectId: project.id, sampleId: selectedSample.id, expectedReturnDate: new Date(returnDate).toISOString(), }); onCloseModal(); } catch (error) { console.error("Checkout failed", error); } }; 
     const handleReturn = async (checkout: SampleCheckout) => { if(confirm("Are you sure you want to return this sample?")) { try { await updateSampleCheckout(checkout); } catch (error) { console.error("Return failed:", error); } } }; 
+    
+    const handleExtend = async (checkout: SampleCheckout) => {
+        try {
+            await extendSampleCheckout(checkout);
+        } catch (error) {
+            console.error("Extend failed:", error);
+        }
+    };
+
     const sampleTypes = ["LVP", "Carpet", "Tile", "Hardwood", "Catalog", "Other"];
     
     return ( 
@@ -54,12 +74,22 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                                 <p className="font-semibold text-text-primary">{sample?.styleColor}</p>
                                 <p className="text-xs text-text-secondary">Expected Return: {new Date(checkout.expectedReturnDate).toLocaleDateString()}</p>
                             </div> 
-                            {checkout.actualReturnDate ? ( <span className="text-sm text-green-400 flex items-center"><Check className="w-4 h-4 mr-1"/> Returned</span> ) : ( <button onClick={() => handleReturn(checkout)} className="text-sm bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded">Return</button> )} 
+                            {checkout.actualReturnDate ? ( 
+                                <span className="text-sm text-green-400 flex items-center"><Check className="w-4 h-4 mr-1"/> Returned</span> 
+                            ) : ( 
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => handleExtend(checkout)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded flex items-center gap-1">
+                                        <Clock size={14} /> Extend
+                                    </button>
+                                    <button onClick={() => handleReturn(checkout)} className="text-sm bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded">Return</button> 
+                                </div>
+                            )} 
                         </div> 
                     ); 
                 })} 
                 {projectCheckouts.length === 0 && <p className="text-text-secondary text-center py-4">No samples checked out.</p>} 
             </div> 
+            
             {isModalOpen && ( 
                 <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"> 
                     <div className="bg-surface p-8 rounded-lg w-full max-w-md"> 

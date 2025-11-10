@@ -24,7 +24,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchInitialData = useCallback(() => {
     Promise.all([
-      // --- All fetch calls are now gone! ---
       customerService.getCustomers(),
       projectService.getProjects(),
       sampleService.getSamples(),
@@ -60,8 +59,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
-
-  // --- REFACTORED (All functions below now use their respective services) ---
 
   const fetchSamples = async () => {
     try {
@@ -282,6 +279,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const extendSampleCheckout = async (checkout: SampleCheckout): Promise<void> => {
+    try {
+        const currentDueDate = new Date(checkout.expectedReturnDate);
+        currentDueDate.setDate(currentDueDate.getDate() + 2); // Add 2 days
+        const newReturnDate = currentDueDate.toISOString();
+
+        const updatedCheckout = await sampleCheckoutService.patchSampleCheckout(checkout.id, {
+            expectedReturnDate: newReturnDate
+        });
+
+        setData(prevData => ({
+            ...prevData,
+            sampleCheckouts: prevData.sampleCheckouts.map(sc =>
+                sc.id === updatedCheckout.id ? updatedCheckout : sc
+            ),
+        }));
+        toast.success('Checkout extended by 2 days!');
+    } catch (error) {
+        console.error("Error extending sample checkout:", error);
+        toast.error((error as Error).message);
+        throw error;
+    }
+  };
+
   const addQuote = async (quote: Omit<Quote, 'id'|'dateSent'>): Promise<void> => {
     try {
       const newDbQuote = await quoteService.addQuote(quote);
@@ -404,8 +425,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addProject, 
     updateProject,
     deleteProject,
-    addSampleCheckout, updateSampleCheckout,
-    addQuote, updateQuote,
+    addSampleCheckout, 
+    updateSampleCheckout,
+    extendSampleCheckout,
+    addQuote, 
+    updateQuote,
     saveJobDetails,
     addChangeOrder,
     updateChangeOrder,

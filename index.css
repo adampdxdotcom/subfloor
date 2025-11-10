@@ -3,3 +3,32 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* === NEW & CORRECT PRINT STYLES === */
+/* This class hides elements on the screen */
+@media screen {
+  .print-only {
+    display: none;
+  }
+}
+
+/* These styles apply ONLY when printing */
+@media print {
+  /* Hide everything on the page by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Make ONLY our printable summary and its contents visible */
+  #printable-summary, #printable-summary * {
+    visibility: visible;
+  }
+  
+  /* Position the printable summary at the top-left of the paper */
+  #printable-summary {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

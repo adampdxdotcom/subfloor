@@ -5,7 +5,6 @@ import { toCamelCase } from '../utils.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-// --- NEW: Import the qrcode library ---
 import qrcode from 'qrcode';
 
 const router = express.Router();
@@ -23,7 +22,9 @@ router.get('/', async (req, res) => {
         p.url AS image_url,
         proj.id AS "checkoutProjectId",
         proj.project_name AS "checkoutProjectName",
-        cust.full_name AS "checkoutCustomerName"
+        cust.full_name AS "checkoutCustomerName",
+        -- --- THIS IS THE NEW LINE ---
+        sc.id AS "checkoutId"
       FROM
         samples s
       LEFT JOIN
@@ -143,25 +144,18 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// --- NEW CODE START ---
 // GET /api/samples/:id/qr
 router.get('/:id/qr', async (req, res) => {
     const { id } = req.params;
 
     try {
-        // Define the data to be encoded in the QR code.
-        // A custom scheme like this is robust and prevents conflicts.
         const dataToEncode = `joblogger:sample:${id}`;
-
-        // Generate the QR code as a PNG data buffer
         const qrCodeBuffer = await qrcode.toBuffer(dataToEncode, {
-            errorCorrectionLevel: 'H', // High error correction for durability
+            errorCorrectionLevel: 'H',
             type: 'png',
             margin: 2,
             scale: 8,
         });
-
-        // Set the response headers to tell the browser it's an image
         res.setHeader('Content-Type', 'image/png');
         res.send(qrCodeBuffer);
 
@@ -170,6 +164,5 @@ router.get('/:id/qr', async (req, res) => {
         res.status(500).json({ error: 'Failed to generate QR code' });
     }
 });
-// --- NEW CODE END ---
 
 export default router;

@@ -3,32 +3,27 @@
 |____context
 | |____DataContext.tsx
 |____server
+| |____temp-uploads
 | |____routes
 | | |____photos.js
 | | |____projects.js
 | | |____customers.js
 | | |____calendar.js
 | | |____search.js
+| | |____restore.js
 | | |____samples.js
 | | |____installers.js
 | | |____orders.js
+| | |____backup.js
 | | |____jobs.js
 | | |____sampleCheckouts.js
 | | |____change-orders.js
 | | |____quotes.js
 | |____index.js
 | |____uploads
-| | |____photo-1762705750104-121879699.jpeg
-| | |____photo-1762725541780-203593309.jpeg
-| | |____photo-1762706494949-518537399.jpeg
-| | |____photo-1762697778265-104491356.jpg
-| | |____photo-1762652802557-41371136.jpg
-| | |____photo-1762651296946-276169435.jpg
-| | |____photo-1762728357598-394921334.jpeg
-| | |____photo-1762706711588-50890738.jpeg
-| | |____photo-1762728309643-556402683.jpeg
 | |____db.js
 | |____utils.js
+| |____tree.txt
 |____backup.bak
 |____package-lock.json
 |____vite.config.ts
@@ -48,16 +43,22 @@
 |____Dockerfile
 |____index.js.bak
 |____.env
+|____temp-uploads
 |____.dockerignore
+|____.gitignore
+|____src
 |____project_1old.txt
 |____components
 | |____SampleCheckoutsSection.tsx
+| |____AddSampleInlineModal.tsx
 | |____FinalizeJobSection.tsx
 | |____SampleSelector.tsx
 | |____ProjectInfoHeader.tsx
 | |____Layout.tsx
+| |____RestoreForm.tsx
 | |____EditInstallerModal.tsx
 | |____ChangeOrderSection.tsx
+| |____PrintableCheckout.tsx
 | |____QrScanner.tsx
 | |____UniversalSearch.tsx
 | |____CollapsibleSection.tsx
@@ -74,8 +75,8 @@
 |____package.json
 |____schema.sql
 |____types.ts
+|____Dockerfile.server
 |____index.html
-|____node_modules
 |____tree.txt
 |____README.md
 |____index.tsx
@@ -83,6 +84,7 @@
 | |____CustomerDetail.tsx
 | |____InstallerDetail.tsx
 | |____CalendarView.tsx
+| |____Settings.tsx
 | |____SampleLibrary.tsx
 | |____CustomerList.tsx
 | |____InstallerList.tsx

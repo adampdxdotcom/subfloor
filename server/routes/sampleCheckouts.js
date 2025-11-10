@@ -62,4 +62,32 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// --- NEW ROUTE HANDLER FOR EXTENDING CHECKOUTS ---
+// PATCH /api/sample-checkouts/:id
+router.patch('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { expectedReturnDate } = req.body;
+
+  if (!expectedReturnDate) {
+    return res.status(400).json({ error: 'expectedReturnDate is required.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE sample_checkouts SET expected_return_date = $1 WHERE id = $2 RETURNING *`,
+      [expectedReturnDate, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: `Checkout with id ${id} not found.` });
+    }
+
+    res.json(toCamelCase(result.rows[0]));
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+// --- END NEW ROUTE ---
+
 export default router;
