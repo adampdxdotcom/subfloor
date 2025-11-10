@@ -1,0 +1,5 @@
+{
+  "name": "Flooring Job Tracker",
+  "description": "A web-based job management application for a flooring store to track a customer's journey from initial sample checkout through quoting, scheduling, and final job closure.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,180 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { useData } from '../context/DataContext';
+import { Sample } from '../types';
+import { Layers, ScanLine, X, Search, PlusCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import QrScanner from './QrScanner';
+import AddSampleInlineModal from './AddSampleInlineModal';
+
+interface SampleSelectorProps {
+  onSamplesChange: (samples: Sample[]) => void;
+}
+
+const SampleSelector: React.FC<SampleSelectorProps> = ({ onSamplesChange }) => {
+  const { samples } = useData();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSamples, setSelectedSamples] = useState<Sample[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const searchResults = useMemo(() => {
+    if (searchTerm.length < 2) return [];
+    const lowercasedTerm = searchTerm.toLowerCase();
+    
+    return samples.filter(sample => 
+      !selectedSamples.some(ss => ss.id === sample.id) &&
+      (
+        sample.styleColor.toLowerCase().includes(lowercasedTerm) ||
+        sample.manufacturer?.toLowerCase().includes(lowercasedTerm) ||
+        sample.sku?.toLowerCase().includes(lowercasedTerm)
+      )
+    );
+  }, [searchTerm, samples, selectedSamples]);
+
+  const addSample = (sample: Sample) => {
+    if (!sample.isAvailable) {
+        toast.error(`"${sample.styleColor}" is currently checked out.`);
+        return;
+    }
+    if (!selectedSamples.some(s => s.id === sample.id)) {
+        setSelectedSamples(prev => [...prev, sample]);
+    }
+    setSearchTerm('');
+  };
+
+  const removeSample = (sampleId: number) => {
+    setSelectedSamples(prev => prev.filter(s => s.id !== sampleId));
+  };
+
+  useEffect(() => {
+    onSamplesChange(selectedSamples);
+  }, [selectedSamples, onSamplesChange]);
+  
+  const handleSampleCreated = (newSample: Sample) => {
+    addSample(newSample);
+    setIsAddModalOpen(false);
+  };
+
+  const handleScanSuccess = (decodedText: string) => {
+    if (decodedText.startsWith('joblogger:sample:')) {
+      const sampleId = parseInt(decodedText.split(':')[2]);
+      if (!isNaN(sampleId)) {
+        const foundSample = samples.find(s => s.id === sampleId);
+        
+        if (foundSample) {
+          if (!foundSample.isAvailable) {
+            toast.error(`Sample "${foundSample.styleColor}" is already checked out.`);
+          } else if (selectedSamples.some(s => s.id === foundSample.id)) {
+            toast.error(`Sample "${foundSample.styleColor}" is already in your list.`);
+          } else {
+            addSample(foundSample);
+            toast.success(`Added "${foundSample.styleColor}" to checkout list.`);
+          }
+        } else {
+          toast.error(`Sample with ID ${sampleId} not found.`);
+        }
+      }
+    } else {
+        toast.error("Invalid QR code scanned.");
+    }
+  };
+
+  if (isScanning) {
+    return (
+      <QrScanner 
+        onScanSuccess={handleScanSuccess}
+        onClose={() => setIsScanning(false)}
+      />
+    );
+  }
+
+  return (
+    <>
+      {isAddModalOpen && (
+        <AddSampleInlineModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onSampleCreated={handleSampleCreated}
+          initialStyleColor={searchTerm}
+        />
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Search Column */}
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input type="text" placeholder="Search by name, manufacturer, or SKU..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-3 pl-10 bg-gray-800 border-2 border-border rounded-lg" />
+          </div>
+          <button type="button" onClick={() => setIsScanning(true)} className="w-full flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-accent font-semibold">
+            <ScanLine size={20} />
+            Scan QR Code
+          </button>
+          <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+            {searchTerm.length > 1 && searchResults.map(sample => (
+              <div 
+                key={sample.id} 
+                onClick={() => addSample(sample)} 
+                className={`p-3 bg-gray-800 rounded-lg border border-transparent transition-colors ${
+                  sample.isAvailable 
+                    ? 'hover:border-accent cursor-pointer' 
+                    : 'opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                    <div>
+                        <p className="font-semibold">{sample.styleColor}</p>
+                        <p className="text-sm text-text-secondary">{sample.manufacturer || 'N/A'}</p>
+                    </div>
+                    {!sample.isAvailable && (
+                        <span className="text-xs font-bold text-yellow-400 bg-yellow-900/50 px-2 py-1 rounded-full">
+                            Checked Out
+                        </span>
+                    )}
+                </div>
+              </div>
+            ))}
+            
+            {searchTerm.length > 1 && searchResults.length === 0 && (
+                <button
+                    type="button"
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="w-full flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-accent font-semibold"
+                >
+                    <PlusCircle size={20} />
+                    Add "{searchTerm}" as a new sample
+                </button>
+            )}
+          </div>
+        </div>
+
+        {/* Checkout List Column */}
+        <div className="bg-gray-800 p-4 rounded-lg">
+           <h4 className="font-semibold mb-3 text-text-primary">Samples to Check Out ({selectedSamples.length})</h4>
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+            {selectedSamples.length > 0 ? (
+                selectedSamples.map(sample => (
+                <div key={sample.id} className="bg-gray-900 p-3 rounded-md flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                    <Layers size={18} className="text-gray-400" />
+                    <div>
+                        <p className="font-semibold text-sm">{sample.styleColor}</p>
+                        <p className="text-xs text-text-secondary">{sample.manufacturer}</p>
+                    </div>
+                    </div>
+                    <button onClick={() => removeSample(sample.id)} className="p-1 text-gray-400 hover:text-red-500 rounded-full">
+                    <X size={16} />
+                    </button>
+                </div>
+                ))
+            ) : (
+                <p className="text-sm text-center text-text-secondary py-8">No samples added yet.</p>
+            )}
+            </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default SampleSelector;

@@ -1,0 +1,283 @@
+joblogger/
+├── components/
+│   └── Layout.tsx
+├── context/
+│   └── DataContext.tsx
+├── data/
+│   └── mockData.ts
+├── pages/
+│   ├── CalendarView.tsx
+│   ├── CustomerDetail.tsx
+│   ├── CustomerList.tsx
+│   ├── Dashboard.tsx
+│   ├── InstallerDetail.tsx
+│   ├── InstallerList.tsx
+│   ├── ProjectDetail.tsx
+│   ├── QuoteDetail.tsx
+│   └── SampleLibrary.tsx
+├── server/
+│   └── index.js
+├── .dockerignore
+├── App.tsx
+├── docker-compose.yml
+├── Dockerfile
+├── index.css
+├── index.html
+├── index.tsx
+├── package-lock.json
+├── package.json
+├── README.md
+├── schema.sql
+├── tsconfig.json
+└── vite.config.ts
+
+
+Features We Built Together
+
+Here is a summary of the major features and fixes we implemented:
+1. Core Persistence & Full-Stack Foundation
+
+    Database-Driven: Successfully migrated the entire application from mock data to a persistent PostgreSQL database running in Docker.
+
+    Stable Environment: Diagnosed and fixed the critical Docker startup race condition with a healthcheck, ensuring the API server always has a stable connection to the database.
+
+    Consistent Data: Solved the snake_case (backend) vs. camelCase (frontend) data inconsistency, creating a stable data format throughout the app.
+
+2. Complete Feature Verticals (from DB to UI)
+
+    Customer Management: Implemented creating and viewing customers.
+
+    Project Management: Implemented creating and viewing projects.
+
+    Sample Management:
+
+        Built a "Sample Library" page to centrally manage your entire sample inventory.
+
+        Implemented full CRUD (Create, Read, Update, Delete is not yet built) for the master sample list.
+
+        Completely rebuilt the "Sample Checkout" process into a powerful, searchable, multi-step workflow with an "add-on-the-fly" capability.
+
+    Installer Management:
+
+        Built an "Installers" page to manage your list of installers.
+
+        Implemented full Create, Read, and Update functionality.
+
+        Created a dedicated "Installer Detail" page to view an installer's information and their assigned projects.
+
+    Quote Management:
+
+        Made creating and updating quotes fully persistent.
+
+        Built a dedicated "Quote Detail" page to view quote specifics.
+
+    Job Scheduling:
+
+        Implemented a persistent "Finalize Job" form, allowing you to save and edit scheduling details, down payments, and notes for a project.
+
+3. Intelligent Workflow & State Machine
+
+    Event-Driven Status Changes: The application is now "smart." It automatically updates a project's status based on key events:
+
+        New -> Sample Checkout (when a sample is checked out)
+
+        Sample Checkout -> Awaiting Decision (when a sample is returned)
+
+        ... -> Quoting (when a quote is added)
+
+        Quoting -> Accepted (when a quote is accepted)
+
+        Accepted -> Scheduled (when job details are saved for the first time)
+
+    Manual Override: Implemented a manual status-change dropdown on the Project Detail page, giving you full control to override the automatic workflow when needed.
+
+    Cancellation Workflow: Added a "Cancelled" status and a "Cancel Project" button, with corresponding logic to remove cancelled projects from the main active dashboard view.
+
+4. UI/UX Polish & Dashboard Intelligence
+
+    Dynamic Badges: Transformed the dashboard from a static list into an "at-a-glance" tool.
+
+    Overdue Alerts: Created a secondary alert system (the Bell icon) that appears on project cards only when a sample is due or overdue, providing actionable information without cluttering the UI.
+
+    Robust Filtering: The dashboard now has a comprehensive set of filters, allowing you to view projects by any active status, as well as view cancelled projects.
+
+Features We Haven't Built (Future Ideas)
+
+While the core is complete, here are some features we know are missing that could be next:
+
+    Editing: While Installers are editable, we still need to build the UI for editing Customers, Projects, Quotes, and Job Details.
+
+    Deleting: There is currently no way to delete any record (Customers, Projects, Samples, etc.).
+
+    File Uploads: The "Signed Paperwork" input is a placeholder and doesn't actually upload and store a file.
+
+    Completing/Closing a Job: We have the statuses, but no UI or event to trigger them (e.g., a "Mark as Complete" button).
+
+    Authentication: The app is currently single-user with no login system.
+
+    User Feedback: Many actions happen silently. Adding "toast" notifications (e.g., "Project Status Updated!") would greatly improve the user experience.
+
+    2nd session:
+
+    Features We've Built Together
+1. Core Architecture & Full-Stack Foundation
+
+    Database-Driven: Successfully built the entire application on a persistent PostgreSQL database.
+
+    Stable, Containerized Environment: The entire stack (React Frontend, Node.js API, PostgreSQL DB) runs reliably in Docker. We diagnosed and fixed the critical startup race condition with a healthcheck.
+
+    Automatic Schema Initialization: The database now automatically creates its tables from schema.sql on first launch, making the environment portable and easy to reset.
+
+    Consistent Data Formatting: Solved the snake_case (backend) vs. camelCase (frontend) inconsistency, creating a stable data format throughout the app.
+
+2. Intelligent Workflow & State Machine
+
+    Event-Driven Status Changes: The application is "smart" and automatically updates a project's status based on key events (e.g., Quoting -> Accepted when a quote is accepted).
+
+    Manual Override: Implemented a manual status-change dropdown, giving you full control to override the automatic workflow.
+
+    Complete Job Lifecycle:
+
+        Built a robust, multi-step process for moving a job from Accepted to Scheduled to Completed.
+
+        Implemented business rule enforcement, such as requiring "Deposit Received" and "Contracts Received" before a job can be scheduled.
+
+        Checkboxes for these prerequisites are now correctly disabled after scheduling to lock in the job's history.
+
+    Cancellation Workflow: Added a "Cancelled" status and a "Cancel Project" button, with corresponding logic to remove cancelled projects from the main dashboard view.
+
+3. Complete Feature Verticals (from DB to UI)
+
+    Customer & Project Management: Implemented creating and viewing customers and projects.
+
+    Sample Management:
+
+        Built a "Sample Library" page to centrally manage your sample inventory.
+
+        Implemented a powerful, searchable, multi-step "Sample Checkout" workflow with an "add-on-the-fly" capability (now with editable pre-filled names).
+
+    Installer Management:
+
+        Built an "Installers" page to manage your list of installers with full Create, Read, and Update functionality.
+
+        Created a dedicated "Installer Detail" page to view an installer's information and their assigned projects.
+
+    Change Order Management:
+
+        Created a new "Change Orders" section that appears on scheduled jobs.
+
+        Implemented the ability to add change orders with a description, amount (positive or negative), and a type (Materials or Installer).
+
+4. Advanced Financials & UI/UX Polish
+
+    Dynamic Financial Calculations:
+
+        The FinalizeJobSection now features a detailed financial summary that calculates Job Total, Deposit Required, and Balance Due in real-time.
+
+        This summary correctly aggregates costs from all accepted quotes and dynamically incorporates all change orders.
+
+        The deposit calculation is now "smart," automatically including 100% of material change orders and the correct percentage of installer change orders.
+
+    Sophisticated Quote Management:
+
+        Replaced the single "Amount" with a detailed breakdown: Materials Cost and Installer Cost.
+
+        Added an "Installer Deposit %" field to quotes.
+
+        The "Add Quote" modal now features an "on-the-fly" searchable workflow for selecting or creating installers.
+
+        Implemented full Edit functionality for quotes.
+
+    Intelligent UI & User Feedback:
+
+        The dashboard is an "at-a-glance" tool with dynamic status badges, filters (including Completed and Cancelled), and conditional "Overdue" alerts.
+
+        Implemented toast notifications for all major actions (create, update, save), giving the user immediate feedback.
+
+        Designed and built the "Job Completed" overlay with a blur effect and a "View Details" button for a polished user experience.
+
+        Fixed critical bugs, including crashes related to invalid dates and saving forms with incomplete data.
+
+Future Ideas & Next Steps (Features We Haven't Built)
+
+This is our working roadmap based on our discussions.
+
+    Editing (Core Entities): While Installers and Quotes are now fully editable, we still need to build the UI for editing Customers, Projects, and the main Job Details after they've been saved.
+
+    Deleting: There is currently no way to delete any record (Customers, Projects, Samples, Installers, Change Orders, etc.). We've discussed that for financial records like Change Orders, creating a negative entry is better than deleting, but for other entities, a delete function will be necessary.
+
+    File Uploads: The "Signed Paperwork" input is still a placeholder and doesn't actually upload and store a file.
+
+    Authentication: The app is currently single-user with no login system. This would be a major feature to enable multi-user or role-based access.
+
+    Technical Refactoring: The ProjectDetail.tsx file has become very large. We discussed refactoring the "on-the-fly" installer search into its own reusable component to clean up the code and make it more maintainable.
+
+    Advanced Business Logic: We briefly mentioned making the "Installer Deposit %" on quotes default to different values based on the ProjectType.
+
+    Third session:
+
+    Features We Built Today
+
+    Complete Material Ordering System (from DB to UI):
+
+        Database: Created new material_orders and order_line_items tables to permanently store order data.
+
+        Backend API: Built a full suite of endpoints to manage orders:
+
+            GET /api/orders: Efficiently fetches all orders and their line items for a project.
+
+            POST /api/orders: Securely creates new orders and their line items using a database transaction.
+
+            PUT /api/orders/:id: Safely updates existing orders and their line items using a "delete-then-re-insert" transaction.
+
+        Frontend UI:
+
+            Implemented a new "Material Orders" collapsible section on the ProjectDetail page.
+
+            Built a powerful "Add/Edit Order" modal that reuses the familiar on-the-fly search pattern from the Sample Library, allowing you to search for materials or add new ones directly from the order form.
+
+            The modal is now "smart" and handles both creating new orders and editing existing ones, pre-filling data when you click the "Edit" button.
+
+    Intelligent Schedule Conflict Detection:
+
+        Backend: Created a new, specialized API endpoint (GET /api/installers/:id/schedule) that can look up an installer's entire schedule of accepted jobs.
+
+        Frontend: The FinalizeJobSection now automatically uses this endpoint whenever you pick a start or end date.
+
+        User Warning: If an overlap is detected, a clear, non-blocking warning message appears, showing exactly which project is causing the conflict and providing a direct link to it. This adds a layer of intelligence to prevent accidental double-booking.
+
+    Significant Code Refactoring & Bug Fixes:
+
+        UI Architecture: We successfully refactored the ProjectDetail page into a much cleaner two-column layout using a reusable CollapsibleSection component. This makes the code far more maintainable and easier to add new features to in the future.
+
+        Bug Stomping: We diagnosed and fixed several critical bugs related to data loading (DataContext), backend/frontend data mismatches, and component lifecycle issues.
+
+Updated Roadmap (Features We Haven't Implemented)
+
+This is our new working roadmap. We've made great progress!
+
+    Editing (Core Entities):
+
+        While Installers, Quotes, and Material Orders are now fully editable, we still need to build the UI for editing Customers, Projects (e.g., project name, type), and Change Orders.
+
+    Material ETA vs. Job Start Date Awareness:
+
+        We laid the groundwork for this by adding an eta_date to orders, but the UI doesn't yet compare this to the scheduled_start_date to warn the user about potential material delays.
+
+    Deleting:
+
+        There is still no way to delete core records like Customers, Projects, Samples, Installers, or Material Orders.
+
+    File Uploads:
+
+        The "Signed Paperwork" input is still a placeholder and doesn't actually upload and store a file.
+
+    Authentication & Users:
+
+        The app remains a single-user system with no login or user roles.
+
+    Calendar View Polish:
+
+        The CalendarView.tsx page exists but doesn't yet display any of the job data we're now storing. The next step would be to pull in all scheduled jobs and display them on the calendar.
+
+        

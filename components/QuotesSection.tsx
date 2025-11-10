@@ -1,0 +1,266 @@
+import React, { useState, useEffect, useMemo } from 'react';
+// --- MODIFICATION: Import new types ---
+import { Project, Quote, Installer, QuoteStatus, ProjectStatus, Job, InstallationType, INSTALLATION_TYPES } from '../types';
+import { Edit, Check, X } from 'lucide-react';
+
+interface QuotesSectionProps {
+    project: Project;
+    projectQuotes: Quote[];
+    installers: Installer[];
+    addQuote: (quote: Omit<Quote, 'id' | 'dateSent'>) => Promise<void>;
+    updateQuote: (quote: Partial<Quote> & { id: number }) => Promise<void>;
+    updateProject: (p: Partial<Project> & { id: number }) => void;
+    addInstaller: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>;
+    saveJobDetails: (job: Partial<Job> & { projectId: number }) => Promise<void>;
+    isModalOpen: boolean;
+    onCloseModal: () => void;
+    onOpenEditModal: (quote: Quote) => void;
+    editingQuoteForModal: Quote | null;
+}
+
+const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, installers, addQuote, updateQuote, updateProject, addInstaller, saveJobDetails, isModalOpen, onCloseModal, onOpenEditModal, editingQuoteForModal }) => {
+    const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+    // --- MODIFICATION: Updated state to include installationType and renamed installerCost -> laborAmount ---
+    const [newQuote, setNewQuote] = useState({
+        installationType: 'Managed Installation' as InstallationType,
+        materialsAmount: '',
+        laborAmount: '',
+        laborDepositPercentage: '50',
+        quoteDetails: ''
+    });
+    const [installerSearchTerm, setInstallerSearchTerm] = useState('');
+    const [selectedInstaller, setSelectedInstaller] = useState<Installer | null>(null);
+    const [isAddingNewInstaller, setIsAddingNewInstaller] = useState(false);
+    const [newInstallerForm, setNewInstallerForm] = useState({ installerName: '', contactEmail: '', contactPhone: '' });
+    
+    const installerSearchResults = useMemo(() => { if (!installerSearchTerm) return []; return installers.filter(i => i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase())); }, [installers, installerSearchTerm]);
+    const calculatedDeposit = useMemo(() => {
+        const materials = parseFloat(newQuote.materialsAmount) || 0;
+        // --- MODIFICATION: Only include labor in deposit for managed installations ---
+        if (newQuote.installationType === 'Managed Installation') {
+            const labor = parseFloat(newQuote.laborAmount) || 0;
+            const percent = parseFloat(newQuote.laborDepositPercentage) || 0;
+            return materials + (labor * (percent / 100));
+        }
+        return materials;
+    }, [newQuote]);
+    
+    useEffect(() => {
+        if (isModalOpen) {
+            if (editingQuoteForModal) {
+                setEditingQuote(editingQuoteForModal);
+                const installer = installers.find(i => i.id === editingQuoteForModal.installerId);
+                if (installer) {
+                    setSelectedInstaller(installer);
+                    setInstallerSearchTerm(installer.installerName);
+                } else {
+                    setSelectedInstaller(null);
+                    setInstallerSearchTerm('');
+                }
+                // --- MODIFICATION: Set all new fields when editing ---
+                setNewQuote({
+                    installationType: editingQuoteForModal.installationType || 'Managed Installation',
+                    materialsAmount: String(editingQuoteForModal.materialsAmount || ''),
+                    laborAmount: String(editingQuoteForModal.laborAmount || ''),
+                    laborDepositPercentage: String(editingQuoteForModal.laborDepositPercentage || '50'),
+                    quoteDetails: editingQuoteForModal.quoteDetails || ''
+                });
+            } else {
+                setEditingQuote(null);
+                setNewQuote({ installationType: 'Managed Installation', materialsAmount: '', laborAmount: '', laborDepositPercentage: '50', quoteDetails: '' });
+                setSelectedInstaller(null);
+                setInstallerSearchTerm('');
+            }
+            setIsAddingNewInstaller(false);
+        }
+    }, [isModalOpen, editingQuoteForModal, installers]);
+    
+    const handleSaveQuote = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const requiresInstaller = newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer';
+        if (requiresInstaller && !selectedInstaller) {
+            alert("Please select an installer for this installation type.");
+            return;
+        }
+
+        const quoteData = {
+            projectId: project.id,
+            installerId: selectedInstaller?.id || null,
+            installationType: newQuote.installationType,
+            materialsAmount: parseFloat(newQuote.materialsAmount) || 0,
+            laborAmount: newQuote.installationType === 'Managed Installation' ? (parseFloat(newQuote.laborAmount) || 0) : null,
+            laborDepositPercentage: newQuote.installationType === 'Managed Installation' ? (parseFloat(newQuote.laborDepositPercentage) || 50) : null,
+            quoteDetails: newQuote.quoteDetails,
+            status: editingQuote ? editingQuote.status : QuoteStatus.SENT
+        };
+
+        if (editingQuote) {
+            await updateQuote({ ...quoteData, id: editingQuote.id });
+        } else {
+            await addQuote(quoteData);
+        }
+        onCloseModal();
+    };
+    
+    const handleSelectInstaller = (installer: Installer) => { setSelectedInstaller(installer); setInstallerSearchTerm(installer.installerName); };
+    const handleShowAddNewInstaller = () => { setNewInstallerForm({ installerName: installerSearchTerm, contactEmail: '', contactPhone: '' }); setIsAddingNewInstaller(true); };
+    const handleSaveNewInstaller = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newInstallerForm.installerName) return;
+        try {
+            const newlyAddedInstaller = await addInstaller(newInstallerForm);
+            setIsAddingNewInstaller(false);
+            handleSelectInstaller(newlyAddedInstaller);
+        } catch (error) {
+            console.error("Failed to add new installer:", error);
+        }
+    };
+    
+    const handleQuoteStatusChange = async (e: React.MouseEvent, quote: Quote, status: QuoteStatus) => { 
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        
+        await updateQuote({ id: quote.id, status: status }); 
+        
+        if (status === QuoteStatus.ACCEPTED) { 
+            const materials = Number(quote.materialsAmount) || 0;
+            let deposit = materials;
+
+            if (quote.installationType === 'Managed Installation') {
+                const labor = Number(quote.laborAmount) || 0; 
+                const percent = Number(quote.laborDepositPercentage) || 0; 
+                deposit += (labor * (percent / 100));
+            }
+             
+            await saveJobDetails({ 
+                projectId: project.id, 
+                depositAmount: deposit, 
+                notes: quote.quoteDetails || '', 
+            }); 
+            if (project.status !== ProjectStatus.ACCEPTED && project.status !== ProjectStatus.SCHEDULED) { 
+                await updateProject({ id: project.id, status: ProjectStatus.ACCEPTED }); 
+            } 
+        } 
+    };
+
+    return (
+        <div>
+            <div className="space-y-3">
+                {projectQuotes.map(quote => {
+                    const installer = installers.find(i => i.id === quote.installerId);
+                    const totalAmount = (Number(quote.materialsAmount) || 0) + (Number(quote.laborAmount) || 0);
+                    return (
+                        <div key={quote.id} className={`block bg-gray-800 p-3 rounded-md border-l-4 hover:bg-gray-700 transition-colors ${quote.status === QuoteStatus.ACCEPTED ? 'border-green-500' : quote.status === QuoteStatus.REJECTED ? 'border-red-500' : 'border-blue-500'}`}>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold text-lg text-text-primary">${totalAmount.toFixed(2)}</p>
+                                    <p className="text-sm text-text-secondary">{installer?.installerName || quote.installationType}</p>
+                                    <p className="text-xs text-gray-400 mt-2">Materials: ${Number(quote.materialsAmount || 0).toFixed(2)}, Labor: ${Number(quote.laborAmount || 0).toFixed(2)}</p>
+                                    {/* --- MODIFICATION: Display installation type badge --- */}
+                                    <span className="text-xs font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded-full mt-2 inline-block">{quote.installationType}</span>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-semibold text-sm">{quote.status}</p>
+                                    {quote.status === QuoteStatus.SENT && (
+                                        <div className="flex space-x-2 mt-2 items-center">
+                                            <button onClick={() => onOpenEditModal(quote)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full" title="Edit Quote"><Edit className="w-4 h-4" /></button>
+                                            <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.ACCEPTED)} className="p-2 bg-green-600 rounded-full hover:bg-green-700" title="Accept Quote"><Check className="w-4 h-4 text-white" /></button>
+                                            <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.REJECTED)} className="p-2 bg-red-600 rounded-full hover:bg-red-700" title="Reject Quote"><X className="w-4 h-4 text-white" /></button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+                {projectQuotes.length === 0 && <p className="text-text-secondary text-center py-4">No quotes created yet.</p>}
+            </div>
+            {isModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                    <div className="bg-surface p-8 rounded-lg w-full max-w-lg">
+                        <h3 className="text-xl font-bold mb-4">{editingQuote ? 'Edit Quote' : 'Add New Quote'}</h3>
+                        {!isAddingNewInstaller ? (
+                            <form onSubmit={handleSaveQuote}>
+                                {/* --- MODIFICATION: Added Installation Type radio buttons --- */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-text-secondary mb-2">Installation Type</label>
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                        {INSTALLATION_TYPES.map(type => (
+                                            <label key={type} className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio" name="installationType" value={type}
+                                                    checked={newQuote.installationType === type}
+                                                    onChange={e => setNewQuote({ ...newQuote, installationType: e.target.value as InstallationType })}
+                                                    className="form-radio h-4 w-4 text-accent bg-gray-700 border-gray-600 focus:ring-accent"
+                                                />
+                                                <span className="text-text-primary">{type}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* --- MODIFICATION: Conditional rendering for installer search --- */}
+                                {(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && (
+                                    <div className="relative mb-4">
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">Installer</label>
+                                        <input type="text" placeholder="Search for an installer..." value={installerSearchTerm} onChange={e => { setInstallerSearchTerm(e.target.value); setSelectedInstaller(null); }} className="w-full p-2 bg-gray-800 border-border rounded" />
+                                        {installerSearchTerm && !selectedInstaller && (
+                                            <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
+                                                {installerSearchResults.map(inst => (
+                                                    <div key={inst.id} onClick={() => handleSelectInstaller(inst)} className="p-2 hover:bg-accent cursor-pointer">{inst.installerName}</div>
+                                                ))}
+                                                {installerSearchResults.length === 0 && (
+                                                    <div className="p-2 text-center text-text-secondary">No results. <button type="button" onClick={handleShowAddNewInstaller} className="ml-2 text-accent font-semibold hover:underline">Add it?</button></div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">Materials Cost</label>
+                                        <input type="number" step="0.01" placeholder="0.00" value={newQuote.materialsAmount} onChange={e => setNewQuote({ ...newQuote, materialsAmount: e.target.value })} className="w-full p-2 bg-gray-800 border-border rounded" required />
+                                    </div>
+                                    {/* --- MODIFICATION: Conditional rendering for Labor Cost --- */}
+                                    {newQuote.installationType === 'Managed Installation' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-secondary mb-1">Labor Cost</label>
+                                            <input type="number" step="0.01" placeholder="0.00" value={newQuote.laborAmount} onChange={e => setNewQuote({ ...newQuote, laborAmount: e.target.value })} className="w-full p-2 bg-gray-800 border-border rounded" required />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* --- MODIFICATION: Conditional rendering for Deposit Section --- */}
+                                <div className="grid grid-cols-2 gap-4 mb-4 items-center">
+                                    {newQuote.installationType === 'Managed Installation' && (
+                                        <div className="relative">
+                                            <label className="block text-sm font-medium text-text-secondary mb-1">Installer Deposit %</label>
+                                            <input type="number" value={newQuote.laborDepositPercentage} onChange={e => setNewQuote({ ...newQuote, laborDepositPercentage: e.target.value })} className="w-full p-2 bg-gray-800 border-border rounded" />
+                                            <span className="absolute right-3 top-1/2 mt-3 -translate-y-1/2 text-text-secondary">%</span>
+                                        </div>
+                                    )}
+                                    <div className="bg-gray-800 p-2 rounded text-center self-end">
+                                        <span className="text-sm text-text-secondary">Required Deposit: </span>
+                                        <span className="font-bold text-text-primary">${calculatedDeposit.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                                <textarea placeholder="Quote details..." value={newQuote.quoteDetails} onChange={e => setNewQuote({ ...newQuote, quoteDetails: e.target.value })} className="w-full p-2 mb-4 bg-gray-800 border-border rounded" rows={3}></textarea>
+                                <div className="flex justify-end space-x-2">
+                                    <button type="button" onClick={onCloseModal} className="py-2 px-4 bg-gray-600 rounded">Cancel</button>
+                                    <button type="submit" disabled={(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && !selectedInstaller} className="py-2 px-4 bg-primary rounded disabled:bg-gray-500">{editingQuote ? 'Save Changes' : 'Add Quote'}</button>
+                                </div>
+                            </form>
+                        ) : (
+                           <form onSubmit={handleSaveNewInstaller}>
+                                {/* ... (no changes to the add new installer form) ... */}
+                           </form>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default QuotesSection;

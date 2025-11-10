@@ -1,0 +1,176 @@
+____index.css
+|____context
+| |____DataContext.tsx
+|____server
+| |____routes
+| | |____photos.js
+| | |____projects.js
+| | |____customers.js
+| | |____calendar.js
+| | |____search.js
+| | |____samples.js
+| | |____installers.js
+| | |____orders.js
+| | |____jobs.js
+| | |____sampleCheckouts.js
+| | |____change-orders.js
+| | |____quotes.js
+| |____index.js
+| |____uploads
+| | |____photo-1762705750104-121879699.jpeg
+| | |____photo-1762725541780-203593309.jpeg
+| | |____photo-1762706494949-518537399.jpeg
+| | |____photo-1762697778265-104491356.jpg
+| | |____photo-1762652802557-41371136.jpg
+| | |____photo-1762651296946-276169435.jpg
+| | |____photo-1762728357598-394921334.jpeg
+| | |____photo-1762706711588-50890738.jpeg
+| | |____photo-1762728309643-556402683.jpeg
+| |____db.js
+| |____utils.js
+|____backup.bak
+|____package-lock.json
+|____vite.config.ts
+|____tsconfig.json
+|____App.tsx
+|____services
+| |____quoteService.ts
+| |____jobService.ts
+| |____customerService.ts
+| |____projectService.ts
+| |____sampleCheckoutService.ts
+| |____changeOrderService.ts
+| |____materialOrderService.ts
+| |____installerService.ts
+| |____sampleService.ts
+|____docker-compose.yml
+|____Dockerfile
+|____index.js.bak
+|____.env
+|____.dockerignore
+|____project_1old.txt
+|____components
+| |____SampleCheckoutsSection.tsx
+| |____FinalizeJobSection.tsx
+| |____SampleSelector.tsx
+| |____ProjectInfoHeader.tsx
+| |____Layout.tsx
+| |____EditInstallerModal.tsx
+| |____ChangeOrderSection.tsx
+| |____QrScanner.tsx
+| |____UniversalSearch.tsx
+| |____CollapsibleSection.tsx
+| |____SampleDetailModal.tsx
+| |____MaterialOrdersSection.tsx
+| |____EditChangeOrderModal.tsx
+| |____EditProjectModal.tsx
+| |____QuickCheckoutModal.tsx
+| |____EditCustomerModal.tsx
+| |____QuotesSection.tsx
+| |____ProjectSelector.tsx
+| |____CustomerSelector.tsx
+|____metadata.json
+|____package.json
+|____schema.sql
+|____types.ts
+|____index.html
+|____node_modules
+|____tree.txt
+|____README.md
+|____index.tsx
+|____pages
+| |____CustomerDetail.tsx
+| |____InstallerDetail.tsx
+| |____CalendarView.tsx
+| |____SampleLibrary.tsx
+| |____CustomerList.tsx
+| |____InstallerList.tsx
+| |____Dashboard.tsx
+| |____ProjectDetail.tsx
+| |____QuoteDetail.tsx
+|____data
+| |____mockData.ts
+|____project.txt
+
+
+
+### Project Overview
+
+Joblogger is a full-stack web application designed to be a comprehensive management tool for small contracting businesses, such as flooring installers. It provides a single, centralized platform to track the entire lifecycle of a job, from initial customer inquiry to final completion.
+
+The application is built to handle the complex, real-world workflows of a contracting business. Key functionalities include:
+
+*   **Customer Relationship Management (CRM):** Create, view, and edit a complete list of customers.
+*   **Project Tracking:** Manage individual jobs for each customer, each with its own intelligent status (e.g., `New`, `Quoting`, `Scheduled`, `Completed`) that updates automatically based on user actions.
+*   **Sample & Inventory Management:** Maintain a central "Sample Library" of materials, and manage a robust multi-step checkout/return process for samples on a per-project basis.
+*   **Installer & Schedule Management:** Manage a list of installers, assign them to jobs via quotes, and view their schedules on a color-coded, interactive calendar to prevent conflicts.
+*   **Financials:** Create, edit, and manage quotes with detailed cost breakdowns. Track change orders, calculate required deposits, and view the final balance due for each job.
+*   **Material Ordering:** Place and track material orders for scheduled jobs.
+
+The entire application is built on a modern, robust technology stack, including a React (TypeScript) frontend, a Node.js (Express) backend API, and a persistent PostgreSQL database. The full stack is containerized with Docker for a stable, portable, and easily reproducible development and deployment environment.
+
+---
+
+### Features We've Built Together (Latest Session)
+
+This has been a massive session focused on architectural improvements, completing core functionality, and adding major new features.
+
+1.  **Full-Stack Architectural Overhaul (Major Improvement):**
+    *   **Backend Refactor:** Migrated the entire backend from a single `server/index.js` file to a clean, router-based architecture. Each API entity (customers, projects, etc.) now lives in its own file in `server/routes/`, dramatically improving maintainability.
+    *   **Frontend Refactor:** Created a dedicated **Service Layer** (`src/services/`). All `fetch` calls and API logic have been moved out of `DataContext.tsx` and into dedicated service files (`customerService.ts`, `projectService.ts`, etc.), making the data context a pure state manager and improving code reusability and testability.
+    *   **Docker Architecture:** Corrected the `docker-compose.yml` to use a proper multi-service architecture (`app`, `server`, `db`), solving critical networking and DNS issues (`EAI_AGAIN`) and establishing a robust, industry-standard setup.
+
+2.  **Comprehensive "Delete" Functionality (Core CRUD Complete):**
+    *   **Pattern Established:** Built a reusable, safe deletion pattern with backend pre-flight checks and clear frontend feedback.
+    *   **Full Implementation:** Implemented full-stack delete functionality for **Samples**, **Customers**, **Projects**, and **Installers**.
+    *   **Advanced Logic:** The backend now includes critical business rule enforcement, such as preventing the deletion of a customer with projects, an installer with quotes, or a sample in a material order (`409 Conflict`), and handling complex cascade deletes for projects.
+
+3.  **"Quick Checkout" & QR Code System (New Major Feature):**
+    *   **UI/UX:** Built a new "Quick Checkout" modal, accessible from the Dashboard, that guides the user through a fast, single-page workflow to check out samples.
+    *   **Component Architecture:** Created a suite of reusable components for the checkout process, including `CustomerSelector`, `ProjectSelector`, and `SampleSelector`, with on-the-fly creation capabilities.
+    *   **Backend QR Generation:** Built a new `GET /api/samples/:id/qr` endpoint that generates and serves a unique QR code image for any sample in the database.
+    *   **Frontend QR Display:** The `SampleDetailModal` now displays the QR code for each sample, with a "Print" button for easy labeling of physical items.
+    *   **Live QR Scanning:** Integrated a camera-based QR code scanner (`html5-qrcode`) into the "Quick Checkout" flow, allowing users to scan physical samples to instantly add them to their checkout list. Streamlined the mobile UX by defaulting to the rear camera and providing a "scan-and-close" experience.
+
+4.  **Flexible Business Logic: "Installation Types":**
+    *   **Architecture:** Implemented a new "Installation Type" (`Managed`, `Materials Only`, `Unmanaged`) on all quotes to handle different sales scenarios.
+    *   **Dynamic UI:** The "Add/Edit Quote" modal is now intelligent, hiding irrelevant fields (like labor costs or installer selection) based on the chosen installation type.
+    *   **Decoupled Workflow:** Decoupled material ordering from project scheduling, allowing users to order materials for "Materials Only" sales as soon as a quote is accepted.
+    *   **Smarter Calendar:** The calendar now correctly filters its view, only displaying jobs with a "Managed Installation" type, keeping the schedule clean and relevant.
+
+5.  **Full Mobile Responsiveness:**
+    *   **Main Layout:** Completely refactored `Layout.tsx` to be mobile-first. The sidebar is now a collapsible "hamburger" menu on mobile devices.
+    *   **Pages & Grids:** Updated all major pages (`Dashboard`, `CustomerList`, `InstallerList`, `ProjectDetail`) with responsive grid classes, ensuring they stack correctly and are fully usable on a phone screen.
+    *   **Modals:** Adjusted modals like `SampleDetailModal` to be responsive and prevent overflow on small screens.
+
+6.  **Critical Bug Smashing & Stability:**
+    *   **Mixed Content:** Diagnosed and permanently fixed a persistent "Mixed Content" error by cleaning bad data from the database and ensuring only relative URLs are used for images.
+    *   **Docker & Networking:** Solved multiple `docker-compose` and internal networking errors, culminating in the move to a stable multi-service architecture.
+    *   **Scanner Stability:** Fixed a critical bug causing the mobile QR scanner to freeze on a successful scan by stabilizing the component's state and effects.
+    *   **Workflow Logic:** Corrected a bug that prematurely set a project's status to "Sample Checkout" during the Quick Checkout flow.
+
+---
+
+### Updated Roadmap (Features We Haven't Implemented)
+
+We've made incredible progress, completing almost all of the core CRUD functionality and adding several major new features.
+
+*   **Editing (Nearly Complete):**
+    *   While most entities are fully editable, we still have no way to edit a **Material Order** after it has been created.
+
+*   **Deleting (Nearly Complete):**
+    *   The only remaining core entity that cannot be deleted is a **Material Order**.
+
+*   **File Uploads (Paperwork):**
+    *   The core file upload system is proven. The next step is to apply it to the "Signed Paperwork" section on the Job Details page to allow for uploading and storing documents like PDFs.
+
+*   **"On-the-Fly" Sample Creation:**
+    *   During the "Quick Checkout" flow, there is currently no way to add a brand-new, uncatalogued sample to the system. This could be added to the sample search results.
+
+*   **Advanced Business Logic:**
+    *   Material ETA vs. Job Start Date Awareness (UI warning).
+    *   Dynamic defaults for quote percentages based on Project Type.
+    *   Drag-and-drop rescheduling on the calendar.
+
+*   **Authentication & Users:**
+    *   The app remains a single-user system. This is a major future epic.

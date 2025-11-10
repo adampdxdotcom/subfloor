@@ -1,0 +1,53 @@
+services:
+  server:
+    build: .
+    container_name: joblogger_server
+    command: npm run server
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/joblogger
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build: .
+    container_name: joblogger_app
+    command: npm run vite
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    restart: unless-stopped
+    depends_on:
+      - server
+
+  db:
+    image: postgres:15-alpine
+    container_name: joblogger_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_USER=user
+      # --- THIS IS THE FIX ---
+      - POSTGRES_PASSWORD=password 
+      - POSTGRES_DB=joblogger
+    # No need to expose ports to the host unless you want to connect with an external tool
+    # ports:
+    #   - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d joblogger"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

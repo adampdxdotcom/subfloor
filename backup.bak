@@ -1,0 +1,714 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useData } from '../context/DataContext';
+import { Project, ProjectStatus, Quote, QuoteStatus, Sample, SampleCheckout, Job, Installer, ChangeOrder, MaterialOrder } from '../types';
+import { Check, Edit, Layers, FileText, Calendar, X, Trash2, CheckCircle2, PlusCircle, Save, Package as PackageIcon, XCircle, AlertTriangle } from 'lucide-react';
+import CollapsibleSection from '../components/CollapsibleSection';
+import EditProjectModal from '../components/EditProjectModal';
+import EditChangeOrderModal from '../components/EditChangeOrderModal';
+
+// ================================================================================================
+// --- CHILD COMPONENTS (Full versions included with fixes) ---
+// ================================================================================================
+
+const MaterialOrdersSection: React.FC<{
+    project: Project;
+    orders: MaterialOrder[];
+    samples: Sample[];
+    isModalOpen: boolean;
+    onCloseModal: () => void;
+    editingOrder: MaterialOrder | null;
+    onEditOrder: (order: MaterialOrder) => void;
+}> = ({ project, orders, samples, isModalOpen, onCloseModal, editingOrder, onEditOrder }) => {
+    
+    const { addMaterialOrder, updateMaterialOrder, addSample } = useData();
+    const [supplier, setSupplier] = useState('');
+    const [etaDate, setEtaDate] = useState('');
+    const [lineItems, setLineItems] = useState<{ sample: Sample; quantity: string; unitCost: string; }[]>([]);
+    
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
+    const [isAddingNewSample, setIsAddingNewSample] = useState(false);
+    const [newSampleForm, setNewSampleForm] = useState({ manufacturer: '', styleColor: '', sku: '', type: 'LVP' });
+
+    const searchResults = useMemo(() => { 
+        if (!searchTerm) return [];
+        const lowercasedTerm = searchTerm.toLowerCase(); 
+        return samples.filter(s => s.styleColor.toLowerCase().includes(lowercasedTerm) || (s.manufacturer && s.manufacturer.toLowerCase().includes(lowercasedTerm))); 
+    }, [samples, searchTerm]);
+
+    const formatDateForInput = (dateString: string | undefined | null) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
+
+    useEffect(() => {
+        if (editingOrder && isModalOpen) {
+            setSupplier(editingOrder.supplier || '');
+            setEtaDate(formatDateForInput(editingOrder.etaDate));
+            const itemsToEdit = editingOrder.lineItems.map(item => {
+                const sample = samples.find(s => s.id === item.sampleId);
+                return {
+                    sample: sample!,
+                    quantity: String(item.quantity),
+                    unitCost: item.unitCost != null ? String(item.unitCost) : '',
+                };
+            }).filter(item => item.sample);
+            setLineItems(itemsToEdit);
+        } else {
+            setSupplier('');
+            setEtaDate('');
+            setLineItems([]);
+        }
+    }, [editingOrder, isModalOpen, samples]);
+
+    const handleSelectSample = (sample: Sample) => { setSelectedSample(sample); setSearchTerm(sample.styleColor); };
+
+    const handleAddLineItem = () => {
+        if (selectedSample && !lineItems.some(item => item.sample.id === selectedSample.id)) {
+            setLineItems(prev => [...prev, { sample: selectedSample, quantity: '1', unitCost: '' }]);
+            setSearchTerm(''); setSelectedSample(null);
+        }
+    };
+
+    const handleRemoveLineItem = (sampleId: number) => { setLineItems(prev => prev.filter(item => item.sample.id !== sampleId)); };
+
+    const handleSaveNewSample = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const newlyAddedSample = await addSample(newSampleForm);
+            setIsAddingNewSample(false);
+            setSearchTerm(newlyAddedSample.styleColor);
+            setSelectedSample(newlyAddedSample);
+        } catch (error) { console.error("Failed to save new sample:", error); }
+    };
+
+    const handleSubmitOrder = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (lineItems.length === 0) { alert('Please add at least one line item to the order.'); return; }
+        const orderData = {
+            supplier, etaDate: etaDate || null,
+            lineItems: lineItems.map(item => ({
+                sampleId: item.sample.id,
+                quantity: parseFloat(item.quantity) || 0,
+                unitCost: item.unitCost ? parseFloat(item.unitCost) : null,
+            })),
+        };
+        try { 
+            if (editingOrder) {
+                await updateMaterialOrder(editingOrder.id, orderData);
+            } else {
+                await addMaterialOrder({ ...orderData, projectId: project.id }); 
+            }
+            onCloseModal(); 
+        } 
+        catch (error) { console.error("Failed to save order:", error); }
+    };
+
+    return (
+        <div>
+            {orders.length === 0 ? ( <p className="text-text-secondary text-center py-4">No material orders placed yet.</p> ) : (
+                <div className="space-y-4">
+                    {orders.map(order => (
+                        <div key={order.id} className="bg-gray-800 p-4 rounded-lg">
+                            <div className="flex justify-between items-start mb-3">
+                                <div>
+                                    <p className="font-bold text-text-primary">{order.supplier || 'N/A'}</p>
+                                    <p className="text-xs text-text-secondary">Order Date: {new Date(order.orderDate).toLocaleDateString()}</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="text-right">
+                                        <p className="text-sm font-semibold text-accent">{order.status}</p>
+                                        <p className="text-xs text-text-secondary">ETA: {order.etaDate ? new Date(order.etaDate).toLocaleDateString() : 'N/A'}</p>
+                                    </div>
+                                    <button onClick={() => onEditOrder(order)} className="p-1 text-text-secondary hover:text-white"><Edit size={16}/></button>
+                                </div>
+                            </div>
+                            <ul className="space-y-2 text-sm border-t border-gray-700 pt-3">
+                                {order.lineItems.map(item => (
+                                    <li key={item.id} className="flex justify-between items-center text-text-secondary">
+                                        <span>{item.quantity} x {item.styleColor}</span>
+                                        {item.unitCost != null && <span>@ ${Number(item.unitCost).toFixed(2)}</span>}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {isModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                    <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <h2 className="text-2xl font-bold mb-6 text-text-primary">{editingOrder ? 'Edit Material Order' : 'Create Material Order'}</h2>
+                        <form onSubmit={handleSubmitOrder}>
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                <input type="text" placeholder="Supplier" value={supplier} onChange={e => setSupplier(e.target.value)} className="w-full p-2 bg-gray-800 border border-border rounded" />
+                                <input type="date" value={etaDate} onChange={e => setEtaDate(e.target.value)} className="w-full p-2 bg-gray-800 border border-border rounded" />
+                            </div>
+                            <div className="bg-gray-900 p-4 rounded-lg">
+                                <h3 className="font-semibold mb-2">Line Items</h3>
+                                <div className="space-y-2 mb-4">
+                                    {lineItems.map((item, index) => (
+                                        <div key={item.sample.id} className="flex items-center gap-2 bg-gray-800 p-2 rounded">
+                                            <span className="flex-grow text-sm">{item.sample.styleColor}</span>
+                                            <input type="number" placeholder="Qty" value={item.quantity} onChange={e => { const newItems = [...lineItems]; newItems[index].quantity = e.target.value; setLineItems(newItems); }} className="w-20 p-1 bg-gray-700 border border-border rounded text-sm" />
+                                            <input type="number" step="0.01" placeholder="Cost/Unit" value={item.unitCost} onChange={e => { const newItems = [...lineItems]; newItems[index].unitCost = e.target.value; setLineItems(newItems); }} className="w-24 p-1 bg-gray-700 border border-border rounded text-sm" />
+                                            <button type="button" onClick={() => handleRemoveLineItem(item.sample.id)} className="text-red-400 hover:text-red-600"><XCircle size={18} /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                                {!isAddingNewSample && (
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-grow">
+                                            <input type="text" placeholder="Search for material to add..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedSample(null); }} className="w-full p-2 bg-gray-800 border-border rounded" />
+                                            {searchTerm && !selectedSample && (
+                                                <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
+                                                    {searchResults.map(s => ( <div key={s.id} onClick={() => handleSelectSample(s)} className="p-2 hover:bg-accent cursor-pointer">{s.styleColor}</div> ))}
+                                                    {searchResults.length === 0 && ( <div className="p-2 text-center text-text-secondary">No results. <button type="button" onClick={() => { setIsAddingNewSample(true); setNewSampleForm(prev => ({ ...prev, styleColor: searchTerm })); }} className="ml-2 text-accent font-semibold hover:underline">Add it?</button></div> )}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button type="button" onClick={handleAddLineItem} disabled={!selectedSample} className="py-2 px-4 bg-primary rounded disabled:bg-gray-500">Add Item</button>
+                                    </div>
+                                )}
+                                {isAddingNewSample && (
+                                    <div className="bg-gray-800 p-4 rounded mt-2">
+                                        <p className="text-sm text-text-secondary mb-2">Adding new material to library...</p>
+                                        <div className="space-y-2">
+                                            <input type="text" placeholder="Style / Color" value={newSampleForm.styleColor} onChange={e => setNewSampleForm({...newSampleForm, styleColor: e.target.value})} className="w-full p-2 bg-gray-700 border-border rounded" />
+                                            <input type="text" placeholder="Manufacturer" value={newSampleForm.manufacturer || ''} onChange={e => setNewSampleForm({...newSampleForm, manufacturer: e.target.value})} className="w-full p-2 bg-gray-700 border-border rounded" />
+                                        </div>
+                                        <div className="flex justify-end gap-2 mt-4">
+                                            <button type="button" onClick={() => setIsAddingNewSample(false)} className="py-1 px-3 bg-gray-600 rounded">Cancel</button>
+                                            <button type="button" onClick={handleSaveNewSample} className="py-1 px-3 bg-primary rounded">Save & Add</button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex justify-end space-x-4 mt-8">
+                                <button type="button" onClick={onCloseModal} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">Cancel</button>
+                                <button type="submit" className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white">{editingOrder ? 'Save Changes' : 'Create Order'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const getStatusColor = (status: ProjectStatus): string => {
+    switch (status) {
+        case ProjectStatus.SCHEDULED: return 'bg-green-500 text-white';
+        case ProjectStatus.ACCEPTED: return 'bg-teal-500 text-white';
+        case ProjectStatus.QUOTING: return 'bg-blue-500 text-white';
+        case ProjectStatus.SAMPLE_CHECKOUT: return 'bg-yellow-500 text-gray-800';
+        case ProjectStatus.AWAITING_DECISION: return 'bg-gray-500 text-white';
+        case ProjectStatus.NEW: return 'bg-gray-600 text-white';
+        case ProjectStatus.COMPLETED: return 'bg-indigo-500 text-white';
+        case ProjectStatus.CANCELLED: return 'bg-red-700 text-white';
+        default: return 'bg-gray-700 text-white';
+    }
+};
+
+const ProjectInfoHeader: React.FC<{ project: Project; customerName: string; updateProject: (p: Partial<Project> & { id: number }) => void; onEdit: () => void; }> = ({ project, customerName, updateProject, onEdit }) => {
+    const [isEditingStatus, setIsEditingStatus] = useState(false);
+    const handleStatusChange = (newStatus: ProjectStatus) => { updateProject({ id: project.id, status: newStatus }); setIsEditingStatus(false); };
+    const handleCancelProject = () => { if (confirm("Are you sure you want to cancel this project? This will mark it as 'Cancelled' and cannot be easily undone.")) { updateProject({ id: project.id, status: ProjectStatus.CANCELLED }); } };
+    const statusOptions = [ ProjectStatus.NEW, ProjectStatus.SAMPLE_CHECKOUT, ProjectStatus.AWAITING_DECISION, ProjectStatus.QUOTING, ProjectStatus.ACCEPTED, ProjectStatus.SCHEDULED, ProjectStatus.COMPLETED, ProjectStatus.CANCELLED, ProjectStatus.CLOSED ];
+    return (
+        <div className="bg-surface p-6 rounded-lg shadow-lg">
+            <div className="flex justify-between items-start">
+                <div>
+                    <div className="flex items-center gap-3 mb-1">
+                        <h1 className="text-3xl font-bold text-text-primary">{project.projectName}</h1>
+                        <button onClick={onEdit} className="p-1 text-text-secondary hover:text-white rounded-full hover:bg-gray-700" title="Edit Project Details">
+                            <Edit size={20}/>
+                        </button>
+                    </div>
+                    <Link to={`/customers/${project.customerId}`} className="text-lg text-accent hover:underline">{customerName}</Link>
+                </div>
+                <div className="flex items-center space-x-4">
+                    <button onClick={handleCancelProject} className="flex items-center text-red-400 hover:text-white hover:bg-red-600 font-semibold py-2 px-3 rounded-lg transition-colors text-sm" title="Cancel Project"> <Trash2 className="w-4 h-4 mr-2"/> Cancel </button>
+                    <div className="relative flex items-center space-x-2">
+                        {isEditingStatus ? ( <select value={project.status} onChange={(e) => handleStatusChange(e.target.value as ProjectStatus)} onBlur={() => setIsEditingStatus(false)} className="bg-gray-700 border border-border text-white text-sm rounded-lg focus:ring-accent focus:border-accent block w-full p-2.5" autoFocus> {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)} </select> ) : ( <span className={`text-sm font-semibold px-3 py-1 rounded-full ${getStatusColor(project.status)}`}>{project.status}</span> )}
+                        <button onClick={() => setIsEditingStatus(!isEditingStatus)} className="text-text-secondary hover:text-text-primary p-1 rounded-full hover:bg-gray-700" title="Change Status"> <Edit className="w-4 h-4"/> </button>
+                    </div>
+                </div>
+            </div>
+             <div className="mt-4 pt-4 border-t border-border text-text-secondary">
+                <p><strong>Type:</strong> {project.projectType}</p>
+                <p><strong>Created:</strong> {new Date(project.createdAt).toLocaleDateString()}</p>
+            </div>
+        </div>
+    );
+};
+
+const SampleCheckoutsSection: React.FC<{ 
+    project: Project; projectCheckouts: SampleCheckout[]; samples: Sample[]; addSample: (sample: Omit<Sample, 'id' | 'isAvailable' | 'imageUrl'>) => Promise<Sample>; 
+    addSampleCheckout: (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>) => Promise<void>; 
+    updateSampleCheckout: (checkout: SampleCheckout) => Promise<void>; isModalOpen: boolean; onCloseModal: () => void;
+}> = ({ project, projectCheckouts, samples, addSample, addSampleCheckout, updateSampleCheckout, isModalOpen, onCloseModal }) => {
+    const [selectedType, setSelectedType] = useState<string | null>(null); 
+    const [searchTerm, setSearchTerm] = useState(''); 
+    const [selectedSample, setSelectedSample] = useState<Sample | null>(null); 
+    const [returnDate, setReturnDate] = useState(''); 
+    const [isAddingNew, setIsAddingNew] = useState(false); 
+    const [newSampleForm, setNewSampleForm] = useState({ manufacturer: '', styleColor: '', sku: ''}); 
+    
+    const searchResults = useMemo(() => {
+        if (!selectedType || !searchTerm) return [];
+        const lowercasedTerm = searchTerm.toLowerCase();
+        return samples.filter(s => s.type === selectedType && (s.styleColor.toLowerCase().includes(lowercasedTerm) || (s.manufacturer && s.manufacturer.toLowerCase().includes(lowercasedTerm))));
+    }, [samples, selectedType, searchTerm]); 
+    
+    const resetModalState = () => { setSelectedType(null); setSearchTerm(''); setSelectedSample(null); setReturnDate(''); setIsAddingNew(false); setNewSampleForm({ manufacturer: '', styleColor: '', sku: ''}); }; 
+    useEffect(() => { if (!isModalOpen) { resetModalState(); } }, [isModalOpen]);
+
+    const handleSelectSample = (sample: Sample) => {
+        if (sample.isAvailable) {
+            setSelectedSample(sample);
+            setSearchTerm(sample.styleColor);
+        }
+    }; 
+    
+    const handleShowAddNew = () => { setNewSampleForm({ manufacturer: '', styleColor: searchTerm, sku: '' }); setIsAddingNew(true); }; 
+    const handleSaveNewSample = async (e: React.FormEvent) => { e.preventDefault(); if (!newSampleForm.styleColor || !selectedType) return; try { const newlyAddedSample = await addSample({ ...newSampleForm, type: selectedType as string }); setIsAddingNew(false); handleSelectSample(newlyAddedSample); } catch (error) { console.error("Failed to save new sample:", error); } }; 
+    const handleCheckoutSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!selectedSample || !returnDate) return; try { await addSampleCheckout({ projectId: project.id, sampleId: selectedSample.id, expectedReturnDate: new Date(returnDate).toISOString(), }); onCloseModal(); } catch (error) { console.error("Checkout failed", error); } }; 
+    const handleReturn = async (checkout: SampleCheckout) => { if(confirm("Are you sure you want to return this sample?")) { try { await updateSampleCheckout(checkout); } catch (error) { console.error("Return failed:", error); } } }; 
+    const sampleTypes = ["LVP", "Carpet", "Tile", "Hardwood", "Catalog", "Other"];
+    
+    return ( 
+        <div>
+            <div className="space-y-3"> 
+                {projectCheckouts.map(checkout => { 
+                    const sample = samples.find(s => s.id === checkout.sampleId); 
+                    return ( 
+                        <div key={checkout.id} className="bg-gray-800 p-3 rounded-md flex justify-between items-center"> 
+                            <div>
+                                <p className="font-semibold text-text-primary">{sample?.styleColor}</p>
+                                <p className="text-xs text-text-secondary">Expected Return: {new Date(checkout.expectedReturnDate).toLocaleDateString()}</p>
+                            </div> 
+                            {checkout.actualReturnDate ? ( <span className="text-sm text-green-400 flex items-center"><Check className="w-4 h-4 mr-1"/> Returned</span> ) : ( <button onClick={() => handleReturn(checkout)} className="text-sm bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded">Return</button> )} 
+                        </div> 
+                    ); 
+                })} 
+                {projectCheckouts.length === 0 && <p className="text-text-secondary text-center py-4">No samples checked out.</p>} 
+            </div> 
+            {isModalOpen && ( 
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"> 
+                    <div className="bg-surface p-8 rounded-lg w-full max-w-md"> 
+                        <h3 className="text-xl font-bold mb-4">Check Out New Sample</h3> 
+                        {!isAddingNew && ( 
+                            <form onSubmit={handleCheckoutSubmit}> 
+                                <div className="space-y-4"> 
+                                    <div> 
+                                        <label className="text-sm font-medium text-text-secondary block mb-2">1. Select Sample Type</label> 
+                                        <div className="flex flex-wrap gap-2"> 
+                                            {sampleTypes.map(type => ( <button key={type} type="button" onClick={() => setSelectedType(type)} className={`px-3 py-1 text-sm rounded-full ${selectedType === type ? 'bg-accent text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>{type}</button>))} 
+                                        </div> 
+                                    </div> 
+                                    {selectedType && ( 
+                                        <div> 
+                                            <label className="text-sm font-medium text-text-secondary block mb-2">2. Find or Add Sample</label> 
+                                            <div className="relative"> 
+                                                <input type="text" placeholder={`Search for ${selectedType}...`} value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedSample(null); }} className="w-full p-2 bg-gray-800 border-border rounded" /> 
+                                                {searchTerm && !selectedSample && ( 
+                                                    <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-60 overflow-y-auto"> 
+                                                        {searchResults.map(sample => (
+                                                            <div 
+                                                                key={sample.id} 
+                                                                onClick={() => handleSelectSample(sample)} 
+                                                                className={`p-2 ${sample.isAvailable ? 'hover:bg-accent cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                                                            >
+                                                                <p className="font-semibold">{sample.styleColor}</p>
+                                                                <p className="text-xs text-text-secondary">{sample.manufacturer}</p>
+                                                                {!sample.isAvailable && sample.checkoutProjectName && (
+                                                                    <p className="text-xs text-yellow-400 mt-1">Checked out to: {sample.checkoutProjectName}</p>
+                                                                )}
+                                                            </div> 
+                                                        ))} 
+                                                        {searchResults.length === 0 && ( <div className="p-2 text-center text-text-secondary"> No results. <button type="button" onClick={handleShowAddNew} className="ml-2 text-accent font-semibold hover:underline">Add it?</button> </div> )} 
+                                                    </div> 
+                                                )} 
+                                            </div> 
+                                        </div> 
+                                    )} 
+                                    <div> 
+                                        <label className="text-sm font-medium text-text-secondary block mb-2">3. Select Return Date</label> 
+                                        <input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full p-2 bg-gray-800 border-border rounded" required/> 
+                                    </div> 
+                                </div> 
+                                <div className="flex justify-end space-x-2 mt-6"> 
+                                    <button type="button" onClick={onCloseModal} className="py-2 px-4 bg-gray-600 rounded">Cancel</button> 
+                                    <button type="submit" disabled={!selectedSample || !returnDate} className="py-2 px-4 bg-primary rounded disabled:bg-gray-500 disabled:cursor-not-allowed">Check Out</button> 
+                                </div> 
+                            </form> 
+                        )} 
+                        {isAddingNew && ( 
+                            <form onSubmit={handleSaveNewSample}> 
+                                <p className="text-sm text-text-secondary mb-2">Adding new <span className="font-bold text-accent">{selectedType}</span> sample.</p>
+                                <div className="space-y-4"> 
+                                    <input type="text" placeholder="Style/Color" value={newSampleForm.styleColor} onChange={(e) => setNewSampleForm({ ...newSampleForm, styleColor: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" required />
+                                    <input type="text" placeholder="Manufacturer" value={newSampleForm.manufacturer || ''} onChange={(e) => setNewSampleForm({ ...newSampleForm, manufacturer: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" /> 
+                                    <input type="text" placeholder="SKU (optional)" value={newSampleForm.sku || ''} onChange={(e) => setNewSampleForm({ ...newSampleForm, sku: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" /> 
+                                </div> 
+                                <div className="flex justify-end space-x-2 mt-6"> 
+                                    <button type="button" onClick={() => setIsAddingNew(false)} className="py-2 px-4 bg-gray-600 rounded">Back</button> 
+                                    <button type="submit" className="py-2 px-4 bg-primary rounded">Save Sample</button> 
+                                </div> 
+                            </form> 
+                        )} 
+                    </div> 
+                </div> 
+            )} 
+        </div>
+    ); 
+};
+
+
+const QuotesSection: React.FC<{ 
+    project: Project; projectQuotes: Quote[]; installers: Installer[]; addQuote: (quote: Omit<Quote, 'id'|'dateSent'>) => Promise<void>; 
+    updateQuote: (quote: Partial<Quote> & {id: number}) => Promise<void>; updateProject: (p: Partial<Project> & { id: number }) => void; 
+    addInstaller: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>; saveJobDetails: (job: Partial<Job> & { projectId: number }) => Promise<void>;
+    isModalOpen: boolean; onCloseModal: () => void; onOpenEditModal: (quote: Quote) => void;
+}> = ({ project, projectQuotes, installers, addQuote, updateQuote, updateProject, addInstaller, saveJobDetails, isModalOpen, onCloseModal, onOpenEditModal }) => {
+    const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+    const [newQuote, setNewQuote] = useState({ materialsAmount: '', installerCost: '', installerDepositPercentage: '50', quoteDetails: '' });
+    const [installerSearchTerm, setInstallerSearchTerm] = useState('');
+    const [selectedInstaller, setSelectedInstaller] = useState<Installer | null>(null);
+    const [isAddingNewInstaller, setIsAddingNewInstaller] = useState(false);
+    const [newInstallerForm, setNewInstallerForm] = useState({ installerName: '', contactEmail: '', contactPhone: '' });
+    const installerSearchResults = useMemo(() => { if (!installerSearchTerm) return []; return installers.filter(i => i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase())); }, [installers, installerSearchTerm]);
+    const calculatedDeposit = useMemo(() => { const materials = parseFloat(newQuote.materialsAmount) || 0; const installer = parseFloat(newQuote.installerCost) || 0; const percent = parseFloat(newQuote.installerDepositPercentage) || 0; return materials + (installer * (percent / 100)); }, [newQuote]);
+    
+    useEffect(() => { if (!isModalOpen) { setEditingQuote(null); setNewQuote({ materialsAmount: '', installerCost: '', installerDepositPercentage: '50', quoteDetails: '' }); setSelectedInstaller(null); setInstallerSearchTerm(''); setIsAddingNewInstaller(false); } }, [isModalOpen]);
+    
+    const handleOpenEditModalInternal = (quoteToEdit: Quote) => {
+        setEditingQuote(quoteToEdit);
+        const installer = installers.find(i => i.id === quoteToEdit.installerId);
+        if (installer) { setSelectedInstaller(installer); setInstallerSearchTerm(installer.installerName); }
+        setNewQuote({ materialsAmount: String(quoteToEdit.materialsAmount || ''), installerCost: String(quoteToEdit.laborAmount || ''), installerDepositPercentage: String(quoteToEdit.laborDepositPercentage || '50'), quoteDetails: quoteToEdit.quoteDetails || '' });
+        onOpenEditModal(quoteToEdit);
+    };
+    
+    const handleSaveQuote = async (e: React.FormEvent) => { e.preventDefault(); if (!selectedInstaller) { alert("Please select an installer."); return; } const quoteData = { projectId: project.id, installerId: selectedInstaller.id, materialsAmount: parseFloat(newQuote.materialsAmount) || 0, laborAmount: parseFloat(newQuote.installerCost) || 0, laborDepositPercentage: parseFloat(newQuote.installerDepositPercentage) || 50, quoteDetails: newQuote.quoteDetails, status: QuoteStatus.SENT }; if (editingQuote) { await updateQuote({ ...quoteData, id: editingQuote.id }); } else { await addQuote(quoteData); } onCloseModal(); };
+    const handleSelectInstaller = (installer: Installer) => { setSelectedInstaller(installer); setInstallerSearchTerm(installer.installerName); };
+    const handleShowAddNewInstaller = () => { setNewInstallerForm({ installerName: installerSearchTerm, contactEmail: '', contactPhone: '' }); setIsAddingNewInstaller(true); };
+    const handleSaveNewInstaller = async (e: React.FormEvent) => { e.preventDefault(); if (!newInstallerForm.installerName) return; try { const newlyAddedInstaller = await addInstaller(newInstallerForm); setIsAddingNewInstaller(false); handleSelectInstaller(newlyAddedInstaller); } catch (error) { console.error("Failed to add new installer:", error); } };
+    const handleQuoteStatusChange = async (e: React.MouseEvent, quote: Quote, status: QuoteStatus) => { 
+    e.preventDefault(); 
+    e.stopPropagation(); 
+    
+    await updateQuote({ id: quote.id, status: status }); 
+    
+    if (status === QuoteStatus.ACCEPTED) { 
+        const materials = Number(quote.materialsAmount) || 0; 
+        const installerCost = Number(quote.laborAmount) || 0; 
+        const percent = Number(quote.laborDepositPercentage) || 0; 
+        const deposit = materials + (installerCost * (percent / 100)); 
+        await saveJobDetails({ 
+            projectId: project.id, 
+            depositAmount: deposit, 
+            notes: quote.quoteDetails || '', 
+            depositReceived: false, 
+            contractsReceived: false, 
+            finalPaymentReceived: false, 
+        }); 
+        if (project.status !== ProjectStatus.ACCEPTED && project.status !== ProjectStatus.SCHEDULED) { 
+            await updateProject({ id: project.id, status: ProjectStatus.ACCEPTED }); 
+        } 
+    } 
+};
+
+    return (
+        <div>
+            <div className="space-y-3">
+                {projectQuotes.map(quote => { const installer = installers.find(i => i.id === quote.installerId); const totalAmount = (Number(quote.materialsAmount) || 0) + (Number(quote.laborAmount) || 0); return ( <div key={quote.id} className={`block bg-gray-800 p-3 rounded-md border-l-4 hover:bg-gray-700 transition-colors ${quote.status === QuoteStatus.ACCEPTED ? 'border-green-500' : quote.status === QuoteStatus.REJECTED ? 'border-red-500' : 'border-blue-500'}`}> <div className="flex justify-between items-start"> <div> <p className="font-bold text-lg text-text-primary">${totalAmount.toFixed(2)}</p> <p className="text-sm text-text-secondary">{installer?.installerName}</p> <p className="text-xs text-gray-400 mt-2">Materials: ${Number(quote.materialsAmount).toFixed(2)}, Installer: ${Number(quote.laborAmount).toFixed(2)}</p> </div> <div className="text-right"> <p className="font-semibold text-sm">{quote.status}</p> {quote.status === QuoteStatus.SENT && ( <div className="flex space-x-2 mt-2 items-center"> <button onClick={() => handleOpenEditModalInternal(quote)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full" title="Edit Quote"> <Edit className="w-4 h-4"/> </button> <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.ACCEPTED)} className="p-2 bg-green-600 rounded-full hover:bg-green-700" title="Accept Quote"><Check className="w-4 h-4 text-white"/></button> 
+<button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.REJECTED)} className="p-2 bg-red-600 rounded-full hover:bg-red-700" title="Reject Quote"><X className="w-4 h-4 text-white"/></button> </div> )} </div> </div> </div> ) })}
+                {projectQuotes.length === 0 && <p className="text-text-secondary text-center py-4">No quotes created yet.</p>}
+            </div>
+            {isModalOpen && ( <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"> <div className="bg-surface p-8 rounded-lg w-full max-w-lg"> <h3 className="text-xl font-bold mb-4">{editingQuote ? 'Edit Quote' : 'Add New Quote'}</h3> {!isAddingNewInstaller && ( <form onSubmit={handleSaveQuote}> <div className="relative mb-4"> <label className="block text-sm font-medium text-text-secondary mb-1">Installer</label> <input type="text" placeholder="Search for an installer..." value={installerSearchTerm} onChange={e => { setInstallerSearchTerm(e.target.value); setSelectedInstaller(null); }} className="w-full p-2 bg-gray-800 border-border rounded" /> {installerSearchTerm && !selectedInstaller && ( <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto"> {installerSearchResults.map(inst => ( <div key={inst.id} onClick={() => handleSelectInstaller(inst)} className="p-2 hover:bg-accent cursor-pointer">{inst.installerName}</div> ))} {installerSearchResults.length === 0 && ( <div className="p-2 text-center text-text-secondary">No results. <button type="button" onClick={handleShowAddNewInstaller} className="ml-2 text-accent font-semibold hover:underline">Add it?</button></div> )} </div> )} </div> <div className="grid grid-cols-2 gap-4 mb-4"> <div> <label className="block text-sm font-medium text-text-secondary mb-1">Materials</label> <input type="number" step="0.01" placeholder="0.00" value={newQuote.materialsAmount} onChange={e => setNewQuote({...newQuote, materialsAmount: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded" required/> </div> <div> <label className="block text-sm font-medium text-text-secondary mb-1">Installer Cost</label> <input type="number" step="0.01" placeholder="0.00" value={newQuote.installerCost} onChange={e => setNewQuote({...newQuote, installerCost: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded" required/> </div> </div> <div className="grid grid-cols-2 gap-4 mb-4 items-center"> <div className="relative"> <label className="block text-sm font-medium text-text-secondary mb-1">Installer Deposit %</label> <input type="number" value={newQuote.installerDepositPercentage} onChange={e => setNewQuote({...newQuote, installerDepositPercentage: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded"/> <span className="absolute right-3 top-1/2 mt-3 -translate-y-1/2 text-text-secondary">%</span> </div> <div className="bg-gray-800 p-2 rounded text-center self-end"> <span className="text-sm text-text-secondary">Required Deposit: </span> <span className="font-bold text-text-primary">${calculatedDeposit.toFixed(2)}</span> </div> </div> <textarea placeholder="Quote details..." value={newQuote.quoteDetails} onChange={e => setNewQuote({...newQuote, quoteDetails: e.target.value})} className="w-full p-2 mb-4 bg-gray-800 border-border rounded" rows={3}></textarea> <div className="flex justify-end space-x-2"> <button type="button" onClick={onCloseModal} className="py-2 px-4 bg-gray-600 rounded">Cancel</button> <button type="submit" disabled={!selectedInstaller} className="py-2 px-4 bg-primary rounded disabled:bg-gray-500">{editingQuote ? 'Save Changes' : 'Add Quote'}</button> </div> </form> )} {isAddingNewInstaller && ( <form onSubmit={handleSaveNewInstaller}> <p className="text-sm text-text-secondary mb-2">Adding new installer.</p> <div className="space-y-4"> <input type="text" placeholder="Installer Name" value={newInstallerForm.installerName} onChange={(e) => setNewInstallerForm({ ...newInstallerForm, installerName: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" required /> <input type="text" placeholder="Contact Phone (optional)" value={newInstallerForm.contactPhone} onChange={(e) => setNewInstallerForm({ ...newInstallerForm, contactPhone: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" /> <input type="email" placeholder="Contact Email (optional)" value={newInstallerForm.contactEmail} onChange={(e) => setNewInstallerForm({ ...newInstallerForm, contactEmail: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" /> </div> <div className="flex justify-end space-x-2 mt-6"> <button type="button" onClick={() => setIsAddingNewInstaller(false)} className="py-2 px-4 bg-gray-600 rounded">Back</button> <button type="submit" className="py-2 px-4 bg-primary rounded">Save Installer</button> </div> </form> )} </div> </div> )}
+        </div>
+    );
+};
+
+const ChangeOrderSection: React.FC<{
+    project: Project;
+    projectChangeOrders: ChangeOrder[];
+    addChangeOrder: (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'> & {projectId: number}) => Promise<void>;
+    onEditChangeOrder: (changeOrder: ChangeOrder) => void;
+}> = ({ project, projectChangeOrders, addChangeOrder, onEditChangeOrder }) => {
+    const [description, setDescription] = useState('');
+    const [amount, setAmount] = useState('');
+    const [type, setType] = useState<'Materials' | 'Installer'>('Materials');
+    const handleAddChangeOrder = async (e: React.FormEvent) => { 
+        e.preventDefault(); 
+        if (!description || !amount) { alert('Please provide a description and an amount.'); return; } 
+        await addChangeOrder({ projectId: project.id, description, amount: parseFloat(amount), type });
+        setDescription(''); setAmount(''); 
+    };
+    return (
+        <div>
+            <div className="space-y-3 mb-6">
+                {projectChangeOrders.map(order => ( 
+                    <div key={order.id} className={`flex justify-between items-center p-3 rounded-md bg-gray-800 ${Number(order.amount) >= 0 ? 'text-green-400' : 'text-red-400'}`}> 
+                        <div> 
+                            <p>{order.description}</p> 
+                            <p className="text-xs text-gray-400">{order.type}</p> 
+                        </div> 
+                        <div className="flex items-center">
+                            <span className="font-bold">{Number(order.amount) >= 0 ? '+' : ''}${Number(order.amount).toFixed(2)}</span> 
+                            <button onClick={() => onEditChangeOrder(order)} className="ml-4 p-1 text-text-secondary hover:text-white rounded-full hover:bg-gray-700" title="Edit Change Order">
+                                <Edit size={16} />
+                            </button>
+                        </div>
+                    </div> 
+                ))}
+                {projectChangeOrders.length === 0 && <p className="text-text-secondary text-center py-4">No change orders added yet.</p>}
+            </div>
+            <form onSubmit={handleAddChangeOrder} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div className="md:col-span-2"><label className="block text-sm font-medium text-text-secondary mb-1">Description</label><input type="text" value={description} onChange={e => setDescription(e.target.value)} className="w-full p-2 bg-gray-800 border-border rounded" required /></div>
+                <div><label className="block text-sm font-medium text-text-secondary mb-1">Type</label><select value={type} onChange={e => setType(e.target.value as 'Materials' | 'Installer')} className="w-full p-2 bg-gray-800 border-border rounded h-10"><option>Materials</option><option>Installer</option></select></div>
+                <div className="md:col-span-2"><label className="block text-sm font-medium text-text-secondary mb-1">Amount</label><input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g., -50.00" className="w-full p-2 bg-gray-800 border-border rounded" required /></div>
+                <button type="submit" className="bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg h-10">Add</button>
+            </form>
+        </div>
+    );
+};
+
+const FinalizeJobSection: React.FC<{
+    project: Project; job: Job | undefined; quotes: Quote[]; changeOrders: ChangeOrder[];
+    saveJobDetails: (job: Partial<Job> & { projectId: number }) => Promise<void>;
+    updateProject: (p: Partial<Project> & { id: number }) => void;
+}> = ({ project, job, quotes, changeOrders, saveJobDetails, updateProject }) => {
+    const { projects } = useData();
+    const [scheduleConflicts, setScheduleConflicts] = useState<{ projectId: number; projectName: string; scheduledStartDate: string; scheduledEndDate: string | null; }[]>([]);
+    const financialSummary = useMemo(() => { const acceptedQuotes = quotes.filter(q => q.projectId === project.id && q.status === QuoteStatus.ACCEPTED); const projectChangeOrders = changeOrders.filter(co => co.projectId === project.id); let baseMaterials = 0; let baseInstaller = 0; acceptedQuotes.forEach(quote => { baseMaterials += Number(quote.materialsAmount) || 0; baseInstaller += Number(quote.laborAmount) || 0; }); const changeOrdersBreakdown = { materials: [] as {description: string, amount: number}[], installer: [] as {description: string, amount: number}[]}; projectChangeOrders.forEach(co => { const amount = Number(co.amount) || 0; if (co.type === 'Materials') { changeOrdersBreakdown.materials.push({ description: co.description, amount }); } else if (co.type === 'Installer') { changeOrdersBreakdown.installer.push({ description: co.description, amount }); } }); const totalMaterials = baseMaterials + changeOrdersBreakdown.materials.reduce((sum, co) => sum + co.amount, 0); const totalInstaller = baseInstaller + changeOrdersBreakdown.installer.reduce((sum, co) => sum + co.amount, 0); const jobTotal = totalMaterials + totalInstaller; const firstAcceptedQuote = acceptedQuotes[0]; const installerDepositPercent = firstAcceptedQuote ? (Number(firstAcceptedQuote.laborDepositPercentage) || 0) / 100 : 0.5; const baseDepositFromQuotes = (acceptedQuotes.reduce((acc, q) => acc + (Number(q.materialsAmount) || 0), 0)) + (acceptedQuotes.reduce((acc, q) => acc + (Number(q.laborAmount) || 0), 0) * installerDepositPercent); const depositAdditions = [ ...changeOrdersBreakdown.materials.map(co => ({ description: co.description, amount: co.amount })), ...changeOrdersBreakdown.installer.map(co => ({ description: `${co.description} (Deposit Portion)`, amount: co.amount * installerDepositPercent })) ]; const totalDeposit = baseDepositFromQuotes + depositAdditions.reduce((sum, item) => sum + item.amount, 0); const balanceDue = jobTotal - totalDeposit; return { jobTotal, totalMaterials, totalInstaller, baseMaterials, baseInstaller, changeOrdersBreakdown, totalDeposit, depositAdditions, balanceDue }; }, [quotes, changeOrders, project.id]);
+    const formatDateForInput = (dateString: string | undefined | null) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
+    const [jobDetails, setJobDetails] = useState({ poNumber: job?.poNumber || '', depositReceived: job?.depositReceived || false, contractsReceived: job?.contractsReceived || false, finalPaymentReceived: job?.finalPaymentReceived || false, scheduledStartDate: formatDateForInput(job?.scheduledStartDate), scheduledEndDate: formatDateForInput(job?.scheduledEndDate), notes: job?.notes || '' });
+    const [isCompletedOverlayVisible, setIsCompletedOverlayVisible] = useState(true);
+
+    const acceptedQuote = useMemo(() => quotes.find(q => q.projectId === project.id && q.status === QuoteStatus.ACCEPTED), [quotes, project.id]);
+    const installerId = acceptedQuote?.installerId;
+
+    useEffect(() => {
+        const checkConflicts = async () => {
+            if (!jobDetails.scheduledStartDate || !jobDetails.scheduledEndDate || !installerId) {
+                setScheduleConflicts([]);
+                return;
+            }
+            try {
+                const response = await fetch(`/api/installers/${installerId}/schedule?excludeProjectId=${project.id}`);
+                const existingJobs: { projectId: number, scheduledStartDate: string, scheduledEndDate: string | null }[] = await response.json();
+                const newStart = new Date(jobDetails.scheduledStartDate);
+                const newEnd = new Date(jobDetails.scheduledEndDate);
+                const conflicts = existingJobs.filter(existingJob => {
+                    const existingStart = new Date(existingJob.scheduledStartDate);
+                    const existingEnd = existingJob.scheduledEndDate ? new Date(existingJob.scheduledEndDate) : existingStart;
+                    return newStart <= existingEnd && newEnd >= existingStart;
+                }).map(conflict => {
+                    const conflictingProject = projects.find(p => p.id === conflict.projectId);
+                    return { ...conflict, projectName: conflictingProject?.projectName || `Project #${conflict.projectId}` };
+                });
+                setScheduleConflicts(conflicts);
+            } catch (error) { console.error("Failed to check for schedule conflicts:", error); }
+        };
+        checkConflicts();
+    }, [jobDetails.scheduledStartDate, jobDetails.scheduledEndDate, installerId, project.id, projects]);
+
+    useEffect(() => { setJobDetails(prevDetails => ({ ...prevDetails, poNumber: job?.poNumber || '', depositReceived: job?.depositReceived || false, contractsReceived: job?.contractsReceived || false, finalPaymentReceived: job?.finalPaymentReceived || false, scheduledStartDate: formatDateForInput(job?.scheduledStartDate), scheduledEndDate: formatDateForInput(job?.scheduledEndDate), notes: job?.notes || '', })); if (job && Math.abs(Number(job.depositAmount) - financialSummary.totalDeposit) > 0.01) { saveJobDetails({ ...job, depositAmount: financialSummary.totalDeposit }); } setIsCompletedOverlayVisible(true); }, [job, financialSummary.totalDeposit, saveJobDetails, project.id]);
+    const isScheduledOrLater = project.status === ProjectStatus.SCHEDULED || project.status === ProjectStatus.COMPLETED;
+    const handleSave = async () => { if (project.status === ProjectStatus.ACCEPTED && !jobDetails.scheduledStartDate) { alert("Please enter a Scheduled Start Date to schedule the job."); return; } try { await saveJobDetails({ ...jobDetails, projectId: project.id, depositAmount: financialSummary.totalDeposit }); if (project.status === ProjectStatus.ACCEPTED) { await updateProject({ id: project.id, status: ProjectStatus.SCHEDULED }); } } catch (error) { console.error("Failed to save job details", error); } };
+    const handleCompleteJob = async () => { if (!jobDetails.finalPaymentReceived) return; try { await saveJobDetails({ ...jobDetails, projectId: project.id, finalPaymentReceived: true }); await updateProject({ id: project.id, status: ProjectStatus.COMPLETED }); } catch (error) { console.error("Failed to complete job", error); } };
+    const canSaveSchedule = jobDetails.depositReceived && jobDetails.contractsReceived && !!jobDetails.scheduledStartDate; const canCompleteJob = jobDetails.finalPaymentReceived;
+    
+    const JobDetailsForm = ( 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6"> 
+            <div className="space-y-6 flex flex-col"> 
+                <div><label className="block text-sm font-medium text-text-secondary mb-1">PO Number</label><input type="text" value={jobDetails.poNumber} onChange={e => setJobDetails({...jobDetails, poNumber: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded"/></div> 
+                <div><label className="block text-sm font-medium text-text-secondary mb-1">Scheduled Start Date</label><input type="date" value={jobDetails.scheduledStartDate} onChange={e => setJobDetails({...jobDetails, scheduledStartDate: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded"/></div> 
+                <div><label className="block text-sm font-medium text-text-secondary mb-1">Scheduled End Date</label><input type="date" value={jobDetails.scheduledEndDate} onChange={e => setJobDetails({...jobDetails, scheduledEndDate: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded"/></div> 
+                {scheduleConflicts.length > 0 && ( <div className="bg-yellow-900/50 border border-yellow-700 text-yellow-300 text-sm p-3 rounded-lg space-y-2"> <div className="flex items-center font-bold"> <AlertTriangle className="w-5 h-5 mr-2" /> Schedule Conflict Warning </div> <p>This installer is already scheduled for:</p> <ul className="list-disc pl-5 space-y-1"> {scheduleConflicts.map(conflict => ( <li key={conflict.projectId}> <Link to={`/projects/${conflict.projectId}`} className="font-semibold hover:underline">{conflict.projectName}</Link> <span className="text-xs ml-2">({new Date(conflict.scheduledStartDate).toLocaleDateString()} - {conflict.scheduledEndDate ? new Date(conflict.scheduledEndDate).toLocaleDateString() : '...'})</span> </li> ))} </ul> </div> )} 
+                <div className="flex-grow flex flex-col"><label className="block text-sm font-medium text-text-secondary mb-1">Notes</label><textarea value={jobDetails.notes} onChange={e => setJobDetails({...jobDetails, notes: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded flex-grow min-h-[100px]" rows={4}></textarea></div> 
+            </div> 
+            <div className="space-y-4 flex flex-col"> 
+                <div className="bg-gray-800 p-4 rounded-lg space-y-2"> 
+                    <div className="flex justify-between items-center font-bold text-lg"><span className="text-text-primary">Job Total:</span><span>${financialSummary.jobTotal.toFixed(2)}</span></div> 
+                    <div className="pl-4 space-y-1"> 
+                        <div className="flex justify-between items-center text-sm font-semibold text-gray-300"><span>Total Materials Cost:</span><span>${financialSummary.totalMaterials.toFixed(2)}</span></div> 
+                        <div className="flex justify-between items-center text-xs text-gray-400 pl-4"><span>Base Materials:</span><span>${financialSummary.baseMaterials.toFixed(2)}</span></div> 
+                        {financialSummary.changeOrdersBreakdown.materials.map((co, index) => ( <div key={`mat-co-${index}`} className="flex justify-between items-center text-xs text-gray-400 pl-4"><span>{co.description}:</span><span>${co.amount.toFixed(2)}</span></div> ))} 
+                        <div className="flex justify-between items-center text-sm font-semibold text-gray-300 pt-1"><span>Total Installer Cost:</span><span>${financialSummary.totalInstaller.toFixed(2)}</span></div> 
+                        <div className="flex justify-between items-center text-xs text-gray-400 pl-4"><span>Base Installer:</span><span>${financialSummary.baseInstaller.toFixed(2)}</span></div> 
+                        {financialSummary.changeOrdersBreakdown.installer.map((co, index) => ( <div key={`inst-co-${index}`} className="flex justify-between items-center text-xs text-gray-400 pl-4"><span>{co.description}:</span><span>${co.amount.toFixed(2)}</span></div> ))} 
+                    </div> 
+                    <div className="flex justify-between items-center font-semibold border-t-2 border-accent pt-2 mt-2"><span className="text-text-secondary">Deposit Required:</span><span className="text-text-primary">${financialSummary.totalDeposit.toFixed(2)}</span></div> 
+                    {financialSummary.depositAdditions.length > 0 && financialSummary.depositAdditions.map((da, index) => ( <div key={index} className="flex justify-between items-center text-sm text-gray-400"><span className="pl-4">{da.description}:</span><span>${da.amount.toFixed(2)}</span></div> ))} 
+                    <div className="flex justify-between items-center font-bold text-lg border-t-2 border-accent pt-2 mt-2"><span className="text-text-primary">Balance Due:</span><span className="text-accent">${financialSummary.balanceDue.toFixed(2)}</span></div> 
+                </div> 
+                <div className="pt-2 space-y-3 flex-grow"> 
+                    <label className={`flex items-center space-x-2 ${isScheduledOrLater ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}><input type="checkbox" checked={jobDetails.depositReceived} onChange={e => setJobDetails({...jobDetails, depositReceived: e.target.checked})} disabled={isScheduledOrLater} className="form-checkbox h-5 w-5 text-accent bg-gray-800 border-border rounded focus:ring-accent"/><span className="text-text-primary">Deposit Received</span></label> 
+                    <label className={`flex items-center space-x-2 ${isScheduledOrLater ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}><input type="checkbox" checked={jobDetails.contractsReceived} onChange={e => setJobDetails({...jobDetails, contractsReceived: e.target.checked})} disabled={isScheduledOrLater} className="form-checkbox h-5 w-5 text-accent bg-gray-800 border-border rounded focus:ring-accent"/><span className="text-text-primary">Contracts Received</span></label> 
+                    {isScheduledOrLater && ( <label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" checked={jobDetails.finalPaymentReceived} onChange={e => setJobDetails({...jobDetails, finalPaymentReceived: e.target.checked})} className="form-checkbox h-5 w-5 text-accent bg-gray-800 border-border rounded focus:ring-accent"/><span className="text-text-primary">Final Payment Received</span></label> )} 
+                </div> 
+            </div> 
+            <div className="md:col-span-2 text-right mt-2 space-x-4"> 
+                {project.status === ProjectStatus.ACCEPTED && ( <button onClick={handleSave} disabled={!canSaveSchedule} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Save Schedule</button> )} 
+                {project.status === ProjectStatus.SCHEDULED && ( <> <button onClick={handleSave} className="bg-primary hover:bg-secondary text-white font-bold py-2 px-6 rounded-lg"><Save className="w-4 h-4 mr-2 inline-block"/> Save Changes</button> <button onClick={handleCompleteJob} disabled={!canCompleteJob} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Mark as Complete</button> </> )} 
+                {project.status === ProjectStatus.COMPLETED && ( <button onClick={handleSave} className="bg-primary hover:bg-secondary text-white font-bold py-2 px-6 rounded-lg"><Save className="w-4 h-4 mr-2 inline-block"/> Save Changes</button> )} 
+            </div>
+        </div> 
+    );
+    const CompletedOverlay = ( <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 rounded-lg z-10"> <div className="text-center bg-surface p-8 rounded-lg shadow-2xl"> <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" /> <h3 className="text-2xl font-bold text-text-primary">Job Completed</h3> <p className="text-text-secondary mt-2 mb-6">This project has been marked as complete.</p> <button onClick={() => setIsCompletedOverlayVisible(false)} className="bg-accent hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg" > View Details </button> </div> </div> );
+    return ( <div className="bg-surface p-6 rounded-lg shadow-lg mt-8 relative"> <h2 className="text-2xl font-semibold text-text-primary mb-4 flex items-center"> <Calendar className="w-6 h-6 mr-3 text-accent"/> Job Details </h2> {JobDetailsForm} {project.status === ProjectStatus.COMPLETED && isCompletedOverlayVisible && CompletedOverlay} </div> );
+};
+
+// ================================================================================================
+// --- THE MAIN PROJECT DETAIL PAGE COMPONENT (THE ORCHESTRATOR) ---
+// ================================================================================================
+const ProjectDetail: React.FC = () => {
+    const { projectId } = useParams<{ projectId: string }>();
+    const { 
+        projects, customers, samples, sampleCheckouts, quotes, jobs, installers, changeOrders, materialOrders,
+        addSample, updateProject, addSampleCheckout, updateSampleCheckout, addQuote, updateQuote, 
+        saveJobDetails, addInstaller, addChangeOrder, updateChangeOrder, addMaterialOrder, updateMaterialOrder
+    } = useData();
+    
+    const [activeModal, setActiveModal] = useState<'sample' | 'quote' | 'order' | null>(null);
+    const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
+    const [editingQuoteForModal, setEditingQuoteForModal] = useState<Quote | null>(null);
+    const [editingOrder, setEditingOrder] = useState<MaterialOrder | null>(null);
+    const [editingChangeOrder, setEditingChangeOrder] = useState<ChangeOrder | null>(null);
+
+    const [localProject, setLocalProject] = useState<Project | null | undefined>(undefined);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    const { isLoading: isDataLoading } = useData();
+    
+    useEffect(() => {
+        const id = parseInt(projectId || '');
+        if (isNaN(id)) {
+            setIsLoading(false);
+            setLocalProject(null);
+            return;
+        }
+
+        if (!isDataLoading) {
+            const projectFromState = projects.find(p => p.id === id);
+            setLocalProject(projectFromState || null);
+            setIsLoading(false);
+        }
+    }, [projectId, projects, isDataLoading]);
+
+    const handleOpenEditChangeOrderModal = (changeOrder: ChangeOrder) => {
+        setEditingChangeOrder(changeOrder);
+    };
+    
+    if (isLoading) { return <div className="text-center">Loading project...</div>; }
+    if (!localProject) { return <div className="text-center">Project not found.</div>; }
+    
+    const customer = customers.find(c => c.id === localProject.customerId);
+    const projectCheckouts = sampleCheckouts.filter(sc => sc.projectId === localProject.id);
+    const projectQuotes = quotes.filter(q => q.projectId === localProject.id);
+    const projectOrders = materialOrders.filter(o => o.projectId === localProject.id);
+    const job = jobs.find(j => j.projectId === localProject.id);
+    const projectChangeOrders = changeOrders.filter(co => co.projectId === localProject.id);
+    const quoteAccepted = projectQuotes.some(q => q.status === QuoteStatus.ACCEPTED);
+    const isScheduledOrLater = localProject.status === ProjectStatus.SCHEDULED || localProject.status === ProjectStatus.COMPLETED;
+
+    return (
+        <div className="space-y-8">
+            <ProjectInfoHeader project={localProject} customerName={customer?.fullName || 'N/A'} updateProject={updateProject} onEdit={() => setIsEditProjectModalOpen(true)} />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                {/* Left Column */}
+                <div className="space-y-8">
+                    <CollapsibleSection
+                        title="Sample Checkouts" icon={<Layers className="w-6 h-6" />}
+                        actions={ <button onClick={() => setActiveModal('sample')} className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg">Check Out</button> }
+                    >
+                        <SampleCheckoutsSection 
+                            project={localProject} projectCheckouts={projectCheckouts} samples={samples} 
+                            addSample={addSample} addSampleCheckout={addSampleCheckout} updateSampleCheckout={updateSampleCheckout}
+                            isModalOpen={activeModal === 'sample'}
+                            onCloseModal={() => setActiveModal(null)}
+                        />
+                    </CollapsibleSection>
+                    
+                    {isScheduledOrLater && (
+                        <CollapsibleSection title="Change Orders" icon={<PlusCircle className="w-6 h-6" />}>
+                            <ChangeOrderSection 
+                                project={localProject}
+                                projectChangeOrders={projectChangeOrders} 
+                                addChangeOrder={addChangeOrder}
+                                onEditChangeOrder={handleOpenEditChangeOrderModal}
+                            />
+                        </CollapsibleSection>
+                    )}
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-8">
+                    <CollapsibleSection
+                        title="Quotes" icon={<FileText className="w-6 h-6" />}
+                        actions={ <button onClick={() => { setEditingQuoteForModal(null); setActiveModal('quote'); }} className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg">Add Quote</button> }
+                    >
+                        <QuotesSection 
+                            project={localProject} projectQuotes={projectQuotes} installers={installers} 
+                            addQuote={addQuote} updateQuote={updateQuote} updateProject={updateProject} 
+                            addInstaller={addInstaller} saveJobDetails={saveJobDetails}
+                            isModalOpen={activeModal === 'quote'}
+                            onCloseModal={() => setActiveModal(null)}
+                            onOpenEditModal={(quote) => {
+                                setEditingQuoteForModal(quote);
+                                setActiveModal('quote');
+                            }}
+                        />
+                    </CollapsibleSection>
+
+                    {isScheduledOrLater && (
+                         <CollapsibleSection
+                            title="Material Orders" icon={<PackageIcon className="w-6 h-6" />}
+                            actions={ <button onClick={() => { setEditingOrder(null); setActiveModal('order'); }} className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg">Add Order</button> }
+                        >
+                            <MaterialOrdersSection 
+                                project={localProject}
+                                orders={projectOrders}
+                                samples={samples}
+                                isModalOpen={activeModal === 'order'}
+                                onCloseModal={() => { setActiveModal(null); setEditingOrder(null); }}
+                                editingOrder={editingOrder}
+                                onEditOrder={(order) => {
+                                    setEditingOrder(order);
+                                    setActiveModal('order');
+                                }}
+                            />
+                        </CollapsibleSection>
+                    )}
+                </div>
+            </div>
+
+            {quoteAccepted && <FinalizeJobSection project={localProject} job={job} quotes={projectQuotes} changeOrders={projectChangeOrders} saveJobDetails={saveJobDetails} updateProject={updateProject} />}
+        
+            {isEditProjectModalOpen && localProject && (
+                <EditProjectModal
+                    project={localProject}
+                    onClose={() => setIsEditProjectModalOpen(false)}
+                    onSave={updateProject}
+                />
+            )}
+
+            {editingChangeOrder && (
+                <EditChangeOrderModal
+                    changeOrder={editingChangeOrder}
+                    onClose={() => setEditingChangeOrder(null)}
+                    onSave={async (data) => {
+                        await updateChangeOrder(editingChangeOrder.id, data);
+                        setEditingChangeOrder(null);
+                    }}
+                />
+            )}
+        </div>
+    );
+};
+
+export default ProjectDetail;

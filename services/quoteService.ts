@@ -1,0 +1,44 @@
+import { Quote } from "../types";
+
+const API_BASE_URL = '/api/quotes';
+
+/**
+ * Fetches all quotes from the API.
+ */
+export const getQuotes = async (): Promise<Quote[]> => {
+    const response = await fetch(API_BASE_URL);
+    if (!response.ok) {
+        throw new Error('Failed to fetch quotes.');
+    }
+    return response.json();
+};
+
+/**
+ * Adds a new quote.
+ */
+export const addQuote = async (quoteData: Omit<Quote, 'id' | 'dateSent'>): Promise<Quote> => {
+    const response = await fetch(API_BASE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quoteData)
+    });
+    if (!response.ok) {
+        throw new Error('Failed to add quote.');
+    }
+    return response.json();
+};
+
+/**
+ * Updates an existing quote.
+ */
+export const updateQuote = async (quoteData: Partial<Quote> & { id: number }): Promise<Quote> => {
+    const response = await fetch(`${API_BASE_URL}/${quoteData.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quoteData)
+    });
+    if (!response.ok) {
+        throw new Error('Failed to update quote.');
+    }
+    return response.json();
+};

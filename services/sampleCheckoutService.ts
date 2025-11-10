@@ -1,0 +1,45 @@
+import { SampleCheckout } from "../types";
+
+const API_BASE_URL = '/api/sample-checkouts';
+
+/**
+ * Fetches all sample checkouts, optionally filtered by projectId.
+ */
+export const getSampleCheckouts = async (projectId?: number): Promise<SampleCheckout[]> => {
+    const url = projectId ? `${API_BASE_URL}?projectId=${projectId}` : API_BASE_URL;
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error('Failed to fetch sample checkouts.');
+    }
+    return response.json();
+};
+
+/**
+ * Creates a new sample checkout record.
+ */
+export const addSampleCheckout = async (checkoutData: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>): Promise<SampleCheckout> => {
+    const response = await fetch(API_BASE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checkoutData)
+    });
+    if (!response.ok) {
+        throw new Error('Failed to check out sample.');
+    }
+    return response.json();
+};
+
+/**
+ * Updates a sample checkout to mark it as returned.
+ */
+export const returnSampleCheckout = async (checkout: SampleCheckout): Promise<SampleCheckout> => {
+    const response = await fetch(`${API_BASE_URL}/${checkout.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sampleId: checkout.sampleId }) // Backend expects sampleId
+    });
+    if (!response.ok) {
+        throw new Error('Failed to return sample.');
+    }
+    return response.json();
+};

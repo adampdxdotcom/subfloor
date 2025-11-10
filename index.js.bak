@@ -1,0 +1,862 @@
+import express from 'express';
+import cors from 'cors';
+import pg from 'pg';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import axios from 'axios';
+
+const { Pool } = pg;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+// --- CONFIGURATION ---
+const app = express();
+const PORT = 3001;
+
+// Ensure the uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+
+// Multer configuration for file storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, 'uploads')); 
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage: storage });
+
+
+// --- MIDDLEWARE ---
+app.use(cors({
+  origin: '*', 
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// --- DATABASE CONNECTION ---
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// --- HELPER FUNCTION ---
+const toCamelCase = (obj) => {
+  if (!obj) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(item => toCamelCase(item));
+  }
+  const newObj = {};
+  for (let key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      if (key.includes('_')) {
+        const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+        newObj[camelKey] = obj[key];
+      } else {
+        newObj[key] = obj[key];
+      }
+    }
+  }
+  return newObj;
+};
+
+// --- API ENDPOINTS ---
+app.get('/api', (req, res) => res.json({ message: 'Backend is running!' }));
+
+// --- CUSTOMERS ENDPOINTS ---
+// ... (no changes here)
+app.get('/api/customers', async (req, res) => {
+  try {
+    const query = `
+      SELECT
+          c.*,
+          COALESCE(
+              (
+                  SELECT json_agg(job_details)
+                  FROM (
+                      SELECT
+                          p.id AS "projectId",
+                          p.project_name AS "projectName",
+                          i.installer_name AS "installerName",
+                          j.scheduled_start_date AS "scheduledStartDate",
+                          j.scheduled_end_date AS "scheduledEndDate"
+                      FROM projects p
+                      JOIN jobs j ON p.id = j.project_id
+                      LEFT JOIN quotes q ON p.id = q.project_id AND q.status = 'Accepted'
+                      LEFT JOIN installers i ON q.installer_id = i.id
+                      WHERE p.customer_id = c.id AND j.scheduled_start_date IS NOT NULL
+                      ORDER BY j.scheduled_start_date DESC
+                  ) AS job_details
+              ),
+              '[]'::json
+          ) AS jobs
+      FROM customers c
+      ORDER BY c.created_at DESC;
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows.map(toCamelCase));
+  } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.post('/api/customers', async (req, res) => {
+  try {
+    const { fullName, email, phoneNumber, address } = req.body;
+    const result = await pool.query("INSERT INTO customers (full_name, email, phone_number, address) VALUES ($1, $2, $3, $4) RETURNING *", [fullName, email, phoneNumber, address]);
+    res.status(201).json(toCamelCase(result.rows[0]));
+  } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.put('/api/customers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fullName, email, phoneNumber, address } = req.body;
+    if (!fullName || !email) {
+      return res.status(400).json({ error: 'Full name and email are required.' });
+    }
+    const result = await pool.query(
+      "UPDATE customers SET full_name = $1, email = $2, phone_number = $3, address = $4 WHERE id = $5 RETURNING *",
+      [fullName, email, phoneNumber, address, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    res.json(toCamelCase(result.rows[0]));
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+// --- END CUSTOMERS ENDPOINTS ---
+
+// ... (no changes in projects endpoints)
+app.get('/api/projects', async (req, res) => {
+  try {
+    const { installerId } = req.query;
+    if (installerId) {
+        const query = `
+            SELECT
+                p.id AS project_id,
+                p.project_name,
+                c.full_name AS customer_name,
+                q.labor_amount AS installer_labor_amount,
+                j.scheduled_start_date
+            FROM
+                quotes q
+            JOIN
+                projects p ON q.project_id = p.id
+            JOIN
+                customers c ON p.customer_id = c.id
+            LEFT JOIN
+                jobs j ON p.id = j.project_id
+            WHERE
+                q.installer_id = $1 AND q.status = 'Accepted'
+            ORDER BY
+                j.scheduled_start_date DESC NULLS LAST, p.created_at DESC;
+        `;
+        const result = await pool.query(query, [installerId]);
+        res.json(result.rows.map(toCamelCase));
+    } else {
+        const result = await pool.query('SELECT * FROM projects ORDER BY created_at DESC');
+        res.json(result.rows.map(toCamelCase));
+    }
+  } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.get('/api/projects/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+    res.json(toCamelCase(result.rows[0]));
+  } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.post('/api/projects', async (req, res) => {
+  const { customerId, projectName, projectType, status, finalChoice, installerId } = req.body;
+  if (!customerId || !projectName || !projectType) {
+    return res.status(400).json({ error: 'customerId, projectName, and projectType are required.' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const projectResult = await client.query(
+      `INSERT INTO projects (customer_id, project_name, project_type, status, final_choice) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [customerId, projectName, projectType, status || 'New', finalChoice]
+    );
+    const newProject = projectResult.rows[0];
+    if (installerId) {
+      await client.query(
+        `INSERT INTO quotes (project_id, installer_id, status, materials_amount, labor_amount, labor_deposit_percentage, date_sent) 
+         VALUES ($1, $2, 'Sent', 0, 0, 50, CURRENT_TIMESTAMP)`,
+        [newProject.id, installerId]
+      );
+    }
+    await client.query('COMMIT');
+    res.status(201).json(toCamelCase(newProject));
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error("Project creation transaction failed:", err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+app.put('/api/projects/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { projectName, projectType, status, finalChoice } = req.body;
+        const result = await pool.query(
+            `UPDATE projects 
+             SET 
+                project_name = COALESCE($1, project_name),
+                project_type = COALESCE($2, project_type),
+                status = COALESCE($3, status),
+                final_choice = COALESCE($4, final_choice)
+             WHERE id = $5 
+             RETURNING *`,
+            [projectName, projectType, status, finalChoice, id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        console.error("Project update failed:", err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+// ...
+
+// --- SAMPLES ENDPOINTS ---
+// ... (GET, POST, PUT are unchanged)
+app.get('/api/samples', async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        s.*,
+        p.url AS image_url,
+        proj.id AS "checkoutProjectId",
+        proj.project_name AS "checkoutProjectName",
+        cust.full_name AS "checkoutCustomerName"
+      FROM
+        samples s
+      LEFT JOIN
+        photos p ON s.id = p.entity_id AND p.entity_type = 'sample'
+      LEFT JOIN
+        sample_checkouts sc ON s.id = sc.sample_id AND sc.actual_return_date IS NULL
+      LEFT JOIN
+        projects proj ON sc.project_id = proj.id
+      LEFT JOIN
+        customers cust ON proj.customer_id = cust.id
+      ORDER BY
+        s.style_color ASC;
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows.map(toCamelCase));
+  } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.post('/api/samples', async (req, res) => {
+  try {
+    const { manufacturer, styleColor, sku, type, productUrl } = req.body;
+    const finalSku = (sku === '' || sku === undefined || sku === null) ? null : sku;
+    const finalUrl = (productUrl === '' || productUrl === undefined || productUrl === null) ? null : productUrl;
+    const result = await pool.query(
+        `INSERT INTO samples (manufacturer, style_color, sku, type, product_url) VALUES ($1, $2, $3, $4, $5) RETURNING *`, 
+        [manufacturer, styleColor, finalSku, type, finalUrl]
+    );
+    res.status(201).json(toCamelCase(result.rows[0]));
+  } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.put('/api/samples/:id', async (req, res) => {
+    const { id } = req.params;
+    const { manufacturer, styleColor, sku, type, productUrl } = req.body;
+    if (!styleColor || !type) {
+        return res.status(400).json({ error: 'Style/Color and Type are required fields.' });
+    }
+    try {
+        const query = `
+            UPDATE samples
+            SET manufacturer = $1, style_color = $2, sku = $3, type = $4, product_url = $5
+            WHERE id = $6
+            RETURNING *;
+        `;
+        const finalManufacturer = (manufacturer === '' || manufacturer === undefined) ? null : manufacturer;
+        const finalSku = (sku === '' || sku === undefined) ? null : sku;
+        const finalUrl = (productUrl === '' || productUrl === undefined) ? null : productUrl;
+        const result = await pool.query(query, [finalManufacturer, styleColor, finalSku, type, finalUrl, id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: `Sample with ID ${id} not found.` });
+        }
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Internal server error while updating sample.' });
+    }
+});
+
+// --- MODIFIED DELETE ENDPOINT ---
+app.delete('/api/samples/:id', async (req, res) => {
+    const { id } = req.params;
+    const client = await pool.connect();
+
+    try {
+        // --- NEW CODE START ---
+        // Pre-flight check: Ensure the sample is not part of any material orders.
+        const orderCheckResult = await client.query('SELECT 1 FROM order_line_items WHERE sample_id = $1 LIMIT 1', [id]);
+        if (orderCheckResult.rows.length > 0) {
+            return res.status(409).json({ error: 'Cannot delete sample because it is part of a material order.' });
+        }
+        // --- NEW CODE END ---
+
+        await client.query('BEGIN');
+
+        // 1. Find photo URL to delete the file from disk later.
+        const photoResult = await client.query(
+            "SELECT url FROM photos WHERE entity_type = 'sample' AND entity_id = $1",
+            [id]
+        );
+        const photoUrl = photoResult.rows.length > 0 ? photoResult.rows[0].url : null;
+
+        // 2. Delete the photo record from the database.
+        await client.query("DELETE FROM photos WHERE entity_type = 'sample' AND entity_id = $1", [id]);
+        
+        // 3. Delete any checkout history for this sample.
+        await client.query("DELETE FROM sample_checkouts WHERE sample_id = $1", [id]);
+        
+        // 4. Delete the sample itself.
+        const deleteSampleResult = await client.query("DELETE FROM samples WHERE id = $1 RETURNING id", [id]);
+
+        if (deleteSampleResult.rows.length === 0) {
+            // This case should be rare if the sample exists, but good practice to handle.
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Sample not found' });
+        }
+
+        // 5. If all database operations are successful, commit the transaction.
+        await client.query('COMMIT');
+
+        // 6. After successful commit, delete the physical file.
+        if (photoUrl) {
+            const filename = path.basename(photoUrl);
+            const filePath = path.join(__dirname, 'uploads', filename);
+
+            fs.unlink(filePath, (err) => {
+                if (err) {
+                    // Log this error, but don't fail the request. The DB record is gone, which is the most important part.
+                    console.error(`Error deleting file ${filePath}:`, err.message);
+                } else {
+                    console.log(`Deleted file: ${filePath}`);
+                }
+            });
+        }
+        
+        // 7. Respond with a success status, indicating no content to return.
+        res.status(204).send();
+
+    } catch (err) {
+        // If we are in a transaction, roll it back.
+        if (client) await client.query('ROLLBACK').catch(rbErr => console.error('Rollback failed:', rbErr));
+        console.error('Sample deletion transaction failed:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// ... (Rest of the file is unchanged) ...
+app.get('/api/sample-checkouts', async (req, res) => {
+  try {
+    const { projectId } = req.query;
+    let result;
+    if (projectId) { result = await pool.query('SELECT * FROM sample_checkouts WHERE project_id = $1 ORDER BY checkout_date DESC', [projectId]); }
+    else { result = await pool.query('SELECT * FROM sample_checkouts ORDER BY checkout_date DESC'); }
+    res.json(result.rows.map(toCamelCase));
+  } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.post('/api/sample-checkouts', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { projectId, sampleId, expectedReturnDate } = req.body;
+    const result = await client.query(`INSERT INTO sample_checkouts (project_id, sample_id, expected_return_date) VALUES ($1, $2, $3) RETURNING *`, [projectId, sampleId, expectedReturnDate]);
+    await client.query('UPDATE samples SET is_available = FALSE WHERE id = $1', [sampleId]);
+    await client.query('COMMIT');
+    res.status(201).json(toCamelCase(result.rows[0]));
+  } catch (err) { await client.query('ROLLBACK'); console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+  finally { client.release(); }
+});
+app.put('/api/sample-checkouts/:id', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+    const checkoutToReturn = await client.query('SELECT sample_id FROM sample_checkouts WHERE id = $1', [id]);
+    if (checkoutToReturn.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ error: `Checkout with id ${id} not found.` }); }
+    const { sample_id: sampleId } = checkoutToReturn.rows[0];
+    const result = await client.query(`UPDATE sample_checkouts SET actual_return_date = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`, [id]);
+    await client.query('UPDATE samples SET is_available = TRUE WHERE id = $1', [sampleId]);
+    await client.query('COMMIT');
+    res.json(toCamelCase(result.rows[0]));
+  } catch (err) { await client.query('ROLLBACK'); console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+  finally { client.release(); }
+});
+
+// --- INSTALLER ENDPOINTS ---
+app.get('/api/installers', async (req, res) => {
+    try {
+        const query = `
+            SELECT
+                i.*,
+                COALESCE(
+                    (
+                        SELECT json_agg(job_details)
+                        FROM (
+                            SELECT
+                                p.id AS "projectId",
+                                p.project_name AS "projectName",
+                                c.full_name AS "customerName",
+                                j.scheduled_start_date AS "scheduledStartDate",
+                                j.scheduled_end_date AS "scheduledEndDate"
+                            FROM quotes q
+                            JOIN projects p ON q.project_id = p.id
+                            JOIN customers c ON p.customer_id = c.id
+                            JOIN jobs j ON p.id = j.project_id
+                            WHERE q.installer_id = i.id AND q.status = 'Accepted' AND j.scheduled_start_date IS NOT NULL
+                            ORDER BY j.scheduled_start_date DESC
+                        ) AS job_details
+                    ),
+                    '[]'::json
+                ) AS jobs
+            FROM installers i
+            ORDER BY i.installer_name ASC;
+        `;
+        const result = await pool.query(query);
+        res.json(result.rows.map(toCamelCase));
+    } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.get('/api/installers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM installers WHERE id = $1', [id]);
+        if (result.rows.length === 0) { return res.status(404).json({ error: 'Installer not found' }); }
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.get('/api/installers/:id/schedule', async (req, res) => {
+    const { id: installerId } = req.params;
+    const { excludeProjectId } = req.query;
+    try {
+        const query = `
+            SELECT
+                j.project_id,
+                j.scheduled_start_date,
+                j.scheduled_end_date
+            FROM jobs j
+            JOIN quotes q ON j.project_id = q.project_id
+            WHERE
+                q.installer_id = $1
+                AND q.status = 'Accepted'
+                AND j.scheduled_start_date IS NOT NULL
+                AND j.project_id != $2;
+        `;
+        const result = await pool.query(query, [installerId, excludeProjectId || 0]);
+        res.json(result.rows.map(toCamelCase));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+app.post('/api/installers', async (req, res) => {
+    try {
+        const { installerName, contactEmail, contactPhone, color } = req.body;
+        const result = await pool.query(
+            `INSERT INTO installers (installer_name, contact_email, contact_phone, color) VALUES ($1, $2, $3, $4) RETURNING *`, 
+            [installerName, contactEmail, contactPhone, color]
+        );
+        res.status(201).json(toCamelCase(result.rows[0]));
+    } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.put('/api/installers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { installerName, contactEmail, contactPhone, color } = req.body;
+        const result = await pool.query(
+            `UPDATE installers SET installer_name = $1, contact_email = $2, contact_phone = $3, color = $4 WHERE id = $5 RETURNING *`, 
+            [installerName, contactEmail, contactPhone, color, id]
+        );
+        if (result.rows.length === 0) { return res.status(404).json({ error: 'Installer not found' }); }
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+// --- END INSTALLER ENDPOINTS ---
+app.get('/api/quotes', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM quotes ORDER BY date_sent DESC');
+        res.json(result.rows.map(toCamelCase));
+    } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.get('/api/quotes/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM quotes WHERE id = $1', [id]);
+        if (result.rows.length === 0) { return res.status(404).json({ error: 'Quote not found' }); }
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+});
+app.post('/api/quotes', async (req, res) => {
+    try {
+        const { projectId, installerId, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status } = req.body;
+        const result = await pool.query(
+            `INSERT INTO quotes (project_id, installer_id, quote_details, materials_amount, labor_amount, installer_markup, labor_deposit_percentage, date_sent, status) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8) RETURNING *`, 
+            [projectId, installerId, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status]
+        );
+        res.status(201).json(toCamelCase(result.rows[0]));
+    } catch (err) { 
+        console.error(err.message); 
+        res.status(500).json({ error: 'Internal server error' }); 
+    }
+});
+app.put('/api/quotes/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { installerId, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status } = req.body;
+        
+        const fields = [];
+        const values = [];
+        let query = 'UPDATE quotes SET ';
+        if (installerId !== undefined) { fields.push(`installer_id = $${fields.length + 1}`); values.push(installerId); }
+        if (quoteDetails !== undefined) { fields.push(`quote_details = $${fields.length + 1}`); values.push(quoteDetails); }
+        if (materialsAmount !== undefined) { fields.push(`materials_amount = $${fields.length + 1}`); values.push(materialsAmount); }
+        if (laborAmount !== undefined) { fields.push(`labor_amount = $${fields.length + 1}`); values.push(laborAmount); }
+        if (installerMarkup !== undefined) { fields.push(`installer_markup = $${fields.length + 1}`); values.push(installerMarkup); }
+        if (laborDepositPercentage !== undefined) { fields.push(`labor_deposit_percentage = $${fields.length + 1}`); values.push(laborDepositPercentage); }
+        if (status !== undefined) { fields.push(`status = $${fields.length + 1}`); values.push(status); }
+        if (fields.length === 0) {
+            return res.status(400).json({ error: 'No fields to update provided.' });
+        }
+        query += fields.join(', ');
+        query += ` WHERE id = $${fields.length + 1} RETURNING *`;
+        values.push(id);
+        const result = await pool.query(query, values);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Quote not found' });
+        }
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+app.get('/api/jobs', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM jobs');
+        res.json(result.rows.map(toCamelCase));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+app.post('/api/jobs', async (req, res) => {
+    try {
+        const { 
+            projectId, poNumber, depositAmount, depositReceived, 
+            contractsReceived, finalPaymentReceived, scheduledStartDate, 
+            scheduledEndDate, notes 
+        } = req.body;
+        const existingJob = await pool.query('SELECT id FROM jobs WHERE project_id = $1', [projectId]);
+        let result;
+        if (existingJob.rows.length > 0) {
+            const jobId = existingJob.rows[0].id;
+            result = await pool.query(
+                `UPDATE jobs SET 
+                    po_number = $1, deposit_amount = $2, deposit_received = $3, 
+                    contracts_received = $4, final_payment_received = $5, scheduled_start_date = $6, 
+                    scheduled_end_date = $7, notes = $8
+                WHERE id = $9 RETURNING *`,
+                [poNumber, depositAmount, depositReceived, contractsReceived, finalPaymentReceived, scheduledStartDate, scheduledEndDate, notes, jobId]
+            );
+        } else {
+            result = await pool.query(
+                `INSERT INTO jobs (
+                    project_id, po_number, deposit_amount, deposit_received, contracts_received, 
+                    final_payment_received, scheduled_start_date, scheduled_end_date, notes
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+                [
+                    projectId, poNumber, depositAmount, depositReceived, contractsReceived, 
+                    finalPaymentReceived, scheduledStartDate, scheduledEndDate, notes
+                ]
+            );
+        }
+        res.status(existingJob.rows.length > 0 ? 200 : 201).json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+app.get('/api/change-orders', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM change_orders ORDER BY created_at ASC');
+        res.json(result.rows.map(toCamelCase));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+app.post('/api/change-orders', async (req, res) => {
+    try {
+        const { projectId, description, amount, type } = req.body;
+        if (!projectId || !description || amount === undefined || !type) {
+            return res.status(400).json({ error: 'projectId, description, amount, and type are required.' });
+        }
+        const result = await pool.query(
+            'INSERT INTO change_orders (project_id, description, amount, type) VALUES ($1, $2, $3, $4) RETURNING *',
+            [projectId, description, amount, type]
+        );
+        res.status(201).json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+app.put('/api/change-orders/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { description, amount, type } = req.body;
+        if (!description || amount === undefined || !type) {
+            return res.status(400).json({ error: 'Description, amount, and type are required.' });
+        }
+        const result = await pool.query(
+            'UPDATE change_orders SET description = $1, amount = $2, type = $3 WHERE id = $4 RETURNING *',
+            [description, amount, type, id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Change order not found' });
+        }
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+app.get('/api/orders', async (req, res) => {
+    const { projectId } = req.query;
+    let query;
+    let queryParams = [];
+    const baseQuery = `
+        SELECT
+            mo.id, mo.project_id, mo.supplier, mo.order_date, mo.eta_date, mo.status,
+            COALESCE(
+                (
+                    SELECT json_agg(json_build_object(
+                        'id', oli.id, 'quantity', oli.quantity, 'unitCost', oli.unit_cost,
+                        'sampleId', s.id, 'styleColor', s.style_color, 'manufacturer', s.manufacturer
+                    ))
+                    FROM order_line_items oli
+                    JOIN samples s ON oli.sample_id = s.id
+                    WHERE oli.order_id = mo.id
+                ),
+                '[]'::json
+            ) AS line_items
+        FROM
+            material_orders mo
+    `;
+    if (projectId) {
+        query = `${baseQuery} WHERE mo.project_id = $1 ORDER BY mo.order_date DESC;`;
+        queryParams = [projectId];
+    } else {
+        query = `${baseQuery} ORDER BY mo.order_date DESC;`;
+    }
+    try {
+        const result = await pool.query(query, queryParams);
+        res.json(result.rows.map(toCamelCase));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+app.post('/api/orders', async (req, res) => {
+    const { projectId, supplier, etaDate, lineItems } = req.body;
+    if (!projectId || !lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
+        return res.status(400).json({ error: 'projectId and a non-empty array of lineItems are required.' });
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const orderInsertQuery = `
+            INSERT INTO material_orders (project_id, supplier, eta_date, status)
+            VALUES ($1, $2, $3, 'Ordered')
+            RETURNING id;
+        `;
+        const orderResult = await client.query(orderInsertQuery, [projectId, supplier, etaDate || null]);
+        const orderId = orderResult.rows[0].id;
+        for (const item of lineItems) {
+            const { sampleId, quantity, unitCost } = item;
+            if (!sampleId || quantity === undefined) {
+                throw new Error('Each line item must have a sampleId and quantity.');
+            }
+            const lineItemInsertQuery = `
+                INSERT INTO order_line_items (order_id, sample_id, quantity, unit_cost)
+                VALUES ($1, $2, $3, $4);
+            `;
+            await client.query(lineItemInsertQuery, [orderId, sampleId, quantity, unitCost || null]);
+        }
+        await client.query('COMMIT');
+        const newOrderQuery = `
+            SELECT
+                mo.id, mo.project_id, mo.supplier, mo.order_date, mo.eta_date, mo.status,
+                COALESCE(
+                    (SELECT json_agg(json_build_object('id', oli.id, 'quantity', oli.quantity, 'unitCost', oli.unit_cost, 'sampleId', s.id, 'styleColor', s.style_color, 'manufacturer', s.manufacturer)) FROM order_line_items oli JOIN samples s ON oli.sample_id = s.id WHERE oli.order_id = mo.id),
+                    '[]'::json
+                ) AS line_items
+            FROM material_orders mo
+            WHERE mo.id = $1;
+        `;
+        const newOrderResult = await client.query(newOrderQuery, [orderId]);
+        res.status(201).json(toCamelCase(newOrderResult.rows[0]));
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Transaction failed:', err.message);
+        res.status(500).json({ error: 'Failed to create order. Transaction was rolled back.' });
+    } finally {
+        client.release();
+    }
+});
+app.put('/api/orders/:id', async (req, res) => {
+    const { id: orderId } = req.params;
+    const { supplier, etaDate, lineItems } = req.body;
+    if (!lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
+        return res.status(400).json({ error: 'An order must have at least one line item.' });
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const orderUpdateQuery = `
+            UPDATE material_orders
+            SET supplier = $1, eta_date = $2
+            WHERE id = $3;
+        `;
+        await client.query(orderUpdateQuery, [supplier, etaDate || null, orderId]);
+        await client.query('DELETE FROM order_line_items WHERE order_id = $1', [orderId]);
+        for (const item of lineItems) {
+            const { sampleId, quantity, unitCost } = item;
+            if (!sampleId || quantity === undefined) {
+                throw new Error('Each line item must have a sampleId and quantity.');
+            }
+            const lineItemInsertQuery = `
+                INSERT INTO order_line_items (order_id, sample_id, quantity, unit_cost)
+                VALUES ($1, $2, $3, $4);
+            `;
+            await client.query(lineItemInsertQuery, [orderId, sampleId, quantity, unitCost || null]);
+        }
+        await client.query('COMMIT');
+        const updatedOrderQuery = `
+            SELECT
+                mo.id, mo.project_id, mo.supplier, mo.order_date, mo.eta_date, mo.status,
+                COALESCE(
+                    (SELECT json_agg(json_build_object('id', oli.id, 'quantity', oli.quantity, 'unitCost', oli.unit_cost, 'sampleId', s.id, 'styleColor', s.style_color, 'manufacturer', s.manufacturer)) FROM order_line_items oli JOIN samples s ON oli.sample_id = s.id WHERE oli.order_id = mo.id),
+                    '[]'::json
+                ) AS line_items
+            FROM material_orders mo
+            WHERE mo.id = $1;
+        `;
+        const updatedOrderResult = await client.query(updatedOrderQuery, [orderId]);
+        res.status(200).json(toCamelCase(updatedOrderResult.rows[0]));
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Update transaction failed:', err.message);
+        res.status(500).json({ error: 'Failed to update order. Transaction was rolled back.' });
+    } finally {
+        client.release();
+    }
+});
+
+// --- PHOTO UPLOAD ENDPOINT ---
+app.post('/api/photos', upload.single('photo'), async (req, res) => {
+    const { entityType, entityId } = req.body;
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded.' });
+    }
+    if (!entityType || !entityId) {
+        return res.status(400).json({ error: 'entityType and entityId are required.' });
+    }
+    const url = `/uploads/${req.file.filename}`;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM photos WHERE entity_type = $1 AND entity_id = $2', [entityType, entityId]);
+        const result = await client.query(
+            'INSERT INTO photos (url, entity_type, entity_id) VALUES ($1, $2, $3) RETURNING *',
+            [url, entityType, entityId]
+        );
+        await client.query('COMMIT');
+        res.status(201).json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err.message);
+        res.status(500).json({ error: 'Database error during photo upload.' });
+    } finally {
+        client.release();
+    }
+});
+// --- NEW ENDPOINT: Import photo from URL ---
+app.post('/api/photos/from-url', async (req, res) => {
+    const { imageUrl, entityType, entityId } = req.body;
+    if (!imageUrl || !entityType || !entityId) {
+        return res.status(400).json({ error: 'imageUrl, entityType, and entityId are required.' });
+    }
+    try {
+        const response = await axios({
+            url: imageUrl,
+            method: 'GET',
+            responseType: 'stream'
+        });
+        const extension = path.extname(new URL(imageUrl).pathname) || '.jpg';
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const filename = `photo-${uniqueSuffix}${extension}`;
+        const localPath = path.join(__dirname, 'uploads', filename);
+        const localUrl = `/uploads/${filename}`;
+        const writer = fs.createWriteStream(localPath);
+        response.data.pipe(writer);
+        await new Promise((resolve, reject) => {
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+        });
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query('DELETE FROM photos WHERE entity_type = $1 AND entity_id = $2', [entityType, entityId]);
+            const result = await client.query(
+                'INSERT INTO photos (url, entity_type, entity_id) VALUES ($1, $2, $3) RETURNING *',
+                [localUrl, entityType, entityId]
+            );
+            await client.query('COMMIT');
+            res.status(201).json(toCamelCase(result.rows[0]));
+        } catch (dbErr) {
+            await client.query('ROLLBACK');
+            throw dbErr;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Failed to import photo from URL:', err.message);
+        res.status(500).json({ error: 'Failed to download or save the image.' });
+    }
+});
+
+// --- START THE SERVER ---
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Backend server is running on http://localhost:${PORT}`);
+});
