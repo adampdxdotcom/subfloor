@@ -8,6 +8,7 @@
 | | |____photos.js
 | | |____projects.js
 | | |____customers.js
+| | |____vendors.js
 | | |____calendar.js
 | | |____search.js
 | | |____restore.js
@@ -21,6 +22,20 @@
 | | |____quotes.js
 | |____index.js
 | |____uploads
+| | |____photo-1762749727265-184370968.jpeg
+| | |____photo-1762785251830-612632601.jpeg
+| | |____photo-1762705750104-121879699.jpeg
+| | |____photo-1762725541780-203593309.jpeg
+| | |____photo-1762706494949-518537399.jpeg
+| | |____photo-1762697778265-104491356.jpg
+| | |____photo-1762652802557-41371136.jpg
+| | |____photo-1762651296946-276169435.jpg
+| | |____photo-1762728357598-394921334.jpeg
+| | |____photo-1762706711588-50890738.jpeg
+| | |____photo-1762792000231-374293082.jpeg
+| | |____photo-1762749775606-205983593.jpeg
+| | |____photo-1762728546803-914892401.jpeg
+| | |____photo-1762728309643-556402683.jpeg
 | |____db.js
 | |____utils.js
 | |____tree.txt
@@ -34,6 +49,7 @@
 | |____jobService.ts
 | |____customerService.ts
 | |____projectService.ts
+| |____vendorService.ts
 | |____sampleCheckoutService.ts
 | |____changeOrderService.ts
 | |____materialOrderService.ts
@@ -67,6 +83,7 @@
 | |____EditChangeOrderModal.tsx
 | |____EditProjectModal.tsx
 | |____QuickCheckoutModal.tsx
+| |____AddEditVendorModal.tsx
 | |____EditCustomerModal.tsx
 | |____QuotesSection.tsx
 | |____ProjectSelector.tsx
@@ -87,6 +104,7 @@
 | |____Settings.tsx
 | |____SampleLibrary.tsx
 | |____CustomerList.tsx
+| |____VendorList.tsx
 | |____InstallerList.tsx
 | |____Dashboard.tsx
 | |____ProjectDetail.tsx
@@ -255,3 +273,48 @@ We successfully completed all the primary goals of this session. The remaining i
     Automatic Pre-Restore Snapshot: The current restore process is destructive. We discussed but did not implement a safety feature where clicking "Restore" would first automatically trigger a new backup of the current state before proceeding with the overwrite.
 
     Automated, Scheduled Backups: Our initial brainstorming mentioned automated, off-site backups (e.g., using a cron job to run the backup and upload it to a cloud service). We intentionally pivoted to a UI-driven local backup system, so the automated/cloud functionality remains unimplemented.
+
+    Session 5
+
+    ### Session Summary: Vendor Management System & Core Feature Refactor
+
+This was a major architectural session focused on building a complete, full-stack "Vendor Management" system from the ground up and integrating it deeply into our core application workflows. We also fixed several critical bugs and regressions along the way.
+
+**1. Full-Stack Vendor Management System (New Major Feature)**
+
+We designed and built a comprehensive system to manage Manufacturers and Suppliers as a unified "Vendor" entity.
+
+*   **Database:**
+    *   Created a new `vendors` table with a rich set of fields (`name`, `is_manufacturer`, `is_supplier`, contact info, rep info, shipping details, and `notes`).
+    *   **Architectural Shift:** Refactored the `samples` and `material_orders` tables, replacing the old free-text fields (`manufacturer`, `supplier`) with robust foreign key relationships (`manufacturer_id`, `supplier_id`) pointing to the new `vendors` table. This enforces data integrity across the entire application.
+
+*   **Backend API (`/api/vendors`):**
+    *   Built a complete set of RESTful CRUD endpoints (`GET`, `POST`, `PUT`, `DELETE`) in `server/routes/vendors.js` to manage vendors.
+    *   Included backend validation, such as preventing the deletion of a vendor that is currently in use.
+
+*   **Frontend UI:**
+    *   Created a new page: **"Vendor Directory"** (`src/pages/VendorList.tsx`), providing a central place to view, add, edit, and delete all vendors.
+    *   Built a reusable, multi-column **"Add/Edit Vendor" modal** (`src/components/AddEditVendorModal.tsx`) with a complete form for all vendor details.
+    *   Added the "Vendor Directory" link to the main sidebar navigation for easy access.
+
+**2. Deep Integration & Workflow Automation (Major Refactor)**
+
+We replaced all simple text inputs for manufacturers and suppliers with a powerful, consistent, searchable "on-the-fly" component system.
+
+*   **"On-the-Fly" Creation:**
+    *   Refactored the "Add Sample" modals (`AddSampleInlineModal`, `SampleLibrary`) and the "Edit Sample" modal (`SampleDetailModal`) to use a searchable input for selecting Manufacturers and Suppliers.
+    *   This new component allows users to search the vendor list and, if a vendor doesn't exist, open the "Add New Vendor" modal as a pop-up to create one without leaving their current workflow.
+    *   The "Create/Edit Material Order" modal (`MaterialOrdersSection.tsx`) received the same upgrade for its Supplier field.
+
+*   **Intelligent Autofill & ETA Calculation:**
+    *   **Supplier Autofill:** Implemented logic in the Material Order modal that automatically selects a sample's manufacturer as the supplier if they are flagged as `isSupplier`, saving user clicks.
+    *   **Intelligent ETA:** When a user selects a supplier with a "Dedicated Weekly Delivery Day," the ETA date for the material order is now automatically calculated and set to the next upcoming delivery date.
+
+**3. Critical Bug Smashing & Regression Fixes**
+
+The process of building this feature revealed and allowed us to fix several critical bugs.
+
+*   **Fixed Broken API Routes:** Diagnosed and fixed a server configuration issue where the new `/api/vendors` API endpoint was not being correctly registered, causing "Failed to fetch" errors across the app. This was resolved by forcing a Docker server rebuild (`docker-compose up --build`).
+*   **Fixed Database Schema Mismatch:** Solved a `column "notes" does not exist` error by correctly identifying an out-of-sync database volume and providing the command (`docker-compose down -v`) to reset it and apply the new schema.
+*   **Fixed Modal Stacking Order (z-index):** Corrected a visual bug where the "Add New Vendor" modal was appearing *behind* the modal that opened it.
+*   **Fixed "On-the-Fly" State Management Bug (Major Regression Fix):** Diagnosed and fixed a critical regression bug where selecting a manufacturer from the new searchable dropdown in the "Add/Edit Sample" modals was failing to save the selection, preventing the form from being submitted. This restored the core functionality that had been broken during the refactor.

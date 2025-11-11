@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom'; 
-// --- MODIFICATION: Import the Settings icon ---
-import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon } from 'lucide-react';
+// --- MODIFICATION: Import the Building and Settings icon ---
+import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon, Building } from 'lucide-react';
 import UniversalSearch from './UniversalSearch';
 
 const Layout: React.FC = () => {
@@ -28,13 +28,17 @@ const Layout: React.FC = () => {
                     <Layers className="w-6 h-6" />
                     <span>Sample Library</span>
                 </NavLink>
+                {/* --- NEW --- */}
+                <NavLink to="/vendors" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
+                    <Building className="w-6 h-6" />
+                    <span>Vendor Directory</span>
+                </NavLink>
                 <NavLink to="/calendar" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
                     <Calendar className="w-6 h-6" />
                     <span>Calendar</span>
                 </NavLink>
             </nav>
 
-            {/* --- MODIFICATION: Add the Settings link at the bottom --- */}
             <div className="mt-auto">
                  <NavLink to="/settings" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
                     <SettingsIcon className="w-6 h-6" />

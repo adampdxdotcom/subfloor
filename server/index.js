@@ -19,6 +19,7 @@ import photoRoutes from './routes/photos.js';
 import orderRoutes from './routes/orders.js';
 import searchRoutes from './routes/search.js';
 import calendarRoutes from './routes/calendar.js';
+import vendorRoutes from './routes/vendors.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,6 +67,7 @@ app.use('/api/photos', photoRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/vendors', vendorRoutes);
 
 // --- START THE SERVER ---
 app.listen(PORT, '0.0.0.0', () => {

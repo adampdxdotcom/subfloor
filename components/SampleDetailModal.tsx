@@ -13,12 +13,18 @@ interface SampleDetailModalProps {
 
 const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, sample }) => {
   const { 
-    sampleCheckouts, projects, fetchSamples, updateSample, 
+    vendors, sampleCheckouts, projects, fetchSamples, updateSample, 
     updateSampleCheckout, deleteSample, extendSampleCheckout 
   } = useData();
   
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ manufacturer: '', styleColor: '', sku: '', type: '', productUrl: '' });
+  // Form state now uses IDs
+  const [formData, setFormData] = useState({ 
+    manufacturerId: null as number | null, 
+    supplierId: null as number | null, 
+    styleColor: '', sku: '', type: '', productUrl: '' 
+  });
+  const [hasDifferentSupplier, setHasDifferentSupplier] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [importUrl, setImportUrl] = useState('');
@@ -27,6 +33,9 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrCodePrintRef = useRef<HTMLDivElement>(null);
+
+  const manufacturerList = useMemo(() => vendors.filter(v => v.isManufacturer), [vendors]);
+  const supplierList = useMemo(() => vendors.filter(v => v.isSupplier), [vendors]);
 
   const { sampleHistory, currentCheckout } = useMemo(() => {
     if (!sample) return { sampleHistory: [], currentCheckout: null };
@@ -47,12 +56,14 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
   useEffect(() => {
     if (isOpen && sample) {
       setFormData({
-        manufacturer: sample.manufacturer || '',
+        manufacturerId: sample.manufacturerId || null,
+        supplierId: sample.supplierId || null,
         styleColor: sample.styleColor || '',
         sku: sample.sku || '',
         type: sample.type || '',
         productUrl: sample.productUrl || '',
       });
+      setHasDifferentSupplier(!!sample.supplierId);
       setPreviewUrl(sample.imageUrl ? sample.imageUrl : null);
       setSelectedFile(null);
       setImportUrl('');
@@ -60,9 +71,14 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
     }
   }, [sample, isOpen]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleIdChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value ? Number(value) : null }));
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,17 +98,14 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
       const response = await fetch('/api/photos/from-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageUrl: importUrl,
-          entityType: 'sample',
-          entityId: sample.id,
-        }),
+        body: JSON.stringify({ imageUrl: importUrl, entityType: 'sample', entityId: sample.id }),
       });
       if (!response.ok) throw new Error('Failed to import from URL');
       const newPhoto = await response.json();
       setPreviewUrl(newPhoto.url);
       toast.success('Image imported successfully!');
       setSelectedFile(null);
+      await fetchSamples(); // Refetch to update the sample object with the new URL
     } catch (error) {
       console.error(error);
       toast.error('Could not import image from URL.');
@@ -104,10 +117,18 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!sample) return;
+    if (!formData.manufacturerId) return toast.error('Please select a manufacturer.');
+    if (hasDifferentSupplier && !formData.supplierId) return toast.error('Please select a supplier.');
 
     setIsSaving(true);
     try {
-      await updateSample(sample.id, formData);
+      const dataToSave = {
+        ...formData,
+        supplierId: hasDifferentSupplier ? formData.supplierId : null,
+      };
+
+      await updateSample(sample.id, dataToSave);
+
       if (selectedFile) {
         const uploadData = new FormData();
         uploadData.append('photo', selectedFile);
@@ -127,6 +148,8 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
       setIsSaving(false);
     }
   };
+
+  // ... (handleReturnSample, handleExtendCheckout, etc. remain unchanged) ...
 
   const handleReturnSample = async () => {
     if (!sample || !currentCheckout) {
@@ -167,11 +190,7 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
         onClose();
     } catch (error: any) {
         console.error(error);
-        if (error.response && error.response.data && error.response.data.error) {
-            toast.error(error.response.data.error);
-        } else {
-            toast.error('Failed to delete sample.');
-        }
+        toast.error(error.message || 'Failed to delete sample.');
     } finally {
         setIsDeleting(false);
     }
@@ -227,14 +246,38 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
               {isEditing ? (
                 <>
                   <div><label className="text-sm text-text-secondary">Style / Color</label><input type="text" name="styleColor" value={formData.styleColor} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" required /></div>
-                  <div><label className="text-sm text-text-secondary">Manufacturer</label><input type="text" name="manufacturer" value={formData.manufacturer} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" /></div>
+                  
+                  <div>
+                    <label className="text-sm text-text-secondary">Manufacturer</label>
+                    <select name="manufacturerId" value={formData.manufacturerId ?? ''} onChange={handleIdChange} className="w-full p-2 bg-gray-800 border border-border rounded" required>
+                      <option value="">-- Select a Manufacturer --</option>
+                      {manufacturerList.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="edit-sample-diff-supplier" checked={hasDifferentSupplier} onChange={(e) => setHasDifferentSupplier(e.target.checked)} className="h-4 w-4 rounded text-primary focus:ring-primary-dark bg-gray-700 border-gray-600" />
+                    <label htmlFor="edit-sample-diff-supplier" className="text-sm text-text-secondary">Different Supplier</label>
+                  </div>
+
+                  {hasDifferentSupplier && (
+                    <div>
+                      <label className="text-sm text-text-secondary">Supplier</label>
+                      <select name="supplierId" value={formData.supplierId ?? ''} onChange={handleIdChange} className="w-full p-2 bg-gray-800 border border-border rounded" required>
+                        <option value="">-- Select a Supplier --</option>
+                        {supplierList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  
                   <div><label className="text-sm text-text-secondary">SKU</label><input type="text" name="sku" value={formData.sku} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" /></div>
                   <div><label className="text-sm text-text-secondary">Type</label><select name="type" value={formData.type} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" required><option value="LVP">LVP</option><option value="Carpet">Carpet</option><option value="Tile">Tile</option><option value="Hardwood">Hardwood</option><option value="Catalog">Catalog</option><option value="Other">Other</option></select></div>
                   <div><label className="text-sm text-text-secondary">Product URL</label><input type="url" name="productUrl" value={formData.productUrl} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" /></div>
                 </>
               ) : (
                 <div className="space-y-2 text-text-secondary">
-                    <p><strong>Manufacturer:</strong> {sample.manufacturer || 'N/A'}</p>
+                    <p><strong>Manufacturer:</strong> {sample.manufacturerName || 'N/A'}</p>
+                    {sample.supplierName && <p><strong>Supplier:</strong> {sample.supplierName}</p>}
                     <p><strong>SKU:</strong> {sample.sku || 'N/A'}</p>
                     <p><strong>Type:</strong> {sample.type}</p>
                     <p className="flex items-center gap-2"><strong>Product Link:</strong> {sample.productUrl ? <a href={sample.productUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline flex items-center">Visit Site <LinkIcon size={14} className="ml-1"/></a> : 'N/A'}</p>
@@ -244,7 +287,8 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                 </div>
               )}
             </div>
-            {!isEditing && (
+            {/* ... (QR Code and History sections remain unchanged) ... */}
+             {!isEditing && (
               <div className="lg:col-span-4 space-y-4">
                 <div className="bg-gray-800 p-4 rounded-lg text-center">
                   <h4 className="font-semibold text-text-primary mb-2 flex items-center justify-center gap-2"><QrCode /> Sample QR Code</h4>

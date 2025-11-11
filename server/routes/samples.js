@@ -9,7 +9,6 @@ import qrcode from 'qrcode';
 
 const router = express.Router();
 
-// This is a more robust way to get the parent directory (/server) from a file within /server/routes
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.resolve(path.dirname(__filename), '..');
 
@@ -18,15 +17,27 @@ router.get('/', async (req, res) => {
   try {
     const query = `
       SELECT
-        s.*,
+        s.id,
+        s.manufacturer_id,
+        s.supplier_id,
+        s.style_color,
+        s.sku,
+        s.type,
+        s.is_available,
+        s.product_url,
+        m.name AS manufacturer_name, -- Get manufacturer name from vendors table
+        sup.name AS supplier_name, -- Get supplier name from vendors table
         p.url AS image_url,
         proj.id AS "checkoutProjectId",
         proj.project_name AS "checkoutProjectName",
         cust.full_name AS "checkoutCustomerName",
-        -- --- THIS IS THE NEW LINE ---
         sc.id AS "checkoutId"
       FROM
         samples s
+      LEFT JOIN
+        vendors m ON s.manufacturer_id = m.id
+      LEFT JOIN
+        vendors sup ON s.supplier_id = sup.id
       LEFT JOIN
         photos p ON s.id = p.entity_id AND p.entity_type = 'sample'
       LEFT JOIN
@@ -46,12 +57,14 @@ router.get('/', async (req, res) => {
 // POST /api/samples
 router.post('/', async (req, res) => {
   try {
-    const { manufacturer, styleColor, sku, type, productUrl } = req.body;
+    const { manufacturerId, supplierId, styleColor, sku, type, productUrl } = req.body;
     const finalSku = (sku === '' || sku === undefined || sku === null) ? null : sku;
     const finalUrl = (productUrl === '' || productUrl === undefined || productUrl === null) ? null : productUrl;
+    
     const result = await pool.query(
-        `INSERT INTO samples (manufacturer, style_color, sku, type, product_url) VALUES ($1, $2, $3, $4, $5) RETURNING *`, 
-        [manufacturer, styleColor, finalSku, type, finalUrl]
+        `INSERT INTO samples (manufacturer_id, supplier_id, style_color, sku, type, product_url) 
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, 
+        [manufacturerId || null, supplierId || null, styleColor, finalSku, type, finalUrl]
     );
     res.status(201).json(toCamelCase(result.rows[0]));
   } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
@@ -60,7 +73,7 @@ router.post('/', async (req, res) => {
 // PUT /api/samples/:id
 router.put('/:id', async (req, res) => {
     const { id } = req.params;
-    const { manufacturer, styleColor, sku, type, productUrl } = req.body;
+    const { manufacturerId, supplierId, styleColor, sku, type, productUrl } = req.body;
 
     if (!styleColor || !type) {
         return res.status(400).json({ error: 'Style/Color and Type are required fields.' });
@@ -69,21 +82,30 @@ router.put('/:id', async (req, res) => {
     try {
         const query = `
             UPDATE samples
-            SET manufacturer = $1, style_color = $2, sku = $3, type = $4, product_url = $5
-            WHERE id = $6
+            SET manufacturer_id = $1, supplier_id = $2, style_color = $3, sku = $4, type = $5, product_url = $6
+            WHERE id = $7
             RETURNING *;
         `;
-        const finalManufacturer = (manufacturer === '' || manufacturer === undefined) ? null : manufacturer;
         const finalSku = (sku === '' || sku === undefined) ? null : sku;
         const finalUrl = (productUrl === '' || productUrl === undefined) ? null : productUrl;
 
-        const result = await pool.query(query, [finalManufacturer, styleColor, finalSku, type, finalUrl, id]);
+        const result = await pool.query(query, [manufacturerId || null, supplierId || null, styleColor, finalSku, type, finalUrl, id]);
         
         if (result.rows.length === 0) {
             return res.status(404).json({ error: `Sample with ID ${id} not found.` });
         }
         
-        res.json(toCamelCase(result.rows[0]));
+        // Fetch the updated sample with vendor names to return to the client
+        const updatedSampleQuery = `
+            SELECT s.*, m.name AS manufacturer_name, sup.name as supplier_name
+            FROM samples s
+            LEFT JOIN vendors m ON s.manufacturer_id = m.id
+            LEFT JOIN vendors sup ON s.supplier_id = sup.id
+            WHERE s.id = $1;
+        `;
+        const fullResult = await pool.query(updatedSampleQuery, [id]);
+
+        res.json(toCamelCase(fullResult.rows[0]));
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: 'Internal server error while updating sample.' });

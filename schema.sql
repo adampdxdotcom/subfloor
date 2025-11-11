@@ -10,10 +10,31 @@ CREATE TABLE customers (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ### MODIFIED TABLE ###
+-- Table for Vendors (Manufacturers and Suppliers)
+CREATE TABLE vendors (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    is_manufacturer BOOLEAN DEFAULT FALSE,
+    is_supplier BOOLEAN DEFAULT FALSE,
+    address TEXT,
+    phone VARCHAR(50),
+    ordering_email VARCHAR(255),
+    claims_email VARCHAR(255),
+    rep_name VARCHAR(255),
+    rep_phone VARCHAR(50),
+    rep_email VARCHAR(255),
+    shipping_method TEXT,
+    dedicated_shipping_day INT, -- 0=Sunday, 6=Saturday
+    notes TEXT -- New field for notes
+);
+
+-- ### MODIFIED TABLE ###
 -- Table for the master list of Samples
 CREATE TABLE samples (
     id SERIAL PRIMARY KEY,
-    manufacturer VARCHAR(255),
+    manufacturer_id INT REFERENCES vendors(id), -- Replaced 'manufacturer' text field
+    supplier_id INT REFERENCES vendors(id),     -- New field for separate supplier
     style_color VARCHAR(255) NOT NULL,
     sku VARCHAR(100),
     type VARCHAR(100) NOT NULL,
@@ -52,12 +73,11 @@ CREATE TABLE sample_checkouts (
 );
 
 -- Table for Quotes, linking to a Project and an Installer
--- ### THIS TABLE HAS BEEN MODIFIED ###
 CREATE TABLE quotes (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
     installer_id INT REFERENCES installers(id),
-    installation_type VARCHAR(50) NOT NULL DEFAULT 'Managed Installation', -- e.g., 'Managed Installation', 'Materials Only Sale', 'Unmanaged Installer'
+    installation_type VARCHAR(50) NOT NULL DEFAULT 'Managed Installation',
     quote_details TEXT,
     materials_amount NUMERIC(10, 2),
     labor_amount NUMERIC(10, 2),
@@ -83,35 +103,35 @@ CREATE TABLE jobs (
 );
 
 -- Table for Change Orders, linked to a Project
--- UPDATED to include a type for dynamic deposit calculation
 CREATE TABLE change_orders (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
     description TEXT NOT NULL,
     amount NUMERIC(10, 2) NOT NULL,
-    type VARCHAR(100) NOT NULL, -- New field: e.g., 'Materials' or 'Labor'
+    type VARCHAR(100) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-
+-- ### MODIFIED TABLE ###
 -- The main record for each material order, linked to a project.
 CREATE TABLE material_orders (
     id SERIAL PRIMARY KEY,
     project_id INTEGER NOT NULL REFERENCES projects(id),
-    supplier VARCHAR(255),
+    supplier_id INT REFERENCES vendors(id), -- Replaced 'supplier' text field
     order_date DATE NOT NULL DEFAULT CURRENT_DATE,
     eta_date DATE,
-    status VARCHAR(50) NOT NULL DEFAULT 'Ordered', -- e.g., 'Ordered', 'Shipped', 'Delivered'
+    status VARCHAR(50) NOT NULL DEFAULT 'Ordered',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- The individual products (line items) on a specific material order.
 CREATE TABLE order_line_items (
     id SERIAL PRIMARY KEY,
-    order_id INTEGER NOT NULL REFERENCES material_orders(id) ON DELETE CASCADE, -- If an order is deleted, its items are too.
-    sample_id INTEGER NOT NULL REFERENCES samples(id), -- The "product" being ordered
+    order_id INTEGER NOT NULL REFERENCES material_orders(id) ON DELETE CASCADE,
+    sample_id INTEGER NOT NULL REFERENCES samples(id),
     quantity NUMERIC(10, 2) NOT NULL,
-    unit_cost NUMERIC(10, 2)
+    unit TEXT,
+    total_cost NUMERIC(10, 2)
 );
 
 -- Table for storing photos, linked polymorphically to other tables

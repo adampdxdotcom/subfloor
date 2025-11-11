@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
-import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder } from '../types';
+import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor } from '../types';
 import { toast } from 'react-hot-toast';
 // --- All services are now imported ---
 import * as customerService from '../services/customerService';
@@ -11,11 +11,12 @@ import * as jobService from '../services/jobService';
 import * as sampleCheckoutService from '../services/sampleCheckoutService';
 import * as changeOrderService from '../services/changeOrderService';
 import * as materialOrderService from '../services/materialOrderService';
+import * as vendorService from '../services/vendorService'; // --- NEW ---
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const emptyInitialData: AppData = {
-  customers: [], projects: [], samples: [], sampleCheckouts: [], installers: [], quotes: [], jobs: [], changeOrders: [], materialOrders: []
+  customers: [], projects: [], samples: [], sampleCheckouts: [], installers: [], quotes: [], jobs: [], changeOrders: [], materialOrders: [], vendors: [] // --- NEW ---
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -33,8 +34,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       jobService.getJobs(),
       changeOrderService.getChangeOrders(),
       materialOrderService.getMaterialOrders(),
+      vendorService.getVendors(), // --- NEW ---
     ])
-    .then(([customersData, projectsData, samplesData, sampleCheckoutsData, installersData, quotesData, jobsData, changeOrdersData, materialOrdersData]) => {
+    .then(([customersData, projectsData, samplesData, sampleCheckoutsData, installersData, quotesData, jobsData, changeOrdersData, materialOrdersData, vendorsData]) => {
       setData({
         customers: Array.isArray(customersData) ? customersData : [],
         projects: Array.isArray(projectsData) ? projectsData : [],
@@ -45,6 +47,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         jobs: Array.isArray(jobsData) ? jobsData : [],
         changeOrders: Array.isArray(changeOrdersData) ? changeOrdersData : [],
         materialOrders: Array.isArray(materialOrdersData) ? materialOrdersData : [],
+        vendors: Array.isArray(vendorsData) ? vendorsData : [], // --- NEW ---
       });
       setIsLoading(false);
     })
@@ -59,6 +62,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
+
+  // --- Functions for Vendors (NEW) ---
+
+  const addVendor = async (vendor: Omit<Vendor, 'id'>): Promise<void> => {
+      const newVendor = await vendorService.addVendor(vendor);
+      setData(prevData => ({ ...prevData, vendors: [...prevData.vendors, newVendor] }));
+  };
+
+  const updateVendor = async (vendor: Vendor): Promise<void> => {
+      const updatedVendor = await vendorService.updateVendor(vendor.id, vendor);
+      setData(prevData => ({
+          ...prevData,
+          vendors: prevData.vendors.map(v => v.id === updatedVendor.id ? updatedVendor : v),
+      }));
+  };
+
+  const deleteVendor = async (vendorId: number): Promise<void> => {
+      await vendorService.deleteVendor(vendorId);
+      setData(prevData => ({
+          ...prevData,
+          vendors: prevData.vendors.filter(v => v.id !== vendorId),
+      }));
+  };
+
+  // --- Existing functions below ---
 
   const fetchSamples = async () => {
     try {
@@ -108,12 +136,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const addSample = async (sample: Omit<Sample, 'id' | 'isAvailable' | 'imageUrl'>): Promise<Sample> => {
+  const addSample = async (sample: any): Promise<Sample> => {
     try {
       const newDbSample = await sampleService.addSample(sample);
-      setData(prevData => ({ ...prevData, samples: [...prevData.samples, newDbSample] }));
+      // After adding, we need the full sample object with vendor names, so we refetch.
+      await fetchSamples();
       toast.success('Sample added to library!');
-      return newDbSample;
+      // This is a bit inefficient but ensures data consistency.
+      // We return the found sample from the newly fetched list.
+      const foundSample = data.samples.find(s => s.styleColor === newDbSample.styleColor) || newDbSample;
+      return foundSample;
     } catch (error) { 
       console.error("Error adding sample:", error); 
       toast.error((error as Error).message); 
@@ -121,13 +153,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
   
-  const updateSample = async (sampleId: number, sampleData: Partial<Omit<Sample, 'id' | 'isAvailable' | 'imageUrl'>>): Promise<void> => {
+  const updateSample = async (sampleId: number, sampleData: any): Promise<void> => {
     try {
       const updatedDbSample = await sampleService.updateSample(sampleId, sampleData);
       setData(prevData => ({
         ...prevData,
         samples: prevData.samples.map(s => 
-          s.id === updatedDbSample.id ? { ...s, ...updatedDbSample } : s
+          s.id === updatedDbSample.id ? updatedDbSample : s
         )
       }));
       toast.success('Sample details updated!');
@@ -380,9 +412,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addMaterialOrder = async (orderData: any): Promise<void> => {
     try {
         const newOrder = await materialOrderService.addMaterialOrder(orderData);
+        // Refetch all orders to get the full object with supplier name
+        const materialOrdersData = await materialOrderService.getMaterialOrders();
         setData(prevData => ({
             ...prevData,
-            materialOrders: [...prevData.materialOrders, newOrder],
+            materialOrders: materialOrdersData,
         }));
         toast.success('Material order created!');
     } catch (error) {
@@ -402,6 +436,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.success('Material order updated!');
     } catch (error) {
       console.error("Error updating material order:", error);
+      toast.error((error as Error).message);
+      throw error;
+    }
+  };
+
+  const deleteMaterialOrder = async (orderId: number): Promise<void> => {
+    try {
+      await materialOrderService.deleteMaterialOrder(orderId);
+      setData(prevData => ({
+        ...prevData,
+        materialOrders: prevData.materialOrders.filter(order => order.id !== orderId),
+      }));
+      toast.success('Material order deleted!');
+    } catch (error) {
+      console.error("Error deleting material order:", error);
       toast.error((error as Error).message);
       throw error;
     }
@@ -435,6 +484,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateChangeOrder,
     addMaterialOrder,
     updateMaterialOrder,
+    deleteMaterialOrder,
+    addVendor,
+    updateVendor,
+    deleteVendor,
     updateJob
   };
 

@@ -8,11 +8,11 @@ import CustomerDetail from './pages/CustomerDetail';
 import ProjectDetail from './pages/ProjectDetail';
 import CalendarView from './pages/CalendarView';
 import SampleLibrary from './pages/SampleLibrary';
-// --- THIS IS THE CORRECTED LINE ---
 import InstallerList from './pages/InstallerList';
 import InstallerDetail from './pages/InstallerDetail';
 import QuoteDetail from './pages/QuoteDetail';
 import Settings from './pages/Settings';
+import VendorList from './pages/VendorList'; // --- NEW ---
 import { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -34,6 +34,7 @@ function App() {
             <Route path="customers/:customerId" element={<CustomerDetail />} />
             <Route path="projects/:projectId" element={<ProjectDetail />} />
             <Route path="samples" element={<SampleLibrary />} />
+            <Route path="vendors" element={<VendorList />} />
             <Route path="installers" element={<InstallerList />} />
             <Route path="installers/:installerId" element={<InstallerDetail />} />
             <Route path="quotes/:quoteId" element={<QuoteDetail />} />

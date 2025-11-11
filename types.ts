@@ -17,6 +17,17 @@ export const INSTALLATION_TYPES = [
 
 export type InstallationType = typeof INSTALLATION_TYPES[number];
 
+export const UNITS = [
+  'SF',
+  'SY',
+  'LF',
+  'Carton',
+  'Sheet',
+  'Roll'
+] as const;
+
+export type Unit = typeof UNITS[number];
+
 export enum ProjectStatus {
   NEW = "New",
   SAMPLE_CHECKOUT = "Sample Checkout",
@@ -33,6 +44,23 @@ export enum QuoteStatus {
   SENT = "Sent",
   ACCEPTED = "Accepted",
   REJECTED = "Rejected",
+}
+
+export interface Vendor {
+  id: number;
+  name: string;
+  isManufacturer: boolean;
+  isSupplier: boolean;
+  address?: string | null;
+  phone?: string | null;
+  orderingEmail?: string | null;
+  claimsEmail?: string | null;
+  repName?: string | null;
+  repPhone?: string | null;
+  repEmail?: string | null;
+  shippingMethod?: string | null;
+  dedicatedShippingDay?: number | null; // 0=Sun, 6=Sat
+  notes?: string | null;
 }
 
 export interface Customer {
@@ -53,7 +81,10 @@ export interface Customer {
 
 export interface Sample {
   id: number;
-  manufacturer: string | null;
+  manufacturerId: number | null;
+  supplierId: number | null;
+  manufacturerName?: string | null; // Joined from vendors table
+  supplierName?: string | null; // Joined from vendors table
   styleColor: string;
   sku: string | null;
   type: string;
@@ -63,7 +94,6 @@ export interface Sample {
   checkoutProjectId?: number | null;
   checkoutProjectName?: string | null;
   checkoutCustomerName?: string | null;
-  // --- THIS IS THE NEW PROPERTY ---
   checkoutId?: number | null;
 }
 
@@ -141,22 +171,23 @@ export interface ChangeOrder {
 export interface OrderLineItem {
   id: number;
   quantity: number;
-  unitCost: number | null;
+  unit: Unit | null;
+  totalCost: number | null;
   sampleId: number;
   styleColor: string;
-  manufacturer: string | null;
+  manufacturerName: string | null;
 }
 
 export interface MaterialOrder {
   id: number;
   projectId: number;
-  supplier: string | null;
+  supplierId: number | null;
+  supplierName?: string | null; // Joined from vendors table
   orderDate: string;
   etaDate: string | null;
   status: string;
   lineItems: OrderLineItem[];
 }
-
 
 export interface AppData {
   customers: Customer[];
@@ -168,6 +199,7 @@ export interface AppData {
   jobs: Job[];
   changeOrders: ChangeOrder[];
   materialOrders: MaterialOrder[];
+  vendors: Vendor[];
 }
 
 export interface DataContextType extends AppData {
@@ -176,8 +208,8 @@ export interface DataContextType extends AppData {
   addInstaller: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>;
   updateInstaller: (installer: Installer) => Promise<void>;
   deleteInstaller: (installerId: number) => Promise<void>;
-  addSample: (sample: Omit<Sample, 'id' | 'isAvailable' | 'imageUrl'>) => Promise<Sample>;
-  updateSample: (sampleId: number, sampleData: Partial<Omit<Sample, 'id' | 'isAvailable' | 'imageUrl'>>) => Promise<void>;
+  addSample: (sampleData: any) => Promise<Sample>; // <-- THIS LINE IS THE FIX
+  updateSample: (sampleId: number, sampleData: any) => Promise<void>; // Also updated for consistency
   deleteSample: (sampleId: number) => Promise<void>;
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>) => void;
   updateCustomer: (customer: Customer) => Promise<void>;
@@ -187,7 +219,6 @@ export interface DataContextType extends AppData {
   deleteProject: (projectId: number) => Promise<void>;
   addSampleCheckout: (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>) => Promise<void>;
   updateSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
-  // --- We've already added this in a previous step, so it should be present. ---
   extendSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
   addQuote: (quote: Omit<Quote, 'id'|'dateSent'>) => Promise<void>;
   updateQuote: (quote: Partial<Quote> & {id: number}) => Promise<void>;
@@ -197,4 +228,8 @@ export interface DataContextType extends AppData {
   updateChangeOrder: (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt'>>) => Promise<void>;
   addMaterialOrder: (orderData: any) => Promise<void>;
   updateMaterialOrder: (orderId: number, orderData: any) => Promise<void>;
+  deleteMaterialOrder: (orderId: number) => Promise<void>;
+  addVendor: (vendor: Omit<Vendor, 'id'>) => Promise<void>;
+  updateVendor: (vendor: Vendor) => Promise<void>;
+  deleteVendor: (vendorId: number) => Promise<void>;
 }
