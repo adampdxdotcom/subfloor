@@ -1,8 +1,10 @@
+// pages/ProjectDetail.tsx
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Project, ProjectStatus, Quote, QuoteStatus, ChangeOrder, MaterialOrder } from '../types';
-import { Layers, FileText, PlusCircle, Package as PackageIcon, Trash2 } from 'lucide-react';
+import { Layers, FileText, PlusCircle, Package as PackageIcon, Trash2, History } from 'lucide-react';
 import CollapsibleSection from '../components/CollapsibleSection';
 import EditProjectModal from '../components/EditProjectModal';
 import EditChangeOrderModal from '../components/EditChangeOrderModal';
@@ -12,21 +14,25 @@ import QuotesSection from '../components/QuotesSection';
 import FinalizeJobSection from '../components/FinalizeJobSection';
 import ChangeOrderSection from '../components/ChangeOrderSection';
 import MaterialOrdersSection from '../components/MaterialOrdersSection';
+import ActivityHistory from '../components/ActivityHistory';
 import { toast } from 'react-hot-toast';
 
 const ProjectDetail: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
     const navigate = useNavigate(); 
     
+    // vvvvvvvvvvvv MODIFIED: Destructured currentUser for RBAC check vvvvvvvvvvvv
     const { 
+        currentUser,
         projects, customers, samples, sampleCheckouts, quotes, jobs, installers, changeOrders, materialOrders,
         addSample, updateProject, deleteProject, addSampleCheckout, updateSampleCheckout, addQuote, updateQuote, 
         saveJobDetails, addInstaller, addChangeOrder, updateChangeOrder, addMaterialOrder, updateMaterialOrder,
-        // --- MODIFICATION: Destructure the new function from useData ---
-        extendSampleCheckout 
+        extendSampleCheckout,
+        projectHistory,
+        fetchProjectHistory
     } = useData();
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     
-    // ... (rest of the state and hooks are unchanged)
     const [activeModal, setActiveModal] = useState<'sample' | 'quote' | 'order' | null>(null);
     const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
     const [editingQuoteForModal, setEditingQuoteForModal] = useState<Quote | null>(null);
@@ -51,8 +57,9 @@ const ProjectDetail: React.FC = () => {
             const projectFromState = projects.find(p => p.id === id);
             setLocalProject(projectFromState || null);
             setIsLoading(false);
+            fetchProjectHistory(id);
         }
-    }, [projectId, projects, isDataLoading]);
+    }, [projectId, projects, isDataLoading, fetchProjectHistory]);
 
     const handleOpenEditChangeOrderModal = (changeOrder: ChangeOrder) => {
         setEditingChangeOrder(changeOrder);
@@ -102,7 +109,6 @@ const ProjectDetail: React.FC = () => {
                         <SampleCheckoutsSection 
                             project={localProject} projectCheckouts={projectCheckouts} samples={samples} 
                             addSample={addSample} addSampleCheckout={addSampleCheckout} updateSampleCheckout={updateSampleCheckout}
-                            // --- MODIFICATION: Pass the new function down as a prop ---
                             extendSampleCheckout={extendSampleCheckout}
                             isModalOpen={activeModal === 'sample'}
                             onCloseModal={() => setActiveModal(null)}
@@ -121,7 +127,6 @@ const ProjectDetail: React.FC = () => {
                     )}
                 </div>
                 
-                {/* ... (rest of the JSX is unchanged) ... */}
                 <div className="space-y-8">
                     <CollapsibleSection
                         title="Quotes" icon={<FileText className="w-6 h-6" />}
@@ -165,18 +170,32 @@ const ProjectDetail: React.FC = () => {
 
             {isQuoteAccepted && <FinalizeJobSection project={localProject} job={job} quotes={projectQuotes} changeOrders={projectChangeOrders} saveJobDetails={saveJobDetails} updateProject={updateProject} />}
         
-            <div className="mt-12 p-6 border-t-4 border-red-500 bg-surface rounded-lg shadow-md">
-                <h3 className="text-xl font-bold text-red-400 mb-4">Danger Zone</h3>
-                <p className="text-text-secondary mb-4">Deleting this project will permanently remove all associated data, including quotes, material orders, change orders, and job details. This action cannot be undone.</p>
-                <button
-                    onClick={handleDeleteProject}
-                    disabled={isDeleting}
-                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed"
+            <div className="mt-8">
+                <CollapsibleSection
+                  title="Change History"
+                  icon={<History className="w-6 h-6" />}
+                  defaultOpen={false}
                 >
-                    <Trash2 size={18} />
-                    {isDeleting ? 'Deleting Project...' : 'Delete This Project'}
-                </button>
+                  <ActivityHistory history={projectHistory} />
+                </CollapsibleSection>
             </div>
+
+            {/* vvvvvvvvvvvv MODIFIED: "Danger Zone" is now admin-only vvvvvvvvvvvv */}
+            {currentUser?.roles?.includes('Admin') && (
+                <div className="mt-12 p-6 border-t-4 border-red-500 bg-surface rounded-lg shadow-md">
+                    <h3 className="text-xl font-bold text-red-400 mb-4">Danger Zone</h3>
+                    <p className="text-text-secondary mb-4">Deleting this project will permanently remove all associated data, including quotes, material orders, change orders, and job details. This action cannot be undone.</p>
+                    <button
+                        onClick={handleDeleteProject}
+                        disabled={isDeleting}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed"
+                    >
+                        <Trash2 size={18} />
+                        {isDeleting ? 'Deleting Project...' : 'Delete This Project'}
+                    </button>
+                </div>
+            )}
+            {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
 
             {isEditProjectModalOpen && localProject && (
                 <EditProjectModal

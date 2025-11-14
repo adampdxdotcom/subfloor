@@ -1,4 +1,4 @@
-import { Sample } from "../types";
+import { Sample, ActivityLogEntry } from "../types";
 
 const API_BASE_URL = '/api/samples';
 
@@ -55,4 +55,17 @@ export const deleteSample = async (sampleId: number): Promise<void> => {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete sample.');
     }
+};
+
+/**
+ * Fetches the activity history for a specific sample.
+ * @param sampleId The ID of the sample.
+ * @returns A promise that resolves to an array of activity log entries.
+ */
+export const getSampleHistory = async (sampleId: number): Promise<ActivityLogEntry[]> => {
+    const response = await fetch(`${API_BASE_URL}/${sampleId}/history`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch sample history.');
+    }
+    return response.json();
 };

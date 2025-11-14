@@ -1,13 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Project, ProjectStatus, ProjectType, PROJECT_TYPES, Installer } from '../types';
-import { User, Mail, Phone, MapPin, PlusCircle, Edit, Briefcase, ChevronRight } from 'lucide-react';
+import { User, Mail, Phone, MapPin, PlusCircle, Edit, Briefcase, ChevronRight, History } from 'lucide-react';
 import EditCustomerModal from '../components/EditCustomerModal';
+import CollapsibleSection from '../components/CollapsibleSection'; // <-- NEW IMPORT
+import ActivityHistory from '../components/ActivityHistory';     // <-- NEW IMPORT
 
 const CustomerDetail: React.FC = () => {
   const { customerId } = useParams<{ customerId: string }>();
-  const { customers, projects, addProject, installers, addInstaller } = useData();
+  // vvvvvvvvvvvv ADD NEW ITEMS FROM CONTEXT vvvvvvvvvvvv
+  const { customers, projects, addProject, installers, addInstaller, customerHistory, fetchCustomerHistory } = useData();
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   const navigate = useNavigate();
   
   // State for the "Add Project" modal
@@ -30,6 +34,16 @@ const CustomerDetail: React.FC = () => {
 
   const customer = customers.find(c => c.id === parseInt(customerId || ''));
   const customerProjects = projects.filter(p => p.customerId === customer?.id);
+  
+  // =================================================================
+  //  NEW EFFECT TO FETCH HISTORY
+  // =================================================================
+  useEffect(() => {
+    if (customerId) {
+      fetchCustomerHistory(parseInt(customerId));
+    }
+  }, [customerId, fetchCustomerHistory]);
+  // =================================================================
 
   if (!customer) {
     return <div className="text-center text-text-secondary">Customer not found.</div>;
@@ -92,6 +106,7 @@ const CustomerDetail: React.FC = () => {
 
   return (
     <div>
+      {/* Customer Header Section */}
       <div className="bg-surface p-6 rounded-lg shadow-md mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start">
           <div className="flex items-center mb-4 md:mb-0">
@@ -119,27 +134,44 @@ const CustomerDetail: React.FC = () => {
         </div>
       </div>
       
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-text-primary flex items-center"><Briefcase className="w-6 h-6 mr-3"/> Projects</h2>
-        <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg transition-colors">
-          <PlusCircle className="w-5 h-5 mr-2" />
-          New Project
-        </button>
+      {/* Projects Section */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-text-primary flex items-center"><Briefcase className="w-6 h-6 mr-3"/> Projects</h2>
+          <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            <PlusCircle className="w-5 h-5 mr-2" />
+            New Project
+          </button>
+        </div>
+        <div className="space-y-4">
+          {customerProjects.length > 0 ? customerProjects.map(project => (
+            <Link to={`/projects/${project.id}`} key={project.id} className="flex justify-between items-center bg-surface p-4 rounded-lg shadow-sm hover:shadow-lg hover:bg-gray-700 transition-all">
+              <div>
+                <h3 className="font-semibold text-lg text-text-primary">{project.projectName}</h3>
+                <p className="text-sm text-text-secondary">{project.status}</p>
+              </div>
+              <ChevronRight className="w-6 h-6 text-text-secondary"/>
+            </Link>
+          )) : (
+            <p className="text-center text-text-secondary py-4">No projects for this customer yet.</p>
+          )}
+        </div>
       </div>
+      
+      {/* =========================================================== */}
+      {/*  NEW HISTORY SECTION                                        */}
+      {/* =========================================================== */}
+      <div className="mb-8">
+        <CollapsibleSection
+          title="Change History"
+          icon={<History className="w-6 h-6" />}
+          defaultOpen={false}
+        >
+          <ActivityHistory history={customerHistory} />
+        </CollapsibleSection>
+      </div>
+      {/* =========================================================== */}
 
-      <div className="space-y-4">
-        {customerProjects.length > 0 ? customerProjects.map(project => (
-          <Link to={`/projects/${project.id}`} key={project.id} className="flex justify-between items-center bg-surface p-4 rounded-lg shadow-sm hover:shadow-lg hover:bg-gray-700 transition-all">
-            <div>
-              <h3 className="font-semibold text-lg text-text-primary">{project.projectName}</h3>
-              <p className="text-sm text-text-secondary">{project.status}</p>
-            </div>
-            <ChevronRight className="w-6 h-6 text-text-secondary"/>
-          </Link>
-        )) : (
-          <p className="text-center text-text-secondary py-4">No projects for this customer yet.</p>
-        )}
-      </div>
 
       {isProjectModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">

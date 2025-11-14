@@ -1,10 +1,13 @@
+// components/SampleDetailModal.tsx
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { Sample, Vendor } from '../types';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
-import { Edit, X, Calendar, ChevronsRight, Undo2, Link as LinkIcon, Download, Trash2, QrCode, Printer, Clock } from 'lucide-react';
+import { Edit, X, Calendar, ChevronsRight, Undo2, Link as LinkIcon, Download, Trash2, QrCode, Printer, Clock, History } from 'lucide-react';
 import AddEditVendorModal from './AddEditVendorModal';
+import ActivityHistory from './ActivityHistory';
 
 interface SampleDetailModalProps {
   isOpen: boolean;
@@ -13,10 +16,14 @@ interface SampleDetailModalProps {
 }
 
 const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, sample }) => {
+  // vvvvvvvvvvvv MODIFIED: Destructured currentUser for RBAC check vvvvvvvvvvvv
   const { 
+    currentUser,
     vendors, sampleCheckouts, projects, fetchSamples, updateSample, addVendor,
-    updateSampleCheckout, deleteSample, extendSampleCheckout 
+    updateSampleCheckout, deleteSample, extendSampleCheckout,
+    sampleHistory, fetchSampleHistory
   } = useData();
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ 
@@ -25,7 +32,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
     styleColor: '', sku: '', type: '', productUrl: '' 
   });
   
-  // --- Start of Refactor: New State and Logic ---
   const [manufacturerSearch, setManufacturerSearch] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
@@ -73,7 +79,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
     setVendorModalPurpose(purpose);
     setIsVendorModalOpen(true);
   };
-  // --- End of Refactor ---
 
   const [hasDifferentSupplier, setHasDifferentSupplier] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -84,9 +89,10 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrCodePrintRef = useRef<HTMLDivElement>(null);
+  const [historyView, setHistoryView] = useState<'checkouts' | 'changes'>('checkouts');
 
-  const { sampleHistory, currentCheckout } = useMemo(() => {
-    if (!sample) return { sampleHistory: [], currentCheckout: null };
+  const { checkoutHistory, currentCheckout } = useMemo(() => {
+    if (!sample) return { checkoutHistory: [], currentCheckout: null };
     
     const history = sampleCheckouts
       .filter(sc => sc.sampleId === sample.id)
@@ -98,7 +104,7 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
       
     const activeCheckout = history.find(h => !h.actualReturnDate) || null;
 
-    return { sampleHistory: history, currentCheckout: activeCheckout };
+    return { checkoutHistory: history, currentCheckout: activeCheckout };
   }, [sample, sampleCheckouts, projects]);
 
   useEffect(() => {
@@ -111,17 +117,17 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
         type: sample.type || '',
         productUrl: sample.productUrl || '',
       });
-      // --- Refactor: Populate search text states ---
       setManufacturerSearch(sample.manufacturerName || '');
       setSupplierSearch(sample.supplierName || '');
-      // ---
       setHasDifferentSupplier(!!sample.supplierId);
       setPreviewUrl(sample.imageUrl ? sample.imageUrl : null);
       setSelectedFile(null);
       setImportUrl('');
       setIsEditing(false);
+      setHistoryView('checkouts');
+      fetchSampleHistory(sample.id);
     }
-  }, [sample, isOpen]);
+  }, [sample, isOpen, fetchSampleHistory]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -292,8 +298,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                 {isEditing ? (
                   <>
                     <div><label className="text-sm text-text-secondary">Style / Color</label><input type="text" name="styleColor" value={formData.styleColor} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" required /></div>
-                    
-                    {/* --- Refactor: Replaced select with search input --- */}
                     <div className="relative">
                       <label className="text-sm text-text-secondary">Manufacturer</label>
                       <input type="text" value={manufacturerSearch} onChange={e => { setManufacturerSearch(e.target.value); setFormData(p => ({ ...p, manufacturerId: null })); }} className="w-full p-2 bg-gray-800 border border-border rounded" required />
@@ -304,14 +308,10 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                         </div>
                       )}
                     </div>
-                    {/* --- End Refactor --- */}
-
                     <div className="flex items-center gap-2">
                       <input type="checkbox" id="edit-sample-diff-supplier" checked={hasDifferentSupplier} onChange={(e) => setHasDifferentSupplier(e.target.checked)} className="h-4 w-4 rounded text-primary focus:ring-primary-dark bg-gray-700 border-gray-600" />
                       <label htmlFor="edit-sample-diff-supplier" className="text-sm text-text-secondary">Different Supplier</label>
                     </div>
-
-                    {/* --- Refactor: Replaced select with search input --- */}
                     {hasDifferentSupplier && (
                       <div className="relative">
                         <label className="text-sm text-text-secondary">Supplier</label>
@@ -324,8 +324,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                         )}
                       </div>
                     )}
-                    {/* --- End Refactor --- */}
-                    
                     <div><label className="text-sm text-text-secondary">SKU</label><input type="text" name="sku" value={formData.sku} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" /></div>
                     <div><label className="text-sm text-text-secondary">Type</label><select name="type" value={formData.type} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" required><option value="LVP">LVP</option><option value="Carpet">Carpet</option><option value="Tile">Tile</option><option value="Hardwood">Hardwood</option><option value="Catalog">Catalog</option><option value="Other">Other</option></select></div>
                     <div><label className="text-sm text-text-secondary">Product URL</label><input type="url" name="productUrl" value={formData.productUrl} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" /></div>
@@ -362,31 +360,61 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
             </div>
             {!isEditing && (
                <div className="mt-8 border-t border-border pt-6">
-                  <h3 className="text-xl font-semibold mb-4 flex items-center"><Calendar className="w-6 h-6 mr-2 text-accent"/> Checkout History</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center">
+                      <h3 className="text-xl font-semibold flex items-center">
+                        {historyView === 'checkouts' 
+                          ? <><Calendar className="w-6 h-6 mr-2 text-accent"/> Checkout History</>
+                          : <><History className="w-6 h-6 mr-2 text-accent"/> Change History</>
+                        }
+                      </h3>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => setHistoryView(prev => prev === 'checkouts' ? 'changes' : 'checkouts')}
+                      className="text-sm text-accent hover:underline"
+                    >
+                      {historyView === 'checkouts' ? 'Show Change History' : 'Show Checkout History'}
+                    </button>
+                  </div>
                   <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                  {sampleHistory.length > 0 ? sampleHistory.map(h => (
-                      <li key={h.id} className="bg-gray-800 p-3 rounded-md flex justify-between items-center list-none">
-                      <div>
-                          <p className="font-semibold text-text-primary">Checked out to <Link to={`/projects/${h.projectId}`} className="text-accent hover:underline">{h.projectName}</Link></p>
-                          <p className="text-xs text-text-secondary">
-                            {new Date(h.checkoutDate).toLocaleDateString()} <ChevronsRight className="inline w-4 h-4 mx-1" /> {h.actualReturnDate ? new Date(h.actualReturnDate).toLocaleDateString() : 'Present'}
-                          </p>
-                      </div>
-                      <span className={`px-2 py-1 text-xs rounded-full font-bold ${h.actualReturnDate ? 'bg-gray-600 text-gray-300' : 'bg-yellow-500 text-gray-900'}`}>
-                          {h.actualReturnDate ? 'Returned' : 'Active'}
-                      </span>
-                      </li>
-                  )) : <p className="text-text-secondary">No checkout history for this sample.</p>}
+                    {historyView === 'checkouts' ? (
+                      checkoutHistory.length > 0 ? checkoutHistory.map(h => (
+                          <li key={h.id} className="bg-gray-800 p-3 rounded-md flex justify-between items-center list-none">
+                            <div>
+                                <p className="font-semibold text-text-primary">Checked out to <Link to={`/projects/${h.projectId}`} className="text-accent hover:underline">{h.projectName}</Link></p>
+                                <p className="text-xs text-text-secondary">
+                                  {new Date(h.checkoutDate).toLocaleDateString()} <ChevronsRight className="inline w-4 h-4 mx-1" /> {h.actualReturnDate ? new Date(h.actualReturnDate).toLocaleDateString() : 'Present'}
+                                </p>
+                            </div>
+                            <span className={`px-2 py-1 text-xs rounded-full font-bold ${h.actualReturnDate ? 'bg-gray-600 text-gray-300' : 'bg-yellow-500 text-gray-900'}`}>
+                                {h.actualReturnDate ? 'Returned' : 'Active'}
+                            </span>
+                          </li>
+                      )) : <p className="text-text-secondary text-center py-4">No checkout history for this sample.</p>
+                    ) : (
+                      <ActivityHistory history={sampleHistory} />
+                    )}
                   </div>
               </div>
             )}
             <div className="flex justify-end gap-4 mt-8 border-t border-border pt-6">
               {isEditing ? (
                 <>
-                  <button type="button" onClick={handleDeleteSample} className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed" disabled={isDeleting} style={{ marginRight: 'auto' }}>
-                    <Trash2 size={16} />
-                    {isDeleting ? 'Deleting...' : 'Delete Sample'}
-                  </button>
+                  {/* vvvvvvvvvvvv MODIFIED: Conditional rendering for Delete button vvvvvvvvvvvv */}
+                  {currentUser?.roles?.includes('Admin') && (
+                    <button 
+                      type="button" 
+                      onClick={handleDeleteSample} 
+                      className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed" 
+                      disabled={isDeleting} 
+                      style={{ marginRight: 'auto' }}
+                    >
+                      <Trash2 size={16} />
+                      {isDeleting ? 'Deleting...' : 'Delete Sample'}
+                    </button>
+                  )}
+                  {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
                   <button type="button" onClick={() => setIsEditing(false)} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">Cancel</button>
                   <button type="submit" className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white" disabled={isSaving || isDeleting}>{isSaving ? 'Saving...' : 'Save Changes'}</button>
                 </>

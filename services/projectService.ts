@@ -1,4 +1,4 @@
-import { Project } from "../types";
+import { Project, ActivityLogEntry } from "../types";
 
 const API_BASE_URL = '/api/projects';
 
@@ -56,4 +56,17 @@ export const deleteProject = async (projectId: number): Promise<void> => {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete project.');
     }
+};
+
+/**
+ * Fetches the activity history for a specific project.
+ * @param projectId The ID of the project.
+ * @returns A promise that resolves to an array of activity log entries.
+ */
+export const getProjectHistory = async (projectId: number): Promise<ActivityLogEntry[]> => {
+    const response = await fetch(`${API_BASE_URL}/${projectId}/history`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch project history.');
+    }
+    return response.json();
 };

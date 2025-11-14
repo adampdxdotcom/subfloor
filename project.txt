@@ -5,102 +5,141 @@
 
 --- PROJECT FILE STRUCTURE ---
 
-.
-|-- .dockerignore
-|-- .env
-|-- .gitignore
-|-- App.tsx
-|-- Dockerfile
-|-- Dockerfile.server
-|-- README.md
-|-- index.css
-|-- index.html
-|-- index.tsx
-|-- package-lock.json
-|-- package.json
-|-- postcss.config.js
-|-- schema.sql
-|-- tailwind.config.js
-|-- tsconfig.json
-|-- types.ts
-|-- vite.config.ts
-|
-|-- components/
-|   |-- AddEditVendorModal.tsx
-|   |-- AddSampleInlineModal.tsx
-|   |-- ChangeOrderSection.tsx
-|   |-- CollapsibleSection.tsx
-|   |-- CustomerSelector.tsx
-|   |-- EditChangeOrderModal.tsx
-|   |-- EditCustomerModal.tsx
-|   |-- EditInstallerModal.tsx
-|   |-- EditProjectModal.tsx
-|   |-- FinalizeJobSection.tsx
-|   |-- Layout.tsx
-|   |-- MaterialOrdersSection.tsx
-|   |-- PrintableCheckout.tsx
-|   |-- ProjectInfoHeader.tsx
-|   |-- ProjectSelector.tsx
-|   |-- QrScanner.tsx
-|   |-- QuickCheckoutModal.tsx
-|   |-- QuotesSection.tsx
-|   |-- RestoreForm.tsx
-|   |-- SampleCheckoutsSection.tsx
-|   |-- SampleDetailModal.tsx
-|   |-- SampleSelector.tsx
-|   |-- UniversalSearch.tsx
-|   |-- UserStatus.tsx
-|
-|-- context/
-|   |-- DataContext.tsx
-|
-|-- pages/
-|   |-- CalendarView.tsx
-|   |-- CustomerDetail.tsx
-|   |-- CustomerList.tsx
-|   |-- Dashboard.tsx
-|   |-- InstallerDetail.tsx
-|   |-- InstallerList.tsx
-|   |-- ProjectDetail.tsx
-|   |-- QuoteDetail.tsx
-|   |-- SampleLibrary.tsx
-|   |-- Settings.tsx
-|   |-- VendorList.tsx
-|
-|-- server/
-|   |-- db.js
-|   |-- index.js
-|   |-- package.json
-|   |-- utils.js
-|   |-- routes/
-|   |   |-- backup.js
-|   |   |-- calendar.js
-|   |   |-- change-orders.js
-|   |   |-- customers.js
-|   |   |-- installers.js
-|   |   |-- jobs.js
-|   |   |-- (...and 10 more routes)
-|   |-- temp-uploads/
-|   |-- uploads/
-|       |-- photo-1762749727265-184370968.jpeg
-|       |-- photo-1762785251830-612632601.jpeg
-|       |-- (...and more images)
-|
-|-- services/
-|   |-- changeOrderService.ts
-|   |-- customerService.ts
-|   |-- installerService.ts
-|   |-- jobService.ts
-|   |-- materialOrderService.ts
-|   |-- projectService.ts
-|   |-- quoteService.ts
-|   |-- sampleCheckoutService.ts
-|   |-- sampleService.ts
-|   |-- userService.ts
-|   |-- vendorService.ts
-|
-|-- utils/
-    |-- cryptoUtils.ts
+|____index.css
+|____context
+| |____DataContext.tsx
+|____server
+| |____temp-uploads
+| |____routes
+| | |____photos.js
+| | |____projects.js
+| | |____users.js
+| | |____customers.js
+| | |____vendors.js
+| | |____calendar.js
+| | |____search.js
+| | |____restore.js
+| | |____samples.js
+| | |____installers.js
+| | |____orders.js
+| | |____roles.js
+| | |____backup.js
+| | |____jobs.js
+| | |____sampleCheckouts.js
+| | |____change-orders.js
+| | |____quotes.js
+| |____index.js
+| |____uploads
+| | |____photo-1762749727265-184370968.jpeg
+| | |____photo-1762785251830-612632601.jpeg
+| | |____photo-1763005987615-27309603.jpeg
+| | |____photo-1763008886313-793282931.jpg
+| | |____photo-1762705750104-121879699.jpeg
+| | |____photo-1763007528431-780258442.jpg
+| | |____photo-1762725541780-203593309.jpeg
+| | |____photo-1763002318975-620954526.jpeg
+| | |____photo-1762706494949-518537399.jpeg
+| | |____photo-1763051858324-386769672.jpg
+| | |____photo-1763003725627-488830063.jpeg
+| | |____photo-1762697778265-104491356.jpg
+| | |____photo-1763128935437-607666584.jpeg
+| | |____photo-1762652802557-41371136.jpg
+| | |____photo-1762651296946-276169435.jpg
+| | |____photo-1762728357598-394921334.jpeg
+| | |____photo-1762706711588-50890738.jpeg
+| | |____photo-1762792000231-374293082.jpeg
+| | |____photo-1762749775606-205983593.jpeg
+| | |____photo-1762728546803-914892401.jpeg
+| | |____photo-1763002301543-332271722.jpeg
+| | |____photo-1762728309643-556402683.jpeg
+| | |____photo-1763002097382-4328641.jpeg
+| |____db.js
+| |____package.json
+| |____utils.js
+| |____node_modules
+| |____tree.txt
+| |____make-admin.js
+|____backup.bak
+|____package-lock.json
+|____vite.config.ts
+|____userauditplan.txt
+|____tsconfig.json
+|____App.tsx
+|____postcss.config.js
+|____services
+| |____quoteService.ts
+| |____userService.ts
+| |____jobService.ts
+| |____customerService.ts
+| |____projectService.ts
+| |____vendorService.ts
+| |____sampleCheckoutService.ts
+| |____changeOrderService.ts
+| |____materialOrderService.ts
+| |____installerService.ts
+| |____sampleService.ts
+|____docker-compose.yml
+|____Dockerfile
+|____index.js.bak
+|____.env
+|____temp-uploads
+|____.dockerignore
+|____.gitignore
+|____tailwind.config.js
+|____project_1old.txt
+|____components
+| |____SampleCheckoutsSection.tsx
+| |____AddSampleInlineModal.tsx
+| |____FinalizeJobSection.tsx
+| |____SampleSelector.tsx
+| |____ProjectInfoHeader.tsx
+| |____ActivityHistory.tsx
+| |____Layout.tsx
+| |____RestoreForm.tsx
+| |____EditInstallerModal.tsx
+| |____ChangeOrderSection.tsx
+| |____PrintableCheckout.tsx
+| |____QrScanner.tsx
+| |____UniversalSearch.tsx
+| |____CollapsibleSection.tsx
+| |____SampleDetailModal.tsx
+| |____MaterialOrdersSection.tsx
+| |____UserStatus.tsx
+| |____EditChangeOrderModal.tsx
+| |____EditProjectModal.tsx
+| |____QuickCheckoutModal.tsx
+| |____AddEditVendorModal.tsx
+| |____EditCustomerModal.tsx
+| |____QuotesSection.tsx
+| |____ProjectSelector.tsx
+| |____CustomerSelector.tsx
+|____metadata.json
+|____utils
+| |____cryptoUtils.ts
+| |____changeFormatter.ts
+|____package.json
+|____schema.sql
+|____types.ts
+|____Dockerfile.server
+|____index.html
+|____tree.txt
+|____README.md
+|____index.tsx
+|____pages
+| |____CustomerDetail.tsx
+| |____InstallerDetail.tsx
+| |____CalendarView.tsx
+| |____Settings.tsx
+| |____SampleLibrary.tsx
+| |____CustomerList.tsx
+| |____VendorList.tsx
+| |____InstallerList.tsx
+| |____Dashboard.tsx
+| |____ProjectDetail.tsx
+| |____QuoteDetail.tsx
+|____data
+| |____mockData.ts
+|____project.txt
 
 
 --- PROJECT OVERVIEW ---
@@ -238,3 +277,58 @@ This foundational session focused on identifying and permanently fixing deep-sea
 4. UNIFYING UI/UX FOR "ON-THE-FLY" SAMPLE CREATION
     * The Problem: The "Add Sample Inline" modal (in the Quick Checkout flow) was using an outdated UI without the on-the-fly manufacturer search/create functionality.
     * The Fix: We refactored `AddSampleInlineModal.tsx`, replacing its old form with the modern, consistent search component, unifying the user experience.
+
+
+Sessino 8
+
+This was a transformative session that took the application from a single-user tool to a secure, multi-user, admin-ready platform. We completed the entire auditing system, fixed several critical bugs, and built the foundational Role-Based Access Control (RBAC) system from the ground up, including a full UI for user and role management.
+Phase 1: Foundational Auditing (Completed Pre-Session)
+
+Before this session began, the foundational work for the auditing system had been successfully laid out. A repeatable pattern was established and applied to five core areas of the application: Customers, Projects, Quotes, Installers, and Samples, with preliminary backend work done for Vendors. This involved creating the activity_log table and implementing the necessary backend routes, service functions, and DataContext logic for each.
+Phase 2: Auditing Completion, RBAC Implementation & Full-Stack Hardening (This Session)
+
+Our work focused on completing the initial vision and then immediately building the next layer of core infrastructure.
+
+1. AUDITING SYSTEM COMPLETION (NEW MAJOR FEATURE)
+
+    Full-Stack Implementation for Material Orders: We applied the established auditing pattern to the last remaining entity, Material Orders. This was a complex task involving multi-table database transactions on the backend (server/routes/orders.js) and corresponding frontend plumbing (materialOrderService.ts, DataContext.tsx, MaterialOrdersSection.tsx).
+
+    Enhanced Audit Detail UI (MAJOR UX IMPROVEMENT): The generic <ActivityHistory /> component was significantly upgraded. It now intelligently compares the before and after data for any 'UPDATE' action and displays a human-readable, bulleted list of exactly what changed (e.g., "'Phone Number' changed from '555-1111' to '555-2222'"). This functionality was enabled by a new changeFormatter.ts utility.
+
+2. FULL-STACK ROLE-BASED ACCESS CONTROL (RBAC) SYSTEM (NEW MAJOR FEATURE)
+
+    Database Foundation: We created the app_roles and app_user_roles tables in schema.sql to establish a flexible, many-to-many relationship between users and roles.
+
+    Robust Security Middleware: We built a reusable verifyRole middleware function in server/utils.js that can protect any API endpoint, ensuring only users with specified roles (e.g., 'Admin') can access them.
+
+    System-Wide Security Rollout: We systematically applied the verifyRole('Admin') middleware to all sensitive DELETE and user creation endpoints across the entire backend, including for Customers, Projects, Installers, Vendors, Material Orders, and Users.
+
+    Role-Aware Frontend: We integrated the RBAC system into the frontend by fetching the currentUser's roles and using conditional rendering to hide all corresponding "Delete" buttons and the entire User Management UI from non-Admin users.
+
+3. FULL-STACK USER & ROLE MANAGEMENT UI (NEW MAJOR FEATURE)
+
+    Settings Page Redesign: We redesigned the Settings page from a single scrolling page into a clean, scalable tab-based interface ("User Management" and "Backup & Restore").
+
+    Full-Stack Role Management: We built the complete functionality for Admins to manage user roles directly from the UI. This included:
+
+        Backend: New GET /api/roles and PUT /api/users/:userId/roles endpoints.
+
+        Frontend: New service functions and a complete UI overhaul of the UserManagementSection to display users with role checkboxes and "Save" functionality.
+
+        Safeguards: Implemented critical logic to prevent an Admin from deleting themselves or revoking their own Admin status.
+
+4. CRITICAL BUG FIXES & INFRASTRUCTURE HARDENING
+
+    Fixed Critical Rendering Bug: Diagnosed and fixed a React crash that caused a blank page on the SampleDetailModal by correcting a misconfiguration in DataContext.tsx.
+
+    Restored Core Functionality: Fixed the broken QR code feature by restoring the accidentally deleted API route logic in server/routes/samples.js.
+
+    Resolved Fatal SuperTokens Crash (MAJOR STABILITY IMPROVEMENT): Diagnosed a critical startup failure caused by a database table name collision between our custom roles table and SuperTokens' internal tables. We resolved this permanently by renaming our tables to app_roles and app_user_roles.
+
+    Created a Robust Admin Seeding Process: After diagnosing that the initial "first user is admin" logic was flawed, we created a reusable command-line script (server/make-admin.js) to reliably grant Admin privileges, significantly improving the development and deployment workflow.
+
+    Improved Docker Development Workflow: We updated the docker-compose.yml to properly mount the ./server directory as a volume, enabling hot-reloading for the backend and eliminating the need to rebuild the Docker image after every file change.
+
+Status at End of Session
+
+The application is now a feature-complete, secure, and robust multi-user platform. The auditing system provides deep insight into data changes, and the RBAC system ensures that only authorized users can perform sensitive actions. The addition of a complete User and Role Management UI makes the system fully manageable without direct database intervention. The core infrastructure is more stable and the development workflow is significantly improved.

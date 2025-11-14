@@ -202,19 +202,54 @@ export interface AppData {
   vendors: Vendor[];
 }
 
+export interface ActivityLogEntry {
+  id: number;
+  userId: string;
+  actionType: 'CREATE' | 'UPDATE' | 'DELETE' | 'ACCEPT' | string;
+  targetEntity: 'CUSTOMER' | 'JOB' | 'PROJECT' | 'QUOTE' | 'INSTALLER' | 'VENDOR' | 'SAMPLE' | string;
+  targetId: string;
+  details: any;
+  createdAt: string;
+  userEmail: string;
+}
+
+// =================================================================
+//  RBAC MODIFICATIONS
+// =================================================================
+
 export interface User {
   userId: string;
   email: string;
+  roles: string[]; // <-- ADDED: To support roles on the user list page
 }
 
 export interface CurrentUser {
   userId: string;
   email: string;
+  roles: string[]; // <-- ADDED: The current user's roles for UI checks
 }
+
+// =================================================================
 
 export interface DataContextType extends AppData {
   isLoading: boolean;
   currentUser: CurrentUser | null;
+  customerHistory: ActivityLogEntry[];
+  fetchCustomerHistory: (customerId: number) => Promise<void>;
+  projectHistory: ActivityLogEntry[];
+  fetchProjectHistory: (projectId: number) => Promise<void>;
+  quotesHistory: ActivityLogEntry[];
+  fetchQuotesHistory: (projectId: number) => Promise<void>;
+  installerHistory: ActivityLogEntry[];
+  fetchInstallerHistory: (installerId: number) => Promise<void>;
+  vendorHistory: ActivityLogEntry[];
+  fetchVendorHistory: (vendorId: number) => Promise<void>;
+  sampleHistory: ActivityLogEntry[];
+  fetchSampleHistory: (sampleId: number) => Promise<void>;
+  // vvvvvvvvvvvv ADDED FOR COMPLETENESS vvvvvvvvvvvv
+  materialOrderHistory: ActivityLogEntry[];
+  fetchMaterialOrderHistory: (orderId: number) => Promise<void>;
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   fetchSamples: () => Promise<void>;
   addInstaller: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>;
   updateInstaller: (installer: Installer) => Promise<void>;
@@ -233,9 +268,7 @@ export interface DataContextType extends AppData {
   extendSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
   addQuote: (quote: Omit<Quote, 'id'|'dateSent'>) => Promise<void>;
   updateQuote: (quote: Partial<Quote> & {id: number}) => Promise<void>;
-  // <<< START OF FIX >>>
   acceptQuote: (quote: Partial<Quote> & { id: number }) => Promise<void>;
-  // <<< END OF FIX >>>
   saveJobDetails: (jobDetails: Omit<Job, 'id' | 'paperworkSignedUrl'>) => Promise<void>;
   updateJob: (job: Job) => void;
   addChangeOrder: (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>) => Promise<void>;

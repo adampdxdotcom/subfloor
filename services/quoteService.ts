@@ -1,4 +1,4 @@
-import { Project, Quote } from "../types";
+import { Project, Quote, ActivityLogEntry } from "../types";
 
 const API_BASE_URL = '/api/quotes';
 
@@ -56,6 +56,19 @@ export const acceptQuote = async (quoteData: Partial<Quote> & { id: number }): P
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to accept quote.' }));
         throw new Error(errorData.message);
+    }
+    return response.json();
+};
+
+/**
+ * Fetches the activity history for all quotes associated with a project.
+ * @param projectId The ID of the parent project.
+ * @returns A promise that resolves to an array of activity log entries.
+ */
+export const getQuotesHistory = async (projectId: number): Promise<ActivityLogEntry[]> => {
+    const response = await fetch(`${API_BASE_URL}/project/${projectId}/history`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch quote history.');
     }
     return response.json();
 };

@@ -1,49 +1,38 @@
+// components/AddEditVendorModal.tsx
+
 import React, { useState, useEffect } from 'react';
 import { Vendor } from '../types';
+import { useData } from '../context/DataContext'; // <-- MODIFIED: Import useData
+import { toast } from 'react-hot-toast';         // <-- MODIFIED: Import toast
+import { Trash2 } from 'lucide-react';           // <-- MODIFIED: Import Trash2 icon
 
 interface AddEditVendorModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (vendor: Omit<Vendor, 'id'> | Vendor) => void;
     vendorToEdit?: Vendor | null;
-    // <<< FIX STEP 1: Add a new prop to receive the context >>>
     initialVendorType?: 'manufacturer' | 'supplier'; 
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose, onSave, vendorToEdit, initialVendorType }) => {
+    // vvvvvvvvvvvv MODIFIED: Get currentUser and deleteVendor from context vvvvvvvvvvvv
+    const { currentUser, deleteVendor } = useData();
+    const [isDeleting, setIsDeleting] = useState(false);
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
     const [formData, setFormData] = useState({
-        name: '',
-        isManufacturer: false,
-        isSupplier: true,
-        address: '',
-        phone: '',
-        orderingEmail: '',
-        claimsEmail: '',
-        repName: '',
-        repPhone: '',
-        repEmail: '',
-        shippingMethod: '',
-        dedicatedShippingDay: null as number | null,
-        notes: '',
+        name: '', isManufacturer: false, isSupplier: true, address: '', phone: '',
+        orderingEmail: '', claimsEmail: '', repName: '', repPhone: '', repEmail: '',
+        shippingMethod: '', dedicatedShippingDay: null as number | null, notes: '',
     });
 
     useEffect(() => {
         const initialState = {
-            name: '',
-            isManufacturer: false,
-            isSupplier: true,
-            address: '',
-            phone: '',
-            orderingEmail: '',
-            claimsEmail: '',
-            repName: '',
-            repPhone: '',
-            repEmail: '',
-            shippingMethod: '',
-            dedicatedShippingDay: null as number | null,
-            notes: '',
+            name: '', isManufacturer: false, isSupplier: true, address: '', phone: '',
+            orderingEmail: '', claimsEmail: '', repName: '', repPhone: '', repEmail: '',
+            shippingMethod: '', dedicatedShippingDay: null as number | null, notes: '',
         };
 
         if (vendorToEdit) {
@@ -63,7 +52,6 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                 notes: vendorToEdit.notes || '',
             });
         } else {
-            // <<< FIX STEP 2: Use the new prop to set the correct default state >>>
             if (initialVendorType === 'manufacturer') {
                 initialState.isManufacturer = true;
                 initialState.isSupplier = false;
@@ -100,6 +88,25 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
             onSave(dataToSave);
         }
     };
+    
+    // vvvvvvvvvvvv MODIFIED: Added handler for deletion vvvvvvvvvvvv
+    const handleDelete = async () => {
+        if (!vendorToEdit) return;
+        if (window.confirm(`Are you sure you want to delete vendor "${vendorToEdit.name}"? This action cannot be undone.`)) {
+            setIsDeleting(true);
+            try {
+                await deleteVendor(vendorToEdit.id);
+                toast.success('Vendor deleted successfully.');
+                onClose(); // Close the modal on successful deletion
+            } catch (error) {
+                toast.error((error as Error).message || 'Failed to delete vendor.');
+                console.error(error);
+            } finally {
+                setIsDeleting(false);
+            }
+        }
+    };
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     if (!isOpen) return null;
 
@@ -178,10 +185,25 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                             </div>
                         </div>
                     </div>
-                    <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-border">
+
+                    {/* vvvvvvvvvvvv MODIFIED: Added conditional delete button vvvvvvvvvvvv */}
+                    <div className="flex items-center justify-end space-x-4 mt-8 pt-6 border-t border-border">
+                        {vendorToEdit && currentUser?.roles?.includes('Admin') && (
+                            <button
+                                type="button"
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                                className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed"
+                                style={{ marginRight: 'auto' }} // Pushes this button to the far left
+                            >
+                                <Trash2 size={16} />
+                                {isDeleting ? 'Deleting...' : 'Delete Vendor'}
+                            </button>
+                        )}
                         <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">Cancel</button>
                         <button type="submit" className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white">{vendorToEdit ? 'Save Changes' : 'Create Vendor'}</button>
                     </div>
+                    {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
                 </form>
             </div>
         </div>

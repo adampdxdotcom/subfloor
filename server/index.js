@@ -1,3 +1,5 @@
+// server/index.js
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -23,6 +25,7 @@ import searchRoutes from './routes/search.js';
 import calendarRoutes from './routes/calendar.js';
 import vendorRoutes from './routes/vendors.js';
 import userRoutes from './routes/users.js'; 
+import roleRoutes from './routes/roles.js'; // <-- MODIFIED: Imported the new role routes
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,9 +62,6 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
-// <<< START OF MODIFICATION >>>
-// We make the CORS configuration more robust to ensure the front-token is exposed.
-// We create a unique list of headers to prevent duplicates.
 const exposedHeaders = new Set([
     'front-token', 
     ...supertokens.getAllCORSHeaders()
@@ -70,10 +70,9 @@ const exposedHeaders = new Set([
 app.use(cors({
     origin: "https://flooring.dumbleigh.com",
     allowedHeaders: ["content-type", ...supertokens.getAllCORSHeaders()],
-    exposedHeaders: [...exposedHeaders], // Use the new unique list
+    exposedHeaders: [...exposedHeaders],
     credentials: true,
 }));
-// <<< END OF MODIFICATION >>>
 
 app.options('*', (req, res) => {
     res.sendStatus(204);
@@ -102,6 +101,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/roles', roleRoutes); // <-- MODIFIED: Registered the new role routes
 
 app.use(errorHandler());
 

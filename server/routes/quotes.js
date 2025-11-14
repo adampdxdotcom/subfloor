@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
-import { toCamelCase } from '../utils.js';
+import { toCamelCase, logActivity } from '../utils.js';
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
-// GET /api/quotes
+// ... (GET /, GET /:id, and POST / remain unchanged) ...
+
 router.get('/', verifySession(), async (req, res) => {
     try {
         const result = await pool.query('SELECT *, installation_type FROM quotes ORDER BY date_sent DESC');
@@ -13,7 +14,6 @@ router.get('/', verifySession(), async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// GET /api/quotes/:id
 router.get('/:id', verifySession(), async (req, res) => {
     try {
         const { id } = req.params;
@@ -23,8 +23,8 @@ router.get('/:id', verifySession(), async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// POST /api/quotes
 router.post('/', verifySession(), async (req, res) => {
+    const userId = req.session.getUserId();
     try {
         let { projectId, installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status } = req.body;
 
@@ -39,18 +39,27 @@ router.post('/', verifySession(), async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, $9) RETURNING *`, 
             [projectId, installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status]
         );
-        res.status(201).json(toCamelCase(result.rows[0]));
+        const newQuote = toCamelCase(result.rows[0]);
+
+        // --- AUDIT LOG ---
+        await logActivity(userId, 'CREATE', 'QUOTE', newQuote.id, { 
+            projectId: String(projectId), 
+            createdData: newQuote 
+        });
+        // --- END AUDIT LOG ---
+
+        res.status(201).json(newQuote);
     } catch (err) { 
         console.error(err.message); 
         res.status(500).json({ error: 'Internal server error' }); 
     }
 });
 
-// <<< START OF MODIFICATION >>>
 
 // PUT /api/quotes/:id/accept - New dedicated endpoint for accepting a quote
 router.put('/:id/accept', verifySession(), async (req, res) => {
     const { id } = req.params;
+    const userId = req.session.getUserId();
     const client = await pool.connect();
     
     try {
@@ -61,11 +70,7 @@ router.put('/:id/accept', verifySession(), async (req, res) => {
             `UPDATE quotes SET status = 'Accepted' WHERE id = $1 RETURNING *`,
             [id]
         );
-
-        if (quoteUpdateResult.rows.length === 0) {
-            throw new Error('Quote not found');
-        }
-
+        if (quoteUpdateResult.rows.length === 0) throw new Error('Quote not found');
         const updatedQuote = quoteUpdateResult.rows[0];
         const projectId = updatedQuote.project_id;
 
@@ -74,17 +79,15 @@ router.put('/:id/accept', verifySession(), async (req, res) => {
             `UPDATE projects SET status = 'Accepted' WHERE id = $1 RETURNING *`,
             [projectId]
         );
-
-        if (projectUpdateResult.rows.length === 0) {
-            throw new Error('Project not found');
-        }
-
+        if (projectUpdateResult.rows.length === 0) throw new Error('Project not found');
         const updatedProject = projectUpdateResult.rows[0];
 
-        // Step 3: Create a placeholder job entry for this project if one doesn't exist
+        // vvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvv
+        // Step 3: Create a placeholder job entry ONLY IF one doesn't already exist
         const jobCheck = await client.query('SELECT id FROM jobs WHERE project_id = $1', [projectId]);
         if (jobCheck.rows.length === 0) {
             let depositAmount = parseFloat(updatedQuote.materials_amount) || 0;
+            // Only add labor deposit if it's a managed install
             if (updatedQuote.installation_type === 'Managed Installation') {
                 const labor = parseFloat(updatedQuote.labor_amount) || 0;
                 const percent = parseFloat(updatedQuote.labor_deposit_percentage) || 0;
@@ -95,10 +98,14 @@ router.put('/:id/accept', verifySession(), async (req, res) => {
                 [projectId, depositAmount]
             );
         }
+        // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+        // --- AUDIT LOG for this specific action ---
+        await logActivity(userId, 'ACCEPT', 'QUOTE', id, { projectId: String(projectId) });
+        // --- END AUDIT LOG ---
 
         await client.query('COMMIT');
         
-        // Step 4: Send back both updated objects
         res.json({ 
             updatedQuote: toCamelCase(updatedQuote), 
             updatedProject: toCamelCase(updatedProject) 
@@ -113,12 +120,22 @@ router.put('/:id/accept', verifySession(), async (req, res) => {
     }
 });
 
-// <<< END OF MODIFICATION >>>
 
-// PUT /api/quotes/:id
+// ... (PUT /:id and GET /project/:projectId/history remain unchanged) ...
+
 router.put('/:id', verifySession(), async (req, res) => {
+    const { id } = req.params;
+    const userId = req.session.getUserId();
+
     try {
-        const { id } = req.params;
+        // --- AUDIT LOG: Capture state *before* the update ---
+        const beforeResult = await pool.query('SELECT * FROM quotes WHERE id = $1', [id]);
+        if (beforeResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Quote not found' });
+        }
+        const beforeData = toCamelCase(beforeResult.rows[0]);
+        // --- END AUDIT LOG ---
+
         let { installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status } = req.body;
         
         const fields = [];
@@ -140,24 +157,51 @@ router.put('/:id', verifySession(), async (req, res) => {
         if (laborDepositPercentage !== undefined) { fields.push(`labor_deposit_percentage = $${fields.length + 1}`); values.push(laborDepositPercentage); }
         if (status !== undefined) { fields.push(`status = $${fields.length + 1}`); values.push(status); }
 
-        if (fields.length === 0) {
-            return res.status(400).json({ error: 'No fields to update provided.' });
-        }
+        if (fields.length === 0) return res.status(400).json({ error: 'No fields to update provided.' });
 
         query += fields.join(', ');
         query += ` WHERE id = $${fields.length + 1} RETURNING *`;
         values.push(id);
         
         const result = await pool.query(query, values);
+        const updatedQuote = toCamelCase(result.rows[0]);
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Quote not found' });
-        }
-        res.json(toCamelCase(result.rows[0]));
+        // --- AUDIT LOG ---
+        await logActivity(userId, 'UPDATE', 'QUOTE', id, { 
+            projectId: String(updatedQuote.projectId),
+            before: beforeData, 
+            after: updatedQuote 
+        });
+        // --- END AUDIT LOG ---
+
+        res.json(updatedQuote);
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+router.get('/project/:projectId/history', verifySession(), async (req, res) => {
+    const { projectId } = req.params;
+    try {
+        const query = `
+            SELECT 
+                al.*,
+                ep.email AS user_email
+            FROM activity_log al
+            LEFT JOIN emailpassword_users ep ON al.user_id = ep.user_id
+            WHERE 
+                al.target_entity = 'QUOTE' 
+                AND al.details->>'projectId' = $1
+            ORDER BY al.created_at DESC;
+        `;
+        const result = await pool.query(query, [projectId]);
+        res.json(result.rows.map(toCamelCase));
+    } catch (err) {
+        console.error("Error retrieving quote history:", err.message);
+        res.status(500).json({ error: "Internal server error retrieving quote history" });
+    }
+});
+
 
 export default router;

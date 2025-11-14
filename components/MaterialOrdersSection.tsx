@@ -1,9 +1,13 @@
+// components/MaterialOrdersSection.tsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Project, MaterialOrder, Sample, Unit, UNITS, Vendor } from '../types';
-import { Edit, Trash2, XCircle } from 'lucide-react';
+import { Edit, Trash2, XCircle, History } from 'lucide-react';
 import AddEditVendorModal from './AddEditVendorModal';
-import AddSampleInlineModal from './AddSampleInlineModal'; // Import the centralized sample modal
+import AddSampleInlineModal from './AddSampleInlineModal';
+import CollapsibleSection from './CollapsibleSection';
+import ActivityHistory from './ActivityHistory';
 
 interface MaterialOrdersSectionProps {
     project: Project;
@@ -17,7 +21,14 @@ interface MaterialOrdersSectionProps {
 
 const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, orders, samples, isModalOpen, onCloseModal, editingOrder, onEditOrder }) => {
     
-    const { vendors, addVendor, addMaterialOrder, updateMaterialOrder, deleteMaterialOrder } = useData();
+    // vvvvvvvvvvvv MODIFIED: Destructured currentUser for RBAC check vvvvvvvvvvvv
+    const { 
+        currentUser,
+        vendors, addVendor, addMaterialOrder, updateMaterialOrder, deleteMaterialOrder,
+        materialOrderHistory, fetchMaterialOrderHistory
+    } = useData();
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
     const [supplierId, setSupplierId] = useState<number | null>(null);
     const [supplierSearch, setSupplierSearch] = useState('');
     const [etaDate, setEtaDate] = useState('');
@@ -45,6 +56,7 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
 
     useEffect(() => {
         if (editingOrder && isModalOpen) {
+            fetchMaterialOrderHistory(editingOrder.id);
             setSupplierId(editingOrder.supplierId || null);
             const currentSupplier = vendors.find(v => v.id === editingOrder.supplierId);
             setSupplierSearch(currentSupplier?.name || '');
@@ -65,7 +77,7 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
             setEtaDate('');
             setLineItems([]);
         }
-    }, [editingOrder, isModalOpen, samples, vendors]);
+    }, [editingOrder, isModalOpen, samples, vendors, fetchMaterialOrderHistory]);
 
     const handleSupplierSelect = (vendorId: number) => {
         setSupplierId(vendorId);
@@ -144,7 +156,18 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                         <div key={order.id} className="bg-gray-800 p-4 rounded-lg">
                             <div className="flex justify-between items-start mb-3">
                                 <div><p className="font-bold text-text-primary">{order.supplierName || 'N/A'}</p><p className="text-xs text-text-secondary">Order Date: {new Date(order.orderDate).toLocaleDateString()}</p></div>
-                                <div className="flex items-center gap-2"><div className="text-right"><p className="text-sm font-semibold text-accent">{order.status}</p><p className="text-xs text-text-secondary">ETA: {order.etaDate ? new Date(order.etaDate).toLocaleDateString() : 'N/A'}</p></div><button onClick={() => onEditOrder(order)} className="p-1 text-text-secondary hover:text-white"><Edit size={16}/></button><button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-red-500 hover:text-red-400"><Trash2 size={16}/></button></div>
+                                <div className="flex items-center gap-2">
+                                    <div className="text-right">
+                                        <p className="text-sm font-semibold text-accent">{order.status}</p>
+                                        <p className="text-xs text-text-secondary">ETA: {order.etaDate ? new Date(order.etaDate).toLocaleDateString() : 'N/A'}</p>
+                                    </div>
+                                    <button onClick={() => onEditOrder(order)} className="p-1 text-text-secondary hover:text-white"><Edit size={16}/></button>
+                                    {/* vvvvvvvvvvvv MODIFIED: Conditional rendering for Delete button vvvvvvvvvvvv */}
+                                    {currentUser?.roles?.includes('Admin') && (
+                                        <button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-red-500 hover:text-red-400"><Trash2 size={16}/></button>
+                                    )}
+                                    {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
+                                </div>
                             </div>
                             <ul className="space-y-2 text-sm border-t border-gray-700 pt-3">{order.lineItems.map(item => (<li key={item.id} className="flex justify-between items-center text-text-secondary"><span>{item.quantity} {item.unit || ''} x {item.styleColor}</span>{item.totalCost != null && <span>$ {Number(item.totalCost).toFixed(2)}</span>}</li>))}</ul>
                         </div>
@@ -173,7 +196,6 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                             <div className="bg-gray-900 p-4 rounded-lg">
                                 <h3 className="font-semibold mb-2 text-text-primary">Line Items</h3>
                                 <div className="space-y-2 mb-4">{lineItems.map((item, index) => { const updateItem = (field: 'quantity'|'unit'|'totalCost', value: string|Unit) => { const newItems = [...lineItems]; (newItems[index] as any)[field] = value; setLineItems(newItems); }; return (<div key={item.sample.id} className="grid grid-cols-[1fr,auto,auto,auto,auto] items-center gap-2 bg-gray-800 p-2 rounded"><span className="flex-grow text-sm text-text-primary truncate" title={item.sample.styleColor}>{item.sample.styleColor}</span><input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateItem('quantity', e.target.value)} className="w-20 p-1 bg-gray-700 border-border rounded text-sm" /><select value={item.unit} onChange={e => updateItem('unit', e.target.value as Unit)} className="p-1 bg-gray-700 border-border rounded text-sm appearance-none text-center">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select><input type="number" step="0.01" placeholder="Total Cost" value={item.totalCost} onChange={e => updateItem('totalCost', e.target.value)} className="w-28 p-1 bg-gray-700 border-border rounded text-sm" /><button type="button" onClick={() => handleRemoveLineItem(item.sample.id)} className="text-red-400 hover:text-red-600"><XCircle size={18}/></button></div>);})}</div>
-                                
                                 <div className="flex gap-2">
                                     <div className="relative flex-grow">
                                         <input type="text" placeholder="Search for material to add..." value={sampleSearchTerm} onChange={e => { setSampleSearchTerm(e.target.value); setSelectedSample(null); }} className="w-full p-2 bg-gray-800 border-border rounded" />
@@ -187,7 +209,21 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                                     <button type="button" onClick={handleAddLineItem} disabled={!selectedSample} className="py-2 px-4 bg-primary rounded disabled:bg-gray-500">Add Item</button>
                                 </div>
                             </div>
-                            <div className="flex justify-end space-x-4 mt-8"><button type="button" onClick={onCloseModal} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">Cancel</button><button type="submit" className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white">{editingOrder ? 'Save Changes' : 'Create Order'}</button></div>
+                            {editingOrder && (
+                                <div className="mt-6">
+                                    <CollapsibleSection 
+                                        title="Change History" 
+                                        icon={<History className="w-6 h-6" />}
+                                        defaultOpen={false}
+                                    >
+                                        <ActivityHistory history={materialOrderHistory} />
+                                    </CollapsibleSection>
+                                </div>
+                            )}
+                            <div className="flex justify-end space-x-4 mt-8 border-t border-border pt-6">
+                                <button type="button" onClick={onCloseModal} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">Cancel</button>
+                                <button type="submit" className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white">{editingOrder ? 'Save Changes' : 'Create Order'}</button>
+                            </div>
                         </form>
                     </div>
                 </div>

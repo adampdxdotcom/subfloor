@@ -1,7 +1,9 @@
 // server/routes/customers.js
 import express from 'express';
 import pool from '../db.js';
-import { toCamelCase } from '../utils.js';
+// vvvvvvvvvvvv MODIFIED: Imported the new verifyRole middleware vvvvvvvvvvvv
+import { toCamelCase, logActivity, verifyRole } from '../utils.js';
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
@@ -46,7 +48,14 @@ router.post('/', verifySession(), async (req, res) => {
   try {
     const { fullName, email, phoneNumber, address } = req.body;
     const result = await pool.query("INSERT INTO customers (full_name, email, phone_number, address) VALUES ($1, $2, $3, $4) RETURNING *", [fullName, email, phoneNumber, address]);
-    res.status(201).json(toCamelCase(result.rows[0]));
+    const newCustomer = toCamelCase(result.rows[0]);
+
+    // --- AUDIT LOG ---
+    const userId = req.session.getUserId();
+    await logActivity(userId, 'CREATE', 'CUSTOMER', newCustomer.id, { createdData: newCustomer });
+    // --- END AUDIT LOG ---
+
+    res.status(201).json(newCustomer);
   } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
@@ -58,6 +67,11 @@ router.put('/:id', verifySession(), async (req, res) => {
     if (!fullName || !email) {
       return res.status(400).json({ error: 'Full name and email are required.' });
     }
+    
+    // --- AUDIT LOG: Capture state *before* the update ---
+    const beforeResult = await pool.query('SELECT * FROM customers WHERE id = $1', [id]);
+    const beforeData = beforeResult.rows.length > 0 ? toCamelCase(beforeResult.rows[0]) : null;
+    // --- END AUDIT LOG ---
 
     const result = await pool.query(
       "UPDATE customers SET full_name = $1, email = $2, phone_number = $3, address = $4 WHERE id = $5 RETURNING *",
@@ -68,31 +82,78 @@ router.put('/:id', verifySession(), async (req, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    res.json(toCamelCase(result.rows[0]));
+    const updatedCustomer = toCamelCase(result.rows[0]);
+
+    // --- AUDIT LOG: Log the change with before and after data ---
+    const userId = req.session.getUserId();
+    await logActivity(userId, 'UPDATE', 'CUSTOMER', id, { before: beforeData, after: updatedCustomer });
+    // --- END AUDIT LOG ---
+
+    res.json(updatedCustomer);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-router.delete('/:id', verifySession(), async (req, res) => {
+router.get('/:id/history', verifySession(), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const query = `
+            SELECT 
+                al.*,
+                ep.email AS user_email
+            FROM activity_log al
+            LEFT JOIN emailpassword_users ep ON al.user_id = ep.user_id
+            WHERE al.target_entity = 'CUSTOMER' AND al.target_id = $1
+            ORDER BY al.created_at DESC;
+        `;
+        const result = await pool.query(query, [id]);
+        res.json(result.rows.map(toCamelCase));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: "Internal server error retrieving customer history" });
+    }
+});
+
+// =================================================================
+//  SECURED DELETE ROUTE
+// =================================================================
+// vvvvvvvvvvvv MODIFIED: Added verifyRole('Admin') middleware vvvvvvvvvvvv
+router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => {
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   const { id } = req.params;
   const client = await pool.connect();
+  const userId = req.session.getUserId(); // Get user ID early
 
   try {
+    await client.query('BEGIN'); // Start transaction
+
     const projectCheckResult = await client.query('SELECT 1 FROM projects WHERE customer_id = $1 LIMIT 1', [id]);
     if (projectCheckResult.rows.length > 0) {
+      await client.query('ROLLBACK'); // Abort transaction
       return res.status(409).json({ error: 'Cannot delete customer. Please re-assign or delete their projects first.' });
     }
-
-    const deleteResult = await client.query('DELETE FROM customers WHERE id = $1 RETURNING *', [id]);
     
-    if (deleteResult.rows.length === 0) {
+    // --- AUDIT LOG: Get customer data *before* deleting ---
+    const customerToDelete = await client.query('SELECT * FROM customers WHERE id = $1', [id]);
+    if (customerToDelete.rows.length === 0) {
+      await client.query('ROLLBACK'); // Abort transaction
       return res.status(404).json({ error: 'Customer not found' });
     }
+    const deletedData = toCamelCase(customerToDelete.rows[0]);
+    // --- END AUDIT LOG ---
 
+    await client.query('DELETE FROM customers WHERE id = $1', [id]);
+
+    // --- AUDIT LOG: Log the deletion after it succeeds ---
+    await logActivity(userId, 'DELETE', 'CUSTOMER', id, { deletedData });
+    // --- END AUDIT LOG ---
+
+    await client.query('COMMIT'); // Commit transaction
     res.status(204).send();
   } catch (err) {
+    await client.query('ROLLBACK'); // Rollback on any error
     console.error(`Failed to delete customer ${id}:`, err.message);
     res.status(500).json({ error: 'Internal server error' });
   } finally {

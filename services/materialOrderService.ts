@@ -1,4 +1,6 @@
-import { MaterialOrder } from "../types";
+// services/materialOrderService.ts
+
+import { MaterialOrder, ActivityLogEntry } from "../types"; // <-- MODIFIED: Added ActivityLogEntry
 
 const API_BASE_URL = '/api/orders';
 
@@ -41,7 +43,7 @@ export const addMaterialOrder = async (orderData: any): Promise<MaterialOrder> =
  * @param {number} orderId - The ID of the order to update.
  * @param {object} orderData - The order data from the form.
  * @param {string | null} orderData.supplier - The supplier name.
- * @param {string | null} orderDara.etaDate - The estimated arrival date.
+ * @param {string | null} orderData.etaDate - The estimated arrival date.
  * @param {Array<{sampleId: number, quantity: number, unit: string | null, totalCost: number | null}>} orderData.lineItems - The line items.
  */
 export const updateMaterialOrder = async (orderId: number, orderData: any): Promise<MaterialOrder> => {
@@ -70,3 +72,20 @@ export const deleteMaterialOrder = async (orderId: number): Promise<void> => {
         throw new Error(errorBody.error || 'Failed to delete material order');
     }
 };
+
+// =================================================================
+//  NEW HISTORY FUNCTION
+// =================================================================
+/**
+ * Fetches the activity history for a specific material order.
+ * @param orderId The ID of the material order.
+ * @returns A promise that resolves to an array of activity log entries.
+ */
+export const getMaterialOrderHistory = async (orderId: number): Promise<ActivityLogEntry[]> => {
+    const response = await fetch(`${API_BASE_URL}/${orderId}/history`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch material order history.');
+    }
+    return response.json();
+};
+// =================================================================

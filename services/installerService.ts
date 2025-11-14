@@ -1,4 +1,4 @@
-import { Installer } from "../types";
+import { Installer, ActivityLogEntry } from "../types";
 
 const API_BASE_URL = '/api/installers';
 
@@ -55,4 +55,17 @@ export const deleteInstaller = async (installerId: number): Promise<void> => {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to delete installer.');
     }
+};
+
+/**
+ * Fetches the activity history for a specific installer.
+ * @param installerId The ID of the installer.
+ * @returns A promise that resolves to an array of activity log entries.
+ */
+export const getInstallerHistory = async (installerId: number): Promise<ActivityLogEntry[]> => {
+    const response = await fetch(`${API_BASE_URL}/${installerId}/history`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch installer history.');
+    }
+    return response.json();
 };

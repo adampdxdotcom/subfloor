@@ -1,4 +1,4 @@
-import { Customer } from "../types";
+import { Customer, ActivityLogEntry } from "../types";
 
 const API_BASE_URL = '/api/customers';
 
@@ -62,4 +62,17 @@ export const deleteCustomer = async (customerId: number): Promise<void> => {
         throw new Error(errorData.error || 'Failed to delete customer.');
     }
     // A successful DELETE returns a 204 No Content, so we don't return anything.
+};
+
+/**
+ * Fetches the activity history for a specific customer.
+ * @param customerId The ID of the customer.
+ * @returns A promise that resolves to an array of activity log entries.
+ */
+export const getCustomerHistory = async (customerId: number): Promise<ActivityLogEntry[]> => {
+    const response = await fetch(`${API_BASE_URL}/${customerId}/history`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch customer history.');
+    }
+    return response.json();
 };

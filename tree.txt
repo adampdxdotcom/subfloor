@@ -16,6 +16,7 @@
 | | |____samples.js
 | | |____installers.js
 | | |____orders.js
+| | |____roles.js
 | | |____backup.js
 | | |____jobs.js
 | | |____sampleCheckouts.js
@@ -35,6 +36,7 @@
 | | |____photo-1763051858324-386769672.jpg
 | | |____photo-1763003725627-488830063.jpeg
 | | |____photo-1762697778265-104491356.jpg
+| | |____photo-1763128935437-607666584.jpeg
 | | |____photo-1762652802557-41371136.jpg
 | | |____photo-1762651296946-276169435.jpg
 | | |____photo-1762728357598-394921334.jpeg
@@ -50,9 +52,11 @@
 | |____utils.js
 | |____node_modules
 | |____tree.txt
+| |____make-admin.js
 |____backup.bak
 |____package-lock.json
 |____vite.config.ts
+|____userauditplan.txt
 |____tsconfig.json
 |____App.tsx
 |____postcss.config.js
@@ -76,7 +80,6 @@
 |____.dockerignore
 |____.gitignore
 |____tailwind.config.js
-|____src
 |____project_1old.txt
 |____components
 | |____SampleCheckoutsSection.tsx
@@ -84,6 +87,7 @@
 | |____FinalizeJobSection.tsx
 | |____SampleSelector.tsx
 | |____ProjectInfoHeader.tsx
+| |____ActivityHistory.tsx
 | |____Layout.tsx
 | |____RestoreForm.tsx
 | |____EditInstallerModal.tsx
@@ -106,6 +110,7 @@
 |____metadata.json
 |____utils
 | |____cryptoUtils.ts
+| |____changeFormatter.ts
 |____package.json
 |____schema.sql
 |____types.ts

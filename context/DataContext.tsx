@@ -1,5 +1,7 @@
+// context/DataContext.tsx
+
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
-import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser } from '../types';
+import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry } from '../types';
 import { toast } from 'react-hot-toast';
 
 import { useSessionContext } from 'supertokens-auth-react/recipe/session';
@@ -27,6 +29,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [data, setData] = useState<AppData>(emptyInitialData);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  const [customerHistory, setCustomerHistory] = useState<ActivityLogEntry[]>([]);
+  const [projectHistory, setProjectHistory] = useState<ActivityLogEntry[]>([]);
+  const [quotesHistory, setQuotesHistory] = useState<ActivityLogEntry[]>([]);
+  const [installerHistory, setInstallerHistory] = useState<ActivityLogEntry[]>([]);
+  const [vendorHistory, setVendorHistory] = useState<ActivityLogEntry[]>([]);
+  const [sampleHistory, setSampleHistory] = useState<ActivityLogEntry[]>([]);
+  // vvvvvvvvvvvv ADD NEW STATE FOR MATERIAL ORDER HISTORY vvvvvvvvvvvv
+  const [materialOrderHistory, setMaterialOrderHistory] = useState<ActivityLogEntry[]>([]);
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -90,12 +102,91 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsLoading(false);
     }
   }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser]);
+  
+  const fetchCustomerHistory = useCallback(async (customerId: number) => {
+    try {
+      const historyData = await customerService.getCustomerHistory(customerId);
+      setCustomerHistory(historyData);
+    } catch (error) {
+      console.error("Error fetching customer history:", error);
+      toast.error("Could not load customer history.");
+      setCustomerHistory([]); 
+    }
+  }, []);
+
+  const fetchProjectHistory = useCallback(async (projectId: number) => {
+    try {
+      const historyData = await projectService.getProjectHistory(projectId);
+      setProjectHistory(historyData);
+    } catch (error) {
+      console.error("Error fetching project history:", error);
+      toast.error("Could not load project history.");
+      setProjectHistory([]);
+    }
+  }, []);
+  
+  const fetchQuotesHistory = useCallback(async (projectId: number) => {
+    try {
+      const historyData = await quoteService.getQuotesHistory(projectId);
+      setQuotesHistory(historyData);
+    } catch (error) {
+      console.error("Error fetching quote history:", error);
+      toast.error("Could not load quote history.");
+      setQuotesHistory([]);
+    }
+  }, []);
+  
+  const fetchInstallerHistory = useCallback(async (installerId: number) => {
+    try {
+      const historyData = await installerService.getInstallerHistory(installerId);
+      setInstallerHistory(historyData);
+    } catch (error) {
+      console.error("Error fetching installer history:", error);
+      toast.error("Could not load installer history.");
+      setInstallerHistory([]);
+    }
+  }, []);
+
+  const fetchVendorHistory = useCallback(async (vendorId: number) => {
+    try {
+      const historyData = await vendorService.getVendorHistory(vendorId);
+      setVendorHistory(historyData);
+    } catch (error) {
+      console.error("Error fetching vendor history:", error);
+      toast.error("Could not load vendor history.");
+      setVendorHistory([]);
+    }
+  }, []);
+
+  const fetchSampleHistory = useCallback(async (sampleId: number) => {
+    try {
+      const historyData = await sampleService.getSampleHistory(sampleId);
+      setSampleHistory(historyData);
+    } catch (error) {
+      console.error("Error fetching sample history:", error);
+      toast.error("Could not load sample history.");
+      setSampleHistory([]);
+    }
+  }, []);
+  
+  // vvvvvvvvvvvv ADD NEW FUNCTION FOR MATERIAL ORDER HISTORY vvvvvvvvvvvv
+  const fetchMaterialOrderHistory = useCallback(async (orderId: number) => {
+    try {
+      const historyData = await materialOrderService.getMaterialOrderHistory(orderId);
+      setMaterialOrderHistory(historyData);
+    } catch (error) {
+      console.error("Error fetching material order history:", error);
+      toast.error("Could not load material order history.");
+      setMaterialOrderHistory([]);
+    }
+  }, []);
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   const addVendor = async (vendor: Omit<Vendor, 'id'>): Promise<void> => {
       const newVendor = await vendorService.addVendor(vendor);
       setData(prevData => ({ ...prevData, vendors: [...prevData.vendors, newVendor] }));
   };
-
+  
   const updateVendor = async (vendor: Vendor): Promise<void> => {
       const updatedVendor = await vendorService.updateVendor(vendor.id, vendor);
       setData(prevData => ({
@@ -383,13 +474,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
   
-  // <<< START OF FIX >>>
   const acceptQuote = async (quote: Partial<Quote> & { id: number }): Promise<void> => {
     try {
-      // Step 1: Tell the backend to update the quote and the associated project.
       const { updatedQuote, updatedProject } = await quoteService.acceptQuote(quote);
 
-      // Step 2: Update the local state for BOTH quotes and projects.
       setData(prevData => ({
         ...prevData,
         quotes: prevData.quotes.map(q => q.id === updatedQuote.id ? { ...q, ...updatedQuote } : q),
@@ -404,7 +492,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw error;
     }
   };
-  // <<< END OF FIX >>>
   
   const saveJobDetails = async (jobDetails: Omit<Job, 'id' | 'paperworkSignedUrl'>): Promise<void> => {
     try {
@@ -456,10 +543,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addMaterialOrder = async (orderData: any): Promise<void> => {
     try {
         const newOrder = await materialOrderService.addMaterialOrder(orderData);
-        const materialOrdersData = await materialOrderService.getMaterialOrders();
+        // MODIFIED: No need to re-fetch all, just add the new one for better performance
         setData(prevData => ({
             ...prevData,
-            materialOrders: materialOrdersData,
+            materialOrders: [...prevData.materialOrders, newOrder],
         }));
         toast.success('Material order created!');
     } catch (error) {
@@ -501,10 +588,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateJob = (updatedJob: Job) => { setData(prevData => ({ ...prevData, jobs: prevData.jobs.map(j => j.id === updatedJob.id ? updatedJob : j) })); };
 
+  // vvvvvvvvvvvv UPDATE PROVIDER VALUE vvvvvvvvvvvv
   const providerValue: DataContextType = {
     ...data,
     isLoading,
     currentUser,
+    customerHistory,
+    fetchCustomerHistory,
+    projectHistory,
+    fetchProjectHistory,
+    quotesHistory,
+    fetchQuotesHistory,
+    installerHistory,
+    fetchInstallerHistory,
+    vendorHistory,            
+    fetchVendorHistory,       
+    sampleHistory,            
+    fetchSampleHistory,
+    materialOrderHistory,          // <-- ADD THIS
+    fetchMaterialOrderHistory,     // <-- ADD THIS
     addInstaller, 
     updateInstaller,
     deleteInstaller,
@@ -523,7 +625,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     extendSampleCheckout,
     addQuote, 
     updateQuote,
-    acceptQuote, // <-- Expose the new function
+    acceptQuote,
     saveJobDetails,
     addChangeOrder,
     updateChangeOrder,
@@ -535,6 +637,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     deleteVendor,
     updateJob
   };
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   return (
     <DataContext.Provider value={providerValue}>

@@ -1,11 +1,14 @@
+// pages/InstallerDetail.tsx
+
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom'; // MODIFIED: Added useNavigate
 import { Installer } from '../types';
-// --- MODIFICATION: Import useData hook and Edit icon ---
 import { useData } from '../context/DataContext';
-import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit } from 'lucide-react';
-// --- MODIFICATION: Import the (yet to be created) modal component ---
+import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History, Trash2 } from 'lucide-react'; // MODIFIED: Added Trash2
 import EditInstallerModal from '../components/EditInstallerModal';
+import CollapsibleSection from '../components/CollapsibleSection';
+import ActivityHistory from '../components/ActivityHistory';
+import { toast } from 'react-hot-toast'; // MODIFIED: Added toast
 
 interface AssignedProject {
   projectId: number;
@@ -17,15 +20,24 @@ interface AssignedProject {
 
 const InstallerDetail: React.FC = () => {
   const { installerId } = useParams<{ installerId: string }>();
-  // --- MODIFICATION: Get installers from context instead of local state ---
-  const { installers, isLoading: isDataLoading } = useData();
+  const navigate = useNavigate(); // MODIFIED: Initialize navigate
+  
+  // vvvvvvvvvvvv MODIFIED: Destructured currentUser and deleteInstaller vvvvvvvvvvvv
+  const { 
+    currentUser, 
+    installers, 
+    deleteInstaller, 
+    isLoading: isDataLoading, 
+    installerHistory, 
+    fetchInstallerHistory 
+  } = useData();
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  
   const [projects, setProjects] = useState<AssignedProject[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
-
-  // --- MODIFICATION: State to manage the edit modal ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false); // MODIFIED: Added deleting state
 
-  // --- MODIFICATION: Find the installer from the global context ---
   const installer = installers.find(i => i.id === parseInt(installerId || ''));
 
   useEffect(() => {
@@ -45,7 +57,30 @@ const InstallerDetail: React.FC = () => {
     };
 
     fetchAssignedProjects();
-  }, [installerId]);
+
+    if (installerId) {
+      fetchInstallerHistory(parseInt(installerId));
+    }
+  }, [installerId, fetchInstallerHistory]);
+  
+  // vvvvvvvvvvvv MODIFIED: Added handler for deletion vvvvvvvvvvvv
+  const handleDeleteInstaller = async () => {
+    if (!installer) return;
+    if (window.confirm(`Are you sure you want to permanently delete installer "${installer.installerName}"? This cannot be undone.`)) {
+        setIsDeleting(true);
+        try {
+            await deleteInstaller(installer.id);
+            toast.success('Installer deleted successfully.');
+            navigate('/installers');
+        } catch (error) {
+            toast.error((error as Error).message || 'Failed to delete installer.');
+            console.error(error);
+        } finally {
+            setIsDeleting(false);
+        }
+    }
+  };
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   if (isDataLoading) {
     return <div className="text-center">Loading installer details...</div>;
@@ -58,7 +93,6 @@ const InstallerDetail: React.FC = () => {
   return (
     <div>
       <div className="bg-surface p-6 rounded-lg shadow-md mb-8">
-        {/* --- MODIFICATION: Wrapped header in a flex container for the button --- */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mr-6" style={{ backgroundColor: installer.color || '#4A5568' }}>
@@ -68,7 +102,6 @@ const InstallerDetail: React.FC = () => {
               <h1 className="text-3xl font-bold text-text-primary">{installer.installerName}</h1>
             </div>
           </div>
-          {/* --- MODIFICATION: Added the Edit button --- */}
           <button
             onClick={() => setIsEditModalOpen(true)}
             className="flex items-center gap-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded text-white font-semibold transition-colors"
@@ -82,6 +115,16 @@ const InstallerDetail: React.FC = () => {
           <p className="flex items-center"><Mail className="w-5 h-5 mr-3 text-accent"/> {installer.contactEmail || 'N/A'}</p>
           <p className="flex items-center"><Phone className="w-5 h-5 mr-3 text-accent"/> {installer.contactPhone || 'N/A'}</p>
         </div>
+      </div>
+
+      <div className="mb-8">
+        <CollapsibleSection
+          title="Change History"
+          icon={<History className="w-6 h-6" />}
+          defaultOpen={false}
+        >
+          <ActivityHistory history={installerHistory} />
+        </CollapsibleSection>
       </div>
       
       <div className="flex justify-between items-center mb-6">
@@ -124,8 +167,24 @@ const InstallerDetail: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* vvvvvvvvvvvv MODIFIED: Added admin-only Danger Zone vvvvvvvvvvvv */}
+      {currentUser?.roles?.includes('Admin') && (
+        <div className="mt-12 p-6 border-t-4 border-red-500 bg-surface rounded-lg shadow-md">
+          <h3 className="text-xl font-bold text-red-400 mb-4">Danger Zone</h3>
+          <p className="text-text-secondary mb-4">Deleting this installer is a permanent action. You can only delete an installer if they are not assigned to any existing quotes.</p>
+          <button
+              onClick={handleDeleteInstaller}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed"
+          >
+              <Trash2 size={18} />
+              {isDeleting ? 'Deleting...' : 'Delete This Installer'}
+          </button>
+        </div>
+      )}
+      {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
 
-      {/* --- MODIFICATION: Render the modal when state is true --- */}
       {isEditModalOpen && (
         <EditInstallerModal
           isOpen={isEditModalOpen}

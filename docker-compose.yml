@@ -7,6 +7,8 @@ services:
     volumes:
       - ./server/uploads:/app/uploads
       - ./server/temp-uploads:/app/temp-uploads
+      - ./server:/app
+      - /app/node_modules
     ports:
       - "192.168.1.10:3001:3001"
     environment:

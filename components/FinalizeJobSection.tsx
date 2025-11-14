@@ -58,6 +58,9 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     }, [quotes, changeOrders, project.id]);
     
     const [jobDetails, setJobDetails] = useState({
+        // vvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvv
+        projectId: project.id, // Always initialize with the projectId
+        // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         poNumber: '',
         depositReceived: false,
         contractsReceived: false,
@@ -70,13 +73,10 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
 
     const installerId = acceptedQuote?.installerId;
 
-    // <<< START OF DEFINITIVE FIX >>>
-    // This effect synchronizes the form's state with the `job` prop.
-    // It runs ONLY when the `job` prop itself changes, which happens when the data loads.
-    // This correctly populates the form, including the dates, without overwriting user input later.
     useEffect(() => {
         if (job) {
             setJobDetails({
+                projectId: project.id, // Ensure projectId is always present
                 poNumber: job.poNumber || '',
                 depositReceived: job.depositReceived || false,
                 contractsReceived: job.contractsReceived || false,
@@ -85,11 +85,22 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 scheduledEndDate: formatDateForInput(job.scheduledEndDate),
                 notes: job.notes || '',
             });
+        } else {
+            // If there's no job, ensure the initial state is set with the correct projectId
+            setJobDetails(prev => ({ 
+                ...prev, 
+                projectId: project.id,
+                poNumber: '',
+                depositReceived: false,
+                contractsReceived: false,
+                finalPaymentReceived: false,
+                scheduledStartDate: '',
+                scheduledEndDate: '',
+                notes: ''
+            }));
         }
-    }, [job]);
-    // <<< END OF DEFINITIVE FIX >>>
+    }, [job, project.id]);
 
-    // This separate effect handles the automatic deposit amount update without interfering.
     useEffect(() => {
         if (job && Math.abs(Number(job.depositAmount) - financialSummary.totalDeposit) > 0.01) {
             saveJobDetails({ projectId: project.id, depositAmount: financialSummary.totalDeposit });
@@ -107,7 +118,6 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 const response = await fetch(`/api/installers/${installerId}/schedule?excludeProjectId=${project.id}`);
                 const existingJobs: { projectId: number, scheduledStartDate: string, scheduledEndDate: string | null }[] = await response.json();
                 const newStart = new Date(jobDetails.scheduledStartDate);
-                // If there's no end date, treat it as a single day event
                 const newEnd = jobDetails.scheduledEndDate ? new Date(jobDetails.scheduledEndDate) : newStart;
                 
                 const conflicts = existingJobs.filter(existingJob => {
@@ -133,11 +143,13 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
             return;
         }
         try {
+            // vvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvv
+            // `jobDetails` now reliably contains the projectId, so we just pass it
             await saveJobDetails({ 
                 ...jobDetails, 
-                projectId: project.id, 
                 depositAmount: financialSummary.totalDeposit 
             });
+            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             if (shouldUpdateStatus) {
                 await updateProject({ id: project.id, status: ProjectStatus.SCHEDULED });
             }
@@ -149,7 +161,10 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     const handleCompleteJob = async () => {
         if (!jobDetails.finalPaymentReceived) return;
         try {
-            await saveJobDetails({ ...jobDetails, projectId: project.id, finalPaymentReceived: true });
+            // vvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvv
+            // `jobDetails` now reliably contains the projectId
+            await saveJobDetails({ ...jobDetails, finalPaymentReceived: true });
+            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             await updateProject({ id: project.id, status: ProjectStatus.COMPLETED });
         } catch (error) {
             console.error("Failed to complete job", error);

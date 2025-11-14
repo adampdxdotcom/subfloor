@@ -1,6 +1,5 @@
--- SQL Schema for Flooring Job Tracker
+-- SQL Schema for Joblogger
 
--- Table for Customers
 CREATE TABLE customers (
     id SERIAL PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
@@ -10,8 +9,6 @@ CREATE TABLE customers (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- ### MODIFIED TABLE ###
--- Table for Vendors (Manufacturers and Suppliers)
 CREATE TABLE vendors (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -26,15 +23,13 @@ CREATE TABLE vendors (
     rep_email VARCHAR(255),
     shipping_method TEXT,
     dedicated_shipping_day INT, -- 0=Sunday, 6=Saturday
-    notes TEXT -- New field for notes
+    notes TEXT
 );
 
--- ### MODIFIED TABLE ###
--- Table for the master list of Samples
 CREATE TABLE samples (
     id SERIAL PRIMARY KEY,
-    manufacturer_id INT REFERENCES vendors(id), -- Replaced 'manufacturer' text field
-    supplier_id INT REFERENCES vendors(id),     -- New field for separate supplier
+    manufacturer_id INT REFERENCES vendors(id),
+    supplier_id INT REFERENCES vendors(id),
     style_color VARCHAR(255) NOT NULL,
     sku VARCHAR(100),
     type VARCHAR(100) NOT NULL,
@@ -42,7 +37,6 @@ CREATE TABLE samples (
     product_url TEXT
 );
 
--- Table for Installers
 CREATE TABLE installers (
     id SERIAL PRIMARY KEY,
     installer_name VARCHAR(255) NOT NULL,
@@ -51,7 +45,6 @@ CREATE TABLE installers (
     color VARCHAR(7)
 );
 
--- Table for Projects, linking to a Customer
 CREATE TABLE projects (
     id SERIAL PRIMARY KEY,
     customer_id INT REFERENCES customers(id),
@@ -62,7 +55,6 @@ CREATE TABLE projects (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Join table for tracking Sample Checkouts per Project
 CREATE TABLE sample_checkouts (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
@@ -72,7 +64,6 @@ CREATE TABLE sample_checkouts (
     actual_return_date TIMESTAMPTZ
 );
 
--- Table for Quotes, linking to a Project and an Installer
 CREATE TABLE quotes (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
@@ -87,7 +78,6 @@ CREATE TABLE quotes (
     status VARCHAR(100)
 );
 
--- Table for finalized Jobs, with a one-to-one relationship to a Project
 CREATE TABLE jobs (
     id SERIAL PRIMARY KEY,
     project_id INT UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
@@ -102,7 +92,6 @@ CREATE TABLE jobs (
     notes TEXT
 );
 
--- Table for Change Orders, linked to a Project
 CREATE TABLE change_orders (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
@@ -112,19 +101,16 @@ CREATE TABLE change_orders (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- ### MODIFIED TABLE ###
--- The main record for each material order, linked to a project.
 CREATE TABLE material_orders (
     id SERIAL PRIMARY KEY,
     project_id INTEGER NOT NULL REFERENCES projects(id),
-    supplier_id INT REFERENCES vendors(id), -- Replaced 'supplier' text field
+    supplier_id INT REFERENCES vendors(id),
     order_date DATE NOT NULL DEFAULT CURRENT_DATE,
     eta_date DATE,
     status VARCHAR(50) NOT NULL DEFAULT 'Ordered',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- The individual products (line items) on a specific material order.
 CREATE TABLE order_line_items (
     id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL REFERENCES material_orders(id) ON DELETE CASCADE,
@@ -134,11 +120,47 @@ CREATE TABLE order_line_items (
     total_cost NUMERIC(10, 2)
 );
 
--- Table for storing photos, linked polymorphically to other tables
 CREATE TABLE photos (
     id SERIAL PRIMARY KEY,
     url VARCHAR(255) NOT NULL,
-    entity_type VARCHAR(50) NOT NULL, -- e.g., 'sample', 'project'
+    entity_type VARCHAR(50) NOT NULL,
     entity_id INT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- =================================================================
+-- AUDITING
+-- =================================================================
+
+CREATE TABLE activity_log (
+    id BIGSERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    action_type VARCHAR(50) NOT NULL,
+    target_entity VARCHAR(50) NOT NULL,
+    target_id VARCHAR(255) NOT NULL,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_activity_log_target ON activity_log(target_entity, target_id);
+
+-- =================================================================
+-- ROLE-BASED ACCESS CONTROL (RBAC)
+-- Tables are prefixed with 'app_' to avoid conflicts with SuperTokens' internal tables.
+-- =================================================================
+
+CREATE TABLE app_roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT
+);
+
+CREATE TABLE app_user_roles (
+    user_id VARCHAR(255) NOT NULL,
+    role_id INT NOT NULL REFERENCES app_roles(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, role_id)
+);
+
+INSERT INTO app_roles (name, description) VALUES
+('Admin', 'Full access to all system features, including user management and settings.'),
+('User', 'Standard user with access to daily operations like creating and managing projects.');
