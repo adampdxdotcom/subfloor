@@ -202,14 +202,25 @@ export interface AppData {
   vendors: Vendor[];
 }
 
+export interface User {
+  userId: string;
+  email: string;
+}
+
+export interface CurrentUser {
+  userId: string;
+  email: string;
+}
+
 export interface DataContextType extends AppData {
   isLoading: boolean;
+  currentUser: CurrentUser | null;
   fetchSamples: () => Promise<void>;
   addInstaller: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>;
   updateInstaller: (installer: Installer) => Promise<void>;
   deleteInstaller: (installerId: number) => Promise<void>;
-  addSample: (sampleData: any) => Promise<Sample>; // <-- THIS LINE IS THE FIX
-  updateSample: (sampleId: number, sampleData: any) => Promise<void>; // Also updated for consistency
+  addSample: (sampleData: any) => Promise<Sample>;
+  updateSample: (sampleId: number, sampleData: any) => Promise<void>;
   deleteSample: (sampleId: number) => Promise<void>;
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>) => void;
   updateCustomer: (customer: Customer) => Promise<void>;
@@ -222,6 +233,9 @@ export interface DataContextType extends AppData {
   extendSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
   addQuote: (quote: Omit<Quote, 'id'|'dateSent'>) => Promise<void>;
   updateQuote: (quote: Partial<Quote> & {id: number}) => Promise<void>;
+  // <<< START OF FIX >>>
+  acceptQuote: (quote: Partial<Quote> & { id: number }) => Promise<void>;
+  // <<< END OF FIX >>>
   saveJobDetails: (jobDetails: Omit<Job, 'id' | 'paperworkSignedUrl'>) => Promise<void>;
   updateJob: (job: Job) => void;
   addChangeOrder: (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>) => Promise<void>;

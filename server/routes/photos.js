@@ -6,18 +6,15 @@ import { fileURLToPath } from 'url';
 import axios from 'axios';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
-// --- CONFIGURATION MOVED FROM INDEX.JS ---
 const __filename = fileURLToPath(import.meta.url);
-// Resolve __dirname to be the '/server' directory, not '/server/routes'
 const __dirname = path.resolve(path.dirname(__filename), '..');
 
-// Multer configuration for file storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // We construct the path from our resolved __dirname
     cb(null, path.join(__dirname, 'uploads')); 
   },
   filename: function (req, file, cb) {
@@ -28,11 +25,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// --- ROUTES ---
-
 // POST /api/photos (Handles file upload from user's computer)
-// Note the `upload.single('photo')` middleware is used here
-router.post('/', upload.single('photo'), async (req, res) => {
+router.post('/', verifySession(), upload.single('photo'), async (req, res) => {
     const { entityType, entityId } = req.body;
     
     if (!req.file) {
@@ -67,7 +61,7 @@ router.post('/', upload.single('photo'), async (req, res) => {
 });
 
 // POST /api/photos/from-url (Handles importing an image from a URL)
-router.post('/from-url', async (req, res) => {
+router.post('/from-url', verifySession(), async (req, res) => {
     const { imageUrl, entityType, entityId } = req.body;
 
     if (!imageUrl || !entityType || !entityId) {

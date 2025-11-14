@@ -1,23 +1,22 @@
 import express from 'express';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 // GET /api/quotes
-router.get('/', async (req, res) => {
+router.get('/', verifySession(), async (req, res) => {
     try {
-        // --- MODIFICATION: Added installation_type to the SELECT statement ---
         const result = await pool.query('SELECT *, installation_type FROM quotes ORDER BY date_sent DESC');
         res.json(result.rows.map(toCamelCase));
     } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 // GET /api/quotes/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', verifySession(), async (req, res) => {
     try {
         const { id } = req.params;
-        // --- MODIFICATION: Added installation_type to the SELECT statement ---
         const result = await pool.query('SELECT *, installation_type FROM quotes WHERE id = $1', [id]);
         if (result.rows.length === 0) { return res.status(404).json({ error: 'Quote not found' }); }
         res.json(toCamelCase(result.rows[0]));
@@ -25,12 +24,10 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/quotes
-router.post('/', async (req, res) => {
+router.post('/', verifySession(), async (req, res) => {
     try {
-        // --- MODIFICATION: Destructure the new installationType field ---
         let { projectId, installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status } = req.body;
 
-        // --- MODIFICATION: Enforce business rules based on installationType ---
         if (installationType === 'Materials Only Sale') {
             installerId = null;
             laborAmount = null;
@@ -49,18 +46,85 @@ router.post('/', async (req, res) => {
     }
 });
 
+// <<< START OF MODIFICATION >>>
+
+// PUT /api/quotes/:id/accept - New dedicated endpoint for accepting a quote
+router.put('/:id/accept', verifySession(), async (req, res) => {
+    const { id } = req.params;
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+
+        // Step 1: Update the quote's status to 'Accepted'
+        const quoteUpdateResult = await client.query(
+            `UPDATE quotes SET status = 'Accepted' WHERE id = $1 RETURNING *`,
+            [id]
+        );
+
+        if (quoteUpdateResult.rows.length === 0) {
+            throw new Error('Quote not found');
+        }
+
+        const updatedQuote = quoteUpdateResult.rows[0];
+        const projectId = updatedQuote.project_id;
+
+        // Step 2: Update the project's status to 'Accepted'
+        const projectUpdateResult = await client.query(
+            `UPDATE projects SET status = 'Accepted' WHERE id = $1 RETURNING *`,
+            [projectId]
+        );
+
+        if (projectUpdateResult.rows.length === 0) {
+            throw new Error('Project not found');
+        }
+
+        const updatedProject = projectUpdateResult.rows[0];
+
+        // Step 3: Create a placeholder job entry for this project if one doesn't exist
+        const jobCheck = await client.query('SELECT id FROM jobs WHERE project_id = $1', [projectId]);
+        if (jobCheck.rows.length === 0) {
+            let depositAmount = parseFloat(updatedQuote.materials_amount) || 0;
+            if (updatedQuote.installation_type === 'Managed Installation') {
+                const labor = parseFloat(updatedQuote.labor_amount) || 0;
+                const percent = parseFloat(updatedQuote.labor_deposit_percentage) || 0;
+                depositAmount += (labor * (percent / 100));
+            }
+            await client.query(
+                'INSERT INTO jobs (project_id, deposit_amount) VALUES ($1, $2)',
+                [projectId, depositAmount]
+            );
+        }
+
+        await client.query('COMMIT');
+        
+        // Step 4: Send back both updated objects
+        res.json({ 
+            updatedQuote: toCamelCase(updatedQuote), 
+            updatedProject: toCamelCase(updatedProject) 
+        });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error in accept quote transaction:', err.message);
+        res.status(500).json({ error: 'Internal server error while accepting quote.' });
+    } finally {
+        client.release();
+    }
+});
+
+// <<< END OF MODIFICATION >>>
+
 // PUT /api/quotes/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifySession(), async (req, res) => {
     try {
         const { id } = req.params;
-        // --- MODIFICATION: Destructure the new installationType field ---
         let { installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status } = req.body;
         
         const fields = [];
         const values = [];
         let query = 'UPDATE quotes SET ';
 
-        // --- MODIFICATION: Enforce business rules before building the query ---
         if (installationType === 'Materials Only Sale') {
             installerId = null;
             laborAmount = null;

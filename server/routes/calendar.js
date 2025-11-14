@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 // GET /api/calendar/events
-router.get('/events', async (req, res) => {
+router.get('/events', verifySession(), async (req, res) => {
     try {
         const query = `
             SELECT 

@@ -16,7 +16,7 @@ RUN npm install
 COPY . .
 
 # Vite's default port is 5173. We expose it from the container.
-EXPOSE 3000
+EXPOSE 5173
 
-# The command to run the Vite dev server and make it accessible outside the container
-CMD ["npm", "run", "dev", "--", "--host"]
+# The command to run the Vite dev server
+CMD ["npm", "run", "dev"]

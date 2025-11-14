@@ -5,20 +5,20 @@ services:
       dockerfile: Dockerfile.server
     container_name: joblogger_server
     volumes:
-      # This correctly mounts ONLY the server's user-generated content folders.
       - ./server/uploads:/app/uploads
       - ./server/temp-uploads:/app/temp-uploads
     ports:
-      - "3001:3001"
+      - "192.168.1.10:3001:3001"
     environment:
-      - DATABASE_URL=postgresql://user:password@db:5432/joblogger
-      - POSTG-ES_USER=user
-      - PGPASSWORD=password 
-      - POSTGRES_DB=joblogger
+      - DATABASE_URL=postgresql://postgres:password@db:5432/supertokens
+      - SUPERTOKENS_CONNECTION_URI=http://supertokens:3567
+      - SUPERTOKENS_API_KEY=some-long-and-secure-key
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      supertokens:
+        condition: service_started
 
   app:
     build:
@@ -26,10 +26,7 @@ services:
       dockerfile: Dockerfile
     container_name: joblogger_app
     ports:
-      - "5173:5173"
-    # --- THIS IS THE FINAL, SURGICAL FIX ---
-    # We now mount each necessary frontend file/folder individually.
-    # This prevents the 'app' container from seeing and locking the 'server' folder.
+      - "192.168.1.10:5173:5173"
     volumes:
       - ./src:/app/src
       - ./index.html:/app/index.html
@@ -38,11 +35,31 @@ services:
       - ./tsconfig.json:/app/tsconfig.json
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
-      # This anonymous volume is crucial for node_modules persistence.
-      - /app/node_modules
+      # <<< THIS IS THE CRITICAL MISSING LINE >>>
+      - ./index.tsx:/app/index.tsx
     restart: unless-stopped
     depends_on:
       - server
+      - supertokens
+    # Reverting to the standard command
+    command: npm run dev
+
+  supertokens:
+    image: supertokens/supertokens-postgresql:11.2
+    container_name: joblogger_supertokens
+    ports:
+      - "3567:3567"
+    environment:
+      - POSTGRESQL_USER=postgres
+      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_HOST=db
+      - POSTGRESQL_PORT=5432
+      - POSTGRESQL_DATABASE=supertokens
+      - SUPERTOKENS_API_KEY=some-long-and-secure-key
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:15-alpine
@@ -51,12 +68,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
-      - POSTGRES_USER=user
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password 
-      - POSTGRES_DB=joblogger
+      - POSTGRES_DB=supertokens
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d joblogger"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -h localhost"]
       interval: 5s
       timeout: 5s
       retries: 5

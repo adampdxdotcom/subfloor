@@ -4,6 +4,7 @@ import archiver from 'archiver';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
@@ -19,13 +20,12 @@ fs.mkdirSync(tempDir, { recursive: true });
  * GET /api/backup/database
  * This endpoint generates a database dump, zips it, and streams it to the user.
  */
-router.get('/database', (req, res) => {
+router.get('/database', verifySession(), (req, res) => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const dumpFilename = `database-backup-${timestamp}.dump`;
     const tempDumpPath = path.join(tempDir, dumpFilename);
     const zipFilename = `joblogger-database-backup-${timestamp}.zip`;
 
-    // --- FIX: Parse DATABASE_URL to get correct credentials ---
     if (!process.env.DATABASE_URL) {
         console.error('DATABASE_URL environment variable is not set!');
         return res.status(500).json({ error: 'Server configuration error: DATABASE_URL not set.' });
@@ -41,7 +41,6 @@ router.get('/database', (req, res) => {
 
     console.log('--- Creating database backup file on server ---');
     
-    // Execute the command, passing PGPASSWORD in the environment
     exec(dumpCommand, { env: { ...process.env, PGPASSWORD: dbPassword } }, (error, stdout, stderr) => {
         if (error) {
             console.error('pg_dump execution error:', stderr);
@@ -83,7 +82,7 @@ router.get('/database', (req, res) => {
  * GET /api/backup/images
  * This endpoint zips the entire /server/uploads directory and streams it to the user.
  */
-router.get('/images', (req, res) => {
+router.get('/images', verifySession(), (req, res) => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const zipFilename = `joblogger-images-backup-${timestamp}.zip`;
     const sourceDir = path.join(__dirname, 'uploads');

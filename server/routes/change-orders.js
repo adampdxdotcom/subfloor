@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 // GET /api/change-orders
-router.get('/', async (req, res) => {
+router.get('/', verifySession(), async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM change_orders ORDER BY created_at ASC');
         res.json(result.rows.map(toCamelCase));
@@ -16,7 +17,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/change-orders
-router.post('/', async (req, res) => {
+router.post('/', verifySession(), async (req, res) => {
     try {
         const { projectId, description, amount, type } = req.body;
         if (!projectId || !description || amount === undefined || !type) {
@@ -34,7 +35,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/change-orders/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifySession(), async (req, res) => {
     try {
         const { id } = req.params;
         const { description, amount, type } = req.body;

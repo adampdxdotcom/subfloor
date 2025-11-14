@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 // GET /api/installers
-router.get('/', async (req, res) => {
+router.get('/', verifySession(), async (req, res) => {
     try {
         const query = `
             SELECT
@@ -39,7 +40,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/installers/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', verifySession(), async (req, res) => {
     try {
         const { id } = req.params;
         const result = await pool.query('SELECT * FROM installers WHERE id = $1', [id]);
@@ -49,7 +50,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // GET /api/installers/:id/schedule
-router.get('/:id/schedule', async (req, res) => {
+router.get('/:id/schedule', verifySession(), async (req, res) => {
     const { id: installerId } = req.params;
     const { excludeProjectId } = req.query;
 
@@ -76,7 +77,7 @@ router.get('/:id/schedule', async (req, res) => {
 });
 
 // POST /api/installers
-router.post('/', async (req, res) => {
+router.post('/', verifySession(), async (req, res) => {
     try {
         const { installerName, contactEmail, contactPhone, color } = req.body;
         const result = await pool.query(
@@ -88,7 +89,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/installers/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifySession(), async (req, res) => {
     try {
         const { id } = req.params;
         const { installerName, contactEmail, contactPhone, color } = req.body;
@@ -101,31 +102,27 @@ router.put('/:id', async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// --- NEW CODE START ---
 // DELETE /api/installers/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     
     try {
-        // 1. Pre-flight check: Ensure the installer is not assigned to any quotes.
         const quoteCheckResult = await pool.query('SELECT 1 FROM quotes WHERE installer_id = $1 LIMIT 1', [id]);
         if (quoteCheckResult.rows.length > 0) {
             return res.status(409).json({ error: 'Cannot delete installer. They are assigned to one or more quotes.' });
         }
 
-        // 2. If check passes, proceed with deletion.
         const deleteResult = await pool.query('DELETE FROM installers WHERE id = $1 RETURNING *', [id]);
         
         if (deleteResult.rows.length === 0) {
             return res.status(404).json({ error: 'Installer not found' });
         }
 
-        res.status(204).send(); // Success, no content to return.
+        res.status(204).send();
     } catch (err) {
         console.error(`Failed to delete installer ${id}:`, err.message);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-// --- NEW CODE END ---
 
 export default router;

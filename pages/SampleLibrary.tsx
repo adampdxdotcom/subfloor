@@ -37,7 +37,23 @@ const SampleLibrary: React.FC = () => {
   const [manufacturerSearch, setManufacturerSearch] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
+  const [vendorModalPurpose, setVendorModalPurpose] = useState<'manufacturer' | 'supplier' | 'general'>('general');
 
+
+  // <<< START OF FIX >>>
+
+  // Find the full name of the currently selected manufacturer and supplier
+  const selectedManufacturerName = useMemo(() => 
+    vendors.find(v => v.id === newSample.manufacturerId)?.name, 
+    [vendors, newSample.manufacturerId]
+  );
+
+  const selectedSupplierName = useMemo(() => 
+    vendors.find(v => v.id === newSample.supplierId)?.name,
+    [vendors, newSample.supplierId]
+  );
+  
+  // The search results should appear if the user is typing something.
   const manufacturerSearchResults = useMemo(() => {
     if (!manufacturerSearch.trim()) return [];
     return vendors.filter(v => v.isManufacturer && v.name.toLowerCase().includes(manufacturerSearch.toLowerCase()));
@@ -47,6 +63,8 @@ const SampleLibrary: React.FC = () => {
     if (!supplierSearch.trim()) return [];
     return vendors.filter(v => v.isSupplier && v.name.toLowerCase().includes(supplierSearch.toLowerCase()));
   }, [vendors, supplierSearch]);
+
+  // <<< END OF FIX >>>
 
   const filteredSamples = useMemo(() => {
     const lowercasedTerm = searchTerm.toLowerCase();
@@ -230,7 +248,9 @@ const SampleLibrary: React.FC = () => {
                         <div className="relative">
                           <label className="text-sm text-text-secondary">Manufacturer</label>
                           <input type="text" value={manufacturerSearch} onChange={e => { setManufacturerSearch(e.target.value); setNewSample(p => ({ ...p, manufacturerId: null })) }} className="w-full p-2 bg-gray-800 border border-border rounded" required />
-                          {manufacturerSearch && !newSample.manufacturerId && (
+                          
+                          {/* <<< MODIFIED VISIBILITY LOGIC >>> */}
+                          {manufacturerSearch && manufacturerSearch !== selectedManufacturerName && (
                             <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
                               {manufacturerSearchResults.map(m => <div key={m.id} onClick={() => handleSelectManufacturer(m)} className="p-2 hover:bg-accent cursor-pointer">{m.name}</div>)}
                               {manufacturerSearchResults.length === 0 && <div onClick={() => setIsVendorModalOpen(true)} className="p-2 text-accent font-semibold hover:bg-accent hover:text-white cursor-pointer text-center border-t border-border">+ Add New Vendor</div>}
@@ -242,10 +262,12 @@ const SampleLibrary: React.FC = () => {
                            <div className="relative">
                             <label className="text-sm text-text-secondary">Supplier</label>
                             <input type="text" value={supplierSearch} onChange={e => { setSupplierSearch(e.target.value); setNewSample(p => ({ ...p, supplierId: null })) }} className="w-full p-2 bg-gray-800 border border-border rounded" required />
-                            {supplierSearch && !newSample.supplierId && (
+                            
+                            {/* <<< MODIFIED VISIBILITY LOGIC >>> */}
+                            {supplierSearch && supplierSearch !== selectedSupplierName && (
                               <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
                                 {supplierSearchResults.map(s => <div key={s.id} onClick={() => handleSelectSupplier(s)} className="p-2 hover:bg-accent cursor-pointer">{s.name}</div>)}
-                                {supplierSearchResults.length === 0 && <div onClick={() => setIsVendorModalOpen(true)} className="p-2 text-accent font-semibold hover:bg-accent hover:text-white cursor-pointer text-center border-t border-border">+ Add New Vendor</div>}
+                                {supplierSearchResults.length === <strong> 0 </strong> && <div onClick={() => setIsVendorModalOpen(true)} className="p-2 text-accent font-semibold hover:bg-accent hover:text-white cursor-pointer text-center border-t border-border">+ Add New Vendor</div>}
                               </div>
                             )}
                            </div>

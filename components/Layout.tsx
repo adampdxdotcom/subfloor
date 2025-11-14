@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom'; 
-// --- MODIFICATION: Import the Building and Settings icon ---
 import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon, Building } from 'lucide-react';
 import UniversalSearch from './UniversalSearch';
+import UserStatus from './UserStatus'; // --- NEW --- Import the UserStatus component
 
 const Layout: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -28,7 +28,6 @@ const Layout: React.FC = () => {
                     <Layers className="w-6 h-6" />
                     <span>Sample Library</span>
                 </NavLink>
-                {/* --- NEW --- */}
                 <NavLink to="/vendors" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
                     <Building className="w-6 h-6" />
                     <span>Vendor Directory</span>
@@ -67,7 +66,7 @@ const Layout: React.FC = () => {
             )}
             
             <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10">
+                <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 text-white">
                     <button 
                         className="p-2 rounded-md hover:bg-gray-700 md:hidden"
                         onClick={() => setIsSidebarOpen(true)}
@@ -75,12 +74,13 @@ const Layout: React.FC = () => {
                         <Menu className="w-6 h-6" />
                     </button>
                     
-                    <div className="flex-1 flex justify-center md:justify-start">
+                    <div className="flex-1 flex justify-center md:justify-start md:ml-4">
                         <UniversalSearch />
                     </div>
                     
+                    {/* --- MODIFICATION --- Replaced the placeholder with our new component */}
                     <div className="flex items-center">
-                        {/* Placeholder for user profile */}
+                        <UserStatus />
                     </div>
                 </header>
                 

@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import unzipper from 'unzipper';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ fs.mkdirSync(tempUploadsDir, { recursive: true });
 
 const upload = multer({ dest: tempUploadsDir });
 
-router.post('/database', upload.single('backupFile'), async (req, res) => {
+router.post('/database', verifySession(), upload.single('backupFile'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No backup file uploaded.' });
     }
@@ -77,7 +78,7 @@ router.post('/database', upload.single('backupFile'), async (req, res) => {
     }
 });
 
-router.post('/images', upload.single('backupFile'), async (req, res) => {
+router.post('/images', verifySession(), upload.single('backupFile'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No backup file uploaded.' });
     }

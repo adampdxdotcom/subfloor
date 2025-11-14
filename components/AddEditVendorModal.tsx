@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; // <-- THIS LINE IS FIXED
+import React, { useState, useEffect } from 'react';
 import { Vendor } from '../types';
 
 interface AddEditVendorModalProps {
@@ -6,11 +6,13 @@ interface AddEditVendorModalProps {
     onClose: () => void;
     onSave: (vendor: Omit<Vendor, 'id'> | Vendor) => void;
     vendorToEdit?: Vendor | null;
+    // <<< FIX STEP 1: Add a new prop to receive the context >>>
+    initialVendorType?: 'manufacturer' | 'supplier'; 
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose, onSave, vendorToEdit }) => {
+const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose, onSave, vendorToEdit, initialVendorType }) => {
     const [formData, setFormData] = useState({
         name: '',
         isManufacturer: false,
@@ -40,7 +42,7 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
             repPhone: '',
             repEmail: '',
             shippingMethod: '',
-            dedicatedShippingDay: null,
+            dedicatedShippingDay: null as number | null,
             notes: '',
         };
 
@@ -61,9 +63,17 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                 notes: vendorToEdit.notes || '',
             });
         } else {
+            // <<< FIX STEP 2: Use the new prop to set the correct default state >>>
+            if (initialVendorType === 'manufacturer') {
+                initialState.isManufacturer = true;
+                initialState.isSupplier = false;
+            } else if (initialVendorType === 'supplier') {
+                initialState.isManufacturer = false;
+                initialState.isSupplier = true;
+            }
             setFormData(initialState);
         }
-    }, [vendorToEdit, isOpen]);
+    }, [vendorToEdit, isOpen, initialVendorType]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;

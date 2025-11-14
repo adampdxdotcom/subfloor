@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-// --- MODIFICATION: Import new types ---
 import { Project, Quote, Installer, QuoteStatus, ProjectStatus, Job, InstallationType, INSTALLATION_TYPES } from '../types';
 import { Edit, Check, X } from 'lucide-react';
+import { useData } from '../context/DataContext';
 
 interface QuotesSectionProps {
     project: Project;
@@ -19,8 +19,10 @@ interface QuotesSectionProps {
 }
 
 const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, installers, addQuote, updateQuote, updateProject, addInstaller, saveJobDetails, isModalOpen, onCloseModal, onOpenEditModal, editingQuoteForModal }) => {
+    // <<< FIX: Get the new acceptQuote function from the context >>>
+    const { acceptQuote } = useData();
+    
     const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
-    // --- MODIFICATION: Updated state to include installationType and renamed installerCost -> laborAmount ---
     const [newQuote, setNewQuote] = useState({
         installationType: 'Managed Installation' as InstallationType,
         materialsAmount: '',
@@ -36,7 +38,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
     const installerSearchResults = useMemo(() => { if (!installerSearchTerm) return []; return installers.filter(i => i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase())); }, [installers, installerSearchTerm]);
     const calculatedDeposit = useMemo(() => {
         const materials = parseFloat(newQuote.materialsAmount) || 0;
-        // --- MODIFICATION: Only include labor in deposit for managed installations ---
         if (newQuote.installationType === 'Managed Installation') {
             const labor = parseFloat(newQuote.laborAmount) || 0;
             const percent = parseFloat(newQuote.laborDepositPercentage) || 0;
@@ -57,7 +58,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                     setSelectedInstaller(null);
                     setInstallerSearchTerm('');
                 }
-                // --- MODIFICATION: Set all new fields when editing ---
                 setNewQuote({
                     installationType: editingQuoteForModal.installationType || 'Managed Installation',
                     materialsAmount: String(editingQuoteForModal.materialsAmount || ''),
@@ -116,30 +116,15 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
         }
     };
     
+    // <<< FIX: Use the powerful `acceptQuote` for 'Accepted' status >>>
     const handleQuoteStatusChange = async (e: React.MouseEvent, quote: Quote, status: QuoteStatus) => { 
         e.preventDefault(); 
         e.stopPropagation(); 
         
-        await updateQuote({ id: quote.id, status: status }); 
-        
         if (status === QuoteStatus.ACCEPTED) { 
-            const materials = Number(quote.materialsAmount) || 0;
-            let deposit = materials;
-
-            if (quote.installationType === 'Managed Installation') {
-                const labor = Number(quote.laborAmount) || 0; 
-                const percent = Number(quote.laborDepositPercentage) || 0; 
-                deposit += (labor * (percent / 100));
-            }
-             
-            await saveJobDetails({ 
-                projectId: project.id, 
-                depositAmount: deposit, 
-                notes: quote.quoteDetails || '', 
-            }); 
-            if (project.status !== ProjectStatus.ACCEPTED && project.status !== ProjectStatus.SCHEDULED) { 
-                await updateProject({ id: project.id, status: ProjectStatus.ACCEPTED }); 
-            } 
+            await acceptQuote({ id: quote.id, status: status }); 
+        } else {
+            await updateQuote({ id: quote.id, status: status }); 
         } 
     };
 
@@ -156,7 +141,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                                     <p className="font-bold text-lg text-text-primary">${totalAmount.toFixed(2)}</p>
                                     <p className="text-sm text-text-secondary">{installer?.installerName || quote.installationType}</p>
                                     <p className="text-xs text-gray-400 mt-2">Materials: ${Number(quote.materialsAmount || 0).toFixed(2)}, Labor: ${Number(quote.laborAmount || 0).toFixed(2)}</p>
-                                    {/* --- MODIFICATION: Display installation type badge --- */}
                                     <span className="text-xs font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded-full mt-2 inline-block">{quote.installationType}</span>
                                 </div>
                                 <div className="text-right">
@@ -181,7 +165,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                         <h3 className="text-xl font-bold mb-4">{editingQuote ? 'Edit Quote' : 'Add New Quote'}</h3>
                         {!isAddingNewInstaller ? (
                             <form onSubmit={handleSaveQuote}>
-                                {/* --- MODIFICATION: Added Installation Type radio buttons --- */}
                                 <div className="mb-4">
                                     <label className="block text-sm font-medium text-text-secondary mb-2">Installation Type</label>
                                     <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -199,7 +182,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                                     </div>
                                 </div>
 
-                                {/* --- MODIFICATION: Conditional rendering for installer search --- */}
                                 {(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && (
                                     <div className="relative mb-4">
                                         <label className="block text-sm font-medium text-text-secondary mb-1">Installer</label>
@@ -222,7 +204,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                                         <label className="block text-sm font-medium text-text-secondary mb-1">Materials Cost</label>
                                         <input type="number" step="0.01" placeholder="0.00" value={newQuote.materialsAmount} onChange={e => setNewQuote({ ...newQuote, materialsAmount: e.target.value })} className="w-full p-2 bg-gray-800 border-border rounded" required />
                                     </div>
-                                    {/* --- MODIFICATION: Conditional rendering for Labor Cost --- */}
                                     {newQuote.installationType === 'Managed Installation' && (
                                         <div>
                                             <label className="block text-sm font-medium text-text-secondary mb-1">Labor Cost</label>
@@ -231,7 +212,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                                     )}
                                 </div>
 
-                                {/* --- MODIFICATION: Conditional rendering for Deposit Section --- */}
                                 <div className="grid grid-cols-2 gap-4 mb-4 items-center">
                                     {newQuote.installationType === 'Managed Installation' && (
                                         <div className="relative">
@@ -253,7 +233,16 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                             </form>
                         ) : (
                            <form onSubmit={handleSaveNewInstaller}>
-                                {/* ... (no changes to the add new installer form) ... */}
+                                <h4 className="text-lg font-semibold mb-2">Add New Installer</h4>
+                                <div className="space-y-3">
+                                    <input type="text" placeholder="Installer Name" value={newInstallerForm.installerName} onChange={e => setNewInstallerForm({...newInstallerForm, installerName: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded" required />
+                                    <input type="email" placeholder="Contact Email" value={newInstallerForm.contactEmail} onChange={e => setNewInstallerForm({...newInstallerForm, contactEmail: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded" />
+                                    <input type="tel" placeholder="Contact Phone" value={newInstallerForm.contactPhone} onChange={e => setNewInstallerForm({...newInstallerForm, contactPhone: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded" />
+                                </div>
+                                <div className="flex justify-end space-x-2 mt-4">
+                                    <button type="button" onClick={() => setIsAddingNewInstaller(false)} className="py-2 px-4 bg-gray-600 rounded">Back</button>
+                                    <button type="submit" className="py-2 px-4 bg-primary rounded">Save Installer</button>
+                                </div>
                            </form>
                         )}
                     </div>

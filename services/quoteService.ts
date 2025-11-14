@@ -1,4 +1,4 @@
-import { Quote } from "../types";
+import { Project, Quote } from "../types";
 
 const API_BASE_URL = '/api/quotes';
 
@@ -39,6 +39,23 @@ export const updateQuote = async (quoteData: Partial<Quote> & { id: number }): P
     });
     if (!response.ok) {
         throw new Error('Failed to update quote.');
+    }
+    return response.json();
+};
+
+/**
+ * Accepts a quote, which also updates the parent project's status.
+ * Returns both the updated quote and the updated project.
+ */
+export const acceptQuote = async (quoteData: Partial<Quote> & { id: number }): Promise<{ updatedQuote: Quote, updatedProject: Project }> => {
+    const response = await fetch(`${API_BASE_URL}/${quoteData.id}/accept`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quoteData)
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to accept quote.' }));
+        throw new Error(errorData.message);
     }
     return response.json();
 };

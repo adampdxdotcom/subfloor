@@ -1,320 +1,240 @@
+================================================================================
+                            PROJECT SUMMARY: Joblogger
+================================================================================
+
+
+--- PROJECT FILE STRUCTURE ---
+
 .
-|____index.css
-|____context
-| |____DataContext.tsx
-|____server
-| |____temp-uploads
-| |____routes
-| | |____photos.js
-| | |____projects.js
-| | |____customers.js
-| | |____vendors.js
-| | |____calendar.js
-| | |____search.js
-| | |____restore.js
-| | |____samples.js
-| | |____installers.js
-| | |____orders.js
-| | |____backup.js
-| | |____jobs.js
-| | |____sampleCheckouts.js
-| | |____change-orders.js
-| | |____quotes.js
-| |____index.js
-| |____uploads
-| | |____photo-1762749727265-184370968.jpeg
-| | |____photo-1762785251830-612632601.jpeg
-| | |____photo-1762705750104-121879699.jpeg
-| | |____photo-1762725541780-203593309.jpeg
-| | |____photo-1762706494949-518537399.jpeg
-| | |____photo-1762697778265-104491356.jpg
-| | |____photo-1762652802557-41371136.jpg
-| | |____photo-1762651296946-276169435.jpg
-| | |____photo-1762728357598-394921334.jpeg
-| | |____photo-1762706711588-50890738.jpeg
-| | |____photo-1762792000231-374293082.jpeg
-| | |____photo-1762749775606-205983593.jpeg
-| | |____photo-1762728546803-914892401.jpeg
-| | |____photo-1762728309643-556402683.jpeg
-| |____db.js
-| |____utils.js
-| |____tree.txt
-|____backup.bak
-|____package-lock.json
-|____vite.config.ts
-|____tsconfig.json
-|____App.tsx
-|____services
-| |____quoteService.ts
-| |____jobService.ts
-| |____customerService.ts
-| |____projectService.ts
-| |____vendorService.ts
-| |____sampleCheckoutService.ts
-| |____changeOrderService.ts
-| |____materialOrderService.ts
-| |____installerService.ts
-| |____sampleService.ts
-|____docker-compose.yml
-|____Dockerfile
-|____index.js.bak
-|____.env
-|____temp-uploads
-|____.dockerignore
-|____.gitignore
-|____src
-|____project_1old.txt
-|____components
-| |____SampleCheckoutsSection.tsx
-| |____AddSampleInlineModal.tsx
-| |____FinalizeJobSection.tsx
-| |____SampleSelector.tsx
-| |____ProjectInfoHeader.tsx
-| |____Layout.tsx
-| |____RestoreForm.tsx
-| |____EditInstallerModal.tsx
-| |____ChangeOrderSection.tsx
-| |____PrintableCheckout.tsx
-| |____QrScanner.tsx
-| |____UniversalSearch.tsx
-| |____CollapsibleSection.tsx
-| |____SampleDetailModal.tsx
-| |____MaterialOrdersSection.tsx
-| |____EditChangeOrderModal.tsx
-| |____EditProjectModal.tsx
-| |____QuickCheckoutModal.tsx
-| |____AddEditVendorModal.tsx
-| |____EditCustomerModal.tsx
-| |____QuotesSection.tsx
-| |____ProjectSelector.tsx
-| |____CustomerSelector.tsx
-|____metadata.json
-|____package.json
-|____schema.sql
-|____types.ts
-|____Dockerfile.server
-|____index.html
-|____tree.txt
-|____README.md
-|____index.tsx
-|____pages
-| |____CustomerDetail.tsx
-| |____InstallerDetail.tsx
-| |____CalendarView.tsx
-| |____Settings.tsx
-| |____SampleLibrary.tsx
-| |____CustomerList.tsx
-| |____VendorList.tsx
-| |____InstallerList.tsx
-| |____Dashboard.tsx
-| |____ProjectDetail.tsx
-| |____QuoteDetail.tsx
-|____data
-| |____mockData.ts
-|____project.txt
+|-- .dockerignore
+|-- .env
+|-- .gitignore
+|-- App.tsx
+|-- Dockerfile
+|-- Dockerfile.server
+|-- README.md
+|-- index.css
+|-- index.html
+|-- index.tsx
+|-- package-lock.json
+|-- package.json
+|-- postcss.config.js
+|-- schema.sql
+|-- tailwind.config.js
+|-- tsconfig.json
+|-- types.ts
+|-- vite.config.ts
+|
+|-- components/
+|   |-- AddEditVendorModal.tsx
+|   |-- AddSampleInlineModal.tsx
+|   |-- ChangeOrderSection.tsx
+|   |-- CollapsibleSection.tsx
+|   |-- CustomerSelector.tsx
+|   |-- EditChangeOrderModal.tsx
+|   |-- EditCustomerModal.tsx
+|   |-- EditInstallerModal.tsx
+|   |-- EditProjectModal.tsx
+|   |-- FinalizeJobSection.tsx
+|   |-- Layout.tsx
+|   |-- MaterialOrdersSection.tsx
+|   |-- PrintableCheckout.tsx
+|   |-- ProjectInfoHeader.tsx
+|   |-- ProjectSelector.tsx
+|   |-- QrScanner.tsx
+|   |-- QuickCheckoutModal.tsx
+|   |-- QuotesSection.tsx
+|   |-- RestoreForm.tsx
+|   |-- SampleCheckoutsSection.tsx
+|   |-- SampleDetailModal.tsx
+|   |-- SampleSelector.tsx
+|   |-- UniversalSearch.tsx
+|   |-- UserStatus.tsx
+|
+|-- context/
+|   |-- DataContext.tsx
+|
+|-- pages/
+|   |-- CalendarView.tsx
+|   |-- CustomerDetail.tsx
+|   |-- CustomerList.tsx
+|   |-- Dashboard.tsx
+|   |-- InstallerDetail.tsx
+|   |-- InstallerList.tsx
+|   |-- ProjectDetail.tsx
+|   |-- QuoteDetail.tsx
+|   |-- SampleLibrary.tsx
+|   |-- Settings.tsx
+|   |-- VendorList.tsx
+|
+|-- server/
+|   |-- db.js
+|   |-- index.js
+|   |-- package.json
+|   |-- utils.js
+|   |-- routes/
+|   |   |-- backup.js
+|   |   |-- calendar.js
+|   |   |-- change-orders.js
+|   |   |-- customers.js
+|   |   |-- installers.js
+|   |   |-- jobs.js
+|   |   |-- (...and 10 more routes)
+|   |-- temp-uploads/
+|   |-- uploads/
+|       |-- photo-1762749727265-184370968.jpeg
+|       |-- photo-1762785251830-612632601.jpeg
+|       |-- (...and more images)
+|
+|-- services/
+|   |-- changeOrderService.ts
+|   |-- customerService.ts
+|   |-- installerService.ts
+|   |-- jobService.ts
+|   |-- materialOrderService.ts
+|   |-- projectService.ts
+|   |-- quoteService.ts
+|   |-- sampleCheckoutService.ts
+|   |-- sampleService.ts
+|   |-- userService.ts
+|   |-- vendorService.ts
+|
+|-- utils/
+    |-- cryptoUtils.ts
 
 
-
-
-### Project Overview
+--- PROJECT OVERVIEW ---
 
 Joblogger is a full-stack web application designed to be a comprehensive management tool for small contracting businesses, such as flooring installers. It provides a single, centralized platform to track the entire lifecycle of a job, from initial customer inquiry to final completion.
 
 The application is built to handle the complex, real-world workflows of a contracting business. Key functionalities include:
 
-*   **Customer Relationship Management (CRM):** Create, view, and edit a complete list of customers.
-*   **Project Tracking:** Manage individual jobs for each customer, each with its own intelligent status (e.g., `New`, `Quoting`, `Scheduled`, `Completed`) that updates automatically based on user actions.
-*   **Sample & Inventory Management:** Maintain a central "Sample Library" of materials, and manage a robust multi-step checkout/return process for samples on a per-project basis.
-*   **Installer & Schedule Management:** Manage a list of installers, assign them to jobs via quotes, and view their schedules on a color-coded, interactive calendar to prevent conflicts.
-*   **Financials:** Create, edit, and manage quotes with detailed cost breakdowns. Track change orders, calculate required deposits, and view the final balance due for each job.
-*   **Material Ordering:** Place and track material orders for scheduled jobs.
+  * Customer Relationship Management (CRM): Create, view, and edit a complete list of customers.
+  * Project Tracking: Manage individual jobs for each customer, each with its own intelligent status (e.g., New, Quoting, Scheduled, Completed) that updates automatically based on user actions.
+  * Sample & Inventory Management: Maintain a central "Sample Library" of materials, and manage a robust multi-step checkout/return process for samples on a per-project basis.
+  * Installer & Schedule Management: Manage a list of installers, assign them to jobs via quotes, and view their schedules on a color-coded, interactive calendar to prevent conflicts.
+  * Financials: Create, edit, and manage quotes with detailed cost breakdowns. Track change orders, calculate required deposits, and view the final balance due for each job.
+  * Material Ordering: Place and track material orders for scheduled jobs.
 
 The entire application is built on a modern, robust technology stack, including a React (TypeScript) frontend, a Node.js (Express) backend API, and a persistent PostgreSQL database. The full stack is containerized with Docker for a stable, portable, and easily reproducible development and deployment environment.
 
----
 
-### Features We've Built Together (Latest Session)
+================================================================================
+                            DEVELOPMENT HISTORY
+================================================================================
 
-This has been a massive session focused on architectural improvements, completing core functionality, and adding major new features.
 
-1.  **Full-Stack Architectural Overhaul (Major Improvement):**
-    *   **Backend Refactor:** Migrated the entire backend from a single `server/index.js` file to a clean, router-based architecture. Each API entity (customers, projects, etc.) now lives in its own file in `server/routes/`, dramatically improving maintainability.
-    *   **Frontend Refactor:** Created a dedicated **Service Layer** (`src/services/`). All `fetch` calls and API logic have been moved out of `DataContext.tsx` and into dedicated service files (`customerService.ts`, `projectService.ts`, etc.), making the data context a pure state manager and improving code reusability and testability.
-    *   **Docker Architecture:** Corrected the `docker-compose.yml` to use a proper multi-service architecture (`app`, `server`, `db`), solving critical networking and DNS issues (`EAI_AGAIN`) and establishing a robust, industry-standard setup.
+--- SESSION 3: Architectural Overhaul & Core Feature Implementation ---
+This was a massive session focused on architectural improvements, completing core functionality, and adding major new features.
 
-2.  **Comprehensive "Delete" Functionality (Core CRUD Complete):**
-    *   **Pattern Established:** Built a reusable, safe deletion pattern with backend pre-flight checks and clear frontend feedback.
-    *   **Full Implementation:** Implemented full-stack delete functionality for **Samples**, **Customers**, **Projects**, and **Installers**.
-    *   **Advanced Logic:** The backend now includes critical business rule enforcement, such as preventing the deletion of a customer with projects, an installer with quotes, or a sample in a material order (`409 Conflict`), and handling complex cascade deletes for projects.
+1. FULL-STACK ARCHITECTURAL OVERHAUL (MAJOR IMPROVEMENT)
+    * Backend Refactor: Migrated the entire backend to a clean, router-based architecture in `server/routes/`.
+    * Frontend Refactor: Created a dedicated Service Layer (`src/services/`) to separate API logic from state management.
+    * Docker Architecture: Corrected `docker-compose.yml` to use a proper multi-service architecture, solving critical networking issues.
 
-3.  **"Quick Checkout" & QR Code System (New Major Feature):**
-    *   **UI/UX:** Built a new "Quick Checkout" modal, accessible from the Dashboard, that guides the user through a fast, single-page workflow to check out samples.
-    *   **Component Architecture:** Created a suite of reusable components for the checkout process, including `CustomerSelector`, `ProjectSelector`, and `SampleSelector`, with on-the-fly creation capabilities.
-    *   **Backend QR Generation:** Built a new `GET /api/samples/:id/qr` endpoint that generates and serves a unique QR code image for any sample in the database.
-    *   **Frontend QR Display:** The `SampleDetailModal` now displays the QR code for each sample, with a "Print" button for easy labeling of physical items.
-    *   **Live QR Scanning:** Integrated a camera-based QR code scanner (`html5-qrcode`) into the "Quick Checkout" flow, allowing users to scan physical samples to instantly add them to their checkout list. Streamlined the mobile UX by defaulting to the rear camera and providing a "scan-and-close" experience.
+2. COMPREHENSIVE "DELETE" FUNCTIONALITY (CORE CRUD COMPLETE)
+    * Pattern Established: Built a reusable, safe deletion pattern.
+    * Full Implementation: Implemented full-stack delete for Samples, Customers, Projects, and Installers.
+    * Advanced Logic: Added business rule enforcement (e.g., preventing deletion of a customer with active projects).
 
-4.  **Flexible Business Logic: "Installation Types":**
-    *   **Architecture:** Implemented a new "Installation Type" (`Managed`, `Materials Only`, `Unmanaged`) on all quotes to handle different sales scenarios.
-    *   **Dynamic UI:** The "Add/Edit Quote" modal is now intelligent, hiding irrelevant fields (like labor costs or installer selection) based on the chosen installation type.
-    *   **Decoupled Workflow:** Decoupled material ordering from project scheduling, allowing users to order materials for "Materials Only" sales as soon as a quote is accepted.
-    *   **Smarter Calendar:** The calendar now correctly filters its view, only displaying jobs with a "Managed Installation" type, keeping the schedule clean and relevant.
+3. "QUICK CHECKOUT" & QR CODE SYSTEM (NEW MAJOR FEATURE)
+    * UI/UX: Built a new "Quick Checkout" modal for a fast workflow.
+    * Component Architecture: Created reusable `CustomerSelector`, `ProjectSelector`, and `SampleSelector` components.
+    * Backend QR Generation: Built a `GET /api/samples/:id/qr` endpoint to generate QR codes for samples.
+    * Live QR Scanning: Integrated a camera-based QR code scanner into the checkout flow.
 
-5.  **Full Mobile Responsiveness:**
-    *   **Main Layout:** Completely refactored `Layout.tsx` to be mobile-first. The sidebar is now a collapsible "hamburger" menu on mobile devices.
-    *   **Pages & Grids:** Updated all major pages (`Dashboard`, `CustomerList`, `InstallerList`, `ProjectDetail`) with responsive grid classes, ensuring they stack correctly and are fully usable on a phone screen.
-    *   **Modals:** Adjusted modals like `SampleDetailModal` to be responsive and prevent overflow on small screens.
+4. FLEXIBLE BUSINESS LOGIC: "INSTALLATION TYPES"
+    * Architecture: Implemented "Installation Type" (Managed, Materials Only, etc.) on quotes.
+    * Dynamic UI: The Add/Edit Quote modal now intelligently hides irrelevant fields based on the selected type.
+    * Decoupled Workflow: Decoupled material ordering from project scheduling for "Materials Only" sales.
 
-6.  **Critical Bug Smashing & Stability:**
-    *   **Mixed Content:** Diagnosed and permanently fixed a persistent "Mixed Content" error by cleaning bad data from the database and ensuring only relative URLs are used for images.
-    *   **Docker & Networking:** Solved multiple `docker-compose` and internal networking errors, culminating in the move to a stable multi-service architecture.
-    *   **Scanner Stability:** Fixed a critical bug causing the mobile QR scanner to freeze on a successful scan by stabilizing the component's state and effects.
-    *   **Workflow Logic:** Corrected a bug that prematurely set a project's status to "Sample Checkout" during the Quick Checkout flow.
+5. FULL MOBILE RESPONSIVENESS
+    * Main Layout: Refactored `Layout.tsx` to be mobile-first with a collapsible "hamburger" menu.
+    * Pages & Grids: Updated all major pages to be responsive and usable on a phone screen.
 
----
+6. CRITICAL BUG SMASHING & STABILITY
+    * Mixed Content: Fixed a persistent "Mixed Content" error by cleaning bad image data.
+    * Docker & Networking: Solved multiple `docker-compose` and internal networking errors.
+    * Scanner Stability: Fixed a critical bug causing the mobile QR scanner to freeze on a successful scan.
 
-### Updated Roadmap (Features We Haven't Implemented)
+Roadmap (Post-Session 3)
+*   Editing: No way to edit a Material Order.
+*   Deleting: No way to delete a Material Order.
+*   File Uploads: Apply existing system to "Signed Paperwork".
+*   "On-the-Fly" Sample Creation: Add during "Quick Checkout" flow.
+*   Authentication & Users: The app remains a single-user system.
 
-We've made incredible progress, completing almost all of the core CRUD functionality and adding several major new features.
+--------------------------------------------------------------------------------
 
-*   **Editing (Nearly Complete):**
-    *   While most entities are fully editable, we still have no way to edit a **Material Order** after it has been created.
+--- SESSION 4: Backup/Restore System & Docker Hardening ---
+This session focused on adding a critical new administrative feature, enhancing existing workflows, and hardening the application's core architecture.
 
-*   **Deleting (Nearly Complete):**
-    *   The only remaining core entity that cannot be deleted is a **Material Order**.
+1. FULL-STACK BACKUP & RESTORE SYSTEM (NEW MAJOR FEATURE)
+    * New "Settings" Page: Created a dedicated page at `/settings` for administrative functions.
+    * Robust Backup: Built backend endpoints (`/api/backup/database`, `/api/backup/images`) that use `pg_dump` to generate reliable ZIP archives.
+    * Disaster-Proof Restore: Built backend endpoints to handle uploads for restoring data. Implemented an "atomic swap" strategy for images to avoid file-locking errors.
 
-*   **File Uploads (Paperwork):**
-    *   The core file upload system is proven. The next step is to apply it to the "Signed Paperwork" section on the Job Details page to allow for uploading and storing documents like PDFs.
+2. ARCHITECTURAL & DOCKER HARDENING (MAJOR STABILITY IMPROVEMENT)
+    * Dedicated Server Dockerfile: Created `Dockerfile.server` to install necessary tools without bloating the frontend image.
+    * Eliminated Volume Conflicts: Reconfigured `docker-compose.yml` to use surgical volume mounts for the frontend, preventing Vite's file watcher from locking server files and causing `EBUSY` errors.
 
-*   **"On-the-Fly" Sample Creation:**
-    *   During the "Quick Checkout" flow, there is currently no way to add a brand-new, uncatalogued sample to the system. This could be added to the sample search results.
+3. "EXTEND CHECKOUT" FUNCTIONALITY (NEW FEATURE)
+    * Full Stack Implementation: Created a `PATCH` endpoint, service function, and `DataContext` function to allow users to extend a sample's due date by two days.
+    * UI Integration: Added a working "Extend" button to the Job Detail page, Sample Detail modal, and Sample Library card view.
 
-*   **Advanced Business Logic:**
-    *   Material ETA vs. Job Start Date Awareness (UI warning).
-    *   Dynamic defaults for quote percentages based on Project Type.
-    *   Drag-and-drop rescheduling on the calendar.
-
-*   **Authentication & Users:**
-    *   The app remains a single-user system. This is a major future epic.
-
-    Session 4:
-
-    Changes We've Made in This Session
-
-This was a massive session focused on adding a critical new administrative feature, enhancing existing workflows, and hardening the application's core architecture.
-1. Full-Stack Backup & Restore System (New Major Feature)
-
-We built a complete, UI-driven system for backing up and restoring the application's critical data, designed to be run by the user without needing command-line access.
-
-    New "Settings" Page:
-
-        Created a new dedicated page at /settings to house administrative functions.
-
-        Added a link to this page in the main sidebar navigation.
-
-    Robust Backup Functionality:
-
-        Backend API (backup.js): Built two new GET endpoints (/api/backup/database and /api/backup/images) that generate and stream ZIP archives to the user.
-
-        Reliable Database Dumps: The final implementation is robust. It uses pg_dump to save a complete backup to a temporary file on the server first, ensuring the file is not corrupted, before zipping and sending it. This fixed a critical bug where streaming directly was creating empty/broken backups.
-
-        UI Integration: The Settings page has "Download Database" and "Download Images" buttons that work correctly.
-
-    Disaster-Proof Restore Functionality:
-
-        Backend API (restore.js): Built two new POST endpoints to handle file uploads for restoring the database and images.
-
-        "Atomic Swap" for Images: Solved a critical EBUSY: resource busy or locked error by implementing an "atomic swap" strategy. The code no longer tries to delete the live uploads directory. Instead, it unzips the backup to a temporary uploads_new directory and then instantly renames the folders, which is a foolproof way to avoid file-locking conflicts.
-
-        Correct Tooling: The server is now built with the correct version of the postgresql-client tools (pg_restore), fixing version mismatch errors during the restore process.
-
-        UI Integration: The "Danger Zone" on the Settings page now contains working forms to upload and restore the database and images, complete with warnings and page reloads on success.
-
-2. Architectural & Docker Hardening (Major Stability Improvement)
-
-The process of debugging the Backup/Restore feature forced us to make significant, permanent improvements to the Docker architecture.
-
-    Dedicated Server Dockerfile (Dockerfile.server): We created a separate, dedicated Dockerfile for the backend service. This allowed us to install the necessary postgresql-client tools without bloating the frontend image.
-
-    Eliminated Volume Conflicts (The EBUSY Fix): We completely reconfigured the docker-compose.yml file to solve the root cause of the file-locking issues.
-
-        The server service no longer uses a volume for its source code, running the code baked into its image for maximum stability.
-
-        The app (frontend) service now uses specific, surgical volume mounts (./src:/app/src, etc.) instead of mounting the entire project. This prevents Vite's file watcher from "spying on" and locking the server's files—the true cause of the EBUSY error.
-
-        A dedicated volume for server/uploads was created to ensure user-uploaded images are persistent and correctly stored on the host machine.
-
-3. "Extend Checkout" Functionality (New Feature)
-
-We added the ability for a user to extend a sample's due date by two days from multiple places in the UI.
-
-    Full Stack Implementation: This involved creating a new PATCH endpoint, a new service function (patchSampleCheckout), and a new extendSampleCheckout function in the DataContext.
-
-    UI Integration: The "Extend" button was successfully added and is fully functional in all three requested locations:
-
-        The Job Detail page's checkout list.
-
-        The Sample Detail modal.
-
-        The Sample Library card view.
-
-4. Critical Bug Fixes & Workflow Enhancements
-
-    Fixed "Return" Button Race Condition: Solved a bug where returning a sample from the Sample Library card would fail because the UI was re-fetching data too quickly. We fixed this by removing the aggressive fetchInitialData() call and trusting the local state update.
-
-    Fixed "Window Slamming Shut": Corrected the behavior of the SampleDetailModal so that returning a sample no longer causes the modal to close immediately, improving the user experience.
+4. CRITICAL BUG FIXES & WORKFLOW ENHANCEMENTS
+    * Fixed a "Return" button race condition.
+    * Fixed the `SampleDetailModal` from closing immediately after returning a sample.
 
 Features We Talked About But Didn't Implement
+*   Graceful "Empty State" Handling for when the database is empty.
+*   Automatic Pre-Restore Snapshot safety feature.
+*   Automated, Scheduled Backups.
 
-We successfully completed all the primary goals of this session. The remaining items are primarily quality-of-life improvements and future enhancements related to the features we just built.
+--------------------------------------------------------------------------------
 
-    Graceful "Empty State" Handling: We observed that when the database is completely empty (after a docker-compose down -v), some parts of the UI, like the calendar, can get stuck in a "Loading..." state. We have not yet added the frontend logic to gracefully handle this "zero data" scenario and show a message like "No data found. Try restoring from a backup."
+--- SESSION 5: Vendor Management System ---
+This was a major architectural session focused on building a complete "Vendor Management" system from the ground up and integrating it deeply into core workflows.
 
-    Automatic Pre-Restore Snapshot: The current restore process is destructive. We discussed but did not implement a safety feature where clicking "Restore" would first automatically trigger a new backup of the current state before proceeding with the overwrite.
+1. FULL-STACK VENDOR MANAGEMENT SYSTEM (NEW MAJOR FEATURE)
+    * Database: Created a new `vendors` table and refactored the `samples` and `material_orders` tables to use foreign key relationships (`manufacturer_id`, `supplier_id`) instead of free-text fields.
+    * Backend API: Built a complete set of RESTful CRUD endpoints for `/api/vendors`.
+    * Frontend UI: Created a new "Vendor Directory" page and a reusable "Add/Edit Vendor" modal.
 
-    Automated, Scheduled Backups: Our initial brainstorming mentioned automated, off-site backups (e.g., using a cron job to run the backup and upload it to a cloud service). We intentionally pivoted to a UI-driven local backup system, so the automated/cloud functionality remains unimplemented.
+2. DEEP INTEGRATION & WORKFLOW AUTOMATION (MAJOR REFACTOR)
+    * "On-the-Fly" Creation: Replaced all manufacturer/supplier text inputs with a consistent, searchable component that allows creating new vendors without leaving the current workflow.
+    * Intelligent Autofill & ETA Calculation: The Material Order modal now autofills the supplier and intelligently calculates the material ETA based on the supplier's delivery schedule.
 
-    Session 5
+3. CRITICAL BUG SMASHING & REGRESSION FIXES
+    * Fixed broken API routes by forcing Docker server rebuilds.
+    * Solved database schema mismatch errors by resetting the Docker volume.
+    * Fixed modal stacking order (z-index) issues.
+    * Fixed a major regression where selecting a manufacturer in the "Add/Edit Sample" modals was failing to save.
 
-    ### Session Summary: Vendor Management System & Core Feature Refactor
+--------------------------------------------------------------------------------
 
-This was a major architectural session focused on building a complete, full-stack "Vendor Management" system from the ground up and integrating it deeply into our core application workflows. We also fixed several critical bugs and regressions along the way.
+--- SESSION 6: Authentication ---
+*   A user login system was instituted using Supertokens, transitioning the application from a single-user tool to a multi-user-ready platform.
 
-**1. Full-Stack Vendor Management System (New Major Feature)**
+--------------------------------------------------------------------------------
 
-We designed and built a comprehensive system to manage Manufacturers and Suppliers as a unified "Vendor" entity.
+--- SESSION 7: Full-Stack Stabilization & Critical Workflow Fixes ---
+This foundational session focused on identifying and permanently fixing deep-seated issues in the development environment and application state management.
 
-*   **Database:**
-    *   Created a new `vendors` table with a rich set of fields (`name`, `is_manufacturer`, `is_supplier`, contact info, rep info, shipping details, and `notes`).
-    *   **Architectural Shift:** Refactored the `samples` and `material_orders` tables, replacing the old free-text fields (`manufacturer`, `supplier`) with robust foreign key relationships (`manufacturer_id`, `supplier_id`) pointing to the new `vendors` table. This enforces data integrity across the entire application.
+1. FULL-STACK INFRASTRUCTURE STABILIZATION (SOLVED THE RELOAD LOOP)
+    * The Problem: The application was caught in a constant page reload loop, making development impossible.
+    * The Investigation: Through extensive diagnostic tests, we proved the Docker containers were stable and the reload was triggered by the client-side Vite script due to an unstable WebSocket connection.
+    * The Root Cause & Fix: The final root cause was identified as an HTTP protocol mismatch between the Caddy reverse proxy and the Vite dev server. A third party provided a corrected Caddyfile using the `versions h2 h1.1` directive, which stabilized the WebSocket handshake and permanently fixed the reload loop.
 
-*   **Backend API (`/api/vendors`):**
-    *   Built a complete set of RESTful CRUD endpoints (`GET`, `POST`, `PUT`, `DELETE`) in `server/routes/vendors.js` to manage vendors.
-    *   Included backend validation, such as preventing the deletion of a vendor that is currently in use.
+2. QUOTE ACCEPTANCE & JOB FINALIZATION WORKFLOW (FULL-STACK BUG FIX)
+    * The Problem: Accepting a quote did not correctly transition the project's state, preventing the "Job Details" section from appearing.
+    * The Root Cause (Stale State): We diagnosed that the frontend state was inconsistent; the code was updating the local state for the quote, but failing to update the parent project's state.
+    * The Full-Stack Solution: We created a new, dedicated workflow (`acceptQuote`) across the entire stack (backend API, service layer, and state management) to ensure both the quote and project are updated transactionally, keeping the UI perfectly in sync with the database. We also fixed a stubborn Vite caching issue by using `docker-compose down -v`.
 
-*   **Frontend UI:**
-    *   Created a new page: **"Vendor Directory"** (`src/pages/VendorList.tsx`), providing a central place to view, add, edit, and delete all vendors.
-    *   Built a reusable, multi-column **"Add/Edit Vendor" modal** (`src/components/AddEditVendorModal.tsx`) with a complete form for all vendor details.
-    *   Added the "Vendor Directory" link to the main sidebar navigation for easy access.
+3. JOB DETAILS & SCHEDULING FORM (UI & API BUG FIXES)
+    * The Problem: The "Save Job Details" button was not working correctly, the date fields were not populating, and saving a job with blank dates was crashing the backend API.
+    * The Fix: We made the backend `POST /api/jobs` endpoint more robust by sanitizing incoming data (converting empty date strings to NULL). We then fixed the state initialization logic in the `FinalizeJobSection.tsx` component to ensure the form correctly populates with existing job data.
 
-**2. Deep Integration & Workflow Automation (Major Refactor)**
-
-We replaced all simple text inputs for manufacturers and suppliers with a powerful, consistent, searchable "on-the-fly" component system.
-
-*   **"On-the-Fly" Creation:**
-    *   Refactored the "Add Sample" modals (`AddSampleInlineModal`, `SampleLibrary`) and the "Edit Sample" modal (`SampleDetailModal`) to use a searchable input for selecting Manufacturers and Suppliers.
-    *   This new component allows users to search the vendor list and, if a vendor doesn't exist, open the "Add New Vendor" modal as a pop-up to create one without leaving their current workflow.
-    *   The "Create/Edit Material Order" modal (`MaterialOrdersSection.tsx`) received the same upgrade for its Supplier field.
-
-*   **Intelligent Autofill & ETA Calculation:**
-    *   **Supplier Autofill:** Implemented logic in the Material Order modal that automatically selects a sample's manufacturer as the supplier if they are flagged as `isSupplier`, saving user clicks.
-    *   **Intelligent ETA:** When a user selects a supplier with a "Dedicated Weekly Delivery Day," the ETA date for the material order is now automatically calculated and set to the next upcoming delivery date.
-
-**3. Critical Bug Smashing & Regression Fixes**
-
-The process of building this feature revealed and allowed us to fix several critical bugs.
-
-*   **Fixed Broken API Routes:** Diagnosed and fixed a server configuration issue where the new `/api/vendors` API endpoint was not being correctly registered, causing "Failed to fetch" errors across the app. This was resolved by forcing a Docker server rebuild (`docker-compose up --build`).
-*   **Fixed Database Schema Mismatch:** Solved a `column "notes" does not exist` error by correctly identifying an out-of-sync database volume and providing the command (`docker-compose down -v`) to reset it and apply the new schema.
-*   **Fixed Modal Stacking Order (z-index):** Corrected a visual bug where the "Add New Vendor" modal was appearing *behind* the modal that opened it.
-*   **Fixed "On-the-Fly" State Management Bug (Major Regression Fix):** Diagnosed and fixed a critical regression bug where selecting a manufacturer from the new searchable dropdown in the "Add/Edit Sample" modals was failing to save the selection, preventing the form from being submitted. This restored the core functionality that had been broken during the refactor.
+4. UNIFYING UI/UX FOR "ON-THE-FLY" SAMPLE CREATION
+    * The Problem: The "Add Sample Inline" modal (in the Quick Checkout flow) was using an outdated UI without the on-the-fly manufacturer search/create functionality.
+    * The Fix: We refactored `AddSampleInlineModal.tsx`, replacing its old form with the modern, consistent search component, unifying the user experience.

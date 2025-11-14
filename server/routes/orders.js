@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 // GET /api/orders
-router.get('/', async (req, res) => {
+router.get('/', verifySession(), async (req, res) => {
     const { projectId } = req.query;
     
     let query;
@@ -54,8 +55,8 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/orders
-router.post('/', async (req, res) => {
-    const { projectId, supplierId, etaDate, lineItems } = req.body; // Changed supplier to supplierId
+router.post('/', verifySession(), async (req, res) => {
+    const { projectId, supplierId, etaDate, lineItems } = req.body;
     if (!projectId || !lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
         return res.status(400).json({ error: 'projectId and a non-empty array of lineItems are required.' });
     }
@@ -86,7 +87,6 @@ router.post('/', async (req, res) => {
 
         await client.query('COMMIT');
 
-        // Fetch the full new order to return to the client
         const newOrderQuery = `
              SELECT
                 mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, mo.order_date, mo.eta_date, mo.status,
@@ -119,9 +119,9 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/orders/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifySession(), async (req, res) => {
     const { id: orderId } = req.params;
-    const { supplierId, etaDate, lineItems } = req.body; // Changed supplier to supplierId
+    const { supplierId, etaDate, lineItems } = req.body;
 
     if (!lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
         return res.status(400).json({ error: 'An order must have at least one line item.' });
@@ -184,7 +184,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/orders/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     try {
         const deleteQuery = 'DELETE FROM material_orders WHERE id = $1';

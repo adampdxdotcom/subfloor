@@ -1,8 +1,20 @@
-# .dockerignore
-
+# Ignore node_modules folders at any level
 node_modules
-npm-debug.log
-.env*
+server/node_modules
+/node_modules
+
+# Ignore build artifacts and logs
 dist
 build
+npm-debug.log
+
+# Ignore Docker and git files
 .git
+.gitignore
+.dockerignore
+Dockerfile
+Dockerfile.server
+docker-compose.yml
+
+# Ignore environment files
+.env

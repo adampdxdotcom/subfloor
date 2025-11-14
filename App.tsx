@@ -1,5 +1,13 @@
 import React from 'react';
-import { HashRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+// --- SuperTokens Imports (CORRECTED API for latest version) ---
+import { SessionAuth } from 'supertokens-auth-react/recipe/session';
+import { getSuperTokensRoutesForReactRouterDom } from 'supertokens-auth-react/ui';
+import { EmailPasswordPreBuiltUI } from 'supertokens-auth-react/recipe/emailpassword/prebuiltui';
+import * as reactRouterDom from "react-router-dom";
+
+// --- Our App Imports ---
 import { DataProvider } from './context/DataContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -12,23 +20,25 @@ import InstallerList from './pages/InstallerList';
 import InstallerDetail from './pages/InstallerDetail';
 import QuoteDetail from './pages/QuoteDetail';
 import Settings from './pages/Settings';
-import VendorList from './pages/VendorList'; // --- NEW ---
-import { Toaster } from 'react-hot-toast';
+import VendorList from './pages/VendorList';
 
 function App() {
   return (
     <DataProvider>
-      <Toaster 
-        position="top-center" 
-        reverseOrder={false}
-        containerStyle={{
-          zIndex: 9999,
-        }}
-      />
-      
-      <HashRouter>
+      <Router>
         <Routes>
-          <Route path="/" element={<Layout />}>
+          {/* This renders the auth UI routes like /auth, /auth/forgot-password, etc */}
+          {getSuperTokensRoutesForReactRouterDom(reactRouterDom, [EmailPasswordPreBuiltUI])}
+
+          {/* This is our protected route. */}
+          <Route
+            path="/"
+            element={
+              <SessionAuth>
+                <Layout />
+              </SessionAuth>
+            }
+          >
             <Route index element={<Dashboard />} />
             <Route path="customers" element={<CustomerList />} />
             <Route path="customers/:customerId" element={<CustomerDetail />} />
@@ -42,7 +52,7 @@ function App() {
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
-      </HashRouter>
+      </Router>
     </DataProvider>
   );
 }

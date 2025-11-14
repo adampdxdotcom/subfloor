@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 // GET all vendors
-router.get('/', async (req, res) => {
+router.get('/', verifySession(), async (req, res) => {
     try {
         const query = `
             SELECT 
@@ -24,7 +25,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST a new vendor
-router.post('/', async (req, res) => {
+router.post('/', verifySession(), async (req, res) => {
     const { 
         name, isManufacturer, isSupplier, phone, address, orderingEmail, 
         claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes 
@@ -55,7 +56,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT (update) a vendor
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const { 
         name, isManufacturer, isSupplier, phone, address, orderingEmail, 
@@ -92,7 +93,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE a vendor
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     try {
         const result = await pool.query('DELETE FROM vendors WHERE id = $1', [id]);

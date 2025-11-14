@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 // GET /api/projects
-router.get('/', async (req, res) => {
+router.get('/', verifySession(), async (req, res) => {
   try {
     const { installerId } = req.query;
     if (installerId) {
@@ -39,7 +40,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/projects/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', verifySession(), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
@@ -49,7 +50,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/projects
-router.post('/', async (req, res) => {
+router.post('/', verifySession(), async (req, res) => {
   const { customerId, projectName, projectType, status, finalChoice, installerId } = req.body;
   
   if (!customerId || !projectName || !projectType) {
@@ -87,7 +88,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/projects/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifySession(), async (req, res) => {
     try {
         const { id } = req.params;
         const { projectName, projectType, status, finalChoice } = req.body;
@@ -115,25 +116,18 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// --- NEW CODE START ---
 // DELETE /api/projects/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifySession(), async (req, res) => {
   const { id: projectId } = req.params;
   const client = await pool.connect();
 
   try {
-    await client.query('BEGIN'); // Start a transaction
-
-    // 1. Delete associated data from child tables. The order matters to respect foreign key constraints.
-    // NOTE: `order_line_items` are deleted automatically when their `material_orders` parent is deleted,
-    // if you have set up `ON DELETE CASCADE` in your database schema. If not, they must be deleted first.
-    // Assuming `ON DELETE CASCADE` is set for `order_line_items`.
+    await client.query('BEGIN');
 
     await client.query('DELETE FROM sample_checkouts WHERE project_id = $1', [projectId]);
     await client.query('DELETE FROM change_orders WHERE project_id = $1', [projectId]);
     await client.query('DELETE FROM jobs WHERE project_id = $1', [projectId]);
     
-    // Find all material orders for this project to delete their line items first
     const ordersResult = await client.query('SELECT id FROM material_orders WHERE project_id = $1', [projectId]);
     for (const order of ordersResult.rows) {
       await client.query('DELETE FROM order_line_items WHERE order_id = $1', [order.id]);
@@ -142,25 +136,22 @@ router.delete('/:id', async (req, res) => {
 
     await client.query('DELETE FROM quotes WHERE project_id = $1', [projectId]);
 
-    // 2. Finally, delete the project itself.
     const deleteProjectResult = await client.query('DELETE FROM projects WHERE id = $1 RETURNING *', [projectId]);
 
     if (deleteProjectResult.rows.length === 0) {
-      // This will trigger a rollback
       throw new Error('Project not found, rollback initiated.');
     }
 
-    await client.query('COMMIT'); // Commit the transaction
-    res.status(204).send(); // Success
+    await client.query('COMMIT');
+    res.status(204).send();
 
   } catch (err) {
-    await client.query('ROLLBACK'); // Rollback on any error
+    await client.query('ROLLBACK');
     console.error(`Failed to delete project ${projectId}:`, err.message);
     res.status(500).json({ error: 'Internal server error during project deletion.' });
   } finally {
     client.release();
   }
 });
-// --- NEW CODE END ---
 
 export default router;

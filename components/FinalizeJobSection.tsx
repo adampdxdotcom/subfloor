@@ -13,14 +13,14 @@ interface FinalizeJobSectionProps {
     updateProject: (p: Partial<Project> & { id: number }) => void;
 }
 
+const formatDateForInput = (dateString: string | undefined | null) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
+
 const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, quotes, changeOrders, saveJobDetails, updateProject }) => {
     const { projects } = useData();
     const [scheduleConflicts, setScheduleConflicts] = useState<{ projectId: number; projectName: string; scheduledStartDate: string; scheduledEndDate: string | null; }[]>([]);
     
-    // --- MODIFICATION: Find the accepted quote once at the top ---
     const acceptedQuote = useMemo(() => quotes.find(q => q.projectId === project.id && q.status === QuoteStatus.ACCEPTED), [quotes, project.id]);
     
-    // --- MODIFICATION: Determine if scheduling is applicable ---
     const isSchedulingApplicable = useMemo(() => {
         if (!acceptedQuote) return false;
         return acceptedQuote.installationType === 'Managed Installation' || acceptedQuote.installationType === 'Unmanaged Installer';
@@ -30,7 +30,6 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         const acceptedQuotes = quotes.filter(q => q.projectId === project.id && q.status === QuoteStatus.ACCEPTED);
         const projectChangeOrders = changeOrders.filter(co => co.projectId === project.id);
         
-        // This logic is complex but remains unchanged for now.
         let baseMaterials = 0;
         let baseInstaller = 0;
         acceptedQuotes.forEach(quote => {
@@ -57,25 +56,50 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         const balanceDue = jobTotal - totalDeposit;
         return { jobTotal, totalMaterials, totalInstaller, baseMaterials, baseInstaller, changeOrdersBreakdown, totalDeposit, depositAdditions, balanceDue };
     }, [quotes, changeOrders, project.id]);
-
-    const formatDateForInput = (dateString: string | undefined | null) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
     
     const [jobDetails, setJobDetails] = useState({
-        poNumber: job?.poNumber || '',
-        depositReceived: job?.depositReceived || false,
-        contractsReceived: job?.contractsReceived || false,
-        finalPaymentReceived: job?.finalPaymentReceived || false,
-        scheduledStartDate: formatDateForInput(job?.scheduledStartDate),
-        scheduledEndDate: formatDateForInput(job?.scheduledEndDate),
-        notes: job?.notes || ''
+        poNumber: '',
+        depositReceived: false,
+        contractsReceived: false,
+        finalPaymentReceived: false,
+        scheduledStartDate: '',
+        scheduledEndDate: '',
+        notes: ''
     });
     const [isCompletedOverlayVisible, setIsCompletedOverlayVisible] = useState(true);
 
     const installerId = acceptedQuote?.installerId;
 
+    // <<< START OF DEFINITIVE FIX >>>
+    // This effect synchronizes the form's state with the `job` prop.
+    // It runs ONLY when the `job` prop itself changes, which happens when the data loads.
+    // This correctly populates the form, including the dates, without overwriting user input later.
+    useEffect(() => {
+        if (job) {
+            setJobDetails({
+                poNumber: job.poNumber || '',
+                depositReceived: job.depositReceived || false,
+                contractsReceived: job.contractsReceived || false,
+                finalPaymentReceived: job.finalPaymentReceived || false,
+                scheduledStartDate: formatDateForInput(job.scheduledStartDate),
+                scheduledEndDate: formatDateForInput(job.scheduledEndDate),
+                notes: job.notes || '',
+            });
+        }
+    }, [job]);
+    // <<< END OF DEFINITIVE FIX >>>
+
+    // This separate effect handles the automatic deposit amount update without interfering.
+    useEffect(() => {
+        if (job && Math.abs(Number(job.depositAmount) - financialSummary.totalDeposit) > 0.01) {
+            saveJobDetails({ projectId: project.id, depositAmount: financialSummary.totalDeposit });
+        }
+    }, [financialSummary.totalDeposit, job, project.id, saveJobDetails]);
+
+
     useEffect(() => {
         const checkConflicts = async () => {
-            if (!isSchedulingApplicable || !jobDetails.scheduledStartDate || !jobDetails.scheduledEndDate || !installerId) {
+            if (!isSchedulingApplicable || !jobDetails.scheduledStartDate || !installerId) {
                 setScheduleConflicts([]);
                 return;
             }
@@ -83,7 +107,9 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 const response = await fetch(`/api/installers/${installerId}/schedule?excludeProjectId=${project.id}`);
                 const existingJobs: { projectId: number, scheduledStartDate: string, scheduledEndDate: string | null }[] = await response.json();
                 const newStart = new Date(jobDetails.scheduledStartDate);
-                const newEnd = new Date(jobDetails.scheduledEndDate);
+                // If there's no end date, treat it as a single day event
+                const newEnd = jobDetails.scheduledEndDate ? new Date(jobDetails.scheduledEndDate) : newStart;
+                
                 const conflicts = existingJobs.filter(existingJob => {
                     const existingStart = new Date(existingJob.scheduledStartDate);
                     const existingEnd = existingJob.scheduledEndDate ? new Date(existingJob.scheduledEndDate) : existingStart;
@@ -98,26 +124,8 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         checkConflicts();
     }, [jobDetails.scheduledStartDate, jobDetails.scheduledEndDate, installerId, project.id, projects, isSchedulingApplicable]);
 
-    useEffect(() => {
-        setJobDetails(prevDetails => ({
-            ...prevDetails,
-            poNumber: job?.poNumber || '',
-            depositReceived: job?.depositReceived || false,
-            contractsReceived: job?.contractsReceived || false,
-            finalPaymentReceived: job?.finalPaymentReceived || false,
-            scheduledStartDate: formatDateForInput(job?.scheduledStartDate),
-            scheduledEndDate: formatDateForInput(job?.scheduledEndDate),
-            notes: job?.notes || '',
-        }));
-        if (job && Math.abs(Number(job.depositAmount) - financialSummary.totalDeposit) > 0.01) {
-            saveJobDetails({ ...job, depositAmount: financialSummary.totalDeposit });
-        }
-        setIsCompletedOverlayVisible(true);
-    }, [job, financialSummary.totalDeposit, saveJobDetails, project.id]);
-
     const isScheduledOrLater = project.status === ProjectStatus.SCHEDULED || project.status === ProjectStatus.COMPLETED;
     
-    // --- MODIFICATION: Updated handleSave logic ---
     const handleSave = async () => {
         const shouldUpdateStatus = project.status === ProjectStatus.ACCEPTED && isSchedulingApplicable;
         if (shouldUpdateStatus && !jobDetails.scheduledStartDate) {
@@ -125,7 +133,11 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
             return;
         }
         try {
-            await saveJobDetails({ ...jobDetails, projectId: project.id, depositAmount: financialSummary.totalDeposit });
+            await saveJobDetails({ 
+                ...jobDetails, 
+                projectId: project.id, 
+                depositAmount: financialSummary.totalDeposit 
+            });
             if (shouldUpdateStatus) {
                 await updateProject({ id: project.id, status: ProjectStatus.SCHEDULED });
             }
@@ -152,7 +164,6 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
             <div className="space-y-6 flex flex-col"> 
                 <div><label className="block text-sm font-medium text-text-secondary mb-1">PO Number</label><input type="text" value={jobDetails.poNumber} onChange={e => setJobDetails({...jobDetails, poNumber: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded"/></div> 
                 
-                {/* --- MODIFICATION: Conditionally render all scheduling fields --- */}
                 {isSchedulingApplicable && (
                     <>
                         <div><label className="block text-sm font-medium text-text-secondary mb-1">Scheduled Start Date</label><input type="date" value={jobDetails.scheduledStartDate} onChange={e => setJobDetails({...jobDetails, scheduledStartDate: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded"/></div> 
@@ -164,7 +175,6 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 <div className="flex-grow flex flex-col"><label className="block text-sm font-medium text-text-secondary mb-1">Notes</label><textarea value={jobDetails.notes} onChange={e => setJobDetails({...jobDetails, notes: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded flex-grow min-h-[100px]" rows={4}></textarea></div> 
             </div> 
             <div className="space-y-4 flex flex-col"> 
-                {/* ... (Financial Summary remains unchanged) ... */}
                 <div className="bg-gray-800 p-4 rounded-lg space-y-2"> 
                     <div className="flex justify-between items-center font-bold text-lg"><span className="text-text-primary">Job Total:</span><span>${financialSummary.jobTotal.toFixed(2)}</span></div> 
                     <div className="pl-4 space-y-1"> 
@@ -187,7 +197,6 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 </div> 
             </div> 
             <div className="md:col-span-2 text-right mt-2 space-x-4"> 
-                {/* --- MODIFICATION: Update button logic and text --- */}
                 {project.status === ProjectStatus.ACCEPTED && ( <button onClick={handleSave} disabled={!canSaveSchedule} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">{isSchedulingApplicable ? "Save Schedule" : "Save Job Details"}</button> )} 
                 {project.status === ProjectStatus.SCHEDULED && ( <> <button onClick={handleSave} className="bg-primary hover:bg-secondary text-white font-bold py-2 px-6 rounded-lg"><Save className="w-4 h-4 mr-2 inline-block"/> Save Changes</button> <button onClick={handleCompleteJob} disabled={!canCompleteJob} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Mark as Complete</button> </> )} 
                 {project.status === ProjectStatus.COMPLETED && ( <button onClick={handleSave} className="bg-primary hover:bg-secondary text-white font-bold py-2 px-6 rounded-lg"><Save className="w-4 h-4 mr-2 inline-block"/> Save Changes</button> )} 

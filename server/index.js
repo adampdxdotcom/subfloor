@@ -3,8 +3,10 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-
-// --- Import Routers ---
+import supertokens from 'supertokens-node';
+import Session from 'supertokens-node/recipe/session/index.js';
+import EmailPassword from 'supertokens-node/recipe/emailpassword/index.js';
+import { middleware, errorHandler } from 'supertokens-node/framework/express/index.js';
 import customerRoutes from './routes/customers.js';
 import sampleRoutes from './routes/samples.js';
 import sampleCheckoutRoutes from './routes/sampleCheckouts.js';
@@ -20,39 +22,70 @@ import orderRoutes from './routes/orders.js';
 import searchRoutes from './routes/search.js';
 import calendarRoutes from './routes/calendar.js';
 import vendorRoutes from './routes/vendors.js';
+import userRoutes from './routes/users.js'; 
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// --- CONFIGURATION ---
+supertokens.init({
+    framework: "express",
+    supertokens: {
+        connectionURI: "http://supertokens:3567",
+        apiKey: "some-long-and-secure-key",
+    },
+    appInfo: {
+        appName: "Joblogger",
+        apiDomain: "https://flooring.dumbleigh.com",
+        websiteDomain: "https://flooring.dumbleigh.com",
+        apiBasePath: "/api/auth",
+        websiteBasePath: "/auth"
+    },
+    recipeList: [
+        EmailPassword.init(),
+        Session.init({
+            olderCookieDomain: "flooring.dumbleigh.com",
+            cookieDomain: ".dumbleigh.com",
+            cookieSecure: true,             
+            cookieSameSite: "lax" 
+        })
+    ]
+});
+
 const app = express();
 const PORT = 3001;
 
-// Ensure the uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
-// --- MIDDLEWARE ---
+// <<< START OF MODIFICATION >>>
+// We make the CORS configuration more robust to ensure the front-token is exposed.
+// We create a unique list of headers to prevent duplicates.
+const exposedHeaders = new Set([
+    'front-token', 
+    ...supertokens.getAllCORSHeaders()
+]);
+
 app.use(cors({
-  origin: '*', 
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: "https://flooring.dumbleigh.com",
+    allowedHeaders: ["content-type", ...supertokens.getAllCORSHeaders()],
+    exposedHeaders: [...exposedHeaders], // Use the new unique list
+    credentials: true,
 }));
-app.use(express.json());
-// Serve static files from the 'uploads' directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-// Simple request logger
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  next();
+// <<< END OF MODIFICATION >>>
+
+app.options('*', (req, res) => {
+    res.sendStatus(204);
 });
+
+app.use(express.json()); 
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(middleware());   
 
 // --- API ENDPOINTS ---
 app.get('/api', (req, res) => res.json({ message: 'Backend is running!' }));
-
-// --- Use Routers ---
 app.use('/api/customers', customerRoutes);
 app.use('/api/samples', sampleRoutes);
 app.use('/api/sample-checkouts', sampleCheckoutRoutes);
@@ -68,8 +101,10 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/vendors', vendorRoutes);
+app.use('/api/users', userRoutes);
 
-// --- START THE SERVER ---
+app.use(errorHandler());
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server is running on http://localhost:${PORT}`);
 });

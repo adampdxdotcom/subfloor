@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 // GET /api/sample-checkouts
-router.get('/', async (req, res) => {
+router.get('/', verifySession(), async (req, res) => {
   try {
     const { projectId } = req.query;
     let result;
@@ -19,7 +20,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/sample-checkouts
-router.post('/', async (req, res) => {
+router.post('/', verifySession(), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -38,7 +39,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/sample-checkouts/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifySession(), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -62,9 +63,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// --- NEW ROUTE HANDLER FOR EXTENDING CHECKOUTS ---
 // PATCH /api/sample-checkouts/:id
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', verifySession(), async (req, res) => {
   const { id } = req.params;
   const { expectedReturnDate } = req.body;
 
@@ -88,6 +88,5 @@ router.patch('/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-// --- END NEW ROUTE ---
 
 export default router;

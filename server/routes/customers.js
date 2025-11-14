@@ -1,12 +1,15 @@
 // server/routes/customers.js
 import express from 'express';
-import pool from '../db.js'; // Import the shared pool
-import { toCamelCase } from '../utils.js'; // Import the helper
+import pool from '../db.js';
+import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
-// NOTE: The path is now '/' because the base path '/api/customers' will be defined in index.js
-router.get('/', async (req, res) => {
+// ALL routes in this file will now require a valid session.
+// The `verifySession()` middleware is added to each route handler.
+
+router.get('/', verifySession(), async (req, res) => {
   try {
     const query = `
       SELECT
@@ -39,7 +42,7 @@ router.get('/', async (req, res) => {
   } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', verifySession(), async (req, res) => {
   try {
     const { fullName, email, phoneNumber, address } = req.body;
     const result = await pool.query("INSERT INTO customers (full_name, email, phone_number, address) VALUES ($1, $2, $3, $4) RETURNING *", [fullName, email, phoneNumber, address]);
@@ -47,8 +50,7 @@ router.post('/', async (req, res) => {
   } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// NOTE: The path is now '/:id'
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifySession(), async (req, res) => {
   try {
     const { id } = req.params;
     const { fullName, email, phoneNumber, address } = req.body;
@@ -73,27 +75,23 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// --- NEW CODE START ---
-// DELETE /api/customers/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifySession(), async (req, res) => {
   const { id } = req.params;
   const client = await pool.connect();
 
   try {
-    // 1. Pre-flight check: Ensure the customer has no associated projects.
     const projectCheckResult = await client.query('SELECT 1 FROM projects WHERE customer_id = $1 LIMIT 1', [id]);
     if (projectCheckResult.rows.length > 0) {
       return res.status(409).json({ error: 'Cannot delete customer. Please re-assign or delete their projects first.' });
     }
 
-    // 2. If check passes, proceed with deletion.
     const deleteResult = await client.query('DELETE FROM customers WHERE id = $1 RETURNING *', [id]);
     
     if (deleteResult.rows.length === 0) {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    res.status(204).send(); // Success, no content to return.
+    res.status(204).send();
   } catch (err) {
     console.error(`Failed to delete customer ${id}:`, err.message);
     res.status(500).json({ error: 'Internal server error' });
@@ -101,6 +99,5 @@ router.delete('/:id', async (req, res) => {
     client.release();
   }
 });
-// --- NEW CODE END ---
 
 export default router;

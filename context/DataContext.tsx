@@ -1,7 +1,9 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
-import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor } from '../types';
+import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser } from '../types';
 import { toast } from 'react-hot-toast';
-// --- All services are now imported ---
+
+import { useSessionContext } from 'supertokens-auth-react/recipe/session';
+
 import * as customerService from '../services/customerService';
 import * as sampleService from '../services/sampleService';
 import * as projectService from '../services/projectService';
@@ -11,19 +13,33 @@ import * as jobService from '../services/jobService';
 import * as sampleCheckoutService from '../services/sampleCheckoutService';
 import * as changeOrderService from '../services/changeOrderService';
 import * as materialOrderService from '../services/materialOrderService';
-import * as vendorService from '../services/vendorService'; // --- NEW ---
+import * as vendorService from '../services/vendorService';
+import * as userService from '../services/userService';
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const emptyInitialData: AppData = {
-  customers: [], projects: [], samples: [], sampleCheckouts: [], installers: [], quotes: [], jobs: [], changeOrders: [], materialOrders: [], vendors: [] // --- NEW ---
+  customers: [], projects: [], samples: [], sampleCheckouts: [], installers: [], quotes: [], jobs: [], changeOrders: [], materialOrders: [], vendors: []
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const sessionContext = useSessionContext();
   const [data, setData] = useState<AppData>(emptyInitialData);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  const fetchCurrentUser = useCallback(async () => {
+    try {
+      const user = await userService.getCurrentUser();
+      setCurrentUser(user);
+    } catch (error) {
+      console.error("Failed to fetch current user:", error);
+      setCurrentUser(null);
+    }
+  }, []);
 
   const fetchInitialData = useCallback(() => {
+    setIsLoading(true);
     Promise.all([
       customerService.getCustomers(),
       projectService.getProjects(),
@@ -34,7 +50,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       jobService.getJobs(),
       changeOrderService.getChangeOrders(),
       materialOrderService.getMaterialOrders(),
-      vendorService.getVendors(), // --- NEW ---
+      vendorService.getVendors(),
     ])
     .then(([customersData, projectsData, samplesData, sampleCheckoutsData, installersData, quotesData, jobsData, changeOrdersData, materialOrdersData, vendorsData]) => {
       setData({
@@ -47,23 +63,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         jobs: Array.isArray(jobsData) ? jobsData : [],
         changeOrders: Array.isArray(changeOrdersData) ? changeOrdersData : [],
         materialOrders: Array.isArray(materialOrdersData) ? materialOrdersData : [],
-        vendors: Array.isArray(vendorsData) ? vendorsData : [], // --- NEW ---
+        vendors: Array.isArray(vendorsData) ? vendorsData : [],
       });
-      setIsLoading(false);
     })
     .catch(error => {
-      console.error("Failed to fetch initial data:", error);
-      toast.error("Could not load app data. Please refresh.");
+      console.error("Initial data fetch failed (likely no session):", error);
       setData(emptyInitialData); 
+    })
+    .finally(() => {
       setIsLoading(false);
     });
   }, []); 
 
   useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+    if (sessionContext.loading) {
+        setIsLoading(true);
+        return;
+    }
 
-  // --- Functions for Vendors (NEW) ---
+    if (sessionContext.doesSessionExist) {
+        fetchInitialData();
+        fetchCurrentUser();
+    } else {
+        setData(emptyInitialData);
+        setCurrentUser(null);
+        setIsLoading(false);
+    }
+  }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser]);
 
   const addVendor = async (vendor: Omit<Vendor, 'id'>): Promise<void> => {
       const newVendor = await vendorService.addVendor(vendor);
@@ -85,8 +111,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           vendors: prevData.vendors.filter(v => v.id !== vendorId),
       }));
   };
-
-  // --- Existing functions below ---
 
   const fetchSamples = async () => {
     try {
@@ -139,11 +163,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addSample = async (sample: any): Promise<Sample> => {
     try {
       const newDbSample = await sampleService.addSample(sample);
-      // After adding, we need the full sample object with vendor names, so we refetch.
       await fetchSamples();
       toast.success('Sample added to library!');
-      // This is a bit inefficient but ensures data consistency.
-      // We return the found sample from the newly fetched list.
       const foundSample = data.samples.find(s => s.styleColor === newDbSample.styleColor) || newDbSample;
       return foundSample;
     } catch (error) { 
@@ -314,7 +335,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const extendSampleCheckout = async (checkout: SampleCheckout): Promise<void> => {
     try {
         const currentDueDate = new Date(checkout.expectedReturnDate);
-        currentDueDate.setDate(currentDueDate.getDate() + 2); // Add 2 days
+        currentDueDate.setDate(currentDueDate.getDate() + 2);
         const newReturnDate = currentDueDate.toISOString();
 
         const updatedCheckout = await sampleCheckoutService.patchSampleCheckout(checkout.id, {
@@ -361,6 +382,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw error; 
     }
   };
+  
+  // <<< START OF FIX >>>
+  const acceptQuote = async (quote: Partial<Quote> & { id: number }): Promise<void> => {
+    try {
+      // Step 1: Tell the backend to update the quote and the associated project.
+      const { updatedQuote, updatedProject } = await quoteService.acceptQuote(quote);
+
+      // Step 2: Update the local state for BOTH quotes and projects.
+      setData(prevData => ({
+        ...prevData,
+        quotes: prevData.quotes.map(q => q.id === updatedQuote.id ? { ...q, ...updatedQuote } : q),
+        projects: prevData.projects.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p)
+      }));
+      
+      toast.success('Quote accepted and project status updated!');
+
+    } catch (error) {
+      console.error("Error accepting quote:", error);
+      toast.error((error as Error).message);
+      throw error;
+    }
+  };
+  // <<< END OF FIX >>>
   
   const saveJobDetails = async (jobDetails: Omit<Job, 'id' | 'paperworkSignedUrl'>): Promise<void> => {
     try {
@@ -412,7 +456,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addMaterialOrder = async (orderData: any): Promise<void> => {
     try {
         const newOrder = await materialOrderService.addMaterialOrder(orderData);
-        // Refetch all orders to get the full object with supplier name
         const materialOrdersData = await materialOrderService.getMaterialOrders();
         setData(prevData => ({
             ...prevData,
@@ -461,6 +504,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const providerValue: DataContextType = {
     ...data,
     isLoading,
+    currentUser,
     addInstaller, 
     updateInstaller,
     deleteInstaller,
@@ -479,6 +523,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     extendSampleCheckout,
     addQuote, 
     updateQuote,
+    acceptQuote, // <-- Expose the new function
     saveJobDetails,
     addChangeOrder,
     updateChangeOrder,

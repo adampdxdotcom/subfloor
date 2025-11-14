@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import qrcode from 'qrcode';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.resolve(path.dirname(__filename), '..');
 
 // GET /api/samples
-router.get('/', async (req, res) => {
+router.get('/', verifySession(), async (req, res) => {
   try {
     const query = `
       SELECT
@@ -25,8 +26,8 @@ router.get('/', async (req, res) => {
         s.type,
         s.is_available,
         s.product_url,
-        m.name AS manufacturer_name, -- Get manufacturer name from vendors table
-        sup.name AS supplier_name, -- Get supplier name from vendors table
+        m.name AS manufacturer_name,
+        sup.name AS supplier_name,
         p.url AS image_url,
         proj.id AS "checkoutProjectId",
         proj.project_name AS "checkoutProjectName",
@@ -55,7 +56,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/samples
-router.post('/', async (req, res) => {
+router.post('/', verifySession(), async (req, res) => {
   try {
     const { manufacturerId, supplierId, styleColor, sku, type, productUrl } = req.body;
     const finalSku = (sku === '' || sku === undefined || sku === null) ? null : sku;
@@ -71,7 +72,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/samples/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const { manufacturerId, supplierId, styleColor, sku, type, productUrl } = req.body;
 
@@ -95,13 +96,24 @@ router.put('/:id', async (req, res) => {
             return res.status(404).json({ error: `Sample with ID ${id} not found.` });
         }
         
-        // Fetch the updated sample with vendor names to return to the client
+        // <<< FIX IS HERE >>>
+        // This query now includes the LEFT JOIN to the photos table to ensure the image_url is returned.
         const updatedSampleQuery = `
-            SELECT s.*, m.name AS manufacturer_name, sup.name as supplier_name
-            FROM samples s
-            LEFT JOIN vendors m ON s.manufacturer_id = m.id
-            LEFT JOIN vendors sup ON s.supplier_id = sup.id
-            WHERE s.id = $1;
+            SELECT
+              s.*,
+              m.name AS manufacturer_name,
+              sup.name AS supplier_name,
+              p.url AS image_url
+            FROM
+              samples s
+            LEFT JOIN
+              vendors m ON s.manufacturer_id = m.id
+            LEFT JOIN
+              vendors sup ON s.supplier_id = sup.id
+            LEFT JOIN
+              photos p ON s.id = p.entity_id AND p.entity_type = 'sample'
+            WHERE
+              s.id = $1;
         `;
         const fullResult = await pool.query(updatedSampleQuery, [id]);
 
@@ -113,7 +125,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/samples/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const client = await pool.connect();
 
@@ -166,7 +178,7 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// GET /api/samples/:id/qr
+// GET /api/samples/:id/qr - This is a public route, no session required.
 router.get('/:id/qr', async (req, res) => {
     const { id } = req.params;
 

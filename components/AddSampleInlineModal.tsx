@@ -28,6 +28,8 @@ const AddSampleInlineModal: React.FC<AddSampleInlineModalProps> = ({
   const [type, setType] = useState('LVP');
   const [isSaving, setIsSaving] = useState(false);
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
+  // <<< START OF FIX: Add state to manage the vendor modal's purpose >>>
+  const [vendorModalPurpose, setVendorModalPurpose] = useState<'manufacturer' | 'supplier'>('manufacturer');
 
   useEffect(() => {
     if (isOpen) {
@@ -41,30 +43,41 @@ const AddSampleInlineModal: React.FC<AddSampleInlineModalProps> = ({
     }
   }, [isOpen, initialStyleColor]);
 
-  const manufacturerList = useMemo(() => vendors.filter(v => v.isManufacturer), [vendors]);
-  const supplierList = useMemo(() => vendors.filter(v => v.isSupplier), [vendors]);
+  // <<< START OF FIX: Refactored logic to be consistent with other components >>>
+  const selectedManufacturerName = useMemo(() => 
+    vendors.find(v => v.id === manufacturerId)?.name, 
+    [vendors, manufacturerId]
+  );
+
+  const selectedSupplierName = useMemo(() => 
+    vendors.find(v => v.id === supplierId)?.name,
+    [vendors, supplierId]
+  );
   
   const manufacturerSearchResults = useMemo(() => {
-    if (!manufacturerSearch.trim() || manufacturerId) return [];
-    return manufacturerList.filter(m => m.name.toLowerCase().includes(manufacturerSearch.toLowerCase()));
-  }, [manufacturerList, manufacturerSearch, manufacturerId]);
-  
+    if (!manufacturerSearch.trim()) return [];
+    return vendors.filter(v => v.isManufacturer && v.name.toLowerCase().includes(manufacturerSearch.toLowerCase()));
+  }, [vendors, manufacturerSearch]);
+
   const supplierSearchResults = useMemo(() => {
-    if (!supplierSearch.trim() || supplierId) return [];
-    return supplierList.filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase()));
-  }, [supplierList, supplierSearch, supplierId]);
+    if (!supplierSearch.trim()) return [];
+    return vendors.filter(v => v.isSupplier && v.name.toLowerCase().includes(supplierSearch.toLowerCase()));
+  }, [vendors, supplierSearch]);
 
+  const openVendorModal = (purpose: 'manufacturer' | 'supplier') => {
+    setVendorModalPurpose(purpose);
+    setIsVendorModalOpen(true);
+  };
+  // <<< END OF FIX >>>
 
-  const handleSelectManufacturer = (vendorId: number) => {
-    setManufacturerId(vendorId);
-    const vendor = vendors.find(v => v.id === vendorId);
-    setManufacturerSearch(vendor?.name || '');
+  const handleSelectManufacturer = (vendor: Vendor) => {
+    setManufacturerId(vendor.id);
+    setManufacturerSearch(vendor.name);
   };
 
-  const handleSelectSupplier = (vendorId: number) => {
-    setSupplierId(vendorId);
-    const vendor = vendors.find(v => v.id === vendorId);
-    setSupplierSearch(vendor?.name || '');
+  const handleSelectSupplier = (vendor: Vendor) => {
+    setSupplierId(vendor.id);
+    setSupplierSearch(vendor.name);
   };
 
   const handleSaveVendor = async (vendorData: Omit<Vendor, 'id'> | Vendor) => {
@@ -120,34 +133,40 @@ const AddSampleInlineModal: React.FC<AddSampleInlineModalProps> = ({
               <input type="text" value={styleColor} onChange={(e) => setStyleColor(e.target.value)} className="w-full p-2 bg-gray-800 border border-border rounded" required />
             </div>
             
+            {/* <<< START OF FIX: Replaced old JSX with new, consistent search component >>> */}
             <div className="relative">
               <label className="text-sm text-text-secondary">Manufacturer</label>
               <input type="text" value={manufacturerSearch} onChange={(e) => { setManufacturerSearch(e.target.value); setManufacturerId(null); }} className="w-full p-2 bg-gray-800 border border-border rounded" required />
-              {manufacturerSearchResults.length > 0 && (
+              {manufacturerSearch && manufacturerSearch !== selectedManufacturerName && (
                 <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
-                    {manufacturerSearchResults.map(m => <div key={m.id} onClick={() => handleSelectManufacturer(m.id)} className="p-2 hover:bg-accent cursor-pointer">{m.name}</div>)}
-                    <div onClick={() => setIsVendorModalOpen(true)} className="p-2 text-accent font-semibold hover:bg-accent hover:text-white cursor-pointer text-center border-t border-border">+ Add New Vendor</div>
+                    {manufacturerSearchResults.map(m => <div key={m.id} onClick={() => handleSelectManufacturer(m)} className="p-2 hover:bg-accent cursor-pointer">{m.name}</div>)}
+                    {manufacturerSearchResults.length === 0 && (
+                        <div onClick={() => openVendorModal('manufacturer')} className="p-2 text-accent font-semibold hover:bg-accent hover:text-white cursor-pointer text-center border-t border-border">+ Add New Vendor</div>
+                    )}
                 </div>
               )}
             </div>
 
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="different-supplier-checkbox" checked={hasDifferentSupplier} onChange={(e) => setHasDifferentSupplier(e.target.checked)} className="h-4 w-4 rounded text-primary focus:ring-primary-dark bg-gray-700 border-gray-600" />
-              <label htmlFor="different-supplier-checkbox" className="text-sm text-text-secondary">Different Supplier</label>
+              <input type="checkbox" id="different-supplier-checkbox-inline" checked={hasDifferentSupplier} onChange={(e) => setHasDifferentSupplier(e.target.checked)} className="h-4 w-4 rounded text-primary focus:ring-primary-dark bg-gray-700 border-gray-600" />
+              <label htmlFor="different-supplier-checkbox-inline" className="text-sm text-text-secondary">Different Supplier</label>
             </div>
 
             {hasDifferentSupplier && (
               <div className="relative">
                 <label className="text-sm text-text-secondary">Supplier</label>
                 <input type="text" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setSupplierId(null); }} className="w-full p-2 bg-gray-800 border border-border rounded" required />
-                 {supplierSearchResults.length > 0 && (
+                 {supplierSearch && supplierSearch !== selectedSupplierName && (
                   <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
-                      {supplierSearchResults.map(s => <div key={s.id} onClick={() => handleSelectSupplier(s.id)} className="p-2 hover:bg-accent cursor-pointer">{s.name}</div>)}
-                      <div onClick={() => setIsVendorModalOpen(true)} className="p-2 text-accent font-semibold hover:bg-accent hover:text-white cursor-pointer text-center border-t border-border">+ Add New Vendor</div>
+                      {supplierSearchResults.map(s => <div key={s.id} onClick={() => handleSelectSupplier(s)} className="p-2 hover:bg-accent cursor-pointer">{s.name}</div>)}
+                      {supplierSearchResults.length === 0 && (
+                        <div onClick={() => openVendorModal('supplier')} className="p-2 text-accent font-semibold hover:bg-accent hover:text-white cursor-pointer text-center border-t border-border">+ Add New Vendor</div>
+                      )}
                   </div>
                 )}
               </div>
             )}
+            {/* <<< END OF FIX >>> */}
 
             <div>
               <label className="text-sm text-text-secondary">Type</label>
@@ -172,6 +191,7 @@ const AddSampleInlineModal: React.FC<AddSampleInlineModalProps> = ({
         isOpen={isVendorModalOpen}
         onClose={() => setIsVendorModalOpen(false)}
         onSave={handleSaveVendor}
+        initialVendorType={vendorModalPurpose}
       />
     </>
   );

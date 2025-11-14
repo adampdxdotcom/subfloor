@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
 import { toCamelCase } from '../utils.js';
+import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 // GET /api/jobs
-router.get('/', async (req, res) => {
+router.get('/', verifySession(), async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM jobs');
         res.json(result.rows.map(toCamelCase));
@@ -16,13 +17,20 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/jobs (Handles both create and update)
-router.post('/', async (req, res) => {
+router.post('/', verifySession(), async (req, res) => {
     try {
         const { 
             projectId, poNumber, depositAmount, depositReceived, 
             contractsReceived, finalPaymentReceived, scheduledStartDate, 
             scheduledEndDate, notes 
         } = req.body;
+
+        // <<< START OF FIX: Sanitize date inputs >>>
+        // Convert empty strings or other falsy values for dates to null,
+        // which the database can handle correctly for DATE/TIMESTAMP columns.
+        const finalStartDate = scheduledStartDate || null;
+        const finalEndDate = scheduledEndDate || null;
+        // <<< END OF FIX >>>
         
         const existingJob = await pool.query('SELECT id FROM jobs WHERE project_id = $1', [projectId]);
         let result;
@@ -36,7 +44,8 @@ router.post('/', async (req, res) => {
                     contracts_received = $4, final_payment_received = $5, scheduled_start_date = $6, 
                     scheduled_end_date = $7, notes = $8
                 WHERE id = $9 RETURNING *`,
-                [poNumber, depositAmount, depositReceived, contractsReceived, finalPaymentReceived, scheduledStartDate, scheduledEndDate, notes, jobId]
+                // <<< FIX: Use the sanitized date values >>>
+                [poNumber, depositAmount, depositReceived, contractsReceived, finalPaymentReceived, finalStartDate, finalEndDate, notes, jobId]
             );
         } else {
             // Create new job
@@ -47,7 +56,8 @@ router.post('/', async (req, res) => {
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
                 [
                     projectId, poNumber, depositAmount, depositReceived, contractsReceived, 
-                    finalPaymentReceived, scheduledStartDate, scheduledEndDate, notes
+                    // <<< FIX: Use the sanitized date values >>>
+                    finalPaymentReceived, finalStartDate, finalEndDate, notes
                 ]
             );
         }
