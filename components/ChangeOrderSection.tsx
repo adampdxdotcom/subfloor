@@ -1,18 +1,28 @@
-import React, { useState } from 'react';
-import { Project, ChangeOrder } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Project, ChangeOrder, Quote } from '../types';
 import { Edit } from 'lucide-react';
 
 interface ChangeOrderSectionProps {
     project: Project;
     projectChangeOrders: ChangeOrder[];
+    acceptedQuotes: Quote[];
     addChangeOrder: (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'> & { projectId: number }) => Promise<void>;
     onEditChangeOrder: (changeOrder: ChangeOrder) => void;
 }
 
-const ChangeOrderSection: React.FC<ChangeOrderSectionProps> = ({ project, projectChangeOrders, addChangeOrder, onEditChangeOrder }) => {
+const ChangeOrderSection: React.FC<ChangeOrderSectionProps> = ({ project, projectChangeOrders, acceptedQuotes, addChangeOrder, onEditChangeOrder }) => {
     const [description, setDescription] = useState('');
     const [amount, setAmount] = useState('');
-    const [type, setType] = useState<'Materials' | 'Installer'>('Materials');
+    const [type, setType] = useState<'Materials' | 'Labor'>('Materials');
+    // The state now stores the ID as a string to work directly with the <select> element's value
+    const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
+
+    useEffect(() => {
+        // Set the default selection to the first quote when the component loads or quotes change
+        if (acceptedQuotes && acceptedQuotes.length > 0) {
+            setSelectedQuoteId(String(acceptedQuotes[0].id));
+        }
+    }, [acceptedQuotes]);
 
     const handleAddChangeOrder = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,9 +30,43 @@ const ChangeOrderSection: React.FC<ChangeOrderSectionProps> = ({ project, projec
             alert('Please provide a description and an amount.');
             return;
         }
-        await addChangeOrder({ projectId: project.id, description, amount: parseFloat(amount), type });
+
+        // --- MODIFIED: This logic is now robust and eliminates the race condition ---
+        let finalQuoteId: number | undefined;
+
+        // If a selection is in state, use it.
+        if (selectedQuoteId) {
+            finalQuoteId = parseInt(selectedQuoteId, 10);
+        } 
+        // If state is not set yet BUT there's at least one quote, default to the first one.
+        else if (acceptedQuotes.length > 0) {
+            finalQuoteId = acceptedQuotes[0].id;
+        }
+
+        if (acceptedQuotes.length > 1 && !finalQuoteId) {
+            alert('Please select which quote this change order applies to.');
+            return;
+        }
+        
+        await addChangeOrder({ 
+            projectId: project.id, 
+            quoteId: finalQuoteId, 
+            description, 
+            amount: parseFloat(amount), 
+            type 
+        });
+
+        // Reset form fields
         setDescription('');
         setAmount('');
+        // Do not reset selectedQuoteId, to make adding multiple COs easier
+    };
+
+    const getQuoteIdentifier = (quoteId: number | null | undefined) => {
+        if (!quoteId || acceptedQuotes.length <= 1) return null;
+        const quoteIndex = acceptedQuotes.findIndex(q => q.id === quoteId);
+        if (quoteIndex === -1) return "For an unknown quote";
+        return `For Quote #${quoteIndex + 1}`;
     };
 
     return (
@@ -32,7 +76,10 @@ const ChangeOrderSection: React.FC<ChangeOrderSectionProps> = ({ project, projec
                     <div key={order.id} className={`flex justify-between items-center p-3 rounded-md bg-gray-800 ${Number(order.amount) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         <div>
                             <p>{order.description}</p>
-                            <p className="text-xs text-gray-400">{order.type}</p>
+                            <p className="text-xs text-gray-400">
+                                {order.type}
+                                {getQuoteIdentifier(order.quoteId) && <span className="ml-2 pl-2 border-l border-gray-600">{getQuoteIdentifier(order.quoteId)}</span>}
+                            </p>
                         </div>
                         <div className="flex items-center">
                             <span className="font-bold">{Number(order.amount) >= 0 ? '+' : ''}${Number(order.amount).toFixed(2)}</span>
@@ -44,11 +91,30 @@ const ChangeOrderSection: React.FC<ChangeOrderSectionProps> = ({ project, projec
                 ))}
                 {projectChangeOrders.length === 0 && <p className="text-text-secondary text-center py-4">No change orders added yet.</p>}
             </div>
-            <form onSubmit={handleAddChangeOrder} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <form onSubmit={handleAddChangeOrder} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-text-secondary mb-1">Description</label><input type="text" value={description} onChange={e => setDescription(e.target.value)} className="w-full p-2 bg-gray-800 border-border rounded" required /></div>
-                <div><label className="block text-sm font-medium text-text-secondary mb-1">Type</label><select value={type} onChange={e => setType(e.target.value as 'Materials' | 'Installer')} className="w-full p-2 bg-gray-800 border-border rounded h-10"><option>Materials</option><option>Installer</option></select></div>
+                
+                {acceptedQuotes.length > 1 && (
+                    <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-1">For Quote</label>
+                        <select 
+                            value={selectedQuoteId} 
+                            onChange={e => setSelectedQuoteId(e.target.value)} 
+                            className="w-full p-2 bg-gray-800 border-border rounded h-10"
+                        >
+                            {acceptedQuotes.map((q, index) => (
+                                <option key={q.id} value={String(q.id)}>
+                                    Quote #{index + 1}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+                
+                <div><label className="block text-sm font-medium text-text-secondary mb-1">Type</label><select value={type} onChange={e => setType(e.target.value as 'Materials' | 'Labor')} className="w-full p-2 bg-gray-800 border-border rounded h-10"><option value="Materials">Materials</option><option value="Labor">Labor</option></select></div>
                 <div className="md:col-span-2"><label className="block text-sm font-medium text-text-secondary mb-1">Amount</label><input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g., -50.00" className="w-full p-2 bg-gray-800 border-border rounded" required /></div>
-                <button type="submit" className="bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg h-10">Add</button>
+                
+                <button type="submit" className="bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg h-10 md:col-start-4">Add</button>
             </form>
         </div>
     );

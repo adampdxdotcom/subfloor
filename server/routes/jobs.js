@@ -52,15 +52,11 @@ router.post('/', verifySession(), async (req, res) => {
             scheduledEndDate, notes 
         } = req.body;
 
-        // vvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvv
-        // Sanitize all optional inputs to ensure they are null if empty/undefined
         const finalStartDate = scheduledStartDate || null;
         const finalEndDate = scheduledEndDate || null;
-        // Handle empty strings for numeric fields
         const finalDepositAmount = (depositAmount === '' || depositAmount === null || depositAmount === undefined) 
             ? null 
             : parseFloat(depositAmount);
-        // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         
         const existingJobResult = await pool.query('SELECT * FROM jobs WHERE project_id = $1', [projectId]);
         
@@ -73,24 +69,38 @@ router.post('/', verifySession(), async (req, res) => {
             const existingJob = existingJobResult.rows[0];
             const beforeData = toCamelCase(existingJob);
 
+            // --- MODIFIED: Use COALESCE to only update fields that are provided ---
             result = await pool.query(
                 `UPDATE jobs SET 
-                    po_number = $1, deposit_amount = $2, deposit_received = $3, 
-                    contracts_received = $4, final_payment_received = $5, scheduled_start_date = $6, 
-                    scheduled_end_date = $7, notes = $8
+                    po_number = COALESCE($1, po_number), 
+                    deposit_amount = COALESCE($2, deposit_amount), 
+                    deposit_received = COALESCE($3, deposit_received), 
+                    contracts_received = COALESCE($4, contracts_received), 
+                    final_payment_received = COALESCE($5, final_payment_received), 
+                    scheduled_start_date = COALESCE($6, scheduled_start_date), 
+                    scheduled_end_date = COALESCE($7, scheduled_end_date), 
+                    notes = COALESCE($8, notes)
                 WHERE id = $9 RETURNING *`,
-                [poNumber, finalDepositAmount, depositReceived, contractsReceived, finalPaymentReceived, finalStartDate, finalEndDate, notes, existingJob.id]
+                [
+                    req.body.poNumber, 
+                    finalDepositAmount, 
+                    req.body.depositReceived, 
+                    req.body.contractsReceived, 
+                    req.body.finalPaymentReceived, 
+                    finalStartDate, 
+                    finalEndDate, 
+                    req.body.notes, 
+                    existingJob.id
+                ]
             );
 
             const updatedJob = toCamelCase(result.rows[0]);
 
-            // --- AUDIT LOG ---
             await logActivity(userId, actionType, 'JOB', updatedJob.id, { 
                 projectId: String(projectId), 
                 before: beforeData, 
                 after: updatedJob 
             });
-            // --- END AUDIT LOG ---
 
         } else {
             // --- CREATE PATH ---
@@ -107,12 +117,10 @@ router.post('/', verifySession(), async (req, res) => {
             );
             const newJob = toCamelCase(result.rows[0]);
 
-            // --- AUDIT LOG ---
             await logActivity(userId, actionType, 'JOB', newJob.id, {
                  projectId: String(projectId),
                  createdData: newJob 
             });
-            // --- END AUDIT LOG ---
         }
 
         res.status(actionType === 'CREATE' ? 201 : 200).json(toCamelCase(result.rows[0]));

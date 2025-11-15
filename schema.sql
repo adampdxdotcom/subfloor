@@ -92,14 +92,17 @@ CREATE TABLE jobs (
     notes TEXT
 );
 
+-- vvvvvvvvvvvv MODIFIED: Added quote_id to the change_orders table vvvvvvvvvvvv
 CREATE TABLE change_orders (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+    quote_id INT REFERENCES quotes(id) ON DELETE SET NULL, -- Allow quote deletion
     description TEXT NOT NULL,
     amount NUMERIC(10, 2) NOT NULL,
     type VARCHAR(100) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 CREATE TABLE material_orders (
     id SERIAL PRIMARY KEY,

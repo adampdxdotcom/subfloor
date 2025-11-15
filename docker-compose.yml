@@ -30,20 +30,15 @@ services:
     ports:
       - "192.168.1.10:5173:5173"
     volumes:
-      - ./src:/app/src
-      - ./index.html:/app/index.html
-      - ./index.css:/app/index.css
-      - ./vite.config.ts:/app/vite.config.ts
-      - ./tsconfig.json:/app/tsconfig.json
-      - ./package.json:/app/package.json
-      - ./package-lock.json:/app/package-lock.json
-      # <<< THIS IS THE CRITICAL MISSING LINE >>>
-      - ./index.tsx:/app/index.tsx
+      # Mount entire frontend project
+      - .:/app
+
+      # Keep node_modules internal so Tailwind and Vite plugins install correctly
+      - /app/node_modules
     restart: unless-stopped
     depends_on:
       - server
       - supertokens
-    # Reverting to the standard command
     command: npm run dev
 
   supertokens:
@@ -71,7 +66,7 @@ services:
       - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password 
+      - POSTGRES_PASSWORD=password
       - POSTGRES_DB=supertokens
     restart: unless-stopped
     healthcheck:

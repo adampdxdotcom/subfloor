@@ -42,3 +42,23 @@ export const updateChangeOrder = async (changeOrderId: number, changeOrderData: 
     }
     return response.json();
 };
+
+/**
+ * Deletes a change order by its ID.
+ * @param changeOrderId The ID of the change order to delete.
+ */
+export const deleteChangeOrder = async (changeOrderId: number): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/${changeOrderId}`, {
+        method: 'DELETE'
+    });
+
+    if (!response.ok) {
+        // Handle cases where the server sends a specific error message (like 403 Forbidden)
+        if (response.status === 403 || response.status === 404) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete change order.');
+        }
+        throw new Error('Failed to delete change order.');
+    }
+    // A successful DELETE should return a 204 No Content, so we don't return JSON.
+};

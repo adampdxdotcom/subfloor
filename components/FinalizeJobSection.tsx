@@ -13,54 +13,59 @@ interface FinalizeJobSectionProps {
     updateProject: (p: Partial<Project> & { id: number }) => void;
 }
 
+interface QuoteFinancials {
+    quote: Quote;
+    quoteIndex: number;
+    baseTotal: number;
+    changeOrders: ChangeOrder[];
+    changeOrdersTotal: number;
+    subtotal: number;
+    deposit: number;
+}
+
 const formatDateForInput = (dateString: string | undefined | null) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
 
 const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, quotes, changeOrders, saveJobDetails, updateProject }) => {
     const { projects } = useData();
     const [scheduleConflicts, setScheduleConflicts] = useState<{ projectId: number; projectName: string; scheduledStartDate: string; scheduledEndDate: string | null; }[]>([]);
     
-    const acceptedQuote = useMemo(() => quotes.find(q => q.projectId === project.id && q.status === QuoteStatus.ACCEPTED), [quotes, project.id]);
+    const acceptedQuotes = useMemo(() => quotes.filter(q => q.status === QuoteStatus.ACCEPTED), [quotes]);
     
     const isSchedulingApplicable = useMemo(() => {
-        if (!acceptedQuote) return false;
-        return acceptedQuote.installationType === 'Managed Installation' || acceptedQuote.installationType === 'Unmanaged Installer';
-    }, [acceptedQuote]);
+        if (acceptedQuotes.length === 0) return false;
+        return acceptedQuotes.some(q => q.installationType === 'Managed Installation' || q.installationType === 'Unmanaged Installer');
+    }, [acceptedQuotes]);
 
     const financialSummary = useMemo(() => {
-        const acceptedQuotes = quotes.filter(q => q.projectId === project.id && q.status === QuoteStatus.ACCEPTED);
-        const projectChangeOrders = changeOrders.filter(co => co.projectId === project.id);
+        const quoteFinancials: QuoteFinancials[] = acceptedQuotes.map((quote, index) => {
+            const baseTotal = (Number(quote.materialsAmount) || 0) + (Number(quote.laborAmount) || 0);
+            const associatedChangeOrders = changeOrders.filter(co => co.quoteId === quote.id);
+            const changeOrdersTotal = associatedChangeOrders.reduce((sum, co) => sum + (Number(co.amount) || 0), 0);
+            const subtotal = baseTotal + changeOrdersTotal;
+
+            const depositPercent = quote.installationType === 'Managed Installation' ? (Number(quote.laborDepositPercentage) || 0) / 100 : 0;
+            const quoteDeposit = (Number(quote.materialsAmount) || 0) + ((Number(quote.laborAmount) || 0) * depositPercent);
+            const changeOrderDeposit = associatedChangeOrders.reduce((sum, co) => {
+                const amount = Number(co.amount) || 0;
+                return sum + (co.type === 'Materials' ? amount : amount * depositPercent);
+            }, 0);
+            const deposit = quoteDeposit + changeOrderDeposit;
+
+            return { quote, quoteIndex: index + 1, baseTotal, changeOrders: associatedChangeOrders, changeOrdersTotal, subtotal, deposit };
+        });
+
+        const unassignedChangeOrders = changeOrders.filter(co => co.quoteId == null);
+        const unassignedChangeOrdersTotal = unassignedChangeOrders.reduce((sum, co) => sum + (Number(co.amount) || 0), 0);
         
-        let baseMaterials = 0;
-        let baseInstaller = 0;
-        acceptedQuotes.forEach(quote => {
-            baseMaterials += Number(quote.materialsAmount) || 0;
-            baseInstaller += Number(quote.laborAmount) || 0;
-        });
-        const changeOrdersBreakdown = { materials: [] as {description: string, amount: number}[], installer: [] as {description: string, amount: number}[] };
-        projectChangeOrders.forEach(co => {
-            const amount = Number(co.amount) || 0;
-            if (co.type === 'Materials') changeOrdersBreakdown.materials.push({ description: co.description, amount });
-            else changeOrdersBreakdown.installer.push({ description: co.description, amount });
-        });
-        const totalMaterials = baseMaterials + changeOrdersBreakdown.materials.reduce((sum, co) => sum + co.amount, 0);
-        const totalInstaller = baseInstaller + changeOrdersBreakdown.installer.reduce((sum, co) => sum + co.amount, 0);
-        const jobTotal = totalMaterials + totalInstaller;
-        const firstAcceptedQuote = acceptedQuotes[0];
-        const installerDepositPercent = firstAcceptedQuote?.installationType === 'Managed Installation' ? (Number(firstAcceptedQuote.laborDepositPercentage) || 0) / 100 : 0;
-        const baseDepositFromQuotes = (acceptedQuotes.reduce((acc, q) => acc + (Number(q.materialsAmount) || 0), 0)) + (acceptedQuotes.reduce((acc, q) => acc + (Number(q.laborAmount) || 0), 0) * installerDepositPercent);
-        const depositAdditions = [
-            ...changeOrdersBreakdown.materials.map(co => ({ description: co.description, amount: co.amount })),
-            ...changeOrdersBreakdown.installer.map(co => ({ description: `${co.description} (Deposit Portion)`, amount: co.amount * installerDepositPercent }))
-        ];
-        const totalDeposit = baseDepositFromQuotes + depositAdditions.reduce((sum, item) => sum + item.amount, 0);
-        const balanceDue = jobTotal - totalDeposit;
-        return { jobTotal, totalMaterials, totalInstaller, baseMaterials, baseInstaller, changeOrdersBreakdown, totalDeposit, depositAdditions, balanceDue };
-    }, [quotes, changeOrders, project.id]);
+        const grandTotal = quoteFinancials.reduce((sum, qf) => sum + qf.subtotal, 0) + unassignedChangeOrdersTotal;
+        const totalDeposit = quoteFinancials.reduce((sum, qf) => sum + qf.deposit, 0);
+        const balanceDue = grandTotal - totalDeposit;
+
+        return { quoteFinancials, unassignedChangeOrders, unassignedChangeOrdersTotal, grandTotal, totalDeposit, balanceDue };
+    }, [acceptedQuotes, changeOrders]);
     
     const [jobDetails, setJobDetails] = useState({
-        // vvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvv
-        projectId: project.id, // Always initialize with the projectId
-        // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        projectId: project.id,
         poNumber: '',
         depositReceived: false,
         contractsReceived: false,
@@ -71,12 +76,12 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     });
     const [isCompletedOverlayVisible, setIsCompletedOverlayVisible] = useState(true);
 
-    const installerId = acceptedQuote?.installerId;
+    const installerId = acceptedQuotes.length > 0 ? acceptedQuotes[0].installerId : null;
 
     useEffect(() => {
         if (job) {
             setJobDetails({
-                projectId: project.id, // Ensure projectId is always present
+                projectId: project.id,
                 poNumber: job.poNumber || '',
                 depositReceived: job.depositReceived || false,
                 contractsReceived: job.contractsReceived || false,
@@ -86,33 +91,14 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 notes: job.notes || '',
             });
         } else {
-            // If there's no job, ensure the initial state is set with the correct projectId
-            setJobDetails(prev => ({ 
-                ...prev, 
-                projectId: project.id,
-                poNumber: '',
-                depositReceived: false,
-                contractsReceived: false,
-                finalPaymentReceived: false,
-                scheduledStartDate: '',
-                scheduledEndDate: '',
-                notes: ''
-            }));
+            setJobDetails(prev => ({ ...prev, projectId: project.id, poNumber: '', depositReceived: false, contractsReceived: false, finalPaymentReceived: false, scheduledStartDate: '', scheduledEndDate: '', notes: '' }));
         }
     }, [job, project.id]);
 
     useEffect(() => {
-        if (job && Math.abs(Number(job.depositAmount) - financialSummary.totalDeposit) > 0.01) {
-            saveJobDetails({ projectId: project.id, depositAmount: financialSummary.totalDeposit });
-        }
-    }, [financialSummary.totalDeposit, job, project.id, saveJobDetails]);
-
-
-    useEffect(() => {
         const checkConflicts = async () => {
             if (!isSchedulingApplicable || !jobDetails.scheduledStartDate || !installerId) {
-                setScheduleConflicts([]);
-                return;
+                setScheduleConflicts([]); return;
             }
             try {
                 const response = await fetch(`/api/installers/${installerId}/schedule?excludeProjectId=${project.id}`);
@@ -139,36 +125,22 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     const handleSave = async () => {
         const shouldUpdateStatus = project.status === ProjectStatus.ACCEPTED && isSchedulingApplicable;
         if (shouldUpdateStatus && !jobDetails.scheduledStartDate) {
-            alert("Please enter a Scheduled Start Date to schedule the job.");
-            return;
+            alert("Please enter a Scheduled Start Date to schedule the job."); return;
         }
         try {
-            // vvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvv
-            // `jobDetails` now reliably contains the projectId, so we just pass it
-            await saveJobDetails({ 
-                ...jobDetails, 
-                depositAmount: financialSummary.totalDeposit 
-            });
-            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            await saveJobDetails({ ...jobDetails, depositAmount: financialSummary.totalDeposit });
             if (shouldUpdateStatus) {
                 await updateProject({ id: project.id, status: ProjectStatus.SCHEDULED });
             }
-        } catch (error) {
-            console.error("Failed to save job details", error);
-        }
+        } catch (error) { console.error("Failed to save job details", error); }
     };
     
     const handleCompleteJob = async () => {
         if (!jobDetails.finalPaymentReceived) return;
         try {
-            // vvvvvvvvvvvv THE FIX IS HERE vvvvvvvvvvvv
-            // `jobDetails` now reliably contains the projectId
-            await saveJobDetails({ ...jobDetails, finalPaymentReceived: true });
-            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            await saveJobDetails({ ...jobDetails, finalPaymentReceived: true, depositAmount: financialSummary.totalDeposit });
             await updateProject({ id: project.id, status: ProjectStatus.COMPLETED });
-        } catch (error) {
-            console.error("Failed to complete job", error);
-        }
+        } catch (error) { console.error("Failed to complete job", error); }
     };
 
     const canSaveSchedule = jobDetails.depositReceived && jobDetails.contractsReceived && (isSchedulingApplicable ? !!jobDetails.scheduledStartDate : true);
@@ -178,7 +150,6 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6"> 
             <div className="space-y-6 flex flex-col"> 
                 <div><label className="block text-sm font-medium text-text-secondary mb-1">PO Number</label><input type="text" value={jobDetails.poNumber} onChange={e => setJobDetails({...jobDetails, poNumber: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded"/></div> 
-                
                 {isSchedulingApplicable && (
                     <>
                         <div><label className="block text-sm font-medium text-text-secondary mb-1">Scheduled Start Date</label><input type="date" value={jobDetails.scheduledStartDate} onChange={e => setJobDetails({...jobDetails, scheduledStartDate: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded"/></div> 
@@ -186,24 +157,35 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                         {scheduleConflicts.length > 0 && ( <div className="bg-yellow-900/50 border border-yellow-700 text-yellow-300 text-sm p-3 rounded-lg space-y-2"> <div className="flex items-center font-bold"> <AlertTriangle className="w-5 h-5 mr-2" /> Schedule Conflict Warning </div> <p>This installer is already scheduled for:</p> <ul className="list-disc pl-5 space-y-1"> {scheduleConflicts.map(conflict => ( <li key={conflict.projectId}> <Link to={`/projects/${conflict.projectId}`} className="font-semibold hover:underline">{conflict.projectName}</Link> <span className="text-xs ml-2">({new Date(conflict.scheduledStartDate).toLocaleDateString()} - {conflict.scheduledEndDate ? new Date(conflict.scheduledEndDate).toLocaleDateString() : '...'})</span> </li> ))} </ul> </div> )} 
                     </>
                 )}
-                
                 <div className="flex-grow flex flex-col"><label className="block text-sm font-medium text-text-secondary mb-1">Notes</label><textarea value={jobDetails.notes} onChange={e => setJobDetails({...jobDetails, notes: e.target.value})} className="w-full p-2 bg-gray-800 border-border rounded flex-grow min-h-[100px]" rows={4}></textarea></div> 
             </div> 
-            <div className="space-y-4 flex flex-col"> 
-                <div className="bg-gray-800 p-4 rounded-lg space-y-2"> 
-                    <div className="flex justify-between items-center font-bold text-lg"><span className="text-text-primary">Job Total:</span><span>${financialSummary.jobTotal.toFixed(2)}</span></div> 
-                    <div className="pl-4 space-y-1"> 
-                        <div className="flex justify-between items-center text-sm font-semibold text-gray-300"><span>Total Materials Cost:</span><span>${financialSummary.totalMaterials.toFixed(2)}</span></div> 
-                        <div className="flex justify-between items-center text-xs text-gray-400 pl-4"><span>Base Materials:</span><span>${financialSummary.baseMaterials.toFixed(2)}</span></div> 
-                        {financialSummary.changeOrdersBreakdown.materials.map((co, index) => ( <div key={`mat-co-${index}`} className="flex justify-between items-center text-xs text-gray-400 pl-4"><span>{co.description}:</span><span>${co.amount.toFixed(2)}</span></div> ))} 
-                        <div className="flex justify-between items-center text-sm font-semibold text-gray-300 pt-1"><span>Total Installer Cost:</span><span>${financialSummary.totalInstaller.toFixed(2)}</span></div> 
-                        <div className="flex justify-between items-center text-xs text-gray-400 pl-4"><span>Base Installer:</span><span>${financialSummary.baseInstaller.toFixed(2)}</span></div> 
-                        {financialSummary.changeOrdersBreakdown.installer.map((co, index) => ( <div key={`inst-co-${index}`} className="flex justify-between items-center text-xs text-gray-400 pl-4"><span>{co.description}:</span><span>${co.amount.toFixed(2)}</span></div> ))} 
-                    </div> 
-                    <div className="flex justify-between items-center font-semibold border-t-2 border-accent pt-2 mt-2"><span className="text-text-secondary">Deposit Required:</span><span className="text-text-primary">${financialSummary.totalDeposit.toFixed(2)}</span></div> 
-                    {financialSummary.depositAdditions.length > 0 && financialSummary.depositAdditions.map((da, index) => ( <div key={index} className="flex justify-between items-center text-sm text-gray-400"><span className="pl-4">{da.description}:</span><span>${da.amount.toFixed(2)}</span></div> ))} 
-                    <div className="flex justify-between items-center font-bold text-lg border-t-2 border-accent pt-2 mt-2"><span className="text-text-primary">Balance Due:</span><span className="text-accent">${financialSummary.balanceDue.toFixed(2)}</span></div> 
-                </div> 
+            <div className="space-y-4 flex flex-col">
+                <div className="bg-gray-800 p-4 rounded-lg space-y-4">
+                    {financialSummary.quoteFinancials.map(({ quote, quoteIndex, changeOrders, subtotal }) => (
+                        <div key={quote.id} className="border-b border-gray-700 last:border-b-0 pb-3 last:pb-0">
+                            <h4 className="font-bold text-md text-text-primary mb-2">Quote #{quoteIndex} <span className="font-normal text-sm text-gray-400">- {quote.installationType}</span></h4>
+                            <div className="pl-4 space-y-1">
+                                <div className="flex justify-between items-center text-sm text-gray-300"><span>Base Materials:</span><span>${(Number(quote.materialsAmount) || 0).toFixed(2)}</span></div>
+                                <div className="flex justify-between items-center text-sm text-gray-300"><span>Base Labor:</span><span>${(Number(quote.laborAmount) || 0).toFixed(2)}</span></div>
+                                {changeOrders.map((co, index) => ( <div key={`co-${index}`} className="flex justify-between items-center text-xs text-gray-400"><span>{co.description}:</span><span>${(Number(co.amount) || 0).toFixed(2)}</span></div> ))}
+                                <div className="flex justify-between items-center font-semibold text-text-secondary pt-1 border-t border-gray-700 mt-1"><span>Subtotal:</span><span className="text-text-primary">${subtotal.toFixed(2)}</span></div>
+                            </div>
+                        </div>
+                    ))}
+                    {financialSummary.unassignedChangeOrders.length > 0 && (
+                        <div className="border-b border-gray-700 last:border-b-0 pb-3 last:pb-0">
+                            <h4 className="font-bold text-md text-yellow-400 mb-2">Unassigned Change Orders</h4>
+                            <div className="pl-4 space-y-1">
+                                {financialSummary.unassignedChangeOrders.map((co, index) => ( <div key={`un-co-${index}`} className="flex justify-between items-center text-xs text-yellow-300"><span>{co.description}:</span><span>${(Number(co.amount) || 0).toFixed(2)}</span></div> ))}
+                            </div>
+                        </div>
+                    )}
+                    <div className="pt-2 space-y-2">
+                        <div className="flex justify-between items-center font-bold text-lg"><span className="text-text-primary">Job Grand Total:</span><span>${financialSummary.grandTotal.toFixed(2)}</span></div> 
+                        <div className="flex justify-between items-center font-semibold"><span className="text-text-secondary">Total Deposit Required:</span><span className="text-text-primary">${financialSummary.totalDeposit.toFixed(2)}</span></div> 
+                        <div className="flex justify-between items-center font-bold text-lg border-t-2 border-accent pt-2 mt-2"><span className="text-text-primary">Balance Due:</span><span className="text-accent">${financialSummary.balanceDue.toFixed(2)}</span></div> 
+                    </div>
+                </div>
                 
                 <div className="pt-2 space-y-3 flex-grow"> 
                     <label className={`flex items-center space-x-2 ${isScheduledOrLater ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}><input type="checkbox" checked={jobDetails.depositReceived} onChange={e => setJobDetails({...jobDetails, depositReceived: e.target.checked})} disabled={isScheduledOrLater} className="form-checkbox h-5 w-5 text-accent bg-gray-800 border-border rounded focus:ring-accent"/><span className="text-text-primary">Deposit Received</span></label> 

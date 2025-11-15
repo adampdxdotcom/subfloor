@@ -1,0 +1,90 @@
+## Comprehensive Application Feature Plan and Wish List
+
+### I. Core Functionality & Data Structure Improvements
+
+* **Sample Tracking Differentiation (Hierarchical Data):**
+    * Implement a complex hierarchical data structure for samples: **Manufacturer** → **Sub-Company** → **Line** → **Color**.
+    * Differentiate between a **Single Sample/Tile** and a **Board** (which may contain multiple tiles/colors).
+    * **Sample Edit Window Enhancement:** Add the ability to configure **Size** options (tile size, plank length, etc.) within the sample edit window.
+* **Job Management Ambiguity Resolution:**
+    * Develop a mechanism (e.g., a field or flag) to link multiple estimates for the same customer, asking: "Is this job part of another job situation?"
+* **Notes Section Relocation:**
+    * Move the **Notes section** out of the "Job Details" area and into its own dedicated, accessible modal window. This allows notes to be recorded for the project before a quote is created or accepted.
+
+### II. Image Management & Branding
+
+* **Advanced Image Management:**
+    * Allow **multiple photos per sample** (e.g., manufacturer's photo and a showroom/real-world photo).
+    * Allow the user to choose a **primary photo** for default display.
+    * Allow the PDF export feature to utilize **multiple photos** for a single product/material.
+* **File Naming (Development Cleanup):**
+    * Investigate making uploaded image file names more **descriptive** than a random string of numbers.
+* **User Interface and Branding:**
+    * Add the ability to customize the UI colors (for branding).
+    * Implement a logo to be used in various places (e.g., in the app, in emails).
+    * Declare a **favicon** to resolve the current error.
+
+### III. PDF Export & Reporting
+
+* **Customer Presentation/PDF Export:**
+    * Develop a feature to **export customer presentations to PDF**.
+    * The presentation should be based on a UI design and show what services/materials are being used in specific rooms.
+    * Add new database fields to support presentations:
+        * **Room Type**
+        * **Grout Selection**
+        * **Size** (for tracking selected dimensions for the presentation)
+* **QR Code Export:**
+    * Add an option on the sample check out screen to **export the sample's QR code as a PDF** and enable direct **printing** of the code.
+* **Dashboard/Reporting:**
+    * Create a **daily project update dashboard or report** to show:
+        * Samples that need to be returned.
+        * Samples that are currently checked out.
+        * Jobs that are upcoming or in progress.
+        * Consider adding a **top sample checkout list**.
+
+### IV. UI/UX and Validation Enhancements
+
+* **Vendor Directory Enhancements:**
+    * Add a **full-width search bar** to the Vendor Directory dashboard (to align with Customer and Sample dashboards).
+    * Develop a **Vendor details page** accessible from the directory to view all associated samples and vendor information.
+* **Dashboard Enhancements:**
+    * Add a **Return button** for samples on the main dashboard for quick action.
+    * Implement **colored bell icon alerts** for "Awaiting Decision" jobs to indicate follow-up urgency.
+    * Add a button/status to move "Awaiting Decision" jobs to a non-active status, such as "**Customer Not Interested**."
+* **Input Field/Form Logic:**
+    * Implement **email and phone validation** for all customer and installer entry points.
+    * Ensure that a partially-typed **Customer Name** transfers to the "Create New Customer" dialogue.
+    * Ensure that a partially-typed **Vendor Name** transfers to the "Create New Vendor" dialogue.
+    * The **Manufacturer input field** on the 'New Sample' creation screen must be an **on-the-fly search and edit field** with validation, preventing the creation of blank entries.
+* **Customer Dashboard Redesign:**
+    * Replace the simple list of customers with a **Customer Dashboard** featuring multiple sections:
+        * A short list (max 3 with a "See More") of customers with **samples checked out**.
+        * A short list (max 3 with a "See More") of customers with **active jobs**.
+    * Customer cards must display an indicator showing if the customer has **something checked out** and/or an **active job**.
+* **Vendor/Checkout Integration:**
+    * Allow **vendors** to show up in the customer area of the checkout section so they can check out samples for one of their customers.
+
+### V. Email Functionality
+
+* **Email System Configuration:**
+    * Implement an email configuration in the settings to allow for using different SMTP services.
+    * Configure emails to be sent using Gmail's SMTP service.
+    * Ensure a copy of sent messages is logged in your company's Gmail account (to maintain communication history).
+    * Design a graphical email template using CSS for the sent messages.
+
+### VI. Bug Fixes & Technical Debt
+
+* **Job Visibility Bug:**
+    * Investigate and fix the bug where a job scheduled for next January is **not appearing** on the dashboard.
+    * Address the underlying cause, specifically the handling of **single-day jobs** where start and end dates are the same.
+* **Countertop Install Logic:**
+    * Develop a subroutine to accommodate countertop installations which require two distinct single-day appointments (**template appointment** and **install appointment**).
+* **Installer Page Display Bug:**
+    * Investigate and correct the display issue on the installer page under "Assigned Projects" where the balance due is currently showing as `$$0` (two dollar signs and potentially incorrect formatting/labeling).
+
+### VII. Security & Future Planning
+
+* **Security Audit:**
+    * Perform a **safety audit** by feeding the code file-by-file into a new chat window with Gemini to evaluate security concerns and prevent unauthorized access.
+* **Future Development/Benchmarking:**
+    * Look into other existing software packages that track sample checkouts, job tracking, and quoting.

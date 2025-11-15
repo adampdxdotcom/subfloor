@@ -66,9 +66,9 @@ export interface Vendor {
 export interface Customer {
   id: number;
   fullName: string;
-  address: string;
-  phoneNumber: string;
-  email: string;
+  address?: string | null;
+  phoneNumber?: string | null;
+  email?: string | null;
   createdAt: string;
   jobs: {
     projectId: number;
@@ -162,6 +162,7 @@ export interface Job {
 export interface ChangeOrder {
   id: number;
   projectId: number;
+  quoteId?: number | null;
   description: string;
   amount: number;
   type: 'Materials' | 'Labor';
@@ -186,6 +187,7 @@ export interface MaterialOrder {
   orderDate: string;
   etaDate: string | null;
   status: string;
+
   lineItems: OrderLineItem[];
 }
 
@@ -220,13 +222,13 @@ export interface ActivityLogEntry {
 export interface User {
   userId: string;
   email: string;
-  roles: string[]; // <-- ADDED: To support roles on the user list page
+  roles: string[];
 }
 
 export interface CurrentUser {
   userId: string;
   email: string;
-  roles: string[]; // <-- ADDED: The current user's roles for UI checks
+  roles: string[];
 }
 
 // =================================================================
@@ -246,10 +248,8 @@ export interface DataContextType extends AppData {
   fetchVendorHistory: (vendorId: number) => Promise<void>;
   sampleHistory: ActivityLogEntry[];
   fetchSampleHistory: (sampleId: number) => Promise<void>;
-  // vvvvvvvvvvvv ADDED FOR COMPLETENESS vvvvvvvvvvvv
   materialOrderHistory: ActivityLogEntry[];
   fetchMaterialOrderHistory: (orderId: number) => Promise<void>;
-  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   fetchSamples: () => Promise<void>;
   addInstaller: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>;
   updateInstaller: (installer: Installer) => Promise<void>;
@@ -257,7 +257,7 @@ export interface DataContextType extends AppData {
   addSample: (sampleData: any) => Promise<Sample>;
   updateSample: (sampleId: number, sampleData: any) => Promise<void>;
   deleteSample: (sampleId: number) => Promise<void>;
-  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>) => void;
+  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>) => Promise<Customer>;
   updateCustomer: (customer: Customer) => Promise<void>;
   deleteCustomer: (customerId: number) => Promise<void>;
   addProject: (project: Omit<Project, 'id' | 'createdAt'> & { installerId?: number }) => Promise<Project>;
@@ -272,7 +272,9 @@ export interface DataContextType extends AppData {
   saveJobDetails: (jobDetails: Omit<Job, 'id' | 'paperworkSignedUrl'>) => Promise<void>;
   updateJob: (job: Job) => void;
   addChangeOrder: (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>) => Promise<void>;
+  // --- MODIFIED: Corrected the type to include the optional quoteId ---
   updateChangeOrder: (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt'>>) => Promise<void>;
+  deleteChangeOrder: (changeOrderId: number) => Promise<void>;
   addMaterialOrder: (orderData: any) => Promise<void>;
   updateMaterialOrder: (orderId: number, orderData: any) => Promise<void>;
   deleteMaterialOrder: (orderId: number) => Promise<void>;

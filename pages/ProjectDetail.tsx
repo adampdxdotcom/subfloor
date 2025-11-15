@@ -1,5 +1,3 @@
-// pages/ProjectDetail.tsx
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
@@ -21,7 +19,6 @@ const ProjectDetail: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
     const navigate = useNavigate(); 
     
-    // vvvvvvvvvvvv MODIFIED: Destructured currentUser for RBAC check vvvvvvvvvvvv
     const { 
         currentUser,
         projects, customers, samples, sampleCheckouts, quotes, jobs, installers, changeOrders, materialOrders,
@@ -31,7 +28,6 @@ const ProjectDetail: React.FC = () => {
         projectHistory,
         fetchProjectHistory
     } = useData();
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     
     const [activeModal, setActiveModal] = useState<'sample' | 'quote' | 'order' | null>(null);
     const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
@@ -95,6 +91,8 @@ const ProjectDetail: React.FC = () => {
     const job = jobs.find(j => j.projectId === localProject.id);
     const projectChangeOrders = changeOrders.filter(co => co.projectId === localProject.id);
     const isQuoteAccepted = projectQuotes.some(q => q.status === QuoteStatus.ACCEPTED);
+    
+    const acceptedQuotes = projectQuotes.filter(q => q.status === QuoteStatus.ACCEPTED);
 
     return (
         <div className="space-y-8">
@@ -120,6 +118,7 @@ const ProjectDetail: React.FC = () => {
                             <ChangeOrderSection 
                                 project={localProject}
                                 projectChangeOrders={projectChangeOrders} 
+                                acceptedQuotes={acceptedQuotes}
                                 addChangeOrder={addChangeOrder}
                                 onEditChangeOrder={handleOpenEditChangeOrderModal}
                             />
@@ -180,7 +179,6 @@ const ProjectDetail: React.FC = () => {
                 </CollapsibleSection>
             </div>
 
-            {/* vvvvvvvvvvvv MODIFIED: "Danger Zone" is now admin-only vvvvvvvvvvvv */}
             {currentUser?.roles?.includes('Admin') && (
                 <div className="mt-12 p-6 border-t-4 border-red-500 bg-surface rounded-lg shadow-md">
                     <h3 className="text-xl font-bold text-red-400 mb-4">Danger Zone</h3>
@@ -195,7 +193,6 @@ const ProjectDetail: React.FC = () => {
                     </button>
                 </div>
             )}
-            {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
 
             {isEditProjectModalOpen && localProject && (
                 <EditProjectModal
@@ -208,8 +205,11 @@ const ProjectDetail: React.FC = () => {
             {editingChangeOrder && (
                 <EditChangeOrderModal
                     changeOrder={editingChangeOrder}
+                    // --- MODIFIED: Pass the acceptedQuotes array to the modal ---
+                    acceptedQuotes={acceptedQuotes}
                     onClose={() => setEditingChangeOrder(null)}
                     onSave={async (data) => {
+                        // The `data` object now includes the `quoteId`
                         await updateChangeOrder(editingChangeOrder.id, data);
                         setEditingChangeOrder(null);
                     }}

@@ -2,9 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Search, User, Mail, Phone, MapPin, Briefcase } from 'lucide-react';
+// --- MODIFIED: Import the correct modal component ---
+import EditCustomerModal from '../components/EditCustomerModal';
 
 const formatDateRange = (startDateStr: string, endDateStr: string): string => {
-  // ... (no changes in this function)
   const startDate = new Date(startDateStr);
   const endDate = new Date(endDateStr);
 
@@ -19,11 +20,11 @@ const formatDateRange = (startDateStr: string, endDateStr: string): string => {
 };
 
 const CustomerList: React.FC = () => {
-  const { customers, addCustomer } = useData();
+  // --- MODIFIED: Removed state that is no longer needed ---
+  const { customers } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ fullName: '', email: '', phoneNumber: '', address: '' });
-
+  
   const filteredCustomers = useMemo(() => {
     if (!customers) return [];
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
@@ -35,18 +36,11 @@ const CustomerList: React.FC = () => {
     });
   }, [customers, searchTerm]);
 
-  const handleAddCustomer = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newCustomer.fullName && newCustomer.email) {
-        addCustomer(newCustomer);
-        setIsModalOpen(false);
-        setNewCustomer({ fullName: '', email: '', phoneNumber: '', address: '' });
-    }
-  };
+  // --- REMOVED: The old, incorrect submit handler is no longer needed ---
+  // const handleAddCustomer = (e: React.FormEvent) => { ... };
 
   return (
     <div>
-      {/* --- MODIFICATION: Header stacks on mobile --- */}
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-text-primary">Customers</h1>
         <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg transition-colors md:w-auto w-full">
@@ -66,7 +60,6 @@ const CustomerList: React.FC = () => {
         />
       </div>
 
-      {/* --- MODIFICATION: Grid is now responsive --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredCustomers.map(customer => (
           <Link to={`/customers/${customer.id}`} key={customer.id} className="block bg-surface p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
@@ -106,26 +99,12 @@ const CustomerList: React.FC = () => {
         ))}
       </div>
 
-      {isModalOpen && (
-        // ... (no changes to the modal)
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-6 text-text-primary">Add New Customer</h2>
-            <form onSubmit={handleAddCustomer}>
-              <div className="space-y-4">
-                <input type="text" placeholder="Full Name" value={newCustomer.fullName} onChange={(e) => setNewCustomer({ ...newCustomer, fullName: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" required />
-                <input type="email" placeholder="Email" value={newCustomer.email} onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" required />
-                <input type="tel" placeholder="Phone Number" value={newCustomer.phoneNumber} onChange={(e) => setNewCustomer({ ...newCustomer, phoneNumber: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" />
-                <input type="text" placeholder="Address" value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" />
-              </div>
-              <div className="flex justify-end space-x-4 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">Cancel</button>
-                <button type="submit" className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white">Add Customer</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* --- MODIFIED: Replaced the entire hardcoded modal with our component --- */}
+      <EditCustomerModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        customer={null} // Passing null tells the modal to be in "Add" mode
+      />
     </div>
   );
 };

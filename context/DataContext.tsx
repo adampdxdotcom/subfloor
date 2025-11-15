@@ -1,5 +1,3 @@
-// context/DataContext.tsx
-
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry } from '../types';
 import { toast } from 'react-hot-toast';
@@ -36,9 +34,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [installerHistory, setInstallerHistory] = useState<ActivityLogEntry[]>([]);
   const [vendorHistory, setVendorHistory] = useState<ActivityLogEntry[]>([]);
   const [sampleHistory, setSampleHistory] = useState<ActivityLogEntry[]>([]);
-  // vvvvvvvvvvvv ADD NEW STATE FOR MATERIAL ORDER HISTORY vvvvvvvvvvvv
   const [materialOrderHistory, setMaterialOrderHistory] = useState<ActivityLogEntry[]>([]);
-  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -169,7 +165,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
   
-  // vvvvvvvvvvvv ADD NEW FUNCTION FOR MATERIAL ORDER HISTORY vvvvvvvvvvvv
   const fetchMaterialOrderHistory = useCallback(async (orderId: number) => {
     try {
       const historyData = await materialOrderService.getMaterialOrderHistory(orderId);
@@ -180,7 +175,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setMaterialOrderHistory([]);
     }
   }, []);
-  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   const addVendor = async (vendor: Omit<Vendor, 'id'>): Promise<void> => {
       const newVendor = await vendorService.addVendor(vendor);
@@ -295,14 +289,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>) => {
+  const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>): Promise<Customer> => {
     try {
       const newDbCustomer = await customerService.addCustomer(customer);
       setData(prevData => ({ ...prevData, customers: [...prevData.customers, newDbCustomer] }));
       toast.success('Customer created successfully!');
+      return newDbCustomer;
     } catch (error) {
       console.error("Error adding customer:", error);
       toast.error((error as Error).message);
+      throw error;
     }
   };
 
@@ -523,7 +519,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
   
-  const updateChangeOrder = async (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt'>>): Promise<void> => {
+  const updateChangeOrder = async (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt' | 'quoteId'>>): Promise<void> => {
     try {
       const updatedChangeOrder = await changeOrderService.updateChangeOrder(changeOrderId, changeOrderData);
       setData(prevData => ({
@@ -540,10 +536,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // --- ADDED: The missing implementation for deleteChangeOrder ---
+  const deleteChangeOrder = async (changeOrderId: number): Promise<void> => {
+    try {
+        await changeOrderService.deleteChangeOrder(changeOrderId);
+        setData(prevData => ({
+            ...prevData,
+            changeOrders: prevData.changeOrders.filter(co => co.id !== changeOrderId),
+        }));
+        // A success toast will be shown in the component after this resolves
+    } catch (error) {
+        console.error("Error deleting change order:", error);
+        // Let the component handle the error toast
+        throw error;
+    }
+  };
+
   const addMaterialOrder = async (orderData: any): Promise<void> => {
     try {
         const newOrder = await materialOrderService.addMaterialOrder(orderData);
-        // MODIFIED: No need to re-fetch all, just add the new one for better performance
         setData(prevData => ({
             ...prevData,
             materialOrders: [...prevData.materialOrders, newOrder],
@@ -588,7 +599,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateJob = (updatedJob: Job) => { setData(prevData => ({ ...prevData, jobs: prevData.jobs.map(j => j.id === updatedJob.id ? updatedJob : j) })); };
 
-  // vvvvvvvvvvvv UPDATE PROVIDER VALUE vvvvvvvvvvvv
   const providerValue: DataContextType = {
     ...data,
     isLoading,
@@ -605,8 +615,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchVendorHistory,       
     sampleHistory,            
     fetchSampleHistory,
-    materialOrderHistory,          // <-- ADD THIS
-    fetchMaterialOrderHistory,     // <-- ADD THIS
+    materialOrderHistory,
+    fetchMaterialOrderHistory,
     addInstaller, 
     updateInstaller,
     deleteInstaller,
@@ -629,6 +639,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     saveJobDetails,
     addChangeOrder,
     updateChangeOrder,
+    // --- ADDED: The missing function is now passed to the provider ---
+    deleteChangeOrder,
     addMaterialOrder,
     updateMaterialOrder,
     deleteMaterialOrder,
@@ -637,7 +649,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     deleteVendor,
     updateJob
   };
-  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   return (
     <DataContext.Provider value={providerValue}>

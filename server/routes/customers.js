@@ -64,9 +64,11 @@ router.put('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const { fullName, email, phoneNumber, address } = req.body;
 
-    if (!fullName || !email) {
-      return res.status(400).json({ error: 'Full name and email are required.' });
+    // vvvvvvvvvvvv MODIFIED: Removed email from required fields check vvvvvvvvvvvv
+    if (!fullName) {
+      return res.status(400).json({ error: 'Full name is required.' });
     }
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     
     // --- AUDIT LOG: Capture state *before* the update ---
     const beforeResult = await pool.query('SELECT * FROM customers WHERE id = $1', [id]);
