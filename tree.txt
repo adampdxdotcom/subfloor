@@ -10,6 +10,7 @@
 | | |____users.js
 | | |____customers.js
 | | |____vendors.js
+| | |____preferences.js
 | | |____calendar.js
 | | |____search.js
 | | |____restore.js
@@ -81,6 +82,7 @@
 | |____projectService.ts
 | |____vendorService.ts
 | |____sampleCheckoutService.ts
+| |____preferenceService.ts
 | |____changeOrderService.ts
 | |____materialOrderService.ts
 | |____installerService.ts
@@ -103,6 +105,8 @@
 | |____SampleCarousel.tsx
 | |____ProjectInfoHeader.tsx
 | |____ActivityHistory.tsx
+| |____JobNotesSection.tsx
+| |____NavigationListener.tsx
 | |____Layout.tsx
 | |____RestoreForm.tsx
 | |____EditInstallerModal.tsx
@@ -155,5 +159,3 @@
 |____data
 | |____mockData.ts
 |____project.txt
-
-

@@ -4,7 +4,7 @@
 
 
 --- PROJECT FILE STRUCTURE ---
-
+.
 |____index.css
 |____context
 | |____DataContext.tsx
@@ -16,6 +16,7 @@
 | | |____users.js
 | | |____customers.js
 | | |____vendors.js
+| | |____preferences.js
 | | |____calendar.js
 | | |____search.js
 | | |____restore.js
@@ -30,7 +31,42 @@
 | | |____quotes.js
 | |____index.js
 | |____uploads
-| | |____photo-1762749727265-184370968.jpeg and many more
+| | |____photo-1762749727265-184370968.jpeg
+| | |____photo-1762785251830-612632601.jpeg
+| | |____photo-1763005987615-27309603.jpeg
+| | |____photo-1763008886313-793282931.jpg
+| | |____photo-1763305021477-103450378.jpeg
+| | |____photo-1762705750104-121879699.jpeg
+| | |____photo-1763158487707-467067919.jpg
+| | |____photo-1763007528431-780258442.jpg
+| | |____photo-1762725541780-203593309.jpeg
+| | |____photo-1763002318975-620954526.jpeg
+| | |____photo-1762706494949-518537399.jpeg
+| | |____photo-1763158425739-400456029.jpg
+| | |____photo-1763305072015-60753419.jpeg
+| | |____photo-1763051858324-386769672.jpg
+| | |____photo-1763158354247-748856351.jpg
+| | |____photo-1763003725627-488830063.jpeg
+| | |____photo-1763158579761-654023136.jpg
+| | |____photo-1762697778265-104491356.jpg
+| | |____photo-1763128935437-607666584.jpeg
+| | |____photo-1763157633538-763535150.jpg
+| | |____photo-1762652802557-41371136.jpg
+| | |____photo-1763158188811-637754847.jpg
+| | |____photo-1762651296946-276169435.jpg
+| | |____photo-1762728357598-394921334.jpeg
+| | |____photo-1762706711588-50890738.jpeg
+| | |____photo-1762792000231-374293082.jpeg
+| | |____photo-1762749775606-205983593.jpeg
+| | |____photo-1762728546803-914892401.jpeg
+| | |____photo-1763002301543-332271722.jpeg
+| | |____photo-1763158298487-485933047.jpg
+| | |____photo-1763158013383-33889946.jpg
+| | |____photo-1762728309643-556402683.jpeg
+| | |____photo-1763231317846-476439742.jpg
+| | |____photo-1763157528933-702622562.jpg
+| | |____photo-1763157168801-385337320.jpg
+| | |____photo-1763002097382-4328641.jpeg
 | |____db.js
 | |____package.json
 | |____utils.js
@@ -52,6 +88,7 @@
 | |____projectService.ts
 | |____vendorService.ts
 | |____sampleCheckoutService.ts
+| |____preferenceService.ts
 | |____changeOrderService.ts
 | |____materialOrderService.ts
 | |____installerService.ts
@@ -74,6 +111,8 @@
 | |____SampleCarousel.tsx
 | |____ProjectInfoHeader.tsx
 | |____ActivityHistory.tsx
+| |____JobNotesSection.tsx
+| |____NavigationListener.tsx
 | |____Layout.tsx
 | |____RestoreForm.tsx
 | |____EditInstallerModal.tsx
@@ -474,3 +513,58 @@ Features We Discussed But Did Not Implement
     System-Wide Deletion of a Size from Settings: We built the full UI and backend for this. The only part we intentionally deferred was the logic for what happens when an admin tries to delete a size that is currently in use. The backend correctly blocks this and sends an error, but we haven't built UI to, for example, show the admin which samples are using it or offer to "un-assign and delete."
 
     "Smart" Size Parsing: We decided to treat each size as a simple, unique text string (e.g., "12x24" is different from "12 x 24"). We did not implement complex logic to parse units or dimensions, instead relying on the autocomplete suggestions to guide users toward consistency.
+
+session 11
+
+SESSION NOTES: Joblogger
+Session Summary: Project Dashboard Refactor & "Edit Mode" Implementation
+
+This was a transformative, UI-focused session where we completely overhauled the ProjectDetail page, converting it from a static document into a dynamic, user-customizable dashboard. We then built a full-featured "Edit Mode" with robust, database-backed persistence, and solved several critical bugs related to both the new functionality and existing backend architecture.
+
+1. Full-Stack "Dashboardization" of Project Detail Page (Major Feature)
+
+We rebuilt the project detail page from the ground up to support a flexible grid layout, which involved a full-stack effort.
+
+    Component Refactor: We started by breaking out the "Job Notes" from the monolithic FinalizeJobSection into its own dedicated JobNotesSection component.
+
+    Static Grid Implementation: We replaced the page's linear, multi-column layout with a single, unified 12-column CSS Grid, providing a clean, organized foundation.
+
+    "Card" UI Pattern: We systematically went through every child component (QuotesSection, ActivityHistory, etc.) and applied a consistent "card" styling, making each one a self-contained, modular UI element.
+
+    Backend Hardening (Partial Updates): The new "Save Notes" feature exposed a flaw in our backend. We rebuilt the PATCH /api/jobs endpoint to dynamically handle partial updates, making it far more robust and fixing a critical server crash.
+
+2. Dynamic, User-Customizable Layout System (Major Feature)
+
+Building on the new grid foundation, we implemented a complete drag-and-drop dashboard system.
+
+    Library Integration: We integrated the react-grid-layout library to provide the core functionality.
+
+    Draggable & Resizable Widgets: We added "drag handles" to the header of every card and implemented custom CSS to make the resize grips clearly visible on our dark theme.
+
+    Content Overflow Fix: We solved a persistent bug where content was being cut off by re-architecting every card component to use a flexbox structure with an independently scrollable body (overflow-y-auto), ensuring all content is accessible regardless of the card's size.
+
+3. "Edit Mode" & Global State (Major UX Improvement)
+
+Based on your feedback, we evolved the feature from an "always-on" editable grid to a more intentional and professional "Edit Mode".
+
+    Global State: We added a new global state variable (isLayoutEditMode) and a toggle function (toggleLayoutEditMode) to our central DataContext.
+
+    Centralized Trigger: We integrated the trigger for "Edit Mode" directly into the main UserStatus dropdown menu, making it an application-level setting.
+
+    Conditional UI: The ProjectInfoHeader was rebuilt to be aware of "Edit Mode". It now conditionally displays either the standard project information or a new set of controls: "Save Layout", "Cancel", and "Reset to Default". The ResponsiveGridLayout itself was also modified to be locked or editable based on this global state.
+
+4. Database-Backed Layout Persistence (Major Architectural Improvement)
+
+We graduated the feature from a prototype using localStorage to a production-ready system with full database persistence.
+
+    Database Migration: We created a new user_preferences table in schema.sql with a JSONB column to flexibly store user-specific UI settings.
+
+    New Backend API: We built a new, secure backend route (/api/preferences) with GET and PUT endpoints to fetch and save preferences for the logged-in user.
+
+    Frontend Integration: We created a preferenceService.ts and wired it into the DataContext to fetch preferences on login and save them via a debounced function (to prevent API spam during drag operations). All localStorage logic was successfully removed from the application.
+
+5. Critical Bug Fixes & Architectural Refinements
+
+    Solved "Stuck in Edit Mode" Bug (CRITICAL): We diagnosed and fixed a critical architectural flaw where using useLocation inside our top-level DataContext was causing the app to crash. We solved this by creating a dedicated, headless NavigationListener component placed correctly within the router's context (Layout.tsx) to reliably turn off edit mode upon navigation.
+
+    Eliminated the "Danger Zone" Panel: After a persistent resizing bug with the "Delete Project" panel, we pivoted to a superior architectural solution. We moved the delete functionality to a clean, admin-only button in the ProjectInfoHeader, allowing us to completely remove the problematic panel from the grid and delete the DeleteProjectSection.tsx component, simplifying the entire page.

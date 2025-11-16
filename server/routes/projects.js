@@ -7,19 +7,29 @@ import { verifySession } from 'supertokens-node/recipe/session/framework/express
 
 const router = express.Router();
 
-// --- REBUILT: GET /api/projects ---
+// --- MODIFIED: GET /api/projects ---
 router.get('/', verifySession(), async (req, res) => {
   try {
     const { installerId } = req.query;
     
     // This is the query for when an installerId is provided (for the InstallerDetail page)
     if (installerId) {
+        // --- MODIFICATION START ---
+        // This query has been rebuilt to calculate the total project value on the backend.
+        // It now correctly handles quotes with NULL material or labor costs by treating them as 0,
+        // which permanently fixes the "$NaN" bug.
         const query = `
             SELECT
                 p.id AS "projectId",
                 p.project_name AS "projectName",
                 c.full_name AS "customerName",
-                q.labor_amount AS "installerLaborAmount",
+                -- Calculate the total value of the project by summing all its accepted quotes.
+                -- COALESCE ensures that if either amount is NULL, it's treated as 0.
+                (
+                    SELECT SUM(COALESCE(q_inner.materials_amount, 0) + COALESCE(q_inner.labor_amount, 0))
+                    FROM quotes q_inner
+                    WHERE q_inner.project_id = p.id AND q_inner.status = 'Accepted'
+                ) AS "projectTotal",
                 -- Subquery to get the earliest start date from all appointments for this project
                 (SELECT MIN(start_date) FROM job_appointments WHERE job_id = j.id) AS "scheduledStartDate",
                 (SELECT MAX(end_date) FROM job_appointments WHERE job_id = j.id) AS "scheduledEndDate"
@@ -28,10 +38,12 @@ router.get('/', verifySession(), async (req, res) => {
             JOIN customers c ON p.customer_id = c.id
             LEFT JOIN jobs j ON p.id = j.project_id
             WHERE q.installer_id = $1 AND q.status = 'Accepted'
+            GROUP BY p.id, c.full_name, j.id -- Group by project to avoid duplicate project rows
             ORDER BY "scheduledStartDate" DESC NULLS LAST, p.created_at DESC;
         `;
+        // --- MODIFICATION END ---
         const result = await pool.query(query, [installerId]);
-        res.json(result.rows.map(toCamelCase)); // Send back camelCased data as the frontend expects
+        res.json(result.rows.map(toCamelCase));
     } else {
         // This is the query for fetching ALL projects (for the initial data load)
         // It now includes a join to get basic job info if it exists.

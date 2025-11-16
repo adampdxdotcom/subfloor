@@ -4,24 +4,22 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Installer } from '../types';
 import { useData } from '../context/DataContext';
-import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History, Trash2 } from 'lucide-react';
+// --- MODIFIED: Removed Trash2 icon ---
+import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History } from 'lucide-react';
 import EditInstallerModal from '../components/EditInstallerModal';
 import CollapsibleSection from '../components/CollapsibleSection';
 import ActivityHistory from '../components/ActivityHistory';
 import { toast } from 'react-hot-toast';
 
-// --- MODIFIED: The shape of this data from the API has changed ---
 interface AssignedProject {
   projectId: number;
   projectName: string;
   customerName: string;
-  installerLaborAmount: number;
-  // These now come from the job_appointments table
+  projectTotal: number;
   scheduledStartDate: string | null; 
   scheduledEndDate: string | null;
 }
 
-// --- NEW: Robust date formatting function ---
 const formatDateRange = (startDateStr: string | null, endDateStr: string | null): string => {
   if (!startDateStr) {
     return 'Not Scheduled Yet';
@@ -42,9 +40,8 @@ const InstallerDetail: React.FC = () => {
   const navigate = useNavigate();
   
   const { 
-    currentUser, 
+    // --- MODIFIED: deleteInstaller is no longer called directly from this page ---
     installers, 
-    deleteInstaller, 
     isLoading: isDataLoading, 
     installerHistory, 
     fetchInstallerHistory 
@@ -53,18 +50,17 @@ const InstallerDetail: React.FC = () => {
   const [projects, setProjects] = useState<AssignedProject[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // --- REMOVED: isDeleting state is no longer needed ---
+  // const [isDeleting, setIsDeleting] = useState(false);
 
   const installer = installers.find(i => i.id === parseInt(installerId || ''));
 
   useEffect(() => {
-    // This API endpoint needs to be created to serve the correct data
     const fetchAssignedProjects = async () => {
       if (!installerId) return;
       setIsLoadingProjects(true);
       try {
-        // We will assume an endpoint like this exists or will be created
-        const projectsRes = await fetch(`/api/installers/${installerId}/projects`);
+        const projectsRes = await fetch(`/api/projects?installerId=${installerId}`);
         if (!projectsRes.ok) throw new Error('Failed to fetch projects');
         const projectsData = await projectsRes.json();
         setProjects(projectsData);
@@ -83,23 +79,8 @@ const InstallerDetail: React.FC = () => {
     }
   }, [installerId, fetchInstallerHistory]);
   
-  const handleDeleteInstaller = async () => {
-    if (!installer) return;
-    if (window.confirm(`Are you sure you want to permanently delete installer "${installer.installerName}"? This cannot be undone.`)) {
-        setIsDeleting(true);
-        try {
-            await deleteInstaller(installer.id);
-            toast.success('Installer deleted successfully.');
-            navigate('/installers');
-        } catch (error) {
-            toast.error((error as Error).message || 'Failed to delete installer.');
-            console.error(error);
-        } finally {
-            setIsDeleting(false);
-        }
-    }
-  };
-
+  // --- REMOVED: The handleDeleteInstaller function is no longer needed on this page ---
+  
   if (isDataLoading) {
     return <div className="text-center">Loading installer details...</div>;
   }
@@ -167,9 +148,8 @@ const InstallerDetail: React.FC = () => {
               <div className="text-left md:text-right w-full md:w-auto border-t border-border md:border-none pt-4 md:pt-0">
                 <p className="text-md font-semibold text-green-400 flex items-center md:justify-end">
                   <DollarSign className="w-5 h-5 mr-2"/>
-                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(project.installerLaborAmount)}
+                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(project.projectTotal)}
                 </p>
-                {/* --- MODIFIED: Use the robust formatDateRange function --- */}
                 <p className="text-sm text-text-secondary flex items-center md:justify-end mt-1">
                   <CalendarIcon className="w-4 h-4 mr-2"/>
                   {formatDateRange(project.scheduledStartDate, project.scheduledEndDate)}
@@ -184,20 +164,7 @@ const InstallerDetail: React.FC = () => {
         )}
       </div>
       
-      {currentUser?.roles?.includes('Admin') && (
-        <div className="mt-12 p-6 border-t-4 border-red-500 bg-surface rounded-lg shadow-md">
-          <h3 className="text-xl font-bold text-red-400 mb-4">Danger Zone</h3>
-          <p className="text-text-secondary mb-4">Deleting this installer is a permanent action. You can only delete an installer if they are not assigned to any existing job appointments.</p>
-          <button
-              onClick={handleDeleteInstaller}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed"
-          >
-              <Trash2 size={18} />
-              {isDeleting ? 'Deleting...' : 'Delete This Installer'}
-          </button>
-        </div>
-      )}
+      {/* --- REMOVED: The entire "Danger Zone" section has been deleted from here --- */}
 
       {isEditModalOpen && (
         <EditInstallerModal
