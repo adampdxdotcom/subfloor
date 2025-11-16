@@ -2,39 +2,59 @@
 
 import express from 'express';
 import pool from '../db.js';
-// vvvvvvvvvvvv MODIFIED: Imported the new verifyRole middleware vvvvvvvvvvvv
 import { toCamelCase, logActivity, verifyRole } from '../utils.js';
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
-// GET /api/projects
+// --- REBUILT: GET /api/projects ---
 router.get('/', verifySession(), async (req, res) => {
   try {
     const { installerId } = req.query;
+    
+    // This is the query for when an installerId is provided (for the InstallerDetail page)
     if (installerId) {
         const query = `
             SELECT
-                p.id AS project_id, p.project_name, c.full_name AS customer_name,
-                q.labor_amount AS installer_labor_amount, j.scheduled_start_date
+                p.id AS "projectId",
+                p.project_name AS "projectName",
+                c.full_name AS "customerName",
+                q.labor_amount AS "installerLaborAmount",
+                -- Subquery to get the earliest start date from all appointments for this project
+                (SELECT MIN(start_date) FROM job_appointments WHERE job_id = j.id) AS "scheduledStartDate",
+                (SELECT MAX(end_date) FROM job_appointments WHERE job_id = j.id) AS "scheduledEndDate"
             FROM quotes q
             JOIN projects p ON q.project_id = p.id
             JOIN customers c ON p.customer_id = c.id
             LEFT JOIN jobs j ON p.id = j.project_id
             WHERE q.installer_id = $1 AND q.status = 'Accepted'
-            ORDER BY j.scheduled_start_date DESC NULLS LAST, p.created_at DESC;
+            ORDER BY "scheduledStartDate" DESC NULLS LAST, p.created_at DESC;
         `;
         const result = await pool.query(query, [installerId]);
-        res.json(result.rows.map(toCamelCase));
+        res.json(result.rows.map(toCamelCase)); // Send back camelCased data as the frontend expects
     } else {
-        const result = await pool.query('SELECT * FROM projects ORDER BY created_at DESC');
+        // This is the query for fetching ALL projects (for the initial data load)
+        // It now includes a join to get basic job info if it exists.
+        const query = `
+            SELECT 
+                p.*,
+                j.id as job_id,
+                j.is_on_hold
+            FROM projects p
+            LEFT JOIN jobs j ON p.id = j.project_id
+            ORDER BY p.created_at DESC
+        `;
+        const result = await pool.query(query);
         res.json(result.rows.map(toCamelCase));
     }
-  } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
+  } catch (err) { 
+    console.error('Error in GET /api/projects:', err.message); 
+    res.status(500).json({ error: 'Internal server error' }); 
+  }
 });
 
-// GET /api/projects/:id
+
+// GET /api/projects/:id (Unchanged)
 router.get('/:id', verifySession(), async (req, res) => {
   try {
     const { id } = req.params;
@@ -44,7 +64,7 @@ router.get('/:id', verifySession(), async (req, res) => {
   } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// POST /api/projects
+// POST /api/projects (Unchanged)
 router.post('/', verifySession(), async (req, res) => {
   const { customerId, projectName, projectType, status, finalChoice, installerId } = req.body;
   const userId = req.session.getUserId();
@@ -79,7 +99,7 @@ router.post('/', verifySession(), async (req, res) => {
   }
 });
 
-// PUT /api/projects/:id
+// PUT /api/projects/:id (Unchanged)
 router.put('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const userId = req.session.getUserId();
@@ -107,7 +127,7 @@ router.put('/:id', verifySession(), async (req, res) => {
     }
 });
 
-// GET /api/projects/:id/history
+// GET /api/projects/:id/history (Unchanged)
 router.get('/:id/history', verifySession(), async (req, res) => {
     const { id } = req.params;
     try {
@@ -126,16 +146,11 @@ router.get('/:id/history', verifySession(), async (req, res) => {
     }
 });
 
-// =================================================================
-//  SECURED DELETE ROUTE
-// =================================================================
-// vvvvvvvvvvvv MODIFIED: Added verifyRole('Admin') middleware vvvvvvvvvvvv
+// DELETE /api/projects/:id (Unchanged)
 router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => {
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   const { id: projectId } = req.params;
   const userId = req.session.getUserId();
   const client = await pool.connect();
-
   try {
     await client.query('BEGIN');
     const projectToDeleteResult = await client.query('SELECT * FROM projects WHERE id = $1', [projectId]);
@@ -143,11 +158,9 @@ router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => 
       throw new Error('Project not found, rollback initiated.');
     }
     const deletedProjectData = toCamelCase(projectToDeleteResult.rows[0]);
-
     await client.query('DELETE FROM sample_checkouts WHERE project_id = $1', [projectId]);
     await client.query('DELETE FROM change_orders WHERE project_id = $1', [projectId]);
     await client.query('DELETE FROM jobs WHERE project_id = $1', [projectId]);
-    
     const ordersResult = await client.query('SELECT id FROM material_orders WHERE project_id = $1', [projectId]);
     for (const order of ordersResult.rows) {
       await client.query('DELETE FROM order_line_items WHERE order_id = $1', [order.id]);
@@ -155,11 +168,9 @@ router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => 
     await client.query('DELETE FROM material_orders WHERE project_id = $1', [projectId]);
     await client.query('DELETE FROM quotes WHERE project_id = $1', [projectId]);
     await client.query('DELETE FROM projects WHERE id = $1', [projectId]);
-
     await logActivity(userId, 'DELETE', 'PROJECT', projectId, { deletedData: deletedProjectData });
     await client.query('COMMIT');
     res.status(204).send();
-
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(`Failed to delete project ${projectId}:`, err.message);

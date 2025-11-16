@@ -87,8 +87,7 @@ CREATE TABLE jobs (
     contracts_received BOOLEAN DEFAULT FALSE NOT NULL,
     final_payment_received BOOLEAN DEFAULT FALSE NOT NULL,
     paperwork_signed_url VARCHAR(255),
-    scheduled_start_date DATE,
-    scheduled_end_date DATE,
+    is_on_hold BOOLEAN NOT NULL DEFAULT FALSE, -- ADDED
     notes TEXT
 );
 
@@ -163,6 +162,19 @@ CREATE TABLE app_user_roles (
     role_id INT NOT NULL REFERENCES app_roles(id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, role_id)
 );
+
+CREATE TABLE job_appointments (
+    id SERIAL PRIMARY KEY,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    installer_id INTEGER REFERENCES installers(id) ON DELETE SET NULL,
+    appointment_name TEXT NOT NULL,
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_job_appointments_job_id ON job_appointments(job_id);
 
 INSERT INTO app_roles (name, description) VALUES
 ('Admin', 'Full access to all system features, including user management and settings.'),

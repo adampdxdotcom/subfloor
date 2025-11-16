@@ -2,29 +2,77 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Search, User, Mail, Phone, MapPin, Briefcase } from 'lucide-react';
-// --- MODIFIED: Import the correct modal component ---
 import EditCustomerModal from '../components/EditCustomerModal';
+import ProjectCarousel from '../components/ProjectCarousel'; 
+import { Project, ProjectStatus } from '../types';
 
-const formatDateRange = (startDateStr: string, endDateStr: string): string => {
+const formatDateRange = (startDateStr: string | null | undefined, endDateStr: string | null | undefined): string => {
+  // --- MODIFIED: Make function robust against null/undefined dates ---
+  if (!startDateStr) {
+    return 'Not Scheduled';
+  }
   const startDate = new Date(startDateStr);
-  const endDate = new Date(endDateStr);
+  // If no end date, or end date is same as start, show single day
+  if (!endDateStr || startDate.toDateString() === new Date(endDateStr).toDateString()) {
+    return startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
 
+  const endDate = new Date(endDateStr);
   const startMonth = startDate.toLocaleString('default', { month: 'short' });
   const startDay = startDate.getDate();
   const endDay = endDate.getDate();
 
-  if (startDay === endDay) {
-    return `${startMonth} ${startDay}`;
-  }
   return `${startMonth} ${startDay} - ${endDay}`;
 };
 
 const CustomerList: React.FC = () => {
-  // --- MODIFIED: Removed state that is no longer needed ---
-  const { customers } = useData();
+  const { customers, projects, sampleCheckouts } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
+  const samplesOutProjects = useMemo(() => {
+    const projectsWithActiveCheckouts = new Set<number>();
+    sampleCheckouts.forEach(sc => {
+        if (sc.actualReturnDate === null) {
+            projectsWithActiveCheckouts.add(sc.projectId);
+        }
+    });
+
+    return projects
+        .filter(p => projectsWithActiveCheckouts.has(p.id))
+        .sort((a, b) => {
+            const earliestA = Math.min(...sampleCheckouts.filter(sc => sc.projectId === a.id && !sc.actualReturnDate).map(sc => new Date(sc.expectedReturnDate).getTime()));
+            const earliestB = Math.min(...sampleCheckouts.filter(sc => sc.projectId === b.id && !sc.actualReturnDate).map(sc => new Date(sc.expectedReturnDate).getTime()));
+            return earliestA - earliestB;
+        });
+  }, [projects, sampleCheckouts]);
+
+  const activePipelineProjects = useMemo(() => {
+    const statusOrder = {
+        [ProjectStatus.QUOTING]: 1,
+        [ProjectStatus.ACCEPTED]: 2,
+        [ProjectStatus.SCHEDULED]: 3,
+    };
+
+    return projects
+        .filter(p => 
+            p.status === ProjectStatus.QUOTING || 
+            p.status === ProjectStatus.ACCEPTED ||
+            p.status === ProjectStatus.SCHEDULED
+        )
+        .sort((a, b) => {
+            const orderA = statusOrder[a.status as keyof typeof statusOrder];
+            const orderB = statusOrder[b.status as keyof typeof statusOrder];
+
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
+        });
+  }, [projects]);
+
   const filteredCustomers = useMemo(() => {
     if (!customers) return [];
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
@@ -33,11 +81,8 @@ const CustomerList: React.FC = () => {
       const fullNameMatch = (customer.fullName?.toLowerCase() ?? '').includes(lowerCaseSearchTerm);
       const emailMatch = (customer.email?.toLowerCase() ?? '').includes(lowerCaseSearchTerm);
       return fullNameMatch || emailMatch;
-    });
+    }).sort((a,b) => a.fullName.localeCompare(b.fullName));
   }, [customers, searchTerm]);
-
-  // --- REMOVED: The old, incorrect submit handler is no longer needed ---
-  // const handleAddCustomer = (e: React.FormEvent) => { ... };
 
   return (
     <div>
@@ -49,7 +94,7 @@ const CustomerList: React.FC = () => {
         </button>
       </div>
 
-      <div className="relative mb-6">
+      <div className="relative mb-8">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
         <input
           type="text"
@@ -60,6 +105,15 @@ const CustomerList: React.FC = () => {
         />
       </div>
 
+      {searchTerm === '' && (
+        <>
+          <ProjectCarousel title="Projects with Samples Out" projects={samplesOutProjects} />
+          <ProjectCarousel title="Projects in Active Pipeline" projects={activePipelineProjects} />
+          <div className="border-t border-border my-8"></div>
+          <h2 className="text-2xl font-semibold mb-6 text-text-primary">All Customers</h2>
+        </>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredCustomers.map(customer => (
           <Link to={`/customers/${customer.id}`} key={customer.id} className="block bg-surface p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
@@ -76,7 +130,6 @@ const CustomerList: React.FC = () => {
                 <p className="flex items-center"><Phone className="w-4 h-4 mr-2 shrink-0"/> <span className="truncate">{customer.phoneNumber || 'N/A'}</span></p>
                 <p className="flex items-center"><MapPin className="w-4 h-4 mr-2 shrink-0"/> <span className="truncate">{customer.address || 'N/A'}</span></p>
             </div>
-
             {customer.jobs && customer.jobs.length > 0 && (
               <>
                 <div className="border-t border-border my-4"></div>
@@ -85,11 +138,15 @@ const CustomerList: React.FC = () => {
                     <Briefcase className="w-4 h-4 mr-2" />
                     Scheduled Jobs
                   </h3>
+                  {/* --- MODIFIED: The mapping logic is now fixed --- */}
                   {customer.jobs.map(job => (
                     <div key={job.projectId} className="text-xs text-text-secondary grid grid-cols-3 gap-2 items-center">
                       <span className="col-span-1 truncate font-medium text-text-primary">{job.projectName}</span>
                       <span className="col-span-1 truncate text-center">({job.installerName || 'N/A'})</span>
-                      <span className="col-span-1 truncate text-right">{formatDateRange(job.scheduledStartDate, job.scheduledEndDate)}</span>
+                      <span className="col-span-1 truncate text-right">
+                        {/* Use the correct camelCase properties and the robust formatDateRange function */}
+                        {formatDateRange(job.scheduledStartDate, job.scheduledEndDate)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -97,13 +154,16 @@ const CustomerList: React.FC = () => {
             )}
           </Link>
         ))}
+        
+        {searchTerm !== '' && filteredCustomers.length === 0 && (
+            <p className="text-text-secondary col-span-full text-center py-8">No customers match your search.</p>
+        )}
       </div>
 
-      {/* --- MODIFIED: Replaced the entire hardcoded modal with our component --- */}
       <EditCustomerModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        customer={null} // Passing null tells the modal to be in "Add" mode
+        customer={null}
       />
     </div>
   );

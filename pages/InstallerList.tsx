@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react'; // Added useMemo
 import { Link } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Installer } from '../types';
-import { PlusCircle, User, Mail, Phone, Edit, Briefcase } from 'lucide-react';
+// --- MODIFIED: Imported the Search icon ---
+import { PlusCircle, User, Mail, Phone, Edit, Briefcase, Search } from 'lucide-react';
 
 const formatDateRange = (startDateStr: string, endDateStr: string): string => {
   // ... (no changes in this function)
@@ -30,6 +31,21 @@ const InstallerList: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formState, setFormState] = useState<Omit<Installer, 'id' | 'jobs'> | Installer>(initialFormState);
   const [editingInstaller, setEditingInstaller] = useState<Installer | null>(null);
+  // --- NEW: State for the search term ---
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // --- NEW: Memoized list of filtered installers based on search term ---
+  const filteredInstallers = useMemo(() => {
+    if (!installers) return [];
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    
+    return installers.filter(installer => {
+      const nameMatch = (installer.installerName?.toLowerCase() ?? '').includes(lowerCaseSearchTerm);
+      const emailMatch = (installer.contactEmail?.toLowerCase() ?? '').includes(lowerCaseSearchTerm);
+      return nameMatch || emailMatch;
+    });
+  }, [installers, searchTerm]);
+
 
   useEffect(() => {
     if (!isModalOpen) {
@@ -80,7 +96,6 @@ const InstallerList: React.FC = () => {
 
   return (
     <div>
-      {/* --- MODIFICATION: Header stacks on mobile --- */}
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-text-primary">Installers</h1>
         <button 
@@ -92,14 +107,27 @@ const InstallerList: React.FC = () => {
         </button>
       </div>
 
-      {/* --- MODIFICATION: Grid is now responsive --- */}
+      {/* --- NEW: Search bar, identical to the one on the Customers page --- */}
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+        <input
+          type="text"
+          placeholder="Search installers by name or email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full bg-surface border border-border rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-accent"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {installers.map(installer => (
+        {/* --- MODIFIED: Map over the new filteredInstallers list --- */}
+        {filteredInstallers.map(installer => (
           <Link 
             to={`/installers/${installer.id}`} 
             key={installer.id} 
             className="relative block bg-surface p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
           >
+            {/* Installer card content remains the same */}
             <div className="flex items-center mb-4">
               <div 
                 className="w-12 h-12 rounded-full flex items-center justify-center mr-4 shrink-0"
@@ -144,11 +172,17 @@ const InstallerList: React.FC = () => {
             </button>
           </Link>
         ))}
+
+        {/* --- MODIFIED: Improved "no results" handling --- */}
         {installers.length === 0 && (
-          <p className="text-text-secondary col-span-full text-center">No installers have been added yet.</p>
+          <p className="text-text-secondary col-span-full text-center py-8">No installers have been added yet.</p>
+        )}
+        {installers.length > 0 && filteredInstallers.length === 0 && (
+            <p className="text-text-secondary col-span-full text-center py-8">No installers match your search.</p>
         )}
       </div>
 
+      {/* The modal code remains unchanged */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md">
@@ -163,7 +197,6 @@ const InstallerList: React.FC = () => {
                 
                 <div className="flex items-center justify-between">
                   <label htmlFor="color" className="text-text-secondary">Calendar Color</label>
-                  {/* --- MODIFICATION: Added container div for better sizing --- */}
                   <div className="w-16 h-10 flex items-center justify-end">
                     <div className="relative w-10 h-10">
                       <input 

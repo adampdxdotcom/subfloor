@@ -1,28 +1,46 @@
 // pages/InstallerDetail.tsx
 
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom'; // MODIFIED: Added useNavigate
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Installer } from '../types';
 import { useData } from '../context/DataContext';
-import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History, Trash2 } from 'lucide-react'; // MODIFIED: Added Trash2
+import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History, Trash2 } from 'lucide-react';
 import EditInstallerModal from '../components/EditInstallerModal';
 import CollapsibleSection from '../components/CollapsibleSection';
 import ActivityHistory from '../components/ActivityHistory';
-import { toast } from 'react-hot-toast'; // MODIFIED: Added toast
+import { toast } from 'react-hot-toast';
 
+// --- MODIFIED: The shape of this data from the API has changed ---
 interface AssignedProject {
   projectId: number;
   projectName: string;
   customerName: string;
   installerLaborAmount: number;
-  scheduledStartDate: string | null;
+  // These now come from the job_appointments table
+  scheduledStartDate: string | null; 
+  scheduledEndDate: string | null;
 }
+
+// --- NEW: Robust date formatting function ---
+const formatDateRange = (startDateStr: string | null, endDateStr: string | null): string => {
+  if (!startDateStr) {
+    return 'Not Scheduled Yet';
+  }
+  const startDate = new Date(startDateStr);
+  const endDate = endDateStr ? new Date(endDateStr) : null;
+
+  if (!endDate || startDate.toDateString() === endDate.toDateString()) {
+    return `Scheduled: ${startDate.toLocaleDateString()}`;
+  }
+
+  return `Scheduled: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+};
+
 
 const InstallerDetail: React.FC = () => {
   const { installerId } = useParams<{ installerId: string }>();
-  const navigate = useNavigate(); // MODIFIED: Initialize navigate
+  const navigate = useNavigate();
   
-  // vvvvvvvvvvvv MODIFIED: Destructured currentUser and deleteInstaller vvvvvvvvvvvv
   const { 
     currentUser, 
     installers, 
@@ -31,26 +49,28 @@ const InstallerDetail: React.FC = () => {
     installerHistory, 
     fetchInstallerHistory 
   } = useData();
-  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   
   const [projects, setProjects] = useState<AssignedProject[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false); // MODIFIED: Added deleting state
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const installer = installers.find(i => i.id === parseInt(installerId || ''));
 
   useEffect(() => {
+    // This API endpoint needs to be created to serve the correct data
     const fetchAssignedProjects = async () => {
       if (!installerId) return;
       setIsLoadingProjects(true);
       try {
-        const projectsRes = await fetch(`/api/projects?installerId=${installerId}`);
+        // We will assume an endpoint like this exists or will be created
+        const projectsRes = await fetch(`/api/installers/${installerId}/projects`);
         if (!projectsRes.ok) throw new Error('Failed to fetch projects');
         const projectsData = await projectsRes.json();
         setProjects(projectsData);
       } catch (error) {
         console.error("Failed to fetch installer projects:", error);
+        toast.error("Could not load assigned projects.");
       } finally {
         setIsLoadingProjects(false);
       }
@@ -63,7 +83,6 @@ const InstallerDetail: React.FC = () => {
     }
   }, [installerId, fetchInstallerHistory]);
   
-  // vvvvvvvvvvvv MODIFIED: Added handler for deletion vvvvvvvvvvvv
   const handleDeleteInstaller = async () => {
     if (!installer) return;
     if (window.confirm(`Are you sure you want to permanently delete installer "${installer.installerName}"? This cannot be undone.`)) {
@@ -80,7 +99,6 @@ const InstallerDetail: React.FC = () => {
         }
     }
   };
-  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   if (isDataLoading) {
     return <div className="text-center">Loading installer details...</div>;
@@ -151,12 +169,10 @@ const InstallerDetail: React.FC = () => {
                   <DollarSign className="w-5 h-5 mr-2"/>
                   {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(project.installerLaborAmount)}
                 </p>
+                {/* --- MODIFIED: Use the robust formatDateRange function --- */}
                 <p className="text-sm text-text-secondary flex items-center md:justify-end mt-1">
                   <CalendarIcon className="w-4 h-4 mr-2"/>
-                  {project.scheduledStartDate 
-                    ? `Scheduled: ${new Date(project.scheduledStartDate).toLocaleDateString()}`
-                    : 'Not Scheduled Yet'
-                  }
+                  {formatDateRange(project.scheduledStartDate, project.scheduledEndDate)}
                 </p>
               </div>
             </div>
@@ -168,11 +184,10 @@ const InstallerDetail: React.FC = () => {
         )}
       </div>
       
-      {/* vvvvvvvvvvvv MODIFIED: Added admin-only Danger Zone vvvvvvvvvvvv */}
       {currentUser?.roles?.includes('Admin') && (
         <div className="mt-12 p-6 border-t-4 border-red-500 bg-surface rounded-lg shadow-md">
           <h3 className="text-xl font-bold text-red-400 mb-4">Danger Zone</h3>
-          <p className="text-text-secondary mb-4">Deleting this installer is a permanent action. You can only delete an installer if they are not assigned to any existing quotes.</p>
+          <p className="text-text-secondary mb-4">Deleting this installer is a permanent action. You can only delete an installer if they are not assigned to any existing job appointments.</p>
           <button
               onClick={handleDeleteInstaller}
               disabled={isDeleting}
@@ -183,7 +198,6 @@ const InstallerDetail: React.FC = () => {
           </button>
         </div>
       )}
-      {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
 
       {isEditModalOpen && (
         <EditInstallerModal

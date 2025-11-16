@@ -176,28 +176,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const addVendor = async (vendor: Omit<Vendor, 'id'>): Promise<void> => {
+  const addVendor = useCallback(async (vendor: Omit<Vendor, 'id'>): Promise<void> => {
       const newVendor = await vendorService.addVendor(vendor);
       setData(prevData => ({ ...prevData, vendors: [...prevData.vendors, newVendor] }));
-  };
+  }, []);
   
-  const updateVendor = async (vendor: Vendor): Promise<void> => {
+  const updateVendor = useCallback(async (vendor: Vendor): Promise<void> => {
       const updatedVendor = await vendorService.updateVendor(vendor.id, vendor);
       setData(prevData => ({
           ...prevData,
           vendors: prevData.vendors.map(v => v.id === updatedVendor.id ? updatedVendor : v),
       }));
-  };
+  }, []);
 
-  const deleteVendor = async (vendorId: number): Promise<void> => {
+  const deleteVendor = useCallback(async (vendorId: number): Promise<void> => {
       await vendorService.deleteVendor(vendorId);
       setData(prevData => ({
           ...prevData,
           vendors: prevData.vendors.filter(v => v.id !== vendorId),
       }));
-  };
+  }, []);
 
-  const fetchSamples = async () => {
+  const fetchSamples = useCallback(async () => {
     try {
       const samplesData = await sampleService.getSamples();
       setData(prevData => ({ ...prevData, samples: Array.isArray(samplesData) ? samplesData : prevData.samples }));
@@ -205,9 +205,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Error fetching samples:", error);
       toast.error('Could not refresh samples.');
     }
-  };
+  }, []);
 
-  const addInstaller = async (installer: Omit<Installer, 'id' | 'jobs'>): Promise<Installer> => {
+  const addInstaller = useCallback(async (installer: Omit<Installer, 'id' | 'jobs'>): Promise<Installer> => {
     try {
       const newDbInstaller = await installerService.addInstaller(installer);
       setData(prevData => ({ ...prevData, installers: [...prevData.installers, newDbInstaller] }));
@@ -218,9 +218,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error; 
     }
-  };
+  }, []);
 
-  const updateInstaller = async (installer: Installer): Promise<void> => {
+  const updateInstaller = useCallback(async (installer: Installer): Promise<void> => {
     try {
       const updatedDbInstaller = await installerService.updateInstaller(installer);
       setData(prevData => ({ ...prevData, installers: prevData.installers.map(i => i.id === updatedDbInstaller.id ? updatedDbInstaller : i) }));
@@ -230,9 +230,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message); 
       throw error; 
     }
-  };
+  }, []);
 
-  const deleteInstaller = async (installerId: number): Promise<void> => {
+  const deleteInstaller = useCallback(async (installerId: number): Promise<void> => {
     try {
       await installerService.deleteInstaller(installerId);
       setData(prevData => ({
@@ -243,9 +243,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Error deleting installer:", error);
       throw error;
     }
-  };
+  }, []);
 
-  const addSample = async (sample: any): Promise<Sample> => {
+  const addSample = useCallback(async (sample: any): Promise<Sample> => {
     try {
       const newDbSample = await sampleService.addSample(sample);
       await fetchSamples();
@@ -257,9 +257,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message); 
       throw error; 
     }
-  };
+  }, [data.samples, fetchSamples]);
   
-  const updateSample = async (sampleId: number, sampleData: any): Promise<void> => {
+  const updateSample = useCallback(async (sampleId: number, sampleData: any): Promise<void> => {
     try {
       const updatedDbSample = await sampleService.updateSample(sampleId, sampleData);
       setData(prevData => ({
@@ -274,9 +274,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message); 
       throw error; 
     }
-  };
+  }, []);
 
-  const deleteSample = async (sampleId: number): Promise<void> => {
+  const deleteSample = useCallback(async (sampleId: number): Promise<void> => {
     try {
       await sampleService.deleteSample(sampleId);
       setData(prevData => ({
@@ -287,9 +287,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Error deleting sample:", error);
       throw error;
     }
-  };
+  }, []);
 
-  const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>): Promise<Customer> => {
+  const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>): Promise<Customer> => {
     try {
       const newDbCustomer = await customerService.addCustomer(customer);
       setData(prevData => ({ ...prevData, customers: [...prevData.customers, newDbCustomer] }));
@@ -300,9 +300,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error;
     }
-  };
+  }, []);
 
-  const updateCustomer = async (customer: Customer): Promise<void> => {
+  const updateCustomer = useCallback(async (customer: Customer): Promise<void> => {
     try {
       const updatedDbCustomer = await customerService.updateCustomer(customer);
       setData(prevData => ({
@@ -317,9 +317,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error;
     }
-  };
+  }, []);
   
-  const deleteCustomer = async (customerId: number): Promise<void> => {
+  const deleteCustomer = useCallback(async (customerId: number): Promise<void> => {
     try {
       await customerService.deleteCustomer(customerId);
       setData(prevData => ({
@@ -330,9 +330,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error("Error deleting customer:", error);
       throw error;
     }
-  };
+  }, []);
   
-  const addProject = async (projectData: Omit<Project, 'id' | 'createdAt'> & { installerId?: number }): Promise<Project> => {
+  const addProject = useCallback(async (projectData: Omit<Project, 'id' | 'createdAt'> & { installerId?: number }): Promise<Project> => {
     try {
       const newDbProject = await projectService.addProject(projectData);
       await fetchInitialData(); 
@@ -343,9 +343,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message); 
       throw error; 
     }
-  };
+  }, [fetchInitialData]);
 
-  const updateProject = async (projectToUpdate: Partial<Project> & { id: number }) => {
+  const updateProject = useCallback(async (projectToUpdate: Partial<Project> & { id: number }) => {
     try {
       const updatedDbProject = await projectService.updateProject(projectToUpdate);
       setData(prevData => ({ 
@@ -362,9 +362,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message); 
       throw error; 
     }
-  };
+  }, []);
 
-  const deleteProject = async (projectId: number): Promise<void> => {
+  const deleteProject = useCallback(async (projectId: number): Promise<void> => {
     try {
       await projectService.deleteProject(projectId);
       setData(prevData => ({
@@ -380,9 +380,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error(`Error deleting project ${projectId}:`, error);
       throw error;
     }
-  };
+  }, []);
 
-  const addSampleCheckout = async (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>): Promise<void> => {
+  const addSampleCheckout = useCallback(async (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>): Promise<void> => {
     try {
       const newDbCheckout = await sampleCheckoutService.addSampleCheckout(checkout);
       setData(prevData => ({ 
@@ -397,9 +397,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message); 
       throw error; 
     }
-  };
+  }, [updateProject]);
 
-  const updateSampleCheckout = async (checkout: SampleCheckout): Promise<void> => {
+  const updateSampleCheckout = useCallback(async (checkout: SampleCheckout): Promise<void> => {
     try {
       const updatedDbCheckout = await sampleCheckoutService.returnSampleCheckout(checkout);
       const project = data.projects.find(p => p.id === updatedDbCheckout.projectId);
@@ -417,9 +417,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message); 
       throw error; 
     }
-  };
+  }, [data.projects, updateProject]);
 
-  const extendSampleCheckout = async (checkout: SampleCheckout): Promise<void> => {
+  const extendSampleCheckout = useCallback(async (checkout: SampleCheckout): Promise<void> => {
     try {
         const currentDueDate = new Date(checkout.expectedReturnDate);
         currentDueDate.setDate(currentDueDate.getDate() + 2);
@@ -441,9 +441,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toast.error((error as Error).message);
         throw error;
     }
-  };
+  }, []);
 
-  const addQuote = async (quote: Omit<Quote, 'id'|'dateSent'>): Promise<void> => {
+  const addQuote = useCallback(async (quote: Omit<Quote, 'id'|'dateSent'>): Promise<void> => {
     try {
       const newDbQuote = await quoteService.addQuote(quote);
       setData(prevData => ({ ...prevData, quotes: [...prevData.quotes, newDbQuote] }));
@@ -456,9 +456,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error; 
     }
-  };
+  }, [updateProject]);
 
-  const updateQuote = async (quote: Partial<Quote> & { id: number }): Promise<void> => {
+  const updateQuote = useCallback(async (quote: Partial<Quote> & { id: number }): Promise<void> => {
     try {
       const updatedDbQuote = await quoteService.updateQuote(quote);
       setData(prevData => ({ ...prevData, quotes: prevData.quotes.map(q => q.id === updatedDbQuote.id ? { ...q, ...updatedDbQuote } : q) }));
@@ -468,9 +468,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error; 
     }
-  };
+  }, []);
   
-  const acceptQuote = async (quote: Partial<Quote> & { id: number }): Promise<void> => {
+  const acceptQuote = useCallback(async (quote: Partial<Quote> & { id: number }): Promise<void> => {
     try {
       const { updatedQuote, updatedProject } = await quoteService.acceptQuote(quote);
 
@@ -487,27 +487,54 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error;
     }
-  };
+  }, []);
   
-  const saveJobDetails = async (jobDetails: Omit<Job, 'id' | 'paperworkSignedUrl'>): Promise<void> => {
+  // --- START: THE FIX ---
+  const saveJobDetails = useCallback(async (jobDetails: Partial<Job>): Promise<void> => {
     try {
       const savedDbJob = await jobService.saveJobDetails(jobDetails);
+
+      // Find the associated project *before* we set state to check its status.
+      // This uses a functional form of setState to get the most recent state.
+      let updatedProject = null;
       setData(prevData => {
+        const project = prevData.projects.find(p => p.id === savedDbJob.projectId);
+        if (project && project.status !== ProjectStatus.SCHEDULED) {
+            // If the project needs a status update, create the updated version.
+            updatedProject = { ...project, status: ProjectStatus.SCHEDULED };
+        }
+
+        // --- ATOMIC STATE UPDATE ---
+        // 1. Update the jobs array
         const jobExists = prevData.jobs.some(j => j.id === savedDbJob.id);
         const newJobs = jobExists
           ? prevData.jobs.map(j => (j.id === savedDbJob.id ? savedDbJob : j))
           : [...prevData.jobs, savedDbJob];
-        return { ...prevData, jobs: newJobs };
+        
+        // 2. Update the projects array *if an update is needed*
+        const newProjects = updatedProject
+            ? prevData.projects.map(p => p.id === updatedProject!.id ? updatedProject! : p)
+            : prevData.projects;
+
+        // 3. Return the new, complete state object
+        return { ...prevData, jobs: newJobs, projects: newProjects };
       });
+
+      // If we did update the project, we still need to persist that change to the backend.
+      if (updatedProject) {
+          await projectService.updateProject({ id: updatedProject.id, status: updatedProject.status });
+      }
+
       toast.success('Job details saved!');
     } catch (error) {
       console.error("Error saving job details:", error);
       toast.error((error as Error).message);
       throw error;
     }
-  };
+  }, []); // Dependency array is now empty, making the function stable.
+  // --- END: THE FIX ---
 
-  const addChangeOrder = async (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>): Promise<void> => {
+  const addChangeOrder = useCallback(async (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>): Promise<void> => {
     try {
       const newChangeOrder = await changeOrderService.addChangeOrder(changeOrder);
       setData(prevData => ({ ...prevData, changeOrders: [...prevData.changeOrders, newChangeOrder] }));
@@ -517,9 +544,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error;
     }
-  };
+  }, []);
   
-  const updateChangeOrder = async (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt' | 'quoteId'>>): Promise<void> => {
+  const updateChangeOrder = useCallback(async (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt' | 'quoteId'>>): Promise<void> => {
     try {
       const updatedChangeOrder = await changeOrderService.updateChangeOrder(changeOrderId, changeOrderData);
       setData(prevData => ({
@@ -534,25 +561,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error;
     }
-  };
+  }, []);
 
-  // --- ADDED: The missing implementation for deleteChangeOrder ---
-  const deleteChangeOrder = async (changeOrderId: number): Promise<void> => {
+  const deleteChangeOrder = useCallback(async (changeOrderId: number): Promise<void> => {
     try {
         await changeOrderService.deleteChangeOrder(changeOrderId);
         setData(prevData => ({
             ...prevData,
             changeOrders: prevData.changeOrders.filter(co => co.id !== changeOrderId),
         }));
-        // A success toast will be shown in the component after this resolves
     } catch (error) {
         console.error("Error deleting change order:", error);
-        // Let the component handle the error toast
         throw error;
     }
-  };
+  }, []);
 
-  const addMaterialOrder = async (orderData: any): Promise<void> => {
+  const addMaterialOrder = useCallback(async (orderData: any): Promise<void> => {
     try {
         const newOrder = await materialOrderService.addMaterialOrder(orderData);
         setData(prevData => ({
@@ -565,9 +589,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toast.error((error as Error).message);
         throw error;
     }
-  };
+  }, []);
   
-  const updateMaterialOrder = async (orderId: number, orderData: any): Promise<void> => {
+  const updateMaterialOrder = useCallback(async (orderId: number, orderData: any): Promise<void> => {
     try {
       const updatedOrder = await materialOrderService.updateMaterialOrder(orderId, orderData);
       setData(prevData => ({
@@ -580,9 +604,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error;
     }
-  };
+  }, []);
 
-  const deleteMaterialOrder = async (orderId: number): Promise<void> => {
+  const deleteMaterialOrder = useCallback(async (orderId: number): Promise<void> => {
     try {
       await materialOrderService.deleteMaterialOrder(orderId);
       setData(prevData => ({
@@ -595,9 +619,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error;
     }
-  };
+  }, []);
 
-  const updateJob = (updatedJob: Job) => { setData(prevData => ({ ...prevData, jobs: prevData.jobs.map(j => j.id === updatedJob.id ? updatedJob : j) })); };
+  const updateJob = useCallback((updatedJob: Job) => { setData(prevData => ({ ...prevData, jobs: prevData.jobs.map(j => j.id === updatedJob.id ? updatedJob : j) })); }, []);
 
   const providerValue: DataContextType = {
     ...data,
@@ -639,7 +663,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     saveJobDetails,
     addChangeOrder,
     updateChangeOrder,
-    // --- ADDED: The missing function is now passed to the provider ---
     deleteChangeOrder,
     addMaterialOrder,
     updateMaterialOrder,

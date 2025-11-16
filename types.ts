@@ -95,6 +95,7 @@ export interface Sample {
   checkoutProjectName?: string | null;
   checkoutCustomerName?: string | null;
   checkoutId?: number | null;
+  checkoutExpectedReturnDate?: string | null; // Added for sample carousel logic
 }
 
 export interface Project {
@@ -145,6 +146,17 @@ export interface Quote {
   status: QuoteStatus;
 }
 
+// --- NEW: Define the JobAppointment type ---
+export interface JobAppointment {
+  id: number;
+  jobId: number;
+  installerId: number | null;
+  appointmentName: string;
+  startDate: string;
+  endDate: string;
+}
+
+// --- MODIFIED: The Job type is now refactored ---
 export interface Job {
   id: number;
   projectId: number;
@@ -154,9 +166,10 @@ export interface Job {
   contractsReceived: boolean;
   finalPaymentReceived: boolean;
   paperworkSignedUrl?: string | null;
-  scheduledStartDate?: string | null;
-  scheduledEndDate?: string | null;
+  isOnHold: boolean; // ADDED
   notes?: string | null;
+  appointments: JobAppointment[]; // ADDED
+  // The scheduledStartDate and scheduledEndDate fields are now REMOVED
 }
 
 export interface ChangeOrder {
@@ -187,7 +200,6 @@ export interface MaterialOrder {
   orderDate: string;
   etaDate: string | null;
   status: string;
-
   lineItems: OrderLineItem[];
 }
 
@@ -269,10 +281,10 @@ export interface DataContextType extends AppData {
   addQuote: (quote: Omit<Quote, 'id'|'dateSent'>) => Promise<void>;
   updateQuote: (quote: Partial<Quote> & {id: number}) => Promise<void>;
   acceptQuote: (quote: Partial<Quote> & { id: number }) => Promise<void>;
-  saveJobDetails: (jobDetails: Omit<Job, 'id' | 'paperworkSignedUrl'>) => Promise<void>;
+  // --- MODIFIED: The payload for saveJobDetails is now the entire Job object ---
+  saveJobDetails: (jobDetails: Partial<Job>) => Promise<void>;
   updateJob: (job: Job) => void;
   addChangeOrder: (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>) => Promise<void>;
-  // --- MODIFIED: Corrected the type to include the optional quoteId ---
   updateChangeOrder: (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt'>>) => Promise<void>;
   deleteChangeOrder: (changeOrderId: number) => Promise<void>;
   addMaterialOrder: (orderData: any) => Promise<void>;

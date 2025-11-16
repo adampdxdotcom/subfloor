@@ -8,29 +8,32 @@ const router = express.Router();
 // GET /api/calendar/events
 router.get('/events', verifySession(), async (req, res) => {
     try {
+        // --- QUERY REBUILT ---
+        // This query now fetches data from the new job_appointments table.
+        // Each row returned by this query will represent a single, distinct calendar event.
         const query = `
             SELECT 
-                j.project_id AS "id",
+                p.id AS "id", -- Link event to the project_id
+                ja.id AS "appointmentId", -- Unique ID for the appointment itself
                 p.project_name AS "title",
-                j.scheduled_start_date AS "start",
-                j.scheduled_end_date AS "end",
-                i.installer_name,
-                c.full_name AS customer_name,
-                i.color AS "backgroundColor"
-            FROM jobs j
+                ja.start_date AS "start",
+                ja.end_date AS "end",
+                c.full_name AS "customerName",
+                i.color AS "backgroundColor",
+                j.is_on_hold AS "isOnHold" -- NEW: Pass the on-hold status to the frontend
+            FROM job_appointments ja
+            JOIN jobs j ON ja.job_id = j.id
             JOIN projects p ON j.project_id = p.id
             JOIN customers c ON p.customer_id = c.id
-            -- Find the accepted quote for this project to get the installer and installation type
-            JOIN quotes q ON p.id = q.project_id AND q.status = 'Accepted'
-            JOIN installers i ON q.installer_id = i.id
+            JOIN installers i ON ja.installer_id = i.id
             WHERE 
-                j.scheduled_start_date IS NOT NULL
-                -- THIS IS THE CRUCIAL NEW FILTER --
-                AND q.installation_type = 'Managed Installation';
+                ja.installer_id IS NOT NULL; -- Only show appointments that have an installer
         `;
         
         const result = await pool.query(query);
-        res.json(result.rows.map(toCamelCase));
+        
+        // No need for toCamelCase if we alias columns correctly in SQL
+        res.json(result.rows);
 
     } catch (err) {
         console.error('Failed to fetch calendar events:', err.message);

@@ -2,24 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-// --- NEW: Define a type for the data from our dedicated calendar endpoint ---
+// --- MODIFIED: Updated the type to include our new properties ---
 interface CalendarEvent {
-    id: number; // This is the project_id
+    id: number;           // This is the project_id
+    appointmentId: number; // Unique ID for this specific event
     title: string;
     start: string;
     end: string;
     customerName: string;
     backgroundColor: string | null;
+    isOnHold: boolean;    // ADDED
 }
 
-// Helper function to normalize dates to midnight for accurate comparisons
 const normalizeDate = (date: Date): Date => {
     const newDate = new Date(date);
     newDate.setHours(0, 0, 0, 0);
     return newDate;
 };
 
-// Calculates if a background color is light or dark and returns a contrasting text color.
 const getContrastingTextColor = (hexColor: string | null): string => {
     if (!hexColor) return '#FFFFFF';
     const hex = hexColor.replace('#', '');
@@ -31,41 +31,33 @@ const getContrastingTextColor = (hexColor: string | null): string => {
 };
 
 const CalendarView: React.FC = () => {
-    // --- MODIFICATION: Component no longer needs the full DataContext. It manages its own state. ---
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
 
-    // --- MODIFICATION: Fetch data from our new dedicated endpoint ---
     useEffect(() => {
         const fetchCalendarEvents = async () => {
             setIsLoading(true);
             try {
                 const response = await fetch('/api/calendar/events');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch calendar events');
-                }
+                if (!response.ok) throw new Error('Failed to fetch calendar events');
                 const data: CalendarEvent[] = await response.json();
                 setEvents(data);
             } catch (error) {
                 console.error(error);
-                // Optionally set an error state here to show in the UI
             } finally {
                 setIsLoading(false);
             }
         };
-
         fetchCalendarEvents();
-    }, []); // Fetch only once when the component mounts
+    }, []);
 
-    // --- All calendar grid calculation logic remains the same ---
     const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
     const startDate = new Date(startOfMonth);
     startDate.setDate(startDate.getDate() - startDate.getDay());
     const endDate = new Date(endOfMonth);
     endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
-
     const days = [];
     let day = new Date(startDate);
     while (day <= endDate) {
@@ -73,7 +65,6 @@ const CalendarView: React.FC = () => {
         day.setDate(day.getDate() + 1);
     }
     
-    // --- MODIFICATION: This function now filters our simple 'events' state ---
     const getEventsForDay = (date: Date) => {
         const checkDate = normalizeDate(date);
         return events.filter(event => {
@@ -121,33 +112,37 @@ const CalendarView: React.FC = () => {
                             <span className={`font-semibold mb-1 self-start p-1 ${isToday(d) ? 'bg-accent text-white rounded-full w-7 h-7 flex items-center justify-center' : ''}`}>
                                 {d.getDate()}
                             </span>
-                            <div className="flex-1 overflow-hidden space-y-1">
-                                {/* --- MODIFICATION: Logic is much simpler, no more lookups --- */}
+                            <div className="flex-1 overflow-y-auto space-y-1 p-1">
                                 {eventsForDay.map(event => {
                                     const jobColor = event.backgroundColor || '#6b7280';
                                     const textColor = getContrastingTextColor(jobColor);
-
                                     const jobStart = normalizeDate(new Date(event.start));
                                     const jobEnd = normalizeDate(new Date(event.end));
                                     const currentDay = normalizeDate(d);
-                                    
                                     const isStartDate = currentDay.getTime() === jobStart.getTime();
                                     const isEndDate = currentDay.getTime() === jobEnd.getTime();
                                     const isStartOfWeek = d.getDay() === 0;
-                                    
                                     const showLabel = isStartDate || isStartOfWeek;
                                     
-                                    let classNames = 'block text-xs p-1 truncate'; 
-                                    if (isStartDate && isEndDate) classNames += ' rounded-md mx-1';
-                                    else if (isStartDate) classNames += ' rounded-l-md ml-1';
-                                    else if (isEndDate) classNames += ' rounded-r-md mr-1';
+                                    // --- MODIFIED: Class and style logic for 'On Hold' status ---
+                                    let classNames = 'block text-xs p-1 truncate relative overflow-hidden';
+                                    if (isStartDate && isEndDate) classNames += ' rounded-md';
+                                    else if (isStartDate) classNames += ' rounded-l-md';
+                                    else if (isEndDate) classNames += ' rounded-r-md';
+
+                                    // Apply 'On Hold' style
+                                    if (event.isOnHold) {
+                                        classNames += ' on-hold-event';
+                                    }
 
                                     return (
                                         <Link 
                                             to={`/projects/${event.id}`} 
-                                            key={event.id} 
+                                            // --- MODIFIED: Use the unique appointmentId for the key ---
+                                            key={event.appointmentId} 
                                             className={classNames}
-                                            style={{ backgroundColor: jobColor, color: textColor }}
+                                            style={!event.isOnHold ? { backgroundColor: jobColor, color: textColor } : { color: '#a0a0a0' }}
+                                            title={event.title} // Add title for hover
                                         >
                                             {showLabel ? `${event.title} (${event.customerName.split(' ')[0]})` : '\u00A0'}
                                         </Link>

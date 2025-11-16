@@ -378,3 +378,52 @@ We added the missing ability for administrators to delete change orders.
     Full Frontend Implementation: We added the necessary functions to the service and data context.
 
     UI Addition: A "Delete" button, visible only to admins, is now present in the "Edit Change Order" modal, complete with a safety confirmation dialog. We also debugged and fixed a TypeError to make this feature fully functional.
+
+Session 9
+Summary of Session 9: UI Enhancements & Major Scheduling Refactor
+
+This session was defined by two main efforts: first, enhancing the user experience on several key pages with dynamic, at-a-glance information; and second, executing a deep, full-stack architectural overhaul of the entire job scheduling system.
+1. UI/UX Enhancements & Consistency
+
+We applied the dynamic carousel pattern from the main dashboard to several other pages and added consistent search functionality.
+
+    Customer Dashboard Revamp: The main customer list page (/customers) was significantly upgraded. It now features two carousels at the top, displaying Projects with Samples Out and Projects in the Active Pipeline, providing immediate insight into active work. These carousels intelligently disappear when a user begins searching the main customer list.
+
+    Sample Library "Checked Out" Carousel: The sample library now features a carousel at the top that exclusively shows checked-out samples, sorted by the soonest due date. This makes it easy to see which samples are most urgent.
+
+    Installer Search: A consistent search bar was added to the /installers page, allowing users to quickly filter the list by name or email.
+
+2. Full-Stack Scheduling System Overhaul (Major Feature)
+
+This was the core focus of the session. We rebuilt the application's data model and UI to support more flexible, real-world scheduling needs.
+
+    Database Migration: We performed a live database migration to support the new features without losing any existing data.
+
+        A new job_appointments table was created to allow a single job to have one or more scheduled appointments.
+
+        An is_on_hold boolean column was added to the jobs table.
+
+        The old, rigid scheduled_start_date and scheduled_end_date columns were successfully migrated and removed from the jobs table.
+
+    Full-Stack Implementation: The new data model was integrated across the entire application.
+
+        Backend: The API endpoints for jobs (server/routes/jobs.js) and the calendar (server/routes/calendar.js) were completely rebuilt to read from and write to the new job_appointments table. All updates are now handled transactionally for data integrity.
+
+        Frontend UI: The FinalizeJobSection.tsx component was completely rebuilt. It is no longer a static form but a dynamic interface where users can:
+
+            Add or remove multiple appointment "parts" for a single job.
+
+            Edit the name, dates, and assigned installer for each individual appointment.
+
+            Toggle a job's "On Hold" status with a checkbox.
+
+        Calendar Integration: The calendar now correctly reads the job_appointments array and creates a distinct, color-coded event for every appointment. It also applies a special hashed-out style to any appointments belonging to a job that is marked "On Hold".
+
+3. The Bug We Are Currently Working On (And Just Fixed)
+
+Throughout the refactor, we encountered a series of cascading crashes that were difficult to diagnose.
+
+    The Problem: After the database migration, the application would crash on initial load, and navigating to certain detail pages would also cause a crash. The browser would show a variety of misleading error messages, such as "Failed to fetch customers," "Failed to fetch installers," or "Failed to fetch history."
+
+    What We Tried: We chased these symptoms individually, fixing broken SQL queries in the backend routes for customers.js and installers.js. While these were real bugs, they were not the root cause. We also mistakenly investigated frontend rendering logic in CustomerDetail.tsx and changeFormatter.ts.
+

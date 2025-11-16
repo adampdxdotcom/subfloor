@@ -32,3 +32,17 @@
     width: 100%;
   }
 }
+/* Add to the end of index.css */
+
+.on-hold-event {
+  background-color: #404040; /* A dark gray background */
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.05) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  color: #a0a0a0; /* A lighter gray text for contrast */
+  border: 1px dashed #666666;
+}
