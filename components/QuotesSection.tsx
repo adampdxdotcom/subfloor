@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Project, Quote, Installer, QuoteStatus, ProjectStatus, Job, InstallationType, INSTALLATION_TYPES } from '../types';
-import { Edit, Check, X, History } from 'lucide-react'; // <-- IMPORT History
+import { Project, Quote, Installer, QuoteStatus, Job, InstallationType, INSTALLATION_TYPES } from '../types';
+import { Edit, Check, X, History, FileText, Move } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import ActivityHistory from './ActivityHistory'; // <-- NEW IMPORT
+import ActivityHistory from './ActivityHistory';
 
 interface QuotesSectionProps {
     project: Project;
@@ -19,10 +19,12 @@ interface QuotesSectionProps {
     editingQuoteForModal: Quote | null;
 }
 
-const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, installers, addQuote, updateQuote, updateProject, addInstaller, saveJobDetails, isModalOpen, onCloseModal, onOpenEditModal, editingQuoteForModal }) => {
-    // vvvvvvvvvvvv DESTRUCTURE NEW ITEMS vvvvvvvvvvvv
+const QuotesSection: React.FC<QuotesSectionProps> = ({ 
+    project, projectQuotes, installers, addQuote, updateQuote, 
+    addInstaller, isModalOpen, onCloseModal, onOpenEditModal, 
+    editingQuoteForModal 
+}) => {
     const { acceptQuote, quotesHistory, fetchQuotesHistory } = useData();
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     
     const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
     const [newQuote, setNewQuote] = useState({
@@ -36,7 +38,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
     const [selectedInstaller, setSelectedInstaller] = useState<Installer | null>(null);
     const [isAddingNewInstaller, setIsAddingNewInstaller] = useState(false);
     const [newInstallerForm, setNewInstallerForm] = useState({ installerName: '', contactEmail: '', contactPhone: '' });
-    const [showHistory, setShowHistory] = useState(false); // <-- State to toggle history view
+    const [showHistory, setShowHistory] = useState(false);
     
     const installerSearchResults = useMemo(() => { if (!installerSearchTerm) return []; return installers.filter(i => i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase())); }, [installers, installerSearchTerm]);
     const calculatedDeposit = useMemo(() => {
@@ -49,13 +51,11 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
         return materials;
     }, [newQuote]);
 
-    // vvvvvvvvvvvv EFFECT TO FETCH HISTORY vvvvvvvvvvvv
     useEffect(() => {
         if (project.id) {
             fetchQuotesHistory(project.id);
         }
     }, [project.id, fetchQuotesHistory]);
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     
     useEffect(() => {
         if (isModalOpen) {
@@ -139,51 +139,65 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
     };
 
     return (
-        <div>
-            <div className="flex justify-end mb-2">
-                <button
-                    onClick={() => setShowHistory(!showHistory)}
-                    className="flex items-center text-sm text-accent hover:underline"
-                    title="Toggle Quote History"
-                >
-                    <History size={16} className="mr-1" />
-                    {showHistory ? 'Hide History' : 'Show History'}
-                </button>
+        <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
+            <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
+                <div className="flex items-center gap-3">
+                    <Move className="drag-handle cursor-move text-text-tertiary hover:text-text-primary transition-colors" size={20} />
+                    <FileText className="w-6 h-6 text-accent" />
+                    <h3 className="text-xl font-semibold text-text-primary">Quotes</h3>
+                </div>
+                <div>
+                    <button
+                        onClick={() => { setEditingQuote(null); onOpenEditModal(null as any); }}
+                        className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg"
+                    >
+                        Add Quote
+                    </button>
+                    <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="ml-2 p-2 text-gray-400 hover:text-white"
+                        title="Toggle Quote History"
+                    >
+                        <History size={18} />
+                    </button>
+                </div>
             </div>
 
-            {showHistory ? (
-                <ActivityHistory history={quotesHistory} />
-            ) : (
-                <div className="space-y-3">
-                    {projectQuotes.map(quote => {
-                        const installer = installers.find(i => i.id === quote.installerId);
-                        const totalAmount = (Number(quote.materialsAmount) || 0) + (Number(quote.laborAmount) || 0);
-                        return (
-                            <div key={quote.id} className={`block bg-gray-800 p-3 rounded-md border-l-4 hover:bg-gray-700 transition-colors ${quote.status === QuoteStatus.ACCEPTED ? 'border-green-500' : quote.status === QuoteStatus.REJECTED ? 'border-red-500' : 'border-blue-500'}`}>
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="font-bold text-lg text-text-primary">${totalAmount.toFixed(2)}</p>
-                                        <p className="text-sm text-text-secondary">{installer?.installerName || quote.installationType}</p>
-                                        <p className="text-xs text-gray-400 mt-2">Materials: ${Number(quote.materialsAmount || 0).toFixed(2)}, Labor: ${Number(quote.laborAmount || 0).toFixed(2)}</p>
-                                        <span className="text-xs font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded-full mt-2 inline-block">{quote.installationType}</span>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-semibold text-sm">{quote.status}</p>
-                                        {quote.status === QuoteStatus.SENT && (
-                                            <div className="flex space-x-2 mt-2 items-center">
-                                                <button onClick={() => onOpenEditModal(quote)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full" title="Edit Quote"><Edit className="w-4 h-4" /></button>
-                                                <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.ACCEPTED)} className="p-2 bg-green-600 rounded-full hover:bg-green-700" title="Accept Quote"><Check className="w-4 h-4 text-white" /></button>
-                                                <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.REJECTED)} className="p-2 bg-red-600 rounded-full hover:bg-red-700" title="Reject Quote"><X className="w-4 h-4 text-white" /></button>
-                                            </div>
-                                        )}
+            <div className="p-4 overflow-y-auto flex-grow">
+                {showHistory ? (
+                    <ActivityHistory history={quotesHistory} />
+                ) : (
+                    <div className="space-y-3">
+                        {projectQuotes.map(quote => {
+                            const installer = installers.find(i => i.id === quote.installerId);
+                            const totalAmount = (Number(quote.materialsAmount) || 0) + (Number(quote.laborAmount) || 0);
+                            return (
+                                <div key={quote.id} className={`block bg-gray-800 p-3 rounded-md border-l-4 hover:bg-gray-700 transition-colors ${quote.status === QuoteStatus.ACCEPTED ? 'border-green-500' : quote.status === QuoteStatus.REJECTED ? 'border-red-500' : 'border-blue-500'}`}>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-bold text-lg text-text-primary">${totalAmount.toFixed(2)}</p>
+                                            <p className="text-sm text-text-secondary">{installer?.installerName || quote.installationType}</p>
+                                            <p className="text-xs text-gray-400 mt-2">Materials: ${Number(quote.materialsAmount || 0).toFixed(2)}, Labor: ${Number(quote.laborAmount || 0).toFixed(2)}</p>
+                                            <span className="text-xs font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded-full mt-2 inline-block">{quote.installationType}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-semibold text-sm">{quote.status}</p>
+                                            {quote.status === QuoteStatus.SENT && (
+                                                <div className="flex space-x-2 mt-2 items-center">
+                                                    <button onClick={() => onOpenEditModal(quote)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full" title="Edit Quote"><Edit className="w-4 h-4" /></button>
+                                                    <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.ACCEPTED)} className="p-2 bg-green-600 rounded-full hover:bg-green-700" title="Accept Quote"><Check className="w-4 h-4 text-white" /></button>
+                                                    <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.REJECTED)} className="p-2 bg-red-600 rounded-full hover:bg-red-700" title="Reject Quote"><X className="w-4 h-4 text-white" /></button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                    {projectQuotes.length === 0 && <p className="text-text-secondary text-center py-4">No quotes created yet.</p>}
-                </div>
-            )}
+                            );
+                        })}
+                        {projectQuotes.length === 0 && <p className="text-text-secondary text-center py-4">No quotes created yet.</p>}
+                    </div>
+                )}
+            </div>
             
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -207,7 +221,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                                         ))}
                                     </div>
                                 </div>
-
                                 {(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && (
                                     <div className="relative mb-4">
                                         <label className="block text-sm font-medium text-text-secondary mb-1">Installer</label>
@@ -224,7 +237,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                                         )}
                                     </div>
                                 )}
-                                
                                 <div className="grid grid-cols-2 gap-4 mb-4">
                                     <div>
                                         <label className="block text-sm font-medium text-text-secondary mb-1">Materials Cost</label>
@@ -237,7 +249,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({ project, projectQuotes, i
                                         </div>
                                     )}
                                 </div>
-
                                 <div className="grid grid-cols-2 gap-4 mb-4 items-center">
                                     {newQuote.installationType === 'Managed Installation' && (
                                         <div className="relative">

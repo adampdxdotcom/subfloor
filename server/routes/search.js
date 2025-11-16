@@ -9,19 +9,18 @@ router.get('/', verifySession(), async (req, res) => {
     const searchTerm = req.query.q;
 
     if (!searchTerm || typeof searchTerm !== 'string' || searchTerm.length < 2) {
-        // Return a structured empty result to be consistent
         return res.json({ customers: [], installers: [], projects: [], samples: [] });
     }
 
-    const searchQuery = `%${searchTerm.toLowerCase()}%`; // Use toLowerCase for case-insensitivity
+    const searchQuery = `%${searchTerm.toLowerCase()}%`;
 
     try {
-        // --- MODIFIED: The Sample search query is completely rebuilt ---
+        // --- MODIFIED: The Sample search query is updated to include searching by size ---
         const samplesQuery = `
+            -- First, find samples where style, color, manufacturer, or product type match
             SELECT 
                 'sample' AS type, 
                 s.id, 
-                -- Concatenate fields to create a descriptive title. Handle nulls gracefully.
                 CONCAT_WS(' - ', NULLIF(s.style, ''), NULLIF(s.color, '')) AS title, 
                 m.name AS subtitle, 
                 '/samples' as path
@@ -31,7 +30,21 @@ router.get('/', verifySession(), async (req, res) => {
                 LOWER(s.style) LIKE $1 OR 
                 LOWER(s.color) LIKE $1 OR 
                 LOWER(m.name) LIKE $1 OR
-                LOWER(s.product_type) LIKE $1;
+                LOWER(s.product_type) LIKE $1
+            
+            UNION
+            
+            -- Second, find samples where a size matches the search term
+            SELECT 
+                'sample' AS type, 
+                s.id,
+                CONCAT_WS(' - ', NULLIF(s.style, ''), NULLIF(s.color, '')) AS title,
+                -- Use the matched size as the subtitle for better context
+                'Size: ' || ss.size_value AS subtitle, 
+                '/samples' as path
+            FROM sample_sizes ss
+            JOIN samples s ON ss.sample_id = s.id
+            WHERE LOWER(ss.size_value) LIKE $1;
         `;
         
         const customersQuery = `
@@ -58,7 +71,6 @@ router.get('/', verifySession(), async (req, res) => {
             WHERE LOWER(j.po_number) LIKE $1;
         `;
 
-        // Execute all queries in parallel
         const [
             samplesResult,
             customersResult,
@@ -71,7 +83,6 @@ router.get('/', verifySession(), async (req, res) => {
             pool.query(projectsQuery, [searchQuery])
         ]);
 
-        // Group the results into the desired structure
         const results = {
             samples: samplesResult.rows,
             customers: customersResult.rows,

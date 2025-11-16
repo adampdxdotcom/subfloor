@@ -26,6 +26,7 @@ import calendarRoutes from './routes/calendar.js';
 import vendorRoutes from './routes/vendors.js';
 import userRoutes from './routes/users.js'; 
 import roleRoutes from './routes/roles.js'; // <-- MODIFIED: Imported the new role routes
+import preferenceRoutes from './routes/preferences.js'; // <-- NEW
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -102,6 +103,7 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes); // <-- MODIFIED: Registered the new role routes
+app.use('/api/preferences', preferenceRoutes); // <-- NEW
 
 app.use(errorHandler());
 

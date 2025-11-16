@@ -28,16 +28,24 @@
 | | |____photo-1762785251830-612632601.jpeg
 | | |____photo-1763005987615-27309603.jpeg
 | | |____photo-1763008886313-793282931.jpg
+| | |____photo-1763305021477-103450378.jpeg
 | | |____photo-1762705750104-121879699.jpeg
+| | |____photo-1763158487707-467067919.jpg
 | | |____photo-1763007528431-780258442.jpg
 | | |____photo-1762725541780-203593309.jpeg
 | | |____photo-1763002318975-620954526.jpeg
 | | |____photo-1762706494949-518537399.jpeg
+| | |____photo-1763158425739-400456029.jpg
+| | |____photo-1763305072015-60753419.jpeg
 | | |____photo-1763051858324-386769672.jpg
+| | |____photo-1763158354247-748856351.jpg
 | | |____photo-1763003725627-488830063.jpeg
+| | |____photo-1763158579761-654023136.jpg
 | | |____photo-1762697778265-104491356.jpg
 | | |____photo-1763128935437-607666584.jpeg
+| | |____photo-1763157633538-763535150.jpg
 | | |____photo-1762652802557-41371136.jpg
+| | |____photo-1763158188811-637754847.jpg
 | | |____photo-1762651296946-276169435.jpg
 | | |____photo-1762728357598-394921334.jpeg
 | | |____photo-1762706711588-50890738.jpeg
@@ -45,7 +53,12 @@
 | | |____photo-1762749775606-205983593.jpeg
 | | |____photo-1762728546803-914892401.jpeg
 | | |____photo-1763002301543-332271722.jpeg
+| | |____photo-1763158298487-485933047.jpg
+| | |____photo-1763158013383-33889946.jpg
 | | |____photo-1762728309643-556402683.jpeg
+| | |____photo-1763231317846-476439742.jpg
+| | |____photo-1763157528933-702622562.jpg
+| | |____photo-1763157168801-385337320.jpg
 | | |____photo-1763002097382-4328641.jpeg
 | |____db.js
 | |____package.json
@@ -80,12 +93,14 @@
 |____.dockerignore
 |____.gitignore
 |____tailwind.config.js
+|____src
 |____project_1old.txt
 |____components
 | |____SampleCheckoutsSection.tsx
 | |____AddSampleInlineModal.tsx
 | |____FinalizeJobSection.tsx
 | |____SampleSelector.tsx
+| |____SampleCarousel.tsx
 | |____ProjectInfoHeader.tsx
 | |____ActivityHistory.tsx
 | |____Layout.tsx
@@ -93,6 +108,7 @@
 | |____EditInstallerModal.tsx
 | |____ChangeOrderSection.tsx
 | |____PrintableCheckout.tsx
+| |____SampleForm.tsx
 | |____QrScanner.tsx
 | |____UniversalSearch.tsx
 | |____CollapsibleSection.tsx
@@ -105,12 +121,16 @@
 | |____AddEditVendorModal.tsx
 | |____EditCustomerModal.tsx
 | |____QuotesSection.tsx
+| |____CustomerCarousel.tsx
+| |____SizeManagement.tsx
+| |____ProjectCarousel.tsx
 | |____ProjectSelector.tsx
 | |____CustomerSelector.tsx
 |____metadata.json
 |____utils
 | |____cryptoUtils.ts
 | |____changeFormatter.ts
+|____todo.txt
 |____package.json
 |____schema.sql
 |____types.ts
@@ -129,8 +149,11 @@
 | |____VendorList.tsx
 | |____InstallerList.tsx
 | |____Dashboard.tsx
+| |____VendorDetail.tsx
 | |____ProjectDetail.tsx
 | |____QuoteDetail.tsx
 |____data
 | |____mockData.ts
 |____project.txt
+
+

@@ -1,9 +1,7 @@
-// components/MaterialOrdersSection.tsx
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Project, MaterialOrder, Sample, Unit, UNITS, Vendor } from '../types';
-import { Edit, Trash2, XCircle, History } from 'lucide-react';
+import { Edit, Trash2, XCircle, History, Package as PackageIcon, Move } from 'lucide-react';
 import AddEditVendorModal from './AddEditVendorModal';
 import AddSampleInlineModal from './AddSampleInlineModal';
 import CollapsibleSection from './CollapsibleSection';
@@ -12,22 +10,28 @@ import ActivityHistory from './ActivityHistory';
 interface MaterialOrdersSectionProps {
     project: Project;
     orders: MaterialOrder[];
-    samples: Sample[];
     isModalOpen: boolean;
     onCloseModal: () => void;
     editingOrder: MaterialOrder | null;
     onEditOrder: (order: MaterialOrder) => void;
 }
 
-const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, orders, samples, isModalOpen, onCloseModal, editingOrder, onEditOrder }) => {
+const formatSampleName = (sample: Sample) => {
+    const parts = [];
+    if (sample.style) parts.push(sample.style);
+    if (sample.color) parts.push(sample.color);
+    if (parts.length === 0) return `Sample #${sample.id}`;
+    return parts.join(' - ');
+};
+
+const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, orders, isModalOpen, onCloseModal, editingOrder, onEditOrder }) => {
     
-    // vvvvvvvvvvvv MODIFIED: Destructured currentUser for RBAC check vvvvvvvvvvvv
     const { 
         currentUser,
+        samples,
         vendors, addVendor, addMaterialOrder, updateMaterialOrder, deleteMaterialOrder,
         materialOrderHistory, fetchMaterialOrderHistory
     } = useData();
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     const [supplierId, setSupplierId] = useState<number | null>(null);
     const [supplierSearch, setSupplierSearch] = useState('');
@@ -39,7 +43,7 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
     const [isAddingNewSample, setIsAddingNewSample] = useState(false);
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
 
-    const supplierList = useMemo(() => vendors.filter(v => v.isSupplier), [vendors]);
+    const supplierList = useMemo(() => vendors.filter(v => v.vendorType === 'Supplier' || v.vendorType === 'Both'), [vendors]);
 
     const supplierSearchResults = useMemo(() => {
         if (!supplierSearch.trim() || supplierId) return [];
@@ -47,9 +51,13 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
     }, [supplierList, supplierSearch, supplierId]);
 
     const sampleSearchResults = useMemo(() => { 
-        if (!sampleSearchTerm) return [];
+        if (sampleSearchTerm.length < 2) return [];
         const lowercasedTerm = sampleSearchTerm.toLowerCase(); 
-        return samples.filter(s => s.styleColor.toLowerCase().includes(lowercasedTerm) || (s.manufacturerName && s.manufacturerName.toLowerCase().includes(lowercasedTerm))); 
+        return samples.filter(s => 
+            (s.style?.toLowerCase().includes(lowercasedTerm)) || 
+            (s.color?.toLowerCase().includes(lowercasedTerm)) ||
+            (s.manufacturerName && s.manufacturerName.toLowerCase().includes(lowercasedTerm))
+        ); 
     }, [samples, sampleSearchTerm]);
 
     const formatDateForInput = (dateString: string | undefined | null) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
@@ -93,18 +101,20 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
             setEtaDate(formatDateForInput(nextDeliveryDate.toISOString()));
         }
     };
-
+    
     const handleSelectSample = (sample: Sample) => { 
         setSelectedSample(sample); 
-        setSampleSearchTerm(sample.styleColor); 
+        setSampleSearchTerm(formatSampleName(sample)); 
     };
 
     const handleAddLineItem = () => {
         if (selectedSample && !lineItems.some(item => item.sample.id === selectedSample.id)) {
             setLineItems(prev => [...prev, { sample: selectedSample, quantity: '1', unit: 'SF', totalCost: '' }]);
-            if (!supplierId && selectedSample.manufacturerId) {
-                const manufacturer = vendors.find(v => v.id === selectedSample.manufacturerId);
-                if (manufacturer && manufacturer.isSupplier) {
+            if (!supplierId && selectedSample.supplierId) {
+                handleSupplierSelect(selectedSample.supplierId);
+            } else if (!supplierId && selectedSample.manufacturerId) {
+                 const manufacturer = vendors.find(v => v.id === selectedSample.manufacturerId);
+                if (manufacturer && (manufacturer.vendorType === 'Supplier' || manufacturer.vendorType === 'Both')) {
                     handleSupplierSelect(manufacturer.id);
                 }
             }
@@ -121,9 +131,9 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
         }
     };
     
-    const handleSaveVendor = async (vendorData: Omit<Vendor, 'id'> | Vendor) => {
+    const handleSaveVendor = async (vendorData: Omit<Vendor, 'id'>) => {
         try {
-            await addVendor(vendorData as Omit<Vendor, 'id'>);
+            await addVendor(vendorData);
             setIsVendorModalOpen(false);
         } catch (error) { console.error(error); }
     };
@@ -149,31 +159,45 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
     };
 
     return (
-        <div>
-            {orders.length === 0 ? ( <p className="text-text-secondary text-center py-4">No material orders placed yet.</p> ) : (
-                <div className="space-y-4">
-                    {orders.map(order => (
-                        <div key={order.id} className="bg-gray-800 p-4 rounded-lg">
-                            <div className="flex justify-between items-start mb-3">
-                                <div><p className="font-bold text-text-primary">{order.supplierName || 'N/A'}</p><p className="text-xs text-text-secondary">Order Date: {new Date(order.orderDate).toLocaleDateString()}</p></div>
-                                <div className="flex items-center gap-2">
-                                    <div className="text-right">
-                                        <p className="text-sm font-semibold text-accent">{order.status}</p>
-                                        <p className="text-xs text-text-secondary">ETA: {order.etaDate ? new Date(order.etaDate).toLocaleDateString() : 'N/A'}</p>
-                                    </div>
-                                    <button onClick={() => onEditOrder(order)} className="p-1 text-text-secondary hover:text-white"><Edit size={16}/></button>
-                                    {/* vvvvvvvvvvvv MODIFIED: Conditional rendering for Delete button vvvvvvvvvvvv */}
-                                    {currentUser?.roles?.includes('Admin') && (
-                                        <button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-red-500 hover:text-red-400"><Trash2 size={16}/></button>
-                                    )}
-                                    {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
-                                </div>
-                            </div>
-                            <ul className="space-y-2 text-sm border-t border-gray-700 pt-3">{order.lineItems.map(item => (<li key={item.id} className="flex justify-between items-center text-text-secondary"><span>{item.quantity} {item.unit || ''} x {item.styleColor}</span>{item.totalCost != null && <span>$ {Number(item.totalCost).toFixed(2)}</span>}</li>))}</ul>
-                        </div>
-                    ))}
+        <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
+            <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
+                <div className="flex items-center gap-3">
+                    <Move className="drag-handle cursor-move text-text-tertiary hover:text-text-primary transition-colors" size={20} />
+                    <PackageIcon className="w-6 h-6 text-accent" />
+                    <h3 className="text-xl font-semibold text-text-primary">Material Orders</h3>
                 </div>
-            )}
+                <button 
+                  onClick={() => onEditOrder(null as any)}
+                  className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg"
+                >
+                    Add Order
+                </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto flex-grow">
+                {orders.length === 0 ? ( <p className="text-text-secondary text-center py-4">No material orders placed yet.</p> ) : (
+                    <div className="space-y-4">
+                        {orders.map(order => (
+                            <div key={order.id} className="bg-gray-800 p-4 rounded-lg">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div><p className="font-bold text-text-primary">{order.supplierName || 'N/A'}</p><p className="text-xs text-text-secondary">Order Date: {new Date(order.orderDate).toLocaleDateString()}</p></div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="text-right">
+                                            <p className="text-sm font-semibold text-accent">{order.status}</p>
+                                            <p className="text-xs text-text-secondary">ETA: {order.etaDate ? new Date(order.etaDate).toLocaleDateString() : 'N/A'}</p>
+                                        </div>
+                                        <button onClick={() => onEditOrder(order)} className="p-1 text-text-secondary hover:text-white"><Edit size={16}/></button>
+                                        {currentUser?.roles?.includes('Admin') && (
+                                            <button onClick={() => handleDeleteOrder(order.id)} className="p-1 text-red-500 hover:text-red-400"><Trash2 size={16}/></button>
+                                        )}
+                                    </div>
+                                </div>
+                                <ul className="space-y-2 text-sm border-t border-gray-700 pt-3">{order.lineItems.map(item => (<li key={item.id} className="flex justify-between items-center text-text-secondary"><span>{item.quantity} {item.unit || ''} x {`${item.style}${item.color ? ` - ${item.color}` : ''}`}</span>{item.totalCost != null && <span>$ {Number(item.totalCost).toFixed(2)}</span>}</li>))}</ul>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -195,13 +219,13 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                             </div>
                             <div className="bg-gray-900 p-4 rounded-lg">
                                 <h3 className="font-semibold mb-2 text-text-primary">Line Items</h3>
-                                <div className="space-y-2 mb-4">{lineItems.map((item, index) => { const updateItem = (field: 'quantity'|'unit'|'totalCost', value: string|Unit) => { const newItems = [...lineItems]; (newItems[index] as any)[field] = value; setLineItems(newItems); }; return (<div key={item.sample.id} className="grid grid-cols-[1fr,auto,auto,auto,auto] items-center gap-2 bg-gray-800 p-2 rounded"><span className="flex-grow text-sm text-text-primary truncate" title={item.sample.styleColor}>{item.sample.styleColor}</span><input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateItem('quantity', e.target.value)} className="w-20 p-1 bg-gray-700 border-border rounded text-sm" /><select value={item.unit} onChange={e => updateItem('unit', e.target.value as Unit)} className="p-1 bg-gray-700 border-border rounded text-sm appearance-none text-center">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select><input type="number" step="0.01" placeholder="Total Cost" value={item.totalCost} onChange={e => updateItem('totalCost', e.target.value)} className="w-28 p-1 bg-gray-700 border-border rounded text-sm" /><button type="button" onClick={() => handleRemoveLineItem(item.sample.id)} className="text-red-400 hover:text-red-600"><XCircle size={18}/></button></div>);})}</div>
+                                <div className="space-y-2 mb-4">{lineItems.map((item, index) => { const updateItem = (field: 'quantity'|'unit'|'totalCost', value: string|Unit) => { const newItems = [...lineItems]; (newItems[index] as any)[field] = value; setLineItems(newItems); }; return (<div key={item.sample.id} className="grid grid-cols-[1fr,auto,auto,auto,auto] items-center gap-2 bg-gray-800 p-2 rounded"><span className="flex-grow text-sm text-text-primary truncate" title={formatSampleName(item.sample)}>{formatSampleName(item.sample)}</span><input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateItem('quantity', e.target.value)} className="w-20 p-1 bg-gray-700 border-border rounded text-sm" /><select value={item.unit} onChange={e => updateItem('unit', e.target.value as Unit)} className="p-1 bg-gray-700 border-border rounded text-sm appearance-none text-center">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select><input type="number" step="0.01" placeholder="Total Cost" value={item.totalCost} onChange={e => updateItem('totalCost', e.target.value)} className="w-28 p-1 bg-gray-700 border-border rounded text-sm" /><button type="button" onClick={() => handleRemoveLineItem(item.sample.id)} className="text-red-400 hover:text-red-600"><XCircle size={18}/></button></div>);})}</div>
                                 <div className="flex gap-2">
                                     <div className="relative flex-grow">
                                         <input type="text" placeholder="Search for material to add..." value={sampleSearchTerm} onChange={e => { setSampleSearchTerm(e.target.value); setSelectedSample(null); }} className="w-full p-2 bg-gray-800 border-border rounded" />
                                         {sampleSearchTerm && !selectedSample && (
                                             <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
-                                                {sampleSearchResults.map(s => ( <div key={s.id} onClick={() => handleSelectSample(s)} className="p-2 hover:bg-accent cursor-pointer">{s.styleColor}</div> ))}
+                                                {sampleSearchResults.map(s => ( <div key={s.id} onClick={() => handleSelectSample(s)} className="p-2 hover:bg-accent cursor-pointer">{formatSampleName(s)}</div> ))}
                                                 {sampleSearchResults.length === 0 && ( <div className="p-2 text-center text-text-secondary">No results. <button type="button" onClick={() => setIsAddingNewSample(true)} className="ml-2 text-accent font-semibold hover:underline">Add it?</button></div> )}
                                             </div>
                                         )}
@@ -211,11 +235,7 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                             </div>
                             {editingOrder && (
                                 <div className="mt-6">
-                                    <CollapsibleSection 
-                                        title="Change History" 
-                                        icon={<History className="w-6 h-6" />}
-                                        defaultOpen={false}
-                                    >
+                                    <CollapsibleSection title="Change History" icon={<History className="w-6 h-6" />} defaultOpen={false}>
                                         <ActivityHistory history={materialOrderHistory} />
                                     </CollapsibleSection>
                                 </div>
@@ -229,10 +249,10 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                 </div>
             )}
             
-            <AddEditVendorModal isOpen={isVendorModalOpen} onClose={() => setIsVendorModalOpen(false)} onSave={handleSaveVendor} />
+            <AddEditVendorModal isOpen={isVendorModalOpen} onClose={() => setIsVendorModalOpen(false)} onSave={handleSaveVendor} initialVendorType='Supplier' />
             
             {isAddingNewSample && (
-                 <AddSampleInlineModal isOpen={isAddingNewSample} onClose={() => setIsAddingNewSample(false)} onSampleCreated={onSampleCreated} initialStyleColor={sampleSearchTerm} />
+                 <AddSampleInlineModal isOpen={isAddingNewSample} onClose={() => setIsAddingNewSample(false)} onSampleCreated={onSampleCreated} initialSearchTerm={sampleSearchTerm} />
             )}
         </div>
     );

@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
-import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry } from '../types';
+import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UiPreferences } from '../types';
 import { toast } from 'react-hot-toast';
 
 import { useSessionContext } from 'supertokens-auth-react/recipe/session';
@@ -12,9 +12,11 @@ import * as quoteService from '../services/quoteService';
 import * as jobService from '../services/jobService';
 import * as sampleCheckoutService from '../services/sampleCheckoutService';
 import * as changeOrderService from '../services/changeOrderService';
-import * as materialOrderService from '../services/materialOrderService';
+import * as materialOrderService from '../services/materialOrderService'; // Corrected syntax
 import * as vendorService from '../services/vendorService';
 import * as userService from '../services/userService';
+import * as preferenceService from '../services/preferenceService'; // <-- NEW
+import { debounce } from 'lodash'; // <-- NEW
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -28,6 +30,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
+  // --- NEW: State for Layout Edit Mode ---
+  const [isLayoutEditMode, setIsLayoutEditMode] = useState(false);
+
+  // --- NEW: State for UI Preferences ---
+  const [uiPreferences, setUiPreferences] = useState<UiPreferences | null>(null);
+
   const [customerHistory, setCustomerHistory] = useState<ActivityLogEntry[]>([]);
   const [projectHistory, setProjectHistory] = useState<ActivityLogEntry[]>([]);
   const [quotesHistory, setQuotesHistory] = useState<ActivityLogEntry[]>([]);
@@ -36,13 +44,41 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [sampleHistory, setSampleHistory] = useState<ActivityLogEntry[]>([]);
   const [materialOrderHistory, setMaterialOrderHistory] = useState<ActivityLogEntry[]>([]);
 
+  // --- NEW: Function to toggle Layout Edit Mode ---
+  const toggleLayoutEditMode = () => {
+    setIsLayoutEditMode(prevMode => !prevMode);
+  };
+
+  // --- NEW: Function to save preferences, debounced to prevent API spam ---
+  const saveUserPreferences = useCallback(
+    debounce(async (newPreferences: UiPreferences) => {
+      try {
+        // Optimistically update local state for immediate UI feedback
+        setUiPreferences(prev => ({...prev, ...newPreferences})); 
+        await preferenceService.savePreferences(newPreferences);
+        // No toast on success to keep it subtle, but you could add one
+      } catch (error) {
+        console.error("Failed to save preferences:", error);
+        toast.error("Could not save layout preferences.");
+      }
+    }, 1000), // Debounce for 1 second
+    []
+  );
+
+
   const fetchCurrentUser = useCallback(async () => {
     try {
       const user = await userService.getCurrentUser();
       setCurrentUser(user);
+
+      // --- NEW: Fetch preferences after fetching the user ---
+      const prefs = await preferenceService.getPreferences();
+      setUiPreferences(prefs);
+
     } catch (error) {
       console.error("Failed to fetch current user:", error);
       setCurrentUser(null);
+      setUiPreferences(null); // Clear preferences on error
     }
   }, []);
 
@@ -95,9 +131,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else {
         setData(emptyInitialData);
         setCurrentUser(null);
+        setUiPreferences(null); // Clear preferences on logout
         setIsLoading(false);
     }
   }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser]);
+  
   
   const fetchCustomerHistory = useCallback(async (customerId: number) => {
     try {
@@ -472,8 +510,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const updatedDbQuote = await quoteService.updateQuote(quote);
       setData(prevData => ({ ...prevData, quotes: prevData.quotes.map(q => q.id === updatedDbQuote.id ? { ...q, ...updatedDbQuote } : q) }));
       toast.success('Quote updated!');
-    } catch (error) { 
-      console.error("Error updating quote:", error); 
+    } catch (error) 
+      { console.error("Error updating quote:", error); 
       toast.error((error as Error).message);
       throw error; 
     }
@@ -636,6 +674,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     ...data,
     isLoading,
     currentUser,
+
+    // --- NEW: Add new state and function to the provider value ---
+    isLayoutEditMode,
+    toggleLayoutEditMode,
+
+    // --- NEW: Add preferences state and save function to provider ---
+    uiPreferences,
+    saveUserPreferences,
+
+
     customerHistory,
     fetchCustomerHistory,
     projectHistory,

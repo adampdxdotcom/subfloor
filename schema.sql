@@ -33,7 +33,7 @@ CREATE TABLE samples (
     product_type TEXT NOT NULL,
     style TEXT NOT NULL,
     line TEXT,
-    size TEXT,
+    -- 'size' column is now removed, replaced by the sample_sizes table
     finish TEXT,
     color TEXT,
     sample_format TEXT, -- For 'Board' or 'Loose'
@@ -136,6 +136,17 @@ CREATE TABLE photos (
 );
 
 -- =================================================================
+-- NEW TABLE FOR MULTIPLE SIZES PER SAMPLE
+-- =================================================================
+
+CREATE TABLE sample_sizes (
+    id SERIAL PRIMARY KEY,
+    sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+    size_value TEXT NOT NULL,
+    UNIQUE(sample_id, size_value)
+);
+
+-- =================================================================
 -- AUDITING
 -- =================================================================
 
@@ -178,6 +189,21 @@ CREATE TABLE job_appointments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- =================================================================
+-- USER PREFERENCES
+-- Stores user-specific settings, such as custom UI layouts.
+-- =================================================================
+
+CREATE TABLE user_preferences (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL UNIQUE,
+    preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_user_preferences_user_id ON user_preferences(user_id);
 
 CREATE INDEX idx_job_appointments_job_id ON job_appointments(job_id);
 

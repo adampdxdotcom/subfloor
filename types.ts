@@ -137,6 +137,11 @@ export interface Sample {
   checkoutExpectedReturnDate?: string | null;
 }
 
+// --- NEW: Interface for UI Preferences from DB ---
+export interface UiPreferences {
+  projectDetailLayout?: ReactGridLayout.Layouts;
+}
+
 export interface Project {
   id: number;
   customerId: number;
@@ -281,6 +286,13 @@ export interface CurrentUser {
 export interface DataContextType extends AppData {
   isLoading: boolean;
   currentUser: CurrentUser | null;
+  // --- NEW: Add state and function for Layout Edit Mode ---
+  isLayoutEditMode: boolean;
+  toggleLayoutEditMode: () => void;
+  // --- NEW: Add state and function for DB Preferences ---
+  uiPreferences: UiPreferences | null;
+  saveUserPreferences: (preferences: UiPreferences) => void;
+  // --- END NEW ---
   customerHistory: ActivityLogEntry[];
   fetchCustomerHistory: (customerId: number) => Promise<void>;
   projectHistory: ActivityLogEntry[];

@@ -1,18 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import { Project, Job, Quote, ChangeOrder, ProjectStatus, QuoteStatus, JobAppointment, Installer } from '../types';
-import { Save, Calendar, AlertTriangle, CheckCircle2, PlusCircle, XCircle } from 'lucide-react';
-import { toast } from 'react-hot-toast'; // --- ADDED: Import for user notifications
+import { Project, Job, Quote, ChangeOrder, ProjectStatus, QuoteStatus, JobAppointment } from '../types';
+import { Save, Calendar, AlertTriangle, PlusCircle, XCircle, Move } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 // --- HELPER FUNCTIONS ---
 const formatDateForInput = (dateString: string | undefined | null): string => {
     if (!dateString) return '';
-    // Handles both ISO strings and "YYYY-MM-DD" formats
     return new Date(dateString).toISOString().split('T')[0];
 };
 
-// A unique ID for new, unsaved appointments so React can track them
 let tempAppointmentId = 0;
 
 // --- COMPONENT PROPS ---
@@ -25,17 +22,10 @@ interface FinalizeJobSectionProps {
     updateProject: (p: Partial<Project> & { id: number }) => void;
 }
 
-interface QuoteFinancials {
-    quote: Quote;
-    quoteIndex: number;
-    subtotal: number;
-    deposit: number;
-}
-
 // --- MAIN COMPONENT ---
 const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, quotes, changeOrders, saveJobDetails, updateProject }) => {
     // --- DATA & STATE ---
-    const { installers } = useData(); // Get installers for the dropdown
+    const { installers } = useData();
 
     const [jobDetails, setJobDetails] = useState<Partial<Job>>({
         projectId: project.id,
@@ -44,22 +34,19 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         contractsReceived: false,
         finalPaymentReceived: false,
         isOnHold: false,
-        notes: '',
-        appointments: [] // Start with an empty appointments array
+        appointments: []
     });
     
     // --- MEMOIZED VALUES ---
     const acceptedQuotes = useMemo(() => quotes.filter(q => q.status === QuoteStatus.ACCEPTED), [quotes]);
     
-    // Determine if the job requires scheduling UI (i.e., it's not "Materials Only")
     const isSchedulingApplicable = useMemo(() => {
         if (acceptedQuotes.length === 0) return false;
         return acceptedQuotes.some(q => q.installationType === 'Managed Installation' || q.installationType === 'Unmanaged Installer');
     }, [acceptedQuotes]);
 
-    // Financial calculations remain largely the same
     const financialSummary = useMemo(() => {
-        const quoteFinancials = acceptedQuotes.map((quote, index) => {
+        const quoteFinancials = acceptedQuotes.map((quote) => {
             const baseTotal = (Number(quote.materialsAmount) || 0) + (Number(quote.laborAmount) || 0);
             const associatedChangeOrders = changeOrders.filter(co => co.quoteId === quote.id);
             const changeOrdersTotal = associatedChangeOrders.reduce((sum, co) => sum + (Number(co.amount) || 0), 0);
@@ -71,7 +58,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 return sum + (co.type === 'Materials' ? amount : amount * depositPercent);
             }, 0);
             const deposit = quoteDeposit + changeOrderDeposit;
-            return { quote, quoteIndex: index + 1, subtotal, deposit };
+            return { subtotal, deposit };
         });
         const unassignedChangeOrdersTotal = changeOrders.filter(co => co.quoteId == null).reduce((sum, co) => sum + (Number(co.amount) || 0), 0);
         const grandTotal = quoteFinancials.reduce((sum, qf) => sum + qf.subtotal, 0) + unassignedChangeOrdersTotal;
@@ -81,18 +68,14 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     }, [acceptedQuotes, changeOrders]);
 
     // --- EFFECTS ---
-    // Effect to initialize or update the form when the job data changes
     useEffect(() => {
         if (job) {
-            // If we have a job, populate the state
             setJobDetails({
                 ...job,
                 projectId: project.id,
-                // Ensure appointments have a temporary unique key for React's map function
                 appointments: job.appointments.map(a => ({ ...a, _tempId: a.id || tempAppointmentId++ })),
             });
         } else {
-            // If no job exists, create a default state with one empty appointment
             setJobDetails({
                 projectId: project.id,
                 poNumber: '',
@@ -100,7 +83,6 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 contractsReceived: false,
                 finalPaymentReceived: false,
                 isOnHold: false,
-                notes: '',
                 appointments: [{
                     _tempId: tempAppointmentId++,
                     appointmentName: 'Installation',
@@ -153,46 +135,43 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
             return;
         }
 
-        // --- START: THE FIX ---
-
-        // 1. Isolate the core job properties by destructuring 'appointments' out.
         const { appointments, ...coreJobDetails } = jobDetails;
-
-        // 2. Create the clean array of appointments, stripping the temp UI key and handling potential undefined.
         const finalAppointments = (appointments || []).map(({ _tempId, ...rest }) => rest);
 
         try {
-            // 3. Build the payload explicitly from the clean parts.
             await saveJobDetails({ 
                 ...coreJobDetails, 
                 depositAmount: financialSummary.totalDeposit,
                 appointments: finalAppointments 
             });
-        // --- END: THE FIX ---
 
             if (shouldUpdateStatus) {
                 await updateProject({ id: project.id, status: ProjectStatus.SCHEDULED });
             }
         } catch (error) { 
             console.error("Failed to save job details", error);
-            // Error toast is handled in the context
         }
     };
     
-    // --- RENDER LOGIC ---
     const isScheduledOrLater = project.status === ProjectStatus.SCHEDULED || project.status === ProjectStatus.COMPLETED;
-    const canSaveSchedule = jobDetails.depositReceived && jobDetails.contractsReceived && (isSchedulingApplicable ? (jobDetails.appointments?.[0]?.startDate) : true);
 
     return (
-        <div className="bg-surface p-6 rounded-lg shadow-lg mt-8 relative">
-            <h2 className="text-2xl font-semibold text-text-primary mb-6 flex items-center">
-                <Calendar className="w-6 h-6 mr-3 text-accent"/>
-                Job Details & Scheduling
-            </h2>
+        <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
+            <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
+                <div className="flex items-center gap-3">
+                    <Move className="drag-handle cursor-move text-text-tertiary hover:text-text-primary transition-colors" size={20} />
+                    <Calendar className="w-6 h-6 text-accent"/>
+                    <h2 className="text-xl font-semibold text-text-primary">Job Details & Scheduling</h2>
+                </div>
+                <button onClick={handleSave} className="bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                    <Save className="w-4 h-4"/> Save Details
+                </button>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                {/* --- LEFT COLUMN: JOB INFO & APPOINTMENTS --- */}
-                <div className="space-y-6 flex flex-col">
+            {/* --- MODIFIED: Grid container now grows and hides overflow --- */}
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 flex-grow overflow-hidden">
+                {/* --- MODIFIED: Each column is now independently scrollable --- */}
+                <div className="space-y-6 overflow-y-auto pr-2">
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">PO Number</label>
                         <input type="text" value={jobDetails.poNumber || ''} onChange={e => handleJobChange('poNumber', e.target.value)} className="w-full p-2 bg-gray-800 border-border rounded"/>
@@ -214,7 +193,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
 
                     {isSchedulingApplicable && (
                         <div className="space-y-4">
-                            {(jobDetails.appointments || []).map((appt, index) => (
+                            {(jobDetails.appointments || []).map((appt) => (
                                 <div key={appt._tempId} className="bg-gray-800 p-4 rounded-lg border border-border relative">
                                     { (jobDetails.appointments?.length || 0) > 1 && (
                                         <button onClick={() => removeAppointment(appt._tempId)} className="absolute -top-2 -right-2 text-gray-500 hover:text-red-500">
@@ -251,15 +230,9 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                             </button>
                         </div>
                     )}
-
-                    <div className="flex-grow flex flex-col">
-                        <label className="block text-sm font-medium text-text-secondary mb-1">Notes</label>
-                        <textarea value={jobDetails.notes || ''} onChange={e => handleJobChange('notes', e.target.value)} className="w-full p-2 bg-gray-800 border-border rounded flex-grow min-h-[100px]" rows={4}></textarea>
-                    </div>
                 </div>
 
-                {/* --- RIGHT COLUMN: FINANCIALS & CHECKLIST --- */}
-                <div className="space-y-4 flex flex-col">
+                <div className="space-y-4 flex flex-col overflow-y-auto pr-2">
                     <div className="bg-gray-800 p-4 rounded-lg space-y-2">
                         <div className="flex justify-between items-center font-bold text-lg"><span className="text-text-primary">Job Grand Total:</span><span>${financialSummary.grandTotal.toFixed(2)}</span></div> 
                         <div className="flex justify-between items-center font-semibold"><span className="text-text-secondary">Total Deposit Required:</span><span className="text-text-primary">${financialSummary.totalDeposit.toFixed(2)}</span></div> 
@@ -283,14 +256,6 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                         )}
                     </div>
                 </div>
-            </div>
-
-            {/* --- ACTION BUTTONS --- */}
-            <div className="md:col-span-2 text-right mt-6 pt-6 border-t border-border space-x-4">
-                <button onClick={handleSave} className="bg-primary hover:bg-secondary text-white font-bold py-2 px-6 rounded-lg">
-                    <Save className="w-4 h-4 mr-2 inline-block"/> Save Changes
-                </button>
-                {/* Note: Logic for "Mark as Complete" could be added here later */}
             </div>
         </div>
     );

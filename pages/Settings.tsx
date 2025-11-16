@@ -1,16 +1,15 @@
-// pages/Settings.tsx
-
 import React, { useState, useEffect } from 'react';
-import { DownloadCloud, Database, Image as ImageIcon, AlertTriangle, Users, Trash2, Save } from 'lucide-react';
+import { DownloadCloud, Database, Image as ImageIcon, AlertTriangle, Users, Trash2, Save, FileSliders } from 'lucide-react';
 import RestoreForm from '../components/RestoreForm';
 import { User } from '../types';
 import * as userService from '../services/userService';
-import { Role } from '../services/userService'; // Import the Role type
+import { Role } from '../services/userService';
 import toast from 'react-hot-toast';
 import { useData } from '../context/DataContext';
+import SizeManagement from '../components/SizeManagement';
 
 // =================================================================
-//  USER MANAGEMENT COMPONENT (Admin Only) - NOW WITH ROLE MANAGEMENT
+//  USER MANAGEMENT COMPONENT (Admin Only)
 // =================================================================
 const UserManagementSection: React.FC = () => {
     const { currentUser } = useData();
@@ -155,6 +154,9 @@ const UserManagementSection: React.FC = () => {
     );
 };
 
+// =================================================================
+// BACKUP & RESTORE COMPONENT
+// =================================================================
 const BackupRestoreSection: React.FC = () => {
     return (
         <>
@@ -178,15 +180,17 @@ const BackupRestoreSection: React.FC = () => {
     );
 };
 
+// =================================================================
+// MAIN SETTINGS PAGE COMPONENT
+// =================================================================
 const Settings: React.FC = () => {
     const { currentUser } = useData();
     const isAdmin = currentUser?.roles?.includes('Admin');
     
-    const [activeTab, setActiveTab] = useState<'users' | 'backup'>(isAdmin ? 'users' : 'backup');
+    const [activeTab, setActiveTab] = useState<'users' | 'backup' | 'data'>(isAdmin ? 'users' : 'backup');
 
-    // Effect to switch tab if a non-admin is on the users tab somehow
     useEffect(() => {
-        if (!isAdmin && activeTab === 'users') {
+        if (!isAdmin && (activeTab === 'users' || activeTab === 'data')) {
             setActiveTab('backup');
         }
     }, [isAdmin, activeTab]);
@@ -196,13 +200,22 @@ const Settings: React.FC = () => {
             <h1 className="text-3xl font-bold text-text-primary mb-6">Settings</h1>
             <div className="flex border-b border-border mb-8">
                 {isAdmin && (
-                    <button
-                        onClick={() => setActiveTab('users')}
-                        className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'users' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
-                    >
-                        <Users className="w-5 h-5 inline-block mr-2 mb-1" />
-                        User Management
-                    </button>
+                    <>
+                        <button
+                            onClick={() => setActiveTab('users')}
+                            className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'users' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                        >
+                            <Users className="w-5 h-5 inline-block mr-2 mb-1" />
+                            User Management
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('data')}
+                            className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'data' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                        >
+                            <FileSliders className="w-5 h-5 inline-block mr-2 mb-1" />
+                            Data Management
+                        </button>
+                    </>
                 )}
                 <button
                     onClick={() => setActiveTab('backup')}
@@ -215,6 +228,7 @@ const Settings: React.FC = () => {
             <div>
                 {activeTab === 'users' && <UserManagementSection />}
                 {activeTab === 'backup' && <BackupRestoreSection />}
+                {activeTab === 'data' && <SizeManagement />}
             </div>
         </div>
     );

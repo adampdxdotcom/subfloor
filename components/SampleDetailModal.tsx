@@ -1,14 +1,14 @@
-// components/SampleDetailModal.tsx
-
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useData } from '../context/DataContext';
-// --- MODIFIED: Import new types and constants for the form ---
 import { Sample, Vendor, PRODUCT_TYPES, SAMPLE_FORMATS, ProductType, SampleFormat } from '../types';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { Edit, X, Calendar, ChevronsRight, Undo2, Link as LinkIcon, Download, Trash2, QrCode, Printer, Clock, History } from 'lucide-react';
 import AddEditVendorModal from './AddEditVendorModal';
 import ActivityHistory from './ActivityHistory';
+import CreatableSelect from 'react-select/creatable';
+import * as sampleService from '../services/sampleService';
+import { MultiValue } from 'react-select';
 
 interface SampleDetailModalProps {
   isOpen: boolean;
@@ -16,7 +16,6 @@ interface SampleDetailModalProps {
   sample: Sample | null;
 }
 
-// --- ADDED: Consistent name formatting utility ---
 const formatSampleName = (sample: Sample | null): string => {
   if (!sample) return 'Sample';
   const parts = [];
@@ -27,14 +26,18 @@ const formatSampleName = (sample: Sample | null): string => {
   return parts.join(' - ');
 };
 
-// --- ADDED: A clear initial state for the new form structure ---
+interface SizeOption {
+  label: string;
+  value: string;
+}
+
 const initialFormState = {
   manufacturerId: null as number | null,
   supplierId: null as number | null,
   productType: '' as ProductType | '',
   style: '',
   line: '',
-  size: '',
+  sizes: [] as string[],
   finish: '',
   color: '',
   sampleFormat: 'Loose' as SampleFormat,
@@ -52,23 +55,32 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
   } = useData();
   
   const [isEditing, setIsEditing] = useState(false);
-  // --- MODIFIED: Use the new, structured initial state ---
   const [formData, setFormData] = useState(initialFormState);
+  const [sizeOptions, setSizeOptions] = useState<SizeOption[]>([]);
   
   const [manufacturerSearch, setManufacturerSearch] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
   const [vendorModalPurpose, setVendorModalPurpose] = useState<'manufacturer' | 'supplier'>('general');
 
-  const selectedManufacturerName = useMemo(() =>
-    vendors.find(v => v.id === formData.manufacturerId)?.name,
-  [vendors, formData.manufacturerId]);
+  useEffect(() => {
+    if (isEditing) {
+      const fetchSizes = async () => {
+        try {
+          const uniqueSizes = await sampleService.getUniqueSizes();
+          setSizeOptions(uniqueSizes.map(size => ({ label: size, value: size })));
+        } catch (error) {
+          console.error("Failed to fetch unique sizes:", error);
+          toast.error("Could not load size suggestions.");
+        }
+      };
+      fetchSizes();
+    }
+  }, [isEditing]);
 
-  const selectedSupplierName = useMemo(() =>
-    vendors.find(v => v.id === formData.supplierId)?.name,
-  [vendors, formData.supplierId]);
+  const selectedManufacturerName = useMemo(() => vendors.find(v => v.id === formData.manufacturerId)?.name, [vendors, formData.manufacturerId]);
+  const selectedSupplierName = useMemo(() => vendors.find(v => v.id === formData.supplierId)?.name, [vendors, formData.supplierId]);
 
-  // --- MODIFIED: Vendor search logic updated for new 'vendorType' field ---
   const manufacturerSearchResults = useMemo(() => {
     if (!manufacturerSearch.trim()) return [];
     return vendors.filter(v => 
@@ -85,14 +97,8 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
     );
   }, [vendors, supplierSearch]);
   
-  // --- MODIFIED: Manufacturer selection now also sets default product type ---
   const handleSelectManufacturer = (vendor: Vendor) => {
-    setFormData(prev => ({ 
-        ...prev, 
-        manufacturerId: vendor.id,
-        // Smartly select default, but don't override an existing value
-        productType: (vendor.defaultProductType as ProductType) || prev.productType || ''
-    }));
+    setFormData(prev => ({ ...prev, manufacturerId: vendor.id, productType: (vendor.defaultProductType as ProductType) || prev.productType || '' }));
     setManufacturerSearch(vendor.name);
   };
 
@@ -105,10 +111,7 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
     try {
         await addVendor(vendorData as Omit<Vendor, 'id'>);
         setIsVendorModalOpen(false);
-    } catch (error) {
-        toast.error("Failed to save new vendor.");
-        console.error(error);
-    }
+    } catch (error) { toast.error("Failed to save new vendor."); console.error(error); }
   };
 
   const openVendorModal = (purpose: 'manufacturer' | 'supplier') => {
@@ -129,21 +132,14 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
 
   const { checkoutHistory, currentCheckout } = useMemo(() => {
     if (!sample) return { checkoutHistory: [], currentCheckout: null };
-    
-    const history = sampleCheckouts
-      .filter(sc => sc.sampleId === sample.id)
-      .map(checkout => {
+    const history = sampleCheckouts.filter(sc => sc.sampleId === sample.id).map(checkout => {
         const project = projects.find(p => p.id === checkout.projectId);
         return { ...checkout, projectName: project?.projectName || 'Unknown Project' };
-      })
-      .sort((a, b) => new Date(b.checkoutDate).getTime() - new Date(a.checkoutDate).getTime());
-      
+    }).sort((a, b) => new Date(b.checkoutDate).getTime() - new Date(a.checkoutDate).getTime());
     const activeCheckout = history.find(h => !h.actualReturnDate) || null;
-
     return { checkoutHistory: history, currentCheckout: activeCheckout };
   }, [sample, sampleCheckouts, projects]);
 
-  // --- MODIFIED: useEffect completely rewritten to populate the new form state ---
   useEffect(() => {
     if (isOpen && sample) {
       setFormData({
@@ -152,7 +148,7 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
         productType: (sample.productType as ProductType) || '',
         style: sample.style || '',
         line: sample.line || '',
-        size: sample.size || '',
+        sizes: sample.sizes || [],
         finish: sample.finish || '',
         color: sample.color || '',
         sampleFormat: (sample.sampleFormat as SampleFormat) || 'Loose',
@@ -162,7 +158,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
       });
       setManufacturerSearch(sample.manufacturerName || '');
       setSupplierSearch(sample.supplierName || '');
-      // A supplier is different if it exists and isn't the same as the manufacturer
       setHasDifferentSupplier(!!sample.supplierId && sample.supplierId !== sample.manufacturerId);
       setPreviewUrl(sample.imageUrl ? sample.imageUrl : null);
       setSelectedFile(null);
@@ -177,6 +172,11 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+  
+  const handleSizeChange = useCallback((newValue: MultiValue<SizeOption>) => {
+    const sizeValues = newValue ? newValue.map(option => option.value) : [];
+    setFormData(prev => ({ ...prev, sizes: sizeValues }));
+  }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -211,7 +211,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
     }
   };
 
-  // --- MODIFIED: handleSubmit rewritten to send the new data structure to the API ---
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!sample) return;
@@ -223,11 +222,9 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
     try {
       const dataToSave = {
         ...formData,
-        // If supplier isn't different, it's the same as manufacturer. If it IS different, use its ID.
         supplierId: hasDifferentSupplier ? formData.supplierId : formData.manufacturerId,
       };
 
-      // Null out tile-specific fields if product type is not 'Tile'
       if (dataToSave.productType !== 'Tile') {
         dataToSave.sampleFormat = null;
         dataToSave.boardColors = '';
@@ -244,7 +241,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
         if (!res.ok) throw new Error('Photo upload failed during edit.');
       }
       
-      await fetchSamples();
       toast.success(`Sample '${formatSampleName(sample)}' updated successfully!`);
       setIsEditing(false);
     } catch (error) {
@@ -318,18 +314,13 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        {/* --- MODIFIED: max-w-5xl to give the form more space --- */}
         <div className="bg-surface p-4 md:p-8 rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
           <div className="flex justify-between items-start mb-6">
-            {/* --- MODIFIED: Use formatSampleName for the title --- */}
             <h2 className="text-3xl font-bold text-text-primary">{isEditing ? 'Editing Sample' : formatSampleName(sample)}</h2>
-            <button onClick={isEditing ? () => setIsEditing(false) : onClose} className="p-2 rounded-full hover:bg-gray-700">
-              <X className="w-6 h-6" />
-            </button>
+            <button onClick={isEditing ? () => setIsEditing(false) : onClose} className="p-2 rounded-full hover:bg-gray-700"> <X className="w-6 h-6" /> </button>
           </div>
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Image uploader section remains the same */}
               <div className="lg:col-span-3 space-y-4">
                 <div className="w-full aspect-square border-2 border-dashed border-border rounded bg-gray-800 flex items-center justify-center">
                   {previewUrl ? <img src={previewUrl} alt="Sample Preview" className="w-full h-full object-cover rounded" /> : <span className="text-sm text-gray-500">No Image</span>}
@@ -346,10 +337,8 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                   </div>
                 )}
               </div>
-              {/* --- MODIFIED: lg:col-span-5 to lg:col-span-6 for better spacing --- */}
               <div className="lg:col-span-6 space-y-4">
                 {isEditing ? (
-                  // --- MODIFIED: The entire edit form is rebuilt to match the new model ---
                   <>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="relative">
@@ -388,7 +377,7 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                             <div className="flex items-center gap-4">
                                 {SAMPLE_FORMATS.map(format => (
                                     <label key={format} className="flex items-center gap-2 text-sm">
-                                        <input type="radio" name="sampleFormat" value={format} checked={formData.sampleFormat === format} onChange={handleInputChange} className="h-4 w-4 text-primary focus:ring-primary-dark bg-gray-700 border-gray-600"/>
+                                        <input type="radio" name="sampleFormat" value={formData.sampleFormat} checked={formData.sampleFormat === format} onChange={handleInputChange} className="h-4 w-4 text-primary focus:ring-primary-dark bg-gray-700 border-gray-600"/>
                                         {format} Sample
                                     </label>
                                 ))}
@@ -399,10 +388,30 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                         )}
                         </div>
                     )}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
                         <div><label className="text-sm text-text-secondary">Line</label><input type="text" name="line" value={formData.line} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" /></div>
-                        <div><label className="text-sm text-text-secondary">Size</label><input type="text" name="size" value={formData.size} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" /></div>
                         <div><label className="text-sm text-text-secondary">Finish</label><input type="text" name="finish" value={formData.finish} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" /></div>
+                    </div>
+                    <div>
+                        <label className="text-sm text-text-secondary">Sizes</label>
+                        <CreatableSelect
+                            isMulti
+                            name="sizes"
+                            options={sizeOptions}
+                            value={formData.sizes.map(size => ({ label: size, value: size }))}
+                            onChange={handleSizeChange}
+                            className="react-select-container mt-1"
+                            classNamePrefix="react-select"
+                            placeholder="Type or select sizes..."
+                            styles={{
+                                control: (base) => ({ ...base, backgroundColor: '#1f2937', borderColor: '#4b5563' }),
+                                input: (base) => ({ ...base, color: '#e5e7eb' }),
+                                multiValue: (base) => ({ ...base, backgroundColor: '#374151' }),
+                                multiValueLabel: (base) => ({ ...base, color: '#e5e7eb' }),
+                                menu: (base) => ({ ...base, backgroundColor: '#1f2937' }),
+                                option: (base, { isFocused, isSelected }) => ({ ...base, backgroundColor: isSelected ? '#4f46e5' : isFocused ? '#374151' : undefined }),
+                            }}
+                        />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div><label className="text-sm text-text-secondary">SKU</label><input type="text" name="sku" value={formData.sku} onChange={handleInputChange} className="w-full p-2 bg-gray-800 border border-border rounded" /></div>
@@ -410,7 +419,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                     </div>
                   </>
                 ) : (
-                  // --- MODIFIED: The display view is rebuilt for the new data structure ---
                   <div className="space-y-3 text-text-secondary">
                       <p><strong>Manufacturer:</strong> {sample.manufacturerName || 'N/A'}</p>
                       {sample.supplierId !== sample.manufacturerId && sample.supplierName && <p><strong>Supplier:</strong> {sample.supplierName}</p>}
@@ -418,7 +426,7 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                       <p><strong>Style:</strong> {sample.style}</p>
                       {sample.color && <p><strong>Color:</strong> {sample.color}</p>}
                       {sample.line && <p><strong>Line:</strong> {sample.line}</p>}
-                      {sample.size && <p><strong>Size:</strong> {sample.size}</p>}
+                      {sample.sizes && sample.sizes.length > 0 && <p><strong>Sizes:</strong> {sample.sizes.join(', ')}</p>}
                       {sample.finish && <p><strong>Finish:</strong> {sample.finish}</p>}
                       {sample.productType === 'Tile' && sample.sampleFormat && <p><strong>Format:</strong> {sample.sampleFormat} Sample</p>}
                       {sample.productType === 'Tile' && sample.sampleFormat === 'Board' && sample.boardColors && <p><strong>Board Colors:</strong> {sample.boardColors}</p>}
@@ -430,25 +438,19 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                   </div>
                 )}
               </div>
-              {/* QR Code section */}
-               {!isEditing && (
-                <div className="lg:col-span-3 space-y-4">
+              <div className="lg:col-span-3 space-y-4">
                   <div className="bg-gray-800 p-4 rounded-lg text-center">
                     <h4 className="font-semibold text-text-primary mb-2 flex items-center justify-center gap-2"><QrCode /> Sample QR Code</h4>
                     <div ref={qrCodePrintRef}>
                       <img src={`/api/samples/${sample.id}/qr`} alt="Sample QR Code" className="w-48 h-48 mx-auto bg-white p-2 rounded-md"/>
                       <p className="text-xs text-text-secondary mt-2 font-mono">ID: {sample.id}</p>
-                      {/* --- MODIFIED: Use formatSampleName for QR code label --- */}
                       <p className="text-sm font-semibold mt-1">{formatSampleName(sample)}</p>
                     </div>
                     <button type="button" onClick={handlePrintQrCode} className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white font-semibold"><Printer size={16} />Print</button>
                   </div>
-                </div>
-              )}
+              </div>
             </div>
-            {/* History section remains the same */}
-            {!isEditing && (
-               <div className="mt-8 border-t border-border pt-6">
+            <div className="mt-8 border-t border-border pt-6">
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center"><h3 className="text-xl font-semibold flex items-center">{historyView === 'checkouts' ? <><Calendar className="w-6 h-6 mr-2 text-accent"/> Checkout History</> : <><History className="w-6 h-6 mr-2 text-accent"/> Change History</>}</h3></div>
                     <button type="button" onClick={() => setHistoryView(prev => prev === 'checkouts' ? 'changes' : 'checkouts')} className="text-sm text-accent hover:underline">{historyView === 'checkouts' ? 'Show Change History' : 'Show Checkout History'}</button>
@@ -466,8 +468,6 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                     )}
                   </div>
               </div>
-            )}
-            {/* Button controls section remains the same */}
             <div className="flex justify-end gap-4 mt-8 border-t border-border pt-6">
               {isEditing ? (
                 <>

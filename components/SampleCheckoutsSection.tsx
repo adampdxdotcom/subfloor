@@ -1,8 +1,6 @@
-// components/SampleCheckoutsSection.tsx (Corrected Version)
-
 import React, { useState, useMemo } from 'react';
 import { Project, Sample, SampleCheckout } from '../types';
-import { Check, Clock, X, Search, PlusCircle } from 'lucide-react';
+import { Check, Clock, X, Search, PlusCircle, Layers, Move } from 'lucide-react'; // <-- IMPORT Move
 import { useData } from '../context/DataContext';
 import AddSampleInlineModal from './AddSampleInlineModal';
 import { toast } from 'react-hot-toast';
@@ -27,9 +25,9 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
         sampleCheckouts,
         addSampleCheckout,
         updateSampleCheckout,
-        extendSampleCheckout
+        extendSampleCheckout,
     } = useData();
-
+    
     const [searchTerm, setSearchTerm] = useState(''); 
     const [selectedSample, setSelectedSample] = useState<Sample | null>(null); 
     const [returnDate, setReturnDate] = useState('');
@@ -104,31 +102,47 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
         setAddInlineModalOpen(false);
     };
     
-    return ( 
-        <>
-            <div className="space-y-3"> 
-                {projectCheckouts.map(checkout => { 
-                    const sample = samples.find(s => s.id === checkout.sampleId); 
-                    if (!sample) return null;
-                    return ( 
-                        <div key={checkout.id} className="bg-gray-800 p-3 rounded-md flex justify-between items-center"> 
-                            <div>
-                                <p className="font-semibold text-text-primary">{formatSampleName(sample)}</p>
-                                <p className="text-xs text-text-secondary">Expected Return: {new Date(checkout.expectedReturnDate).toLocaleDateString()}</p>
+    return (
+        <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
+            <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
+                <div className="flex items-center gap-3">
+                    <Move className="drag-handle cursor-move text-text-tertiary hover:text-text-primary transition-colors" size={20} />
+                    <Layers className="w-6 h-6 text-accent" />
+                    <h3 className="text-xl font-semibold text-text-primary">Sample Checkouts</h3>
+                </div>
+                <button 
+                  onClick={() => onCloseModal()} // This button in ProjectDetail will set the modal state
+                  className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg"
+                >
+                    Check Out
+                </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto flex-grow">
+                <div className="space-y-3"> 
+                    {projectCheckouts.map(checkout => { 
+                        const sample = samples.find(s => s.id === checkout.sampleId); 
+                        if (!sample) return null;
+                        return ( 
+                            <div key={checkout.id} className="bg-gray-800 p-3 rounded-md flex justify-between items-center"> 
+                                <div>
+                                    <p className="font-semibold text-text-primary">{formatSampleName(sample)}</p>
+                                    <p className="text-xs text-text-secondary">Expected Return: {new Date(checkout.expectedReturnDate).toLocaleDateString()}</p>
+                                </div> 
+                                {checkout.actualReturnDate ? ( 
+                                    <span className="text-sm text-green-400 flex items-center"><Check className="w-4 h-4 mr-1"/> Returned on {new Date(checkout.actualReturnDate).toLocaleDateString()}</span> 
+                                ) : ( 
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => handleExtend(checkout)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded flex items-center gap-1"><Clock size={14} /> Extend</button>
+                                        <button onClick={() => handleReturn(checkout)} className="text-sm bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded">Return</button> 
+                                    </div>
+                                )} 
                             </div> 
-                            {checkout.actualReturnDate ? ( 
-                                <span className="text-sm text-green-400 flex items-center"><Check className="w-4 h-4 mr-1"/> Returned on {new Date(checkout.actualReturnDate).toLocaleDateString()}</span> 
-                            ) : ( 
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => handleExtend(checkout)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded flex items-center gap-1"><Clock size={14} /> Extend</button>
-                                    <button onClick={() => handleReturn(checkout)} className="text-sm bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded">Return</button> 
-                                </div>
-                            )} 
-                        </div> 
-                    ); 
-                })} 
-                {projectCheckouts.length === 0 && <p className="text-text-secondary text-center py-4">No samples checked out for this project.</p>} 
-            </div> 
+                        ); 
+                    })} 
+                    {projectCheckouts.length === 0 && <p className="text-text-secondary text-center py-4">No samples checked out for this project.</p>} 
+                </div>
+            </div>
             
             {isModalOpen && ( 
                 <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"> 
@@ -178,7 +192,7 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                 onSampleCreated={handleSampleCreated}
                 initialSearchTerm={searchTerm}
             />
-        </>
+        </div>
     ); 
 };
 

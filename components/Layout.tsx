@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom'; 
 import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon, Building } from 'lucide-react';
 import UniversalSearch from './UniversalSearch';
-import UserStatus from './UserStatus'; // --- NEW --- Import the UserStatus component
+import UserStatus from './UserStatus';
+import NavigationListener from './NavigationListener'; // <-- NEW: Import the listener
 
 const Layout: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -49,6 +50,8 @@ const Layout: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-background text-text-primary">
+            <NavigationListener /> {/* <-- NEW: Place the listener here */}
+            
             <aside className="hidden md:flex w-64 bg-surface p-6 flex-col shrink-0">
                 <SidebarContent />
             </aside>
@@ -78,7 +81,6 @@ const Layout: React.FC = () => {
                         <UniversalSearch />
                     </div>
                     
-                    {/* --- MODIFICATION --- Replaced the placeholder with our new component */}
                     <div className="flex items-center">
                         <UserStatus />
                     </div>

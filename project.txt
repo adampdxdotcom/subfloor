@@ -30,29 +30,7 @@
 | | |____quotes.js
 | |____index.js
 | |____uploads
-| | |____photo-1762749727265-184370968.jpeg
-| | |____photo-1762785251830-612632601.jpeg
-| | |____photo-1763005987615-27309603.jpeg
-| | |____photo-1763008886313-793282931.jpg
-| | |____photo-1762705750104-121879699.jpeg
-| | |____photo-1763007528431-780258442.jpg
-| | |____photo-1762725541780-203593309.jpeg
-| | |____photo-1763002318975-620954526.jpeg
-| | |____photo-1762706494949-518537399.jpeg
-| | |____photo-1763051858324-386769672.jpg
-| | |____photo-1763003725627-488830063.jpeg
-| | |____photo-1762697778265-104491356.jpg
-| | |____photo-1763128935437-607666584.jpeg
-| | |____photo-1762652802557-41371136.jpg
-| | |____photo-1762651296946-276169435.jpg
-| | |____photo-1762728357598-394921334.jpeg
-| | |____photo-1762706711588-50890738.jpeg
-| | |____photo-1762792000231-374293082.jpeg
-| | |____photo-1762749775606-205983593.jpeg
-| | |____photo-1762728546803-914892401.jpeg
-| | |____photo-1763002301543-332271722.jpeg
-| | |____photo-1762728309643-556402683.jpeg
-| | |____photo-1763002097382-4328641.jpeg
+| | |____photo-1762749727265-184370968.jpeg and many more
 | |____db.js
 | |____package.json
 | |____utils.js
@@ -86,12 +64,14 @@
 |____.dockerignore
 |____.gitignore
 |____tailwind.config.js
+|____src
 |____project_1old.txt
 |____components
 | |____SampleCheckoutsSection.tsx
 | |____AddSampleInlineModal.tsx
 | |____FinalizeJobSection.tsx
 | |____SampleSelector.tsx
+| |____SampleCarousel.tsx
 | |____ProjectInfoHeader.tsx
 | |____ActivityHistory.tsx
 | |____Layout.tsx
@@ -99,6 +79,7 @@
 | |____EditInstallerModal.tsx
 | |____ChangeOrderSection.tsx
 | |____PrintableCheckout.tsx
+| |____SampleForm.tsx
 | |____QrScanner.tsx
 | |____UniversalSearch.tsx
 | |____CollapsibleSection.tsx
@@ -111,12 +92,16 @@
 | |____AddEditVendorModal.tsx
 | |____EditCustomerModal.tsx
 | |____QuotesSection.tsx
+| |____CustomerCarousel.tsx
+| |____SizeManagement.tsx
+| |____ProjectCarousel.tsx
 | |____ProjectSelector.tsx
 | |____CustomerSelector.tsx
 |____metadata.json
 |____utils
 | |____cryptoUtils.ts
 | |____changeFormatter.ts
+|____todo.txt
 |____package.json
 |____schema.sql
 |____types.ts
@@ -135,6 +120,7 @@
 | |____VendorList.tsx
 | |____InstallerList.tsx
 | |____Dashboard.tsx
+| |____VendorDetail.tsx
 | |____ProjectDetail.tsx
 | |____QuoteDetail.tsx
 |____data
@@ -427,3 +413,64 @@ Throughout the refactor, we encountered a series of cascading crashes that were 
 
     What We Tried: We chased these symptoms individually, fixing broken SQL queries in the backend routes for customers.js and installers.js. While these were real bugs, they were not the root cause. We also mistakenly investigated frontend rendering logic in CustomerDetail.tsx and changeFormatter.ts.
 
+
+Session 10
+
+Session Summary: The Great Sample Refactor & Feature Completion
+
+This session was defined by three major efforts: completing the "Intelligent Sample Data Model" refactor, fixing all the cascading bugs that ensued, and then immediately building two major new features on top of that solid foundation.
+1. The Foundational Refactor (Phase 1 Completion)
+
+We completed a massive, full-stack overhaul of the entire sample data model, which had ripple effects across the whole application.
+
+    Database Migration: We executed a complex, multi-step manual database migration. We added a new sample_sizes table, migrated existing size data into it, and dropped the old column, ensuring no data was lost. We also diagnosed and fixed schema inconsistencies in the vendors table that were caused by a faulty backup/restore process.
+
+    Backend Overhaul: We refactored all backend API endpoints related to samples (/api/samples) and search (/api/search) to be fully compatible with the new, structured data model. This included writing new transactional logic for creating/updating samples with multiple sizes.
+
+    System-Wide UI Audit & Repair: We methodically identified and repaired every single component that displayed or searched for sample data. This was the largest part of the effort and included fixing:
+
+        The main "Add/Edit Sample" modals (SampleDetailModal, SampleLibrary).
+
+        The "on-the-fly" add sample modal (AddSampleInlineModal).
+
+        The sample search/selector component (SampleSelector).
+
+        The project-specific checkout list (SampleCheckoutsSection).
+
+        The dashboard and customer page carousels (ProjectCarousel, SampleCarousel).
+
+        The material order creation form (MaterialOrdersSection).
+
+        The global universal search feature.
+
+2. New Feature: Multi-Size "Bubble" Selector
+
+Building directly on our new data model, we implemented a highly-requested feature for handling multiple sample sizes.
+
+    Full-Stack Implementation: We built this feature from the database up, including the new sample_sizes table, updated backend logic to handle arrays of sizes, and a new API endpoint (GET /api/samples/sizes) to serve unique size suggestions.
+
+    Rich UI with react-select: We integrated the react-select library to create a professional "bubble" or "tag" input. This allows users to either select from a list of existing sizes (preventing typos) or create new sizes on the fly.
+
+    Layout Improvements: As requested, we updated the "Add/Edit Sample" form layouts to give the new, more important "Sizes" field its own dedicated row.
+
+3. New Feature: Administrative Size Management
+
+To support the new multi-size feature, we built a complete administrative interface for managing the data.
+
+    Admin-Only API Endpoints: We created new, secure backend routes (PUT and DELETE on /api/samples/sizes) that are protected by our 'Admin' role middleware. These endpoints allow for renaming a size across all samples or safely deleting an unused size.
+
+    New "Data Management" UI: We extended the /settings page with a new "Data Management" tab. Inside, we built a SizeManagement component where administrators can now view all unique sizes in the system, edit them to fix typos, or delete them if they are no longer in use.
+
+4. Major Architectural Improvement: The Reusable SampleForm
+
+In the process of updating the various "add sample" modals, we performed a significant code refactor to improve maintainability.
+
+    DRY Principle ("Don't Repeat Yourself"): We extracted the entire complex sample form logic into its own reusable SampleForm.tsx component.
+
+    Simplified Modals: The main SampleLibrary modal and the AddSampleInlineModal were both gutted of their redundant form code and now simply render the <SampleForm />, making them much cleaner and easier to manage. This ensures a 100% consistent user experience for adding samples anywhere in the app.
+
+Features We Discussed But Did Not Implement
+
+    System-Wide Deletion of a Size from Settings: We built the full UI and backend for this. The only part we intentionally deferred was the logic for what happens when an admin tries to delete a size that is currently in use. The backend correctly blocks this and sends an error, but we haven't built UI to, for example, show the admin which samples are using it or offer to "un-assign and delete."
+
+    "Smart" Size Parsing: We decided to treat each size as a simple, unique text string (e.g., "12x24" is different from "12 x 24"). We did not implement complex logic to parse units or dimensions, instead relying on the autocomplete suggestions to guide users toward consistency.

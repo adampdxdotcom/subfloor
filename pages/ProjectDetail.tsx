@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom'; // <-- Import useLocation
 import { useData } from '../context/DataContext';
 import { Project, Quote, QuoteStatus, ChangeOrder, MaterialOrder, Job } from '../types';
-import { Layers, FileText, PlusCircle, Package as PackageIcon, Trash2, History } from 'lucide-react';
-import CollapsibleSection from '../components/CollapsibleSection';
+// import { Trash2 } from 'lucide-react'; // REMOVED
+
+import { Responsive, WidthProvider } from 'react-grid-layout';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
+
 import EditProjectModal from '../components/EditProjectModal';
 import EditChangeOrderModal from '../components/EditChangeOrderModal';
 import ProjectInfoHeader from '../components/ProjectInfoHeader';
@@ -13,20 +17,24 @@ import FinalizeJobSection from '../components/FinalizeJobSection';
 import ChangeOrderSection from '../components/ChangeOrderSection';
 import MaterialOrdersSection from '../components/MaterialOrdersSection';
 import ActivityHistory from '../components/ActivityHistory';
+import JobNotesSection from '../components/JobNotesSection';
+// import DeleteProjectSection from '../components/DeleteProjectSection'; // REMOVED
 import { toast } from 'react-hot-toast';
 import * as jobService from '../services/jobService';
+
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const ProjectDetail: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
     
     const { 
-        currentUser,
+        currentUser, isLayoutEditMode, toggleLayoutEditMode,
+        uiPreferences, saveUserPreferences,
         projects, customers, samples, sampleCheckouts, quotes, jobs, installers, changeOrders, materialOrders,
-        addSample,
-        updateProject, deleteProject, addSampleCheckout, updateSampleCheckout, addQuote, updateQuote, 
-        saveJobDetails, addInstaller, addChangeOrder, updateChangeOrder, addMaterialOrder, updateMaterialOrder,
-        extendSampleCheckout,
+        updateProject, deleteProject, addQuote, updateQuote, 
+        saveJobDetails, addInstaller, addChangeOrder, updateChangeOrder, addMaterialOrder,
         projectHistory,
         fetchProjectHistory,
         updateJob,
@@ -41,52 +49,90 @@ const ProjectDetail: React.FC = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     
     const numericProjectId = useMemo(() => parseInt(projectId || ''), [projectId]);
+    const project = useMemo(() => projects.find(p => p.id === numericProjectId), [projects, numericProjectId]);
+    const job = useMemo(() => jobs.find(j => j.projectId === numericProjectId), [jobs, numericProjectId]);
+    const customer = useMemo(() => customers.find(c => c.id === project?.customerId), [customers, project]);
 
-    const project = useMemo(() => 
-        projects.find(p => p.id === numericProjectId), 
-    [projects, numericProjectId]);
-
-    const job = useMemo(() => 
-        jobs.find(j => j.projectId === numericProjectId), 
-    [jobs, numericProjectId]);
+    const defaultLayouts = useMemo(() => ({
+      lg: [
+        { i: 'quotes', x: 0, y: 0, w: 8, h: 7, minH: 5, minW: 4 },
+        { i: 'job-details', x: 0, y: 7, w: 8, h: 9, minH: 7, minW: 6 },
+        { i: 'notes', x: 8, y: 0, w: 4, h: 5, minH: 4, minW: 3 },
+        { i: 'sample-checkouts', x: 8, y: 5, w: 4, h: 5, minH: 4, minW: 3 },
+        { i: 'change-orders', x: 8, y: 10, w: 4, h: 6, minH: 5, minW: 3 },
+        { i: 'material-orders', x: 8, y: 16, w: 4, h: 5, minH: 4, minW: 3 },
+        { i: 'history', x: 0, y: 21, w: 12, h: 5, minH: 4, minW: 6 },
+        { i: 'danger-zone', x: 0, y: 26, w: 12, h: 3, minH: 3, minW: 4 }, // Re-added 'danger-zone' key for structure, even if visually handled differently
+      ]
+    }), []);
     
-    const customer = useMemo(() => 
-        customers.find(c => c.id === project?.customerId), 
-    [customers, project]);
+    const [layouts, setLayouts] = useState(defaultLayouts);
+    const [originalLayouts, setOriginalLayouts] = useState(layouts);
 
     useEffect(() => {
-        if (isDataLoading || isNaN(numericProjectId)) {
-            return;
+        if (uiPreferences?.projectDetailLayout) {
+            setLayouts(uiPreferences.projectDetailLayout);
         }
+    }, [uiPreferences]);
 
+    useEffect(() => {
+        if (isLayoutEditMode) {
+            setOriginalLayouts(layouts);
+        }
+    }, [isLayoutEditMode, layouts]);
+    
+    // Effect to automatically exit edit mode on navigation
+    useEffect(() => {
+        return () => {
+            if (isLayoutEditMode) {
+                toggleLayoutEditMode();
+            }
+        };
+    }, [isLayoutEditMode, toggleLayoutEditMode]);
+
+
+    const handleLayoutChange = (layout: ReactGridLayout.Layout[], allLayouts: ReactGridLayout.Layouts) => {
+        setLayouts(allLayouts);
+    };
+
+    const handleSaveLayout = () => {
+        saveUserPreferences({ projectDetailLayout: layouts });
+        toast.success("Layout saved!");
+        toggleLayoutEditMode();
+    };
+    
+    const handleCancelLayout = () => {
+        setLayouts(originalLayouts);
+        toggleLayoutEditMode();
+    };
+    
+    const handleResetLayout = () => {
+        if (window.confirm("Are you sure you want to reset the layout to its default?")) {
+            setLayouts(defaultLayouts);
+            saveUserPreferences({ projectDetailLayout: defaultLayouts });
+            toast.success("Layout has been reset.");
+            toggleLayoutEditMode();
+        }
+    };
+    
+    useEffect(() => {
+        if (isDataLoading || isNaN(numericProjectId)) return;
         const fetchPageSpecificData = async () => {
             fetchProjectHistory(numericProjectId);
             try {
                 const jobData = await jobService.getJobForProject(numericProjectId);
-                // --- THIS IS THE FIX ---
-                // Only call updateJob if we actually received job data.
-                if (jobData) {
-                    updateJob(jobData);
-                }
-            } catch (error) {
-                // This will now only catch true server errors, not 404s.
-                console.error("Failed to fetch detailed job:", error);
-                toast.error("Could not load job schedule details.");
-            }
+                if (jobData) updateJob(jobData);
+            } catch (error) { toast.error("Could not load job schedule details."); }
         };
-
         fetchPageSpecificData();
     }, [numericProjectId, isDataLoading, fetchProjectHistory, updateJob]);
 
-    const handleOpenEditChangeOrderModal = (changeOrder: ChangeOrder) => {
-        setEditingChangeOrder(changeOrder);
-    };
-
+    const handleOpenEditChangeOrderModal = (changeOrder: ChangeOrder) => { setEditingChangeOrder(changeOrder); };
+    
+    // Logic for deleting the project, called from ProjectInfoHeader
     const handleDeleteProject = async () => {
         if (!project || !customer) return;
-        const confirmationMessage = `Are you sure you want to permanently delete the project "${project.projectName}"?\n\nAll associated quotes, orders, and job details will also be removed. This action cannot be undone.`;
-
-        if (window.confirm(confirmationMessage)) {
+        if (window.confirm(`Are you sure you want to permanently delete the project "${project.projectName}"?`)) {
             setIsDeleting(true);
             try {
                 await deleteProject(project.id);
@@ -94,155 +140,98 @@ const ProjectDetail: React.FC = () => {
                 navigate(`/customers/${customer.id}`); 
             } catch (error) {
                 toast.error((error as Error).message || 'Failed to delete project.');
-                console.error("Failed to delete project:", error);
             } finally {
                 setIsDeleting(false);
             }
         }
     };
     
+    const handleSaveNotes = async (notes: string) => { if(job) await saveJobDetails({ id: job.id, notes }); };
+    
     if (isDataLoading) { return <div className="text-center p-8">Loading project...</div>; }
     if (!project) { return <div className="text-center p-8">Project not found.</div>; }
     
-    const projectCheckouts = sampleCheckouts.filter(sc => sc.projectId === project.id);
     const projectQuotes = quotes.filter(q => q.projectId === project.id);
-    const projectOrders = materialOrders.filter(o => o.projectId === project.id);
-    const projectChangeOrders = changeOrders.filter(co => co.projectId === project.id);
     const isQuoteAccepted = projectQuotes.some(q => q.status === QuoteStatus.ACCEPTED);
     const acceptedQuotes = projectQuotes.filter(q => q.status === QuoteStatus.ACCEPTED);
+    const projectChangeOrders = changeOrders.filter(co => co.projectId === project.id);
+    const projectOrders = materialOrders.filter(o => o.projectId === project.id);
 
     return (
-        <div className="space-y-8">
-            <ProjectInfoHeader project={project} customerName={customer?.fullName || 'N/A'} updateProject={updateProject} onEdit={() => setIsEditProjectModalOpen(true)} />
+        <div className="space-y-6">
+            <ProjectInfoHeader 
+                project={project} 
+                customerName={customer?.fullName || 'N/A'} 
+                currentUser={currentUser}
+                updateProject={updateProject} 
+                onEdit={() => setIsEditProjectModalOpen(true)}
+                onDeleteProject={handleDeleteProject}
+                isDeleting={isDeleting}
+                isLayoutEditMode={isLayoutEditMode}
+                onSaveLayout={handleSaveLayout}
+                onCancelLayout={handleCancelLayout}
+                onResetLayout={handleResetLayout}
+            />
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                <div className="space-y-8">
-                    <CollapsibleSection
-                        title="Sample Checkouts" icon={<Layers className="w-6 h-6" />}
-                        actions={ <button onClick={() => setActiveModal('sample')} className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg">Check Out</button> }
-                    >
-                        <SampleCheckoutsSection 
-                            project={project}
-                            projectCheckouts={projectCheckouts} 
-                            samples={samples} 
-                            addSample={addSample} 
-                            addSampleCheckout={addSampleCheckout} 
-                            updateSampleCheckout={updateSampleCheckout}
-                            extendSampleCheckout={extendSampleCheckout}
-                            isModalOpen={activeModal === 'sample'}
-                            onCloseModal={() => setActiveModal(null)}
-                        />
-                    </CollapsibleSection>
-                    
-                    {isQuoteAccepted && (
-                        <CollapsibleSection title="Change Orders" icon={<PlusCircle className="w-6 h-6" />}>
-                            <ChangeOrderSection 
-                                project={project}
-                                projectChangeOrders={projectChangeOrders} 
-                                acceptedQuotes={acceptedQuotes}
-                                addChangeOrder={addChangeOrder}
-                                onEditChangeOrder={handleOpenEditChangeOrderModal}
-                            />
-                        </CollapsibleSection>
-                    )}
+            <ResponsiveGridLayout
+                className={`layout ${isLayoutEditMode ? 'edit-mode' : ''}`}
+                layouts={layouts}
+                onLayoutChange={handleLayoutChange}
+                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+                cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+                rowHeight={30}
+                draggableHandle=".drag-handle"
+                isDraggable={isLayoutEditMode}
+                isResizable={isLayoutEditMode}
+            >
+                <div key="quotes" className="h-full overflow-hidden">
+                    <QuotesSection 
+                        project={project} projectQuotes={projectQuotes} installers={installers} addQuote={addQuote} 
+                        updateQuote={updateQuote} updateProject={updateProject} addInstaller={addInstaller} 
+                        saveJobDetails={saveJobDetails} isModalOpen={activeModal === 'quote'} onCloseModal={() => setActiveModal(null)}
+                        onOpenEditModal={(quote) => { setEditingQuoteForModal(quote); setActiveModal('quote'); }}
+                        editingQuoteForModal={editingQuoteForModal}
+                    />
                 </div>
                 
-                <div className="space-y-8">
-                    <CollapsibleSection
-                        title="Quotes" icon={<FileText className="w-6 h-6" />}
-                        actions={ <button onClick={() => { setEditingQuoteForModal(null); setActiveModal('quote'); }} className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg">Add Quote</button> }
-                    >
-                        <QuotesSection 
-                            project={project} projectQuotes={projectQuotes} installers={installers} 
-                            addQuote={addQuote} updateQuote={updateQuote} updateProject={updateProject} 
-                            addInstaller={addInstaller} saveJobDetails={saveJobDetails}
-                            isModalOpen={activeModal === 'quote'}
-                            onCloseModal={() => setActiveModal(null)}
-                            onOpenEditModal={(quote) => {
-                                setEditingQuoteForModal(quote);
-                                setActiveModal('quote');
-                            }}
-                            editingQuoteForModal={editingQuoteForModal}
+                {isQuoteAccepted && (
+                    <div key="job-details" className="h-full overflow-hidden">
+                        <FinalizeJobSection project={project} job={job} quotes={projectQuotes} changeOrders={projectChangeOrders} saveJobDetails={saveJobDetails} updateProject={updateProject} />
+                    </div>
+                )}
+
+                {isQuoteAccepted && job && (
+                    <div key="notes" className="h-full overflow-hidden">
+                        <JobNotesSection job={job} onSaveNotes={handleSaveNotes} />
+                    </div>
+                )}
+
+                <div key="sample-checkouts" className="h-full overflow-hidden">
+                    <SampleCheckoutsSection project={project} isModalOpen={activeModal === 'sample'} onCloseModal={() => setActiveModal(null)} />
+                </div>
+                
+                {isQuoteAccepted && (
+                    <div key="change-orders" className="h-full overflow-hidden">
+                        <ChangeOrderSection project={project} projectChangeOrders={projectChangeOrders} acceptedQuotes={acceptedQuotes} addChangeOrder={addChangeOrder} onEditChangeOrder={handleOpenEditChangeOrderModal} />
+                    </div>
+                )}
+                
+                {isQuoteAccepted && (
+                    <div key="material-orders" className="h-full overflow-hidden">
+                        <MaterialOrdersSection project={project} orders={projectOrders} isModalOpen={activeModal === 'order'} 
+                            onCloseModal={() => { setActiveModal(null); setEditingOrder(null); }} editingOrder={editingOrder}
+                            onEditOrder={(order) => { setEditingOrder(order); setActiveModal('order'); }}
                         />
-                    </CollapsibleSection>
-
-                    {isQuoteAccepted && (
-                         <CollapsibleSection
-                            title="Material Orders" icon={<PackageIcon className="w-6 h-6" />}
-                            actions={ <button onClick={() => { setEditingOrder(null); setActiveModal('order'); }} className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg">Add Order</button> }
-                        >
-                            <MaterialOrdersSection 
-                                project={project}
-                                orders={projectOrders}
-                                samples={samples}
-                                isModalOpen={activeModal === 'order'}
-                                onCloseModal={() => { setActiveModal(null); setEditingOrder(null); }}
-                                editingOrder={editingOrder}
-                                onEditOrder={(order) => {
-                                    setEditingOrder(order);
-                                    setActiveModal('order');
-                                }}
-                            />
-                        </CollapsibleSection>
-                    )}
+                    </div>
+                )}
+                
+                <div key="history" className="h-full overflow-hidden">
+                    <ActivityHistory history={projectHistory} />
                 </div>
-            </div>
+            </ResponsiveGridLayout>
 
-            {isQuoteAccepted && (
-                <FinalizeJobSection 
-                    project={project} 
-                    job={job}
-                    quotes={projectQuotes} 
-                    changeOrders={projectChangeOrders} 
-                    saveJobDetails={saveJobDetails} 
-                    updateProject={updateProject} 
-                />
-            )}
-        
-            <div className="mt-8">
-                <CollapsibleSection
-                  title="Change History"
-                  icon={<History className="w-6 h-6" />}
-                  defaultOpen={false}
-                >
-                  <ActivityHistory history={projectHistory} />
-                </CollapsibleSection>
-            </div>
-
-            {currentUser?.roles?.includes('Admin') && (
-                <div className="mt-12 p-6 border-t-4 border-red-500 bg-surface rounded-lg shadow-md">
-                    <h3 className="text-xl font-bold text-red-400 mb-4">Danger Zone</h3>
-                    <p className="text-text-secondary mb-4">Deleting this project will permanently remove all associated data, including quotes, material orders, change orders, and job details. This action cannot be undone.</p>
-                    <button
-                        onClick={handleDeleteProject}
-                        disabled={isDeleting}
-                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed"
-                    >
-                        <Trash2 size={18} />
-                        {isDeleting ? 'Deleting Project...' : 'Delete This Project'}
-                    </button>
-                </div>
-            )}
-
-            {isEditProjectModalOpen && project && (
-                <EditProjectModal
-                    project={project}
-                    onClose={() => setIsEditProjectModalOpen(false)}
-                    onSave={updateProject}
-                />
-            )}
-
-            {editingChangeOrder && (
-                <EditChangeOrderModal
-                    changeOrder={editingChangeOrder}
-                    acceptedQuotes={acceptedQuotes}
-                    onClose={() => setEditingChangeOrder(null)}
-                    onSave={async (data) => {
-                        await updateChangeOrder(editingChangeOrder.id, data);
-                        setEditingChangeOrder(null);
-                    }}
-                />
-            )}
+            {isEditProjectModalOpen && project && ( <EditProjectModal project={project} onClose={() => setIsEditProjectModalOpen(false)} onSave={updateProject} /> )}
+            {editingChangeOrder && ( <EditChangeOrderModal changeOrder={editingChangeOrder} acceptedQuotes={acceptedQuotes} onClose={() => setEditingChangeOrder(null)} onSave={async (data) => { await updateChangeOrder(editingChangeOrder.id, data); setEditingChangeOrder(null); }} /> )}
         </div>
     );
 };
