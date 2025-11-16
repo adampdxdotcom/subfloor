@@ -1,10 +1,19 @@
-// components/ProjectCarousel.tsx
-
 import React, { useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
-import { Project, ProjectStatus, SampleCheckout } from '../types';
+// --- MODIFIED: Import the Sample type for our utility function ---
+import { Project, ProjectStatus, Sample, SampleCheckout } from '../types';
 import { ChevronRight, Bell, Clock, Undo2 } from 'lucide-react';
+
+// --- ADDED: The standard formatSampleName utility ---
+const formatSampleName = (sample: Sample | undefined) => {
+  if (!sample) return 'Loading sample...';
+  const parts = [];
+  if (sample.style) parts.push(sample.style);
+  if (sample.color) parts.push(sample.color);
+  if (parts.length === 0) return `Sample #${sample.id}`;
+  return parts.join(' - ');
+};
 
 const getStatusColor = (status: ProjectStatus): string => {
     switch (status) {
@@ -69,9 +78,11 @@ const ProjectCard = ({ project }: { project: Project }) => {
                     <div className="space-y-2">
                         {activeCheckouts.map(checkout => {
                             const sample = samples.find(s => s.id === checkout.sampleId);
+                            // --- MODIFIED: Use the formatSampleName utility for correct display ---
+                            const displayName = formatSampleName(sample);
                             return (
                                 <div key={checkout.id} className="flex justify-between items-center text-sm">
-                                    <span className="text-text-primary truncate" title={sample?.styleColor}>{sample ? sample.styleColor : 'Loading sample...'}</span>
+                                    <span className="text-text-primary truncate" title={displayName}>{displayName}</span>
                                     <div className="flex items-center gap-2">
                                         <button onClick={(e) => handleActionClick(e, () => extendSampleCheckout(checkout))} className="text-xs bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded flex items-center gap-1"><Clock size={12} /> Extend</button>
                                         <button onClick={(e) => handleActionClick(e, () => updateSampleCheckout(checkout))} className="text-xs bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded flex items-center gap-1"><Undo2 size={12} /> Return</button>

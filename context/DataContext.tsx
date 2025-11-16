@@ -247,17 +247,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addSample = useCallback(async (sample: any): Promise<Sample> => {
     try {
+      // 1. Get the newly created sample object back from the API.
+      // This object is our single source of truth.
       const newDbSample = await sampleService.addSample(sample);
-      await fetchSamples();
-      toast.success('Sample added to library!');
-      const foundSample = data.samples.find(s => s.styleColor === newDbSample.styleColor) || newDbSample;
-      return foundSample;
+
+      // 2. Optimistically update the local state. No need to re-fetch everything.
+      setData(prevData => ({
+        ...prevData,
+        samples: [...prevData.samples, newDbSample]
+      }));
+
+      // 3. Fulfill the contract: return the new sample object directly.
+      return newDbSample;
+
     } catch (error) { 
       console.error("Error adding sample:", error); 
-      toast.error((error as Error).message); 
+      // Make sure toast is imported if not already: import { toast } from 'react-hot-toast';
+      toast.error((error as Error).message || 'Failed to add sample.'); 
       throw error; 
     }
-  }, [data.samples, fetchSamples]);
+  }, []);
   
   const updateSample = useCallback(async (sampleId: number, sampleData: any): Promise<void> => {
     try {

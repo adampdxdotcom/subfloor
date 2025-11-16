@@ -14,7 +14,7 @@ import ChangeOrderSection from '../components/ChangeOrderSection';
 import MaterialOrdersSection from '../components/MaterialOrdersSection';
 import ActivityHistory from '../components/ActivityHistory';
 import { toast } from 'react-hot-toast';
-import * as jobService from '../services/jobService'; // Keep the service import
+import * as jobService from '../services/jobService';
 
 const ProjectDetail: React.FC = () => {
     const { projectId } = useParams<{ projectId: string }>();
@@ -23,12 +23,13 @@ const ProjectDetail: React.FC = () => {
     const { 
         currentUser,
         projects, customers, samples, sampleCheckouts, quotes, jobs, installers, changeOrders, materialOrders,
-        addSample, updateProject, deleteProject, addSampleCheckout, updateSampleCheckout, addQuote, updateQuote, 
+        addSample,
+        updateProject, deleteProject, addSampleCheckout, updateSampleCheckout, addQuote, updateQuote, 
         saveJobDetails, addInstaller, addChangeOrder, updateChangeOrder, addMaterialOrder, updateMaterialOrder,
         extendSampleCheckout,
         projectHistory,
         fetchProjectHistory,
-        updateJob, // We will use this to update the global state
+        updateJob,
         isLoading: isDataLoading 
     } = useData();
     
@@ -39,7 +40,6 @@ const ProjectDetail: React.FC = () => {
     const [editingChangeOrder, setEditingChangeOrder] = useState<ChangeOrder | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     
-    // --- DERIVED STATE: This is the correct pattern ---
     const numericProjectId = useMemo(() => parseInt(projectId || ''), [projectId]);
 
     const project = useMemo(() => 
@@ -54,28 +54,24 @@ const ProjectDetail: React.FC = () => {
         customers.find(c => c.id === project?.customerId), 
     [customers, project]);
 
-    // --- RE-INTRODUCED FETCH LOGIC: This was the missing piece ---
     useEffect(() => {
         if (isDataLoading || isNaN(numericProjectId)) {
             return;
         }
 
         const fetchPageSpecificData = async () => {
-            // Fetch the history for this project
             fetchProjectHistory(numericProjectId);
-
-            // Fetch the detailed job (with appointments) and update global state
             try {
                 const jobData = await jobService.getJobForProject(numericProjectId);
-                // Update the job in the global context, which will cause this component to re-render with the full data
-                updateJob(jobData);
-            } catch (error) {
-                // A 404 error is expected if a job hasn't been created yet. We don't need to do anything.
-                // Any other error should be logged.
-                if ((error as any).response?.status !== 404) {
-                    console.error("Failed to fetch detailed job:", error);
-                    toast.error("Could not load job schedule details.");
+                // --- THIS IS THE FIX ---
+                // Only call updateJob if we actually received job data.
+                if (jobData) {
+                    updateJob(jobData);
                 }
+            } catch (error) {
+                // This will now only catch true server errors, not 404s.
+                console.error("Failed to fetch detailed job:", error);
+                toast.error("Could not load job schedule details.");
             }
         };
 
@@ -126,8 +122,12 @@ const ProjectDetail: React.FC = () => {
                         actions={ <button onClick={() => setActiveModal('sample')} className="bg-primary hover:bg-secondary text-white font-bold py-1 px-3 text-sm rounded-lg">Check Out</button> }
                     >
                         <SampleCheckoutsSection 
-                            project={project} projectCheckouts={projectCheckouts} samples={samples} 
-                            addSample={addSample} addSampleCheckout={addSampleCheckout} updateSampleCheckout={updateSampleCheckout}
+                            project={project}
+                            projectCheckouts={projectCheckouts} 
+                            samples={samples} 
+                            addSample={addSample} 
+                            addSampleCheckout={addSampleCheckout} 
+                            updateSampleCheckout={updateSampleCheckout}
                             extendSampleCheckout={extendSampleCheckout}
                             isModalOpen={activeModal === 'sample'}
                             onCloseModal={() => setActiveModal(null)}

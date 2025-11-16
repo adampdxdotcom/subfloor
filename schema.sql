@@ -12,8 +12,8 @@ CREATE TABLE customers (
 CREATE TABLE vendors (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    is_manufacturer BOOLEAN DEFAULT FALSE,
-    is_supplier BOOLEAN DEFAULT FALSE,
+    vendor_type TEXT, -- Replaces is_manufacturer/is_supplier. Can be 'Manufacturer', 'Supplier', 'Both'.
+    default_product_type TEXT,
     address TEXT,
     phone VARCHAR(50),
     ordering_email VARCHAR(255),
@@ -30,11 +30,18 @@ CREATE TABLE samples (
     id SERIAL PRIMARY KEY,
     manufacturer_id INT REFERENCES vendors(id),
     supplier_id INT REFERENCES vendors(id),
-    style_color VARCHAR(255) NOT NULL,
+    product_type TEXT NOT NULL,
+    style TEXT NOT NULL,
+    line TEXT,
+    size TEXT,
+    finish TEXT,
+    color TEXT,
+    sample_format TEXT, -- For 'Board' or 'Loose'
+    board_colors TEXT,  -- For extra colors on a board
     sku VARCHAR(100),
-    type VARCHAR(100) NOT NULL,
     is_available BOOLEAN DEFAULT TRUE NOT NULL,
-    product_url TEXT
+    product_url TEXT,
+    CONSTRAINT chk_sample_format CHECK (sample_format IN ('Board', 'Loose') OR sample_format IS NULL)
 );
 
 CREATE TABLE installers (
@@ -87,11 +94,10 @@ CREATE TABLE jobs (
     contracts_received BOOLEAN DEFAULT FALSE NOT NULL,
     final_payment_received BOOLEAN DEFAULT FALSE NOT NULL,
     paperwork_signed_url VARCHAR(255),
-    is_on_hold BOOLEAN NOT NULL DEFAULT FALSE, -- ADDED
+    is_on_hold BOOLEAN NOT NULL DEFAULT FALSE,
     notes TEXT
 );
 
--- vvvvvvvvvvvv MODIFIED: Added quote_id to the change_orders table vvvvvvvvvvvv
 CREATE TABLE change_orders (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
@@ -101,7 +107,6 @@ CREATE TABLE change_orders (
     type VARCHAR(100) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
--- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 CREATE TABLE material_orders (
     id SERIAL PRIMARY KEY,

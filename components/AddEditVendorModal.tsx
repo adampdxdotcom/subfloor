@@ -1,36 +1,42 @@
 // components/AddEditVendorModal.tsx
 
 import React, { useState, useEffect } from 'react';
-import { Vendor } from '../types';
-import { useData } from '../context/DataContext'; // <-- MODIFIED: Import useData
-import { toast } from 'react-hot-toast';         // <-- MODIFIED: Import toast
-import { Trash2 } from 'lucide-react';           // <-- MODIFIED: Import Trash2 icon
+import { Vendor, PRODUCT_TYPES } from '../types'; // --- MODIFIED: Import PRODUCT_TYPES ---
+import { useData } from '../context/DataContext';
+import { toast } from 'react-hot-toast';
+import { Trash2 } from 'lucide-react';
 
 interface AddEditVendorModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (vendor: Omit<Vendor, 'id'> | Vendor) => void;
     vendorToEdit?: Vendor | null;
-    initialVendorType?: 'manufacturer' | 'supplier'; 
+    initialVendorType?: 'Manufacturer' | 'Supplier'; // --- MODIFIED: Changed type slightly ---
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose, onSave, vendorToEdit, initialVendorType }) => {
-    // vvvvvvvvvvvv MODIFIED: Get currentUser and deleteVendor from context vvvvvvvvvvvv
     const { currentUser, deleteVendor } = useData();
     const [isDeleting, setIsDeleting] = useState(false);
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+    // --- MODIFIED: Updated formData state to match new Vendor type ---
     const [formData, setFormData] = useState({
-        name: '', isManufacturer: false, isSupplier: true, address: '', phone: '',
+        name: '',
+        vendorType: 'Supplier' as 'Manufacturer' | 'Supplier' | 'Both' | null,
+        defaultProductType: null as string | null,
+        address: '', phone: '',
         orderingEmail: '', claimsEmail: '', repName: '', repPhone: '', repEmail: '',
         shippingMethod: '', dedicatedShippingDay: null as number | null, notes: '',
     });
 
     useEffect(() => {
+        // --- MODIFIED: Updated useEffect to handle new fields ---
         const initialState = {
-            name: '', isManufacturer: false, isSupplier: true, address: '', phone: '',
+            name: '',
+            vendorType: 'Supplier' as 'Manufacturer' | 'Supplier' | 'Both' | null,
+            defaultProductType: null as string | null,
+            address: '', phone: '',
             orderingEmail: '', claimsEmail: '', repName: '', repPhone: '', repEmail: '',
             shippingMethod: '', dedicatedShippingDay: null as number | null, notes: '',
         };
@@ -38,8 +44,8 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
         if (vendorToEdit) {
             setFormData({
                 name: vendorToEdit.name || '',
-                isManufacturer: vendorToEdit.isManufacturer || false,
-                isSupplier: vendorToEdit.isSupplier || false,
+                vendorType: vendorToEdit.vendorType || null,
+                defaultProductType: vendorToEdit.defaultProductType || null,
                 address: vendorToEdit.address || '',
                 phone: vendorToEdit.phone || '',
                 orderingEmail: vendorToEdit.orderingEmail || '',
@@ -52,12 +58,8 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                 notes: vendorToEdit.notes || '',
             });
         } else {
-            if (initialVendorType === 'manufacturer') {
-                initialState.isManufacturer = true;
-                initialState.isSupplier = false;
-            } else if (initialVendorType === 'supplier') {
-                initialState.isManufacturer = false;
-                initialState.isSupplier = true;
+            if (initialVendorType) {
+                initialState.vendorType = initialVendorType;
             }
             setFormData(initialState);
         }
@@ -66,10 +68,11 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         if (type === 'checkbox') {
+            // This case is no longer used for vendor type but kept for safety
             const checked = (e.target as HTMLInputElement).checked;
             setFormData(prev => ({ ...prev, [name]: checked }));
-        } else if (name === 'dedicatedShippingDay') {
-            setFormData(prev => ({ ...prev, [name]: value === '' ? null : Number(value) }));
+        } else if (name === 'dedicatedShippingDay' || name === 'defaultProductType' || name === 'vendorType') {
+            setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
@@ -79,17 +82,15 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
         e.preventDefault();
         const dataToSave = {
             ...formData,
-            dedicatedShippingDay: formData.dedicatedShippingDay === null ? undefined : formData.dedicatedShippingDay,
         };
 
         if (vendorToEdit) {
             onSave({ ...vendorToEdit, ...dataToSave });
         } else {
-            onSave(dataToSave);
+            onSave(dataToSave as Omit<Vendor, 'id'>);
         }
     };
     
-    // vvvvvvvvvvvv MODIFIED: Added handler for deletion vvvvvvvvvvvv
     const handleDelete = async () => {
         if (!vendorToEdit) return;
         if (window.confirm(`Are you sure you want to delete vendor "${vendorToEdit.name}"? This action cannot be undone.`)) {
@@ -97,7 +98,7 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
             try {
                 await deleteVendor(vendorToEdit.id);
                 toast.success('Vendor deleted successfully.');
-                onClose(); // Close the modal on successful deletion
+                onClose();
             } catch (error) {
                 toast.error((error as Error).message || 'Failed to delete vendor.');
                 console.error(error);
@@ -106,7 +107,6 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
             }
         }
     };
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     if (!isOpen) return null;
 
@@ -123,10 +123,26 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                                 <label className="block text-sm font-medium text-text-secondary">Vendor Name</label>
                                 <input type="text" name="name" value={formData.name} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-800 border-border rounded" required />
                             </div>
-                            <div className="flex gap-8 items-center pt-2">
-                                <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isManufacturer" checked={formData.isManufacturer} onChange={handleChange} className="h-4 w-4 rounded text-primary focus:ring-primary-dark bg-gray-700 border-gray-600"/> Is a Manufacturer</label>
-                                <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isSupplier" checked={formData.isSupplier} onChange={handleChange} className="h-4 w-4 rounded text-primary focus:ring-primary-dark bg-gray-700 border-gray-600"/> Is a Supplier</label>
+                            
+                            {/* --- MODIFIED: Replaced checkboxes with dropdowns --- */}
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary">Vendor Type</label>
+                                <select name="vendorType" value={formData.vendorType ?? ''} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-800 border-border rounded">
+                                    <option value="Supplier">Supplier</option>
+                                    <option value="Manufacturer">Manufacturer</option>
+                                    <option value="Both">Both</option>
+                                </select>
                             </div>
+                             
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary">Default Product Type</label>
+                                <select name="defaultProductType" value={formData.defaultProductType ?? ''} onChange={handleChange} className="mt-1 w-full p-2 bg-gray-800 border-border rounded">
+                                    <option value="">None</option>
+                                    {PRODUCT_TYPES.map(type => (<option key={type} value={type}>{type}</option>))}
+                                </select>
+                            </div>
+                            {/* --- END MODIFIED --- */}
+
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary">Address</label>
                                 <textarea name="address" value={formData.address} onChange={handleChange} rows={2} className="mt-1 w-full p-2 bg-gray-800 border-border rounded"></textarea>
@@ -186,7 +202,6 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                         </div>
                     </div>
 
-                    {/* vvvvvvvvvvvv MODIFIED: Added conditional delete button vvvvvvvvvvvv */}
                     <div className="flex items-center justify-end space-x-4 mt-8 pt-6 border-t border-border">
                         {vendorToEdit && currentUser?.roles?.includes('Admin') && (
                             <button
@@ -194,7 +209,7 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                                 onClick={handleDelete}
                                 disabled={isDeleting}
                                 className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed"
-                                style={{ marginRight: 'auto' }} // Pushes this button to the far left
+                                style={{ marginRight: 'auto' }}
                             >
                                 <Trash2 size={16} />
                                 {isDeleting ? 'Deleting...' : 'Delete Vendor'}
@@ -203,7 +218,6 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                         <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">Cancel</button>
                         <button type="submit" className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white">{vendorToEdit ? 'Save Changes' : 'Create Vendor'}</button>
                     </div>
-                    {/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ */}
                 </form>
             </div>
         </div>

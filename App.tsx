@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
-// --- SuperTokens Imports (CORRECTED API for latest version) ---
+// --- SuperTokens Imports ---
 import { SessionAuth } from 'supertokens-auth-react/recipe/session';
 import { getSuperTokensRoutesForReactRouterDom } from 'supertokens-auth-react/ui';
 import { EmailPasswordPreBuiltUI } from 'supertokens-auth-react/recipe/emailpassword/prebuiltui';
@@ -21,6 +21,7 @@ import InstallerDetail from './pages/InstallerDetail';
 import QuoteDetail from './pages/QuoteDetail';
 import Settings from './pages/Settings';
 import VendorList from './pages/VendorList';
+import VendorDetail from './pages/VendorDetail'; // <-- 1. ADD THIS IMPORT
 
 function App() {
   return (
@@ -45,6 +46,8 @@ function App() {
             <Route path="projects/:projectId" element={<ProjectDetail />} />
             <Route path="samples" element={<SampleLibrary />} />
             <Route path="vendors" element={<VendorList />} />
+            {/* --- 2. ADD THIS NEW NESTED ROUTE --- */}
+            <Route path="vendors/:vendorId" element={<VendorDetail />} />
             <Route path="installers" element={<InstallerList />} />
             <Route path="installers/:installerId" element={<InstallerDetail />} />
             <Route path="quotes/:quoteId" element={<QuoteDetail />} />

@@ -1,3 +1,5 @@
+// src/types.ts
+
 export const PROJECT_TYPES = [
   'Flooring',
   'Tile',
@@ -28,6 +30,28 @@ export const UNITS = [
 
 export type Unit = typeof UNITS[number];
 
+// --- ADDED: New constants for the sample refactor ---
+export const PRODUCT_TYPES = [
+  'Tile',
+  'LVP',
+  'LVT',
+  'Laminate',
+  'Sheet Product',
+  'Carpet',
+  'Quartz',
+  'Dekton'
+] as const;
+
+export type ProductType = typeof PRODUCT_TYPES[number];
+
+export const SAMPLE_FORMATS = [
+  'Loose',
+  'Board'
+] as const;
+
+export type SampleFormat = typeof SAMPLE_FORMATS[number];
+// --- END ADDED ---
+
 export enum ProjectStatus {
   NEW = "New",
   SAMPLE_CHECKOUT = "Sample Checkout",
@@ -46,11 +70,12 @@ export enum QuoteStatus {
   REJECTED = "Rejected",
 }
 
+// --- MODIFIED: Vendor interface updated for new data model ---
 export interface Vendor {
   id: number;
   name: string;
-  isManufacturer: boolean;
-  isSupplier: boolean;
+  vendorType: 'Manufacturer' | 'Supplier' | 'Both' | null; // REPLACES isManufacturer/isSupplier
+  defaultProductType: ProductType | string | null;            // ADDED for smart defaults
   address?: string | null;
   phone?: string | null;
   orderingEmail?: string | null;
@@ -61,6 +86,7 @@ export interface Vendor {
   shippingMethod?: string | null;
   dedicatedShippingDay?: number | null; // 0=Sun, 6=Sat
   notes?: string | null;
+  sampleCount?: number; // ADDED for future dashboard UI
 }
 
 export interface Customer {
@@ -79,23 +105,36 @@ export interface Customer {
   }[];
 }
 
+// --- MODIFIED: Sample interface completely overhauled ---
 export interface Sample {
   id: number;
   manufacturerId: number | null;
   supplierId: number | null;
-  manufacturerName?: string | null; // Joined from vendors table
-  supplierName?: string | null; // Joined from vendors table
-  styleColor: string;
+  productType: ProductType | string; // ADDED, REQUIRED
+  style: string;                     // ADDED, REQUIRED
+  line?: string | null;              // ADDED
+  size?: string | null;              // ADDED
+  finish?: string | null;            // ADDED
+  color?: string | null;             // ADDED
+  sampleFormat?: SampleFormat | null;// ADDED for Tile
+  boardColors?: string | null;       // ADDED for Tile Boards
   sku: string | null;
-  type: string;
   isAvailable: boolean;
   imageUrl?: string;
   productUrl?: string | null;
+  
+  // REMOVED: Old flat fields
+  // styleColor: string;
+  // type: string;
+
+  // Joined/derived fields for display purposes
+  manufacturerName?: string | null; 
+  supplierName?: string | null;
   checkoutProjectId?: number | null;
   checkoutProjectName?: string | null;
   checkoutCustomerName?: string | null;
   checkoutId?: number | null;
-  checkoutExpectedReturnDate?: string | null; // Added for sample carousel logic
+  checkoutExpectedReturnDate?: string | null;
 }
 
 export interface Project {
@@ -146,7 +185,6 @@ export interface Quote {
   status: QuoteStatus;
 }
 
-// --- NEW: Define the JobAppointment type ---
 export interface JobAppointment {
   id: number;
   jobId: number;
@@ -156,7 +194,6 @@ export interface JobAppointment {
   endDate: string;
 }
 
-// --- MODIFIED: The Job type is now refactored ---
 export interface Job {
   id: number;
   projectId: number;
@@ -166,10 +203,9 @@ export interface Job {
   contractsReceived: boolean;
   finalPaymentReceived: boolean;
   paperworkSignedUrl?: string | null;
-  isOnHold: boolean; // ADDED
+  isOnHold: boolean;
   notes?: string | null;
-  appointments: JobAppointment[]; // ADDED
-  // The scheduledStartDate and scheduledEndDate fields are now REMOVED
+  appointments: JobAppointment[];
 }
 
 export interface ChangeOrder {
@@ -182,13 +218,16 @@ export interface ChangeOrder {
   createdAt: string;
 }
 
+// --- MODIFIED: OrderLineItem updated to reflect new sample structure ---
 export interface OrderLineItem {
   id: number;
   quantity: number;
   unit: Unit | null;
   totalCost: number | null;
   sampleId: number;
-  styleColor: string;
+  // Denormalized fields for display convenience
+  style: string;
+  color: string | null;
   manufacturerName: string | null;
 }
 
@@ -227,10 +266,6 @@ export interface ActivityLogEntry {
   userEmail: string;
 }
 
-// =================================================================
-//  RBAC MODIFICATIONS
-// =================================================================
-
 export interface User {
   userId: string;
   email: string;
@@ -242,8 +277,6 @@ export interface CurrentUser {
   email: string;
   roles: string[];
 }
-
-// =================================================================
 
 export interface DataContextType extends AppData {
   isLoading: boolean;
@@ -281,7 +314,6 @@ export interface DataContextType extends AppData {
   addQuote: (quote: Omit<Quote, 'id'|'dateSent'>) => Promise<void>;
   updateQuote: (quote: Partial<Quote> & {id: number}) => Promise<void>;
   acceptQuote: (quote: Partial<Quote> & { id: number }) => Promise<void>;
-  // --- MODIFIED: The payload for saveJobDetails is now the entire Job object ---
   saveJobDetails: (jobDetails: Partial<Job>) => Promise<void>;
   updateJob: (job: Job) => void;
   addChangeOrder: (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>) => Promise<void>;

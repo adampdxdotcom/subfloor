@@ -2,21 +2,23 @@
 
 import express from 'express';
 import pool from '../db.js';
-// vvvvvvvvvvvv MODIFIED: Imported the new verifyRole middleware vvvvvvvvvvvv
 import { toCamelCase, logActivity, verifyRole } from '../utils.js';
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
 const getFullOrderById = async (orderId, client = pool) => {
+    // --- MODIFIED QUERY ---
     const query = `
         SELECT
             mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, mo.order_date, mo.eta_date, mo.status,
             COALESCE(
                 (SELECT json_agg(json_build_object(
                     'id', oli.id, 'quantity', oli.quantity, 'unit', oli.unit, 'totalCost', oli.total_cost, 
-                    'sampleId', s.id, 'styleColor', s.style_color, 'manufacturerName', m.name
+                    'sampleId', s.id, 
+                    'style', s.style,      -- REPLACED style_color
+                    'color', s.color,      -- ADDED color
+                    'manufacturerName', m.name
                 )) 
                 FROM order_line_items oli 
                 JOIN samples s ON oli.sample_id = s.id 
@@ -36,6 +38,7 @@ router.get('/', verifySession(), async (req, res) => {
     const { projectId } = req.query;
     let query;
     let queryParams = [];
+    // --- MODIFIED QUERY ---
     const baseQuery = `
         SELECT
             mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, mo.order_date, mo.eta_date, mo.status,
@@ -43,7 +46,9 @@ router.get('/', verifySession(), async (req, res) => {
                 (
                     SELECT json_agg(json_build_object(
                         'id', oli.id, 'quantity', oli.quantity, 'unit', oli.unit,
-                        'totalCost', oli.total_cost, 'sampleId', s.id, 'styleColor', s.style_color,
+                        'totalCost', oli.total_cost, 'sampleId', s.id, 
+                        'style', s.style,       -- REPLACED style_color
+                        'color', s.color,       -- ADDED color
                         'manufacturerName', m.name
                     ))
                     FROM order_line_items oli
@@ -147,12 +152,7 @@ router.put('/:id', verifySession(), async (req, res) => {
     }
 });
 
-// =================================================================
-//  SECURED DELETE ROUTE
-// =================================================================
-// vvvvvvvvvvvv MODIFIED: Added verifyRole('Admin') middleware vvvvvvvvvvvv
 router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => {
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     const { id: orderId } = req.params;
     const userId = req.session.getUserId();
     const client = await pool.connect();

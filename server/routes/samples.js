@@ -14,14 +14,22 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.resolve(path.dirname(__filename), '..');
 
-// GET /api/samples
+// --- MODIFIED: GET /api/samples with new schema fields ---
 router.get('/', verifySession(), async (req, res) => {
   try {
     const query = `
       SELECT
-        s.id, s.manufacturer_id, s.supplier_id, s.style_color, s.sku, s.type, s.is_available, s.product_url,
-        m.name AS manufacturer_name, sup.name AS supplier_name, p.url AS image_url, proj.id AS "checkoutProjectId",
-        proj.project_name AS "checkoutProjectName", cust.full_name AS "checkoutCustomerName", sc.id AS "checkoutId"
+        s.id, s.manufacturer_id, s.supplier_id, s.product_type, s.style, s.line,
+        s.size, s.finish, s.color, s.sample_format, s.board_colors, s.sku, 
+        s.is_available, s.product_url,
+        m.name AS manufacturer_name, 
+        sup.name AS supplier_name, 
+        p.url AS image_url, 
+        proj.id AS "checkoutProjectId",
+        proj.project_name AS "checkoutProjectName", 
+        cust.full_name AS "checkoutCustomerName", 
+        sc.id AS "checkoutId",
+        sc.expected_return_date AS "checkoutExpectedReturnDate"
       FROM samples s
       LEFT JOIN vendors m ON s.manufacturer_id = m.id
       LEFT JOIN vendors sup ON s.supplier_id = sup.id
@@ -29,63 +37,77 @@ router.get('/', verifySession(), async (req, res) => {
       LEFT JOIN sample_checkouts sc ON s.id = sc.sample_id AND sc.actual_return_date IS NULL
       LEFT JOIN projects proj ON sc.project_id = proj.id
       LEFT JOIN customers cust ON proj.customer_id = cust.id
-      ORDER BY s.style_color ASC;
+      ORDER BY s.style ASC, s.color ASC;
     `;
     const result = await pool.query(query);
     res.json(result.rows.map(toCamelCase));
   } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// POST /api/samples
+// --- MODIFIED: POST /api/samples with new schema fields ---
 router.post('/', verifySession(), async (req, res) => {
   const userId = req.session.getUserId();
   try {
-    const { manufacturerId, supplierId, styleColor, sku, type, productUrl } = req.body;
-    const finalSku = (sku === '' || sku === undefined || sku === null) ? null : sku;
-    const finalUrl = (productUrl === '' || productUrl === undefined || productUrl === null) ? null : productUrl;
-    
+    const { 
+      manufacturerId, supplierId, productType, style, line, size, 
+      finish, color, sampleFormat, boardColors, sku, productUrl 
+    } = req.body;
+
+    if (!manufacturerId || !productType || !style) {
+        return res.status(400).json({ error: 'Manufacturer, Product Type, and Style are required.'});
+    }
+
     const result = await pool.query(
-        `INSERT INTO samples (manufacturer_id, supplier_id, style_color, sku, type, product_url) 
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, 
-        [manufacturerId || null, supplierId || null, styleColor, finalSku, type, finalUrl]
+        `INSERT INTO samples (
+            manufacturer_id, supplier_id, product_type, style, line, size, 
+            finish, color, sample_format, board_colors, sku, product_url
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`, 
+        [
+            manufacturerId || null, supplierId || null, productType, style, line || null, size || null, 
+            finish || null, color || null, sampleFormat || null, boardColors || null, sku || null, productUrl || null
+        ]
     );
     const newSample = toCamelCase(result.rows[0]);
 
-    // --- AUDIT LOG ---
     await logActivity(userId, 'CREATE', 'SAMPLE', newSample.id, { createdData: newSample });
-    // --- END AUDIT LOG ---
-
     res.status(201).json(newSample);
   } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// PUT /api/samples/:id
+// --- MODIFIED: PUT /api/samples/:id with new schema fields ---
 router.put('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const userId = req.session.getUserId();
-    const { manufacturerId, supplierId, styleColor, sku, type, productUrl } = req.body;
+    const { 
+      manufacturerId, supplierId, productType, style, line, size, 
+      finish, color, sampleFormat, boardColors, sku, productUrl 
+    } = req.body;
 
-    if (!styleColor || !type) {
-        return res.status(400).json({ error: 'Style/Color and Type are required fields.' });
+    if (!manufacturerId || !productType || !style) {
+        return res.status(400).json({ error: 'Manufacturer, Product Type, and Style are required fields.' });
     }
 
     try {
-        // --- AUDIT LOG: Capture state *before* the update ---
         const beforeResult = await pool.query('SELECT * FROM samples WHERE id = $1', [id]);
         if (beforeResult.rows.length === 0) {
             return res.status(404).json({ error: `Sample with ID ${id} not found.` });
         }
         const beforeData = toCamelCase(beforeResult.rows[0]);
-        // --- END AUDIT LOG ---
 
         const query = `
-            UPDATE samples SET manufacturer_id = $1, supplier_id = $2, style_color = $3, sku = $4, type = $5, product_url = $6
-            WHERE id = $7 RETURNING *;
+            UPDATE samples SET 
+                manufacturer_id = $1, supplier_id = $2, product_type = $3, style = $4, line = $5, 
+                size = $6, finish = $7, color = $8, sample_format = $9, board_colors = $10, 
+                sku = $11, product_url = $12
+            WHERE id = $13 RETURNING *;
         `;
-        const finalSku = (sku === '' || sku === undefined) ? null : sku;
-        const finalUrl = (productUrl === '' || productUrl === undefined) ? null : productUrl;
-        await pool.query(query, [manufacturerId || null, supplierId || null, styleColor, finalSku, type, finalUrl, id]);
+        await pool.query(query, [
+            manufacturerId || null, supplierId || null, productType, style, line || null, size || null,
+            finish || null, color || null, sampleFormat || null, boardColors || null, sku || null, productUrl || null,
+            id
+        ]);
         
+        // Query again with joins to get full data for response and logging
         const updatedSampleQuery = `
             SELECT s.*, m.name AS manufacturer_name, sup.name AS supplier_name, p.url AS image_url
             FROM samples s
@@ -97,10 +119,7 @@ router.put('/:id', verifySession(), async (req, res) => {
         const fullResult = await pool.query(updatedSampleQuery, [id]);
         const updatedSample = toCamelCase(fullResult.rows[0]);
 
-        // --- AUDIT LOG ---
         await logActivity(userId, 'UPDATE', 'SAMPLE', id, { before: beforeData, after: updatedSample });
-        // --- END AUDIT LOG ---
-
         res.json(updatedSample);
     } catch (err) {
         console.error(err.message);
@@ -108,7 +127,7 @@ router.put('/:id', verifySession(), async (req, res) => {
     }
 });
 
-// GET /api/samples/:id/history
+// GET /api/samples/:id/history (Unchanged)
 router.get('/:id/history', verifySession(), async (req, res) => {
     const { id } = req.params;
     try {
@@ -126,7 +145,7 @@ router.get('/:id/history', verifySession(), async (req, res) => {
     }
 });
 
-// DELETE /api/samples/:id
+// DELETE /api/samples/:id (Unchanged)
 router.delete('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const userId = req.session.getUserId();
@@ -170,9 +189,7 @@ router.delete('/:id', verifySession(), async (req, res) => {
     }
 });
 
-// =================================================================
-//  GET /api/samples/:id/qr  <<< THIS IS THE MISSING PIECE
-// =================================================================
+// GET /api/samples/:id/qr (Unchanged)
 router.get('/:id/qr', async (req, res) => {
     const { id } = req.params;
     try {
@@ -190,6 +207,5 @@ router.get('/:id/qr', async (req, res) => {
         res.status(500).json({ error: 'Failed to generate QR code' });
     }
 });
-// =================================================================
 
 export default router;

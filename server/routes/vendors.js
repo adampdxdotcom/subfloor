@@ -2,23 +2,39 @@
 
 import express from 'express';
 import pool from '../db.js';
-// vvvvvvvvvvvv MODIFIED: Imported the new verifyRole middleware vvvvvvvvvvvv
 import { toCamelCase, logActivity, verifyRole } from '../utils.js';
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 
 const router = express.Router();
 
-// GET all vendors
+// --- MODIFIED: GET all vendors with sample counts for manufacturers ---
 router.get('/', verifySession(), async (req, res) => {
     try {
         const query = `
             SELECT 
-                id, name, is_manufacturer, is_supplier, phone, address, 
-                ordering_email, claims_email, rep_name, rep_phone, rep_email, 
-                shipping_method, dedicated_shipping_day, notes
-            FROM vendors 
-            ORDER BY name ASC
+                v.id,
+                v.name,
+                v.vendor_type,
+                v.default_product_type,
+                v.phone,
+                v.address,
+                v.ordering_email,
+                v.claims_email,
+                v.rep_name,
+                v.rep_phone,
+                v.rep_email,
+                v.shipping_method,
+                v.dedicated_shipping_day,
+                v.notes,
+                COUNT(s.id) AS sample_count
+            FROM 
+                vendors v
+            LEFT JOIN 
+                samples s ON v.id = s.manufacturer_id
+            GROUP BY
+                v.id
+            ORDER BY 
+                v.name ASC;
         `;
         const result = await pool.query(query);
         res.json(result.rows.map(toCamelCase));
@@ -28,11 +44,11 @@ router.get('/', verifySession(), async (req, res) => {
     }
 });
 
-// POST a new vendor
+// --- MODIFIED: POST a new vendor using new schema ---
 router.post('/', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
     const { 
-        name, isManufacturer, isSupplier, phone, address, orderingEmail, 
+        name, vendorType, defaultProductType, phone, address, orderingEmail, 
         claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes 
     } = req.body;
 
@@ -43,17 +59,18 @@ router.post('/', verifySession(), async (req, res) => {
     try {
         const query = `
             INSERT INTO vendors (
-                name, is_manufacturer, is_supplier, phone, address, ordering_email, 
+                name, vendor_type, default_product_type, phone, address, ordering_email, 
                 claims_email, rep_name, rep_phone, rep_email, shipping_method, dedicated_shipping_day, notes
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING *;
         `;
         const values = [
-            name, isManufacturer || false, isSupplier || false, phone, address, orderingEmail,
+            name, vendorType, defaultProductType, phone, address, orderingEmail,
             claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes
         ];
         const result = await pool.query(query, values);
-        const newVendor = toCamelCase(result.rows[0]);
+        // The GET route will add the sample_count, but for a new vendor it's always 0.
+        const newVendor = { ...toCamelCase(result.rows[0]), sampleCount: 0 };
         await logActivity(userId, 'CREATE', 'VENDOR', newVendor.id, { createdData: newVendor });
         res.status(201).json(newVendor);
     } catch (err) {
@@ -62,12 +79,12 @@ router.post('/', verifySession(), async (req, res) => {
     }
 });
 
-// PUT (update) a vendor
+// --- MODIFIED: PUT (update) a vendor using new schema ---
 router.put('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const userId = req.session.getUserId();
     const { 
-        name, isManufacturer, isSupplier, phone, address, orderingEmail, 
+        name, vendorType, defaultProductType, phone, address, orderingEmail, 
         claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes 
     } = req.body;
 
@@ -83,14 +100,14 @@ router.put('/:id', verifySession(), async (req, res) => {
         const beforeData = toCamelCase(beforeResult.rows[0]);
         const query = `
             UPDATE vendors SET
-                name = $1, is_manufacturer = $2, is_supplier = $3, phone = $4, address = $5,
+                name = $1, vendor_type = $2, default_product_type = $3, phone = $4, address = $5,
                 ordering_email = $6, claims_email = $7, rep_name = $8, rep_phone = $9,
                 rep_email = $10, shipping_method = $11, dedicated_shipping_day = $12, notes = $13
             WHERE id = $14
             RETURNING *;
         `;
         const values = [
-            name, isManufacturer, isSupplier, phone, address, orderingEmail,
+            name, vendorType, defaultProductType, phone, address, orderingEmail,
             claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
             id
         ];
@@ -104,7 +121,7 @@ router.put('/:id', verifySession(), async (req, res) => {
     }
 });
 
-// GET /api/vendors/:id/history
+// GET /api/vendors/:id/history (Unchanged)
 router.get('/:id/history', verifySession(), async (req, res) => {
     const { id } = req.params;
     try {
@@ -125,12 +142,8 @@ router.get('/:id/history', verifySession(), async (req, res) => {
     }
 });
 
-// =================================================================
-//  SECURED DELETE ROUTE
-// =================================================================
-// vvvvvvvvvvvv MODIFIED: Added verifyRole('Admin') middleware vvvvvvvvvvvv
+// DELETE /api/vendors/:id (Unchanged)
 router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => {
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     const { id } = req.params;
     const userId = req.session.getUserId();
     try {

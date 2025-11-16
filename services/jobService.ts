@@ -18,19 +18,24 @@ export const getJobs = async (): Promise<Job[]> => {
 };
 
 /**
- * --- NEW ---
- * Fetches a single, complete job object, including all its appointments, for a given project ID.
+ * --- MODIFIED ---
+ * Fetches a single, complete job object for a given project ID.
+ * Returns null if no job is found (404), which is an expected condition.
  */
-export const getJobForProject = async (projectId: number): Promise<Job> => {
+export const getJobForProject = async (projectId: number): Promise<Job | null> => {
     const response = await fetch(`${API_BASE_URL}/project/${projectId}`);
-    if (!response.ok) {
-        if (response.status === 404) {
-            // This is not a server error, but a valid case where a job hasn't been created yet.
-            // Return null or a specific structure to indicate this. Let's throw a specific error.
-            throw new Error('NoJobFound');
-        }
-        throw new Error(`Failed to fetch job for project ${projectId}.`);
+    
+    // --- THIS IS THE FIX ---
+    // If the status is 404, we gracefully return null.
+    if (response.status === 404) {
+        return null;
     }
+
+    // For any other non-ok status, we throw a real error.
+    if (!response.ok) {
+        throw new Error(`Failed to fetch job for project ${projectId}. Status: ${response.status}`);
+    }
+
     return response.json();
 };
 
@@ -47,7 +52,6 @@ export const saveJobDetails = async (jobDetails: Partial<Job>): Promise<Job> => 
         body: JSON.stringify(jobDetails)
     });
     if (!response.ok) {
-        // Try to get more detailed error from backend
         const errorData = await response.json().catch(() => ({ error: 'Failed to save job details.' }));
         throw new Error(errorData.error || 'Failed to save job details.');
     }
