@@ -17,7 +17,7 @@ router.get('/', verifySession(), async (req, res) => {
                 COALESCE(
                     (
                         SELECT json_agg(job_details ORDER BY "scheduledStartDate" DESC)
-                        FROM (
+                        FROM ( -- This subquery returns camelCased field names, which is correct
                             SELECT
                                 p.id AS "projectId",
                                 p.project_name AS "projectName",
@@ -37,7 +37,15 @@ router.get('/', verifySession(), async (req, res) => {
             ORDER BY i.installer_name ASC;
         `;
         const result = await pool.query(query);
-        res.json(result.rows.map(toCamelCase));
+        // --- CORRECTED: The previous toCamelCase was insufficient. ---
+        // We need to remap the results to ensure the top-level keys are camelCased
+        // while preserving the already-correctly-cased nested 'jobs' array.
+        const finalResult = result.rows.map(row => {
+            const camelCasedRow = toCamelCase(row);
+            // The nested jobs array is already correctly cased by the SQL aliases
+            return { ...camelCasedRow, jobs: row.jobs };
+        });
+        res.json(finalResult);
     } catch (err) {
         console.error('Error in GET /api/installers:', err.message);
         res.status(500).json({ error: 'Internal server error' });
@@ -232,7 +240,7 @@ router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => 
         }
 
         const deletedData = toCamelCase(installerToDelete.rows[0]);
-        await pool.query('DELETE FROM installers WHERE id = $1');
+        await pool.query('DELETE FROM installers WHERE id = $1', [id]); // Fixed missing parameter
 
         await logActivity(userId, 'DELETE', 'INSTALLER', id, { deletedData });
 

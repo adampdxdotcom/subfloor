@@ -27,6 +27,7 @@ import vendorRoutes from './routes/vendors.js';
 import userRoutes from './routes/users.js'; 
 import roleRoutes from './routes/roles.js'; // <-- MODIFIED: Imported the new role routes
 import preferenceRoutes from './routes/preferences.js'; // <-- NEW
+import eventRoutes from './routes/events.js'; // <-- ADDED: Import the new event routes
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -104,6 +105,7 @@ app.use('/api/vendors', vendorRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes); // <-- MODIFIED: Registered the new role routes
 app.use('/api/preferences', preferenceRoutes); // <-- NEW
+app.use('/api/events', eventRoutes); // <-- ADDED: Register the new event routes
 
 app.use(errorHandler());
 

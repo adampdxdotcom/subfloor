@@ -16,12 +16,9 @@ router.get('/', verifySession(), async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            // If no preferences exist for this user yet, return a default empty object.
-            // This is good practice and prevents the frontend from having to handle null/undefined.
             return res.status(200).json({});
         }
 
-        // Return the 'preferences' JSONB object directly.
         res.status(200).json(result.rows[0].preferences);
 
     } catch (err) {
@@ -33,16 +30,18 @@ router.get('/', verifySession(), async (req, res) => {
 // PUT (create or update) the preferences for the currently logged-in user
 router.put('/', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
-    const { projectDetailLayout } = req.body; // Expecting a specific key for now
+    // --- MODIFIED: Accept the entire request body as the preferences object ---
+    const preferencesPayload = req.body;
 
-    if (!projectDetailLayout) {
-        return res.status(400).json({ error: 'Missing preferences data in request body' });
+    // --- MODIFIED: Validate that the body is a non-empty object ---
+    if (!preferencesPayload || typeof preferencesPayload !== 'object' || Object.keys(preferencesPayload).length === 0) {
+        return res.status(400).json({ error: 'Missing or empty preferences data in request body' });
     }
 
     try {
-        // This is an "UPSERT" query.
+        // --- MODIFIED: The UPSERT query now merges the new payload with existing data ---
         // It tries to INSERT a new row. If it fails because the user_id already exists (violates UNIQUE constraint),
-        // it then performs an UPDATE on the existing row instead.
+        // it then performs an UPDATE, merging the old and new JSONB data.
         const query = `
             INSERT INTO user_preferences (user_id, preferences, updated_at)
             VALUES ($1, $2, NOW())
@@ -52,9 +51,6 @@ router.put('/', verifySession(), async (req, res) => {
                 updated_at = NOW()
             RETURNING preferences;
         `;
-
-        // We wrap our layout in an object to match the expected JSONB structure.
-        const preferencesPayload = { projectDetailLayout };
 
         const result = await pool.query(query, [userId, preferencesPayload]);
         

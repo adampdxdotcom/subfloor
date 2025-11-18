@@ -568,3 +568,29 @@ We graduated the feature from a prototype using localStorage to a production-rea
     Solved "Stuck in Edit Mode" Bug (CRITICAL): We diagnosed and fixed a critical architectural flaw where using useLocation inside our top-level DataContext was causing the app to crash. We solved this by creating a dedicated, headless NavigationListener component placed correctly within the router's context (Layout.tsx) to reliably turn off edit mode upon navigation.
 
     Eliminated the "Danger Zone" Panel: After a persistent resizing bug with the "Delete Project" panel, we pivoted to a superior architectural solution. We moved the delete functionality to a clean, admin-only button in the ProjectInfoHeader, allowing us to completely remove the problematic panel from the grid and delete the DeleteProjectSection.tsx component, simplifying the entire page.
+
+    Session 12
+
+Today's Accomplishments
+
+    Integrated Material Orders into the Calendar: We started by pulling in Material Order ETAs from the database and displaying them on the calendar with a distinct color, giving you a unified view of both installation schedules and logistics.
+
+    Built a Full-Stack "User Appointment" System: This was the biggest architectural change.
+
+        Database: We successfully performed a live database migration to add new events and event_attendees tables, creating a robust foundation for all future calendar features.
+
+        Backend: We built a brand new, secure CRUD API (/api/events) to create, update, and delete these new appointments from scratch.
+
+        Frontend: We replaced the simple placeholder modal with a full-featured "Add/Edit Appointment" form, complete with fields for time, notes, and a multi-select dropdown for attendees.
+
+    Implemented a Multi-Entity Attendee System: We fulfilled your requirement to invite different types of people to an event. The appointment modal now correctly lists both Users and Installers, allowing you to schedule meetings with anyone in the system.
+
+    Rolled out User-Specific Colors: We built a complete, end-to-end feature for user customization.
+
+        The backend was upgraded to join with user preferences and serve each user's chosen color.
+
+        The Settings page now has a new "My Settings" tab with a working color picker that saves preferences to the database.
+
+        The calendar now uses these colors, dynamically changing an appointment's color based on who the single attendee is, providing instant visual recognition.
+
+    Created a Powerful, Unified Calendar Filter: We refactored the simple installer filter into a comprehensive component that now allows you to filter the calendar view by any combination of Users and Installers, giving you precise control over the schedule you see.

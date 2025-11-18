@@ -229,7 +229,7 @@ const SampleLibrary: React.FC = () => {
         </div>
       )}
 
-      {isDetailModalOpen && selectedSample && (<SampleDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} sample={selectedSample} />)}
+      {isDetailModalOpen && selectedSample && (<SampleDetailModal key={selectedSample.id} isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} sample={selectedSample} />)}
       
       {/* AddEditVendorModal is no longer needed here as it's inside SampleForm */}
     </div>

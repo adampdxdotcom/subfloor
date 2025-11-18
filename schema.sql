@@ -135,20 +135,12 @@ CREATE TABLE photos (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- =================================================================
--- NEW TABLE FOR MULTIPLE SIZES PER SAMPLE
--- =================================================================
-
 CREATE TABLE sample_sizes (
     id SERIAL PRIMARY KEY,
     sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
     size_value TEXT NOT NULL,
     UNIQUE(sample_id, size_value)
 );
-
--- =================================================================
--- AUDITING
--- =================================================================
 
 CREATE TABLE activity_log (
     id BIGSERIAL PRIMARY KEY,
@@ -161,11 +153,6 @@ CREATE TABLE activity_log (
 );
 
 CREATE INDEX idx_activity_log_target ON activity_log(target_entity, target_id);
-
--- =================================================================
--- ROLE-BASED ACCESS CONTROL (RBAC)
--- Tables are prefixed with 'app_' to avoid conflicts with SuperTokens' internal tables.
--- =================================================================
 
 CREATE TABLE app_roles (
     id SERIAL PRIMARY KEY,
@@ -190,11 +177,6 @@ CREATE TABLE job_appointments (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- =================================================================
--- USER PREFERENCES
--- Stores user-specific settings, such as custom UI layouts.
--- =================================================================
-
 CREATE TABLE user_preferences (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL UNIQUE,
@@ -204,9 +186,39 @@ CREATE TABLE user_preferences (
 );
 
 CREATE INDEX idx_user_preferences_user_id ON user_preferences(user_id);
-
 CREATE INDEX idx_job_appointments_job_id ON job_appointments(job_id);
 
 INSERT INTO app_roles (name, description) VALUES
 ('Admin', 'Full access to all system features, including user management and settings.'),
 ('User', 'Standard user with access to daily operations like creating and managing projects.');
+
+-- =================================================================
+-- NEW TABLES FOR ADVANCED CALENDAR EVENTS (PHASE 1)
+-- =================================================================
+
+-- The new central table for all scheduled items
+CREATE TABLE events (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    notes TEXT,
+    start_time TIMESTAMPTZ NOT NULL, -- Full timestamp for time of day
+    end_time TIMESTAMPTZ NOT NULL,   -- Full timestamp for time of day
+    is_all_day BOOLEAN DEFAULT FALSE,
+    
+    -- Link to a job (optional, for billable time)
+    job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL, 
+    
+    -- For creator/owner information
+    created_by_user_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Join table for many-to-many relationship with attendees
+CREATE TABLE event_attendees (
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    -- We'll use a text field for the ID to accommodate different sources
+    attendee_id VARCHAR(255) NOT NULL, 
+    -- Type helps us know which table to look up ('user' or 'installer')
+    attendee_type VARCHAR(50) NOT NULL, 
+    PRIMARY KEY (event_id, attendee_id, attendee_type)
+);

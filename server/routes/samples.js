@@ -1,9 +1,8 @@
 import express from 'express';
 import pool from '../db.js';
-// --- MODIFIED: Import verifyRole for our new admin routes ---
 import { toCamelCase, logActivity, verifyRole } from '../utils.js';
 import path from 'path';
-import fs from 'fs';
+import fs from 'fs'; 
 import { fileURLToPath } from 'url';
 import qrcode from 'qrcode';
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
@@ -11,7 +10,7 @@ import { verifySession } from 'supertokens-node/recipe/session/framework/express
 const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.resolve(path.dirname(__filename), '..');
+const __dirname = path.resolve(path.dirname(__filename), '..'); 
 
 // --- Endpoint to get all unique size values for autocomplete ---
 router.get('/sizes', verifySession(), async (req, res) => {
@@ -25,7 +24,7 @@ router.get('/sizes', verifySession(), async (req, res) => {
     }
 });
 
-// --- NEW: Endpoint for Admins to rename a size value globally ---
+// --- Endpoint for Admins to rename a size value globally ---
 router.put('/sizes', verifySession(), verifyRole('Admin'), async (req, res) => {
     const { oldValue, newValue } = req.body;
     if (!oldValue || !newValue) {
@@ -41,7 +40,7 @@ router.put('/sizes', verifySession(), verifyRole('Admin'), async (req, res) => {
     }
 });
 
-// --- NEW: Endpoint for Admins to delete a size value globally ---
+// --- Endpoint for Admins to delete a size value globally ---
 router.delete('/sizes', verifySession(), verifyRole('Admin'), async (req, res) => {
     const { value } = req.body;
     if (!value) {
@@ -50,8 +49,6 @@ router.delete('/sizes', verifySession(), verifyRole('Admin'), async (req, res) =
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-
-        // Safety Check: See if any samples are still using this size
         const usageCheckQuery = 'SELECT COUNT(*) FROM sample_sizes WHERE size_value = $1';
         const usageResult = await client.query(usageCheckQuery, [value]);
         const usageCount = parseInt(usageResult.rows[0].count, 10);
@@ -62,14 +59,6 @@ router.delete('/sizes', verifySession(), verifyRole('Admin'), async (req, res) =
                 error: `Cannot delete size '${value}' as it is still in use by ${usageCount} sample(s).` 
             });
         }
-
-        // If not in use, proceed with deletion
-        const deleteQuery = 'DELETE FROM sample_sizes WHERE size_value = $1';
-        // Note: This seems counterintuitive, but if a size exists nowhere, we can't delete it.
-        // Let's rephrase the logic. We should delete from a hypothetical 'sizes' table, not 'sample_sizes'
-        // For our current structure, if usageCount is 0, there's nothing to delete. 
-        // This endpoint is more of a safeguard. Let's just return success.
-        
         await client.query('COMMIT');
         res.status(200).json({ message: `Size '${value}' is not in use and is considered removed.` });
 
@@ -222,19 +211,105 @@ router.put('/:id', verifySession(), async (req, res) => {
     }
 });
 
-// --- GET /api/samples/:id/history ---
+// --- CORRECTED GET /api/samples/:id/history ---
 router.get('/:id/history', verifySession(), async (req, res) => {
-    // ...
+    const { id } = req.params;
+    try {
+        const query = `
+            SELECT al.*, u.email AS user_email 
+            FROM activity_log al
+            LEFT JOIN emailpassword_users u ON al.user_id = u.user_id
+            WHERE al.target_entity = 'SAMPLE' AND al.target_id = $1
+            ORDER BY al.created_at DESC;
+        `;
+        const result = await pool.query(query, [id]);
+        res.json(result.rows.map(toCamelCase));
+    } catch (err) {
+        console.error(`Failed to fetch history for sample ${id}:`, err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // --- DELETE /api/samples/:id ---
-router.delete('/:id', verifySession(), async (req, res) => {
-    // ...
+router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => {
+    const { id } = req.params;
+    const userId = req.session.getUserId();
+    const client = await pool.connect();
+    let photoUrl = null;
+    try {
+        await client.query('BEGIN');
+        
+        const checkoutCheck = await client.query('SELECT id FROM sample_checkouts WHERE sample_id = $1 AND actual_return_date IS NULL', [id]);
+        if (checkoutCheck.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Cannot delete sample because it is currently checked out.' });
+        }
+        
+        const orderCheckResult = await client.query('SELECT 1 FROM material_order_items WHERE sample_id = $1 LIMIT 1', [id]);
+        if (orderCheckResult.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Cannot delete sample because it is part of a material order.' });
+        }
+
+        const sampleDataResult = await client.query('SELECT * FROM samples WHERE id = $1', [id]);
+        if (sampleDataResult.rows.length === 0) {
+            return res.status(404).json({ message: `Sample with ID ${id} not found.` });
+        }
+        
+        const photoResult = await client.query("SELECT url FROM photos WHERE entity_type = 'sample' AND entity_id = $1", [id]);
+        if (photoResult.rows.length > 0) {
+            photoUrl = photoResult.rows[0].url;
+        }
+
+        await logActivity(userId, 'DELETE', 'SAMPLE', id, { deletedData: toCamelCase(sampleDataResult.rows[0]) }, client);
+
+        await client.query('DELETE FROM photos WHERE entity_type = \'sample\' AND entity_id = $1', [id]);
+        await client.query('DELETE FROM sample_checkouts WHERE sample_id = $1', [id]);
+        await client.query('DELETE FROM sample_sizes WHERE sample_id = $1', [id]);
+        
+        const deleteResult = await client.query('DELETE FROM samples WHERE id = $1', [id]);
+        if (deleteResult.rowCount === 0) {
+            throw new Error(`Sample with ID ${id} not found during delete operation.`);
+        }
+        
+        await client.query('COMMIT');
+
+        if (photoUrl) {
+            const filename = path.basename(photoUrl);
+            const filePath = path.join(__dirname, 'uploads', filename);
+            fs.unlink(filePath, (err) => { 
+                if (err) console.error(`Error deleting file ${filePath}:`, err.message); 
+            });
+        }
+        
+        res.status(204).send();
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`Error deleting sample ${id}:`, err.message);
+        res.status(500).json({ message: 'Internal server error' });
+    } finally {
+        client.release();
+    }
 });
 
 // --- GET /api/samples/:id/qr ---
 router.get('/:id/qr', async (req, res) => {
-    // ...
+    const { id } = req.params;
+    const url = `${process.env.BASE_URL || 'http://localhost:5173'}/scan-result?sampleId=${id}`; 
+
+    try {
+        const qrCodeImage = await qrcode.toBuffer(url, {
+            errorCorrectionLevel: 'H',
+            type: 'image/png',
+            margin: 1,
+            color: { dark: "#000000", light: "#FFFFFF" }
+        });
+        res.setHeader('Content-Type', 'image/png');
+        res.send(qrCodeImage);
+    } catch (err) {
+        console.error('Failed to generate QR code for sample ID:', id, err);
+        res.status(500).send('Error generating QR code');
+    }
 });
 
 export default router;

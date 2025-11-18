@@ -12,8 +12,12 @@ const router = express.Router();
 // GET /api/users - Fetch all users
 router.get('/', verifySession(), async (req, res, next) => {
   try {
+    // --- MODIFIED: Added a LEFT JOIN to user_preferences to get the color ---
     const query = `
-      SELECT a.user_id, e.email,
+      SELECT 
+        a.user_id, 
+        e.email,
+        up.preferences->>'color' AS color, -- Extracts the 'color' value from the JSONB
         COALESCE( (
             SELECT json_agg(r.name) FROM app_user_roles ur
             JOIN app_roles r ON ur.role_id = r.id
@@ -21,11 +25,15 @@ router.get('/', verifySession(), async (req, res, next) => {
         ), '[]'::json ) AS roles
       FROM all_auth_recipe_users AS a
       JOIN emailpassword_users AS e ON a.user_id = e.user_id
+      LEFT JOIN user_preferences up ON a.user_id = up.user_id
       ORDER BY e.email ASC;
     `;
     const result = await pool.query(query);
     const users = result.rows.map(row => ({
-      userId: row.user_id, email: row.email, roles: row.roles,
+      userId: row.user_id,
+      email: row.email,
+      roles: row.roles,
+      color: row.color || null, // Ensure color is null if not set, not undefined
     }));
     res.json(users);
   } catch (err) {
@@ -38,14 +46,19 @@ router.get('/', verifySession(), async (req, res, next) => {
 router.get('/me', verifySession(), async (req, res, next) => {
   try {
     const userId = req.session.getUserId();
+    // --- MODIFIED: Also fetch the color for the current user ---
     const query = `
-      SELECT epu.user_id, epu.email,
+      SELECT 
+          epu.user_id, 
+          epu.email,
+          up.preferences->>'color' AS color,
           COALESCE( (
               SELECT json_agg(r.name) FROM app_user_roles ur
               JOIN app_roles r ON ur.role_id = r.id
               WHERE ur.user_id = epu.user_id
           ), '[]'::json ) AS roles
       FROM emailpassword_users epu
+      LEFT JOIN user_preferences up ON epu.user_id = up.user_id
       WHERE epu.user_id = $1;
     `;
     const result = await pool.query(query, [userId]);
@@ -53,7 +66,10 @@ router.get('/me', verifySession(), async (req, res, next) => {
       return res.status(404).json({ message: 'User not found.' });
     }
     const user = {
-      userId: result.rows[0].user_id, email: result.rows[0].email, roles: result.rows[0].roles
+      userId: result.rows[0].user_id,
+      email: result.rows[0].email,
+      roles: result.rows[0].roles,
+      color: result.rows[0].color || null,
     };
     res.json(user);
   } catch (err) {

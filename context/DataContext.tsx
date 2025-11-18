@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
-import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UiPreferences } from '../types';
+import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UiPreferences, User } from '../types';
 import { toast } from 'react-hot-toast';
 
 import { useSessionContext } from 'supertokens-auth-react/recipe/session';
@@ -21,7 +21,7 @@ import { debounce } from 'lodash'; // <-- NEW
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const emptyInitialData: AppData = {
-  customers: [], projects: [], samples: [], sampleCheckouts: [], installers: [], quotes: [], jobs: [], changeOrders: [], materialOrders: [], vendors: []
+  customers: [], projects: [], samples: [], sampleCheckouts: [], installers: [], quotes: [], jobs: [], changeOrders: [], materialOrders: [], vendors: [], users: []
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -30,12 +30,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
+  // --- CORRECTED: Initialize state with a safe empty array ---
+  const [users, setUsers] = useState<User[]>([]);
+
   // --- NEW: State for Layout Edit Mode ---
   const [isLayoutEditMode, setIsLayoutEditMode] = useState(false);
 
   // --- NEW: State for UI Preferences ---
   const [uiPreferences, setUiPreferences] = useState<UiPreferences | null>(null);
 
+  // --- CORRECTED: Initialize all history states with a safe empty array ---
   const [customerHistory, setCustomerHistory] = useState<ActivityLogEntry[]>([]);
   const [projectHistory, setProjectHistory] = useState<ActivityLogEntry[]>([]);
   const [quotesHistory, setQuotesHistory] = useState<ActivityLogEntry[]>([]);
@@ -52,17 +56,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- NEW: Function to save preferences, debounced to prevent API spam ---
   const saveUserPreferences = useCallback(
     debounce(async (newPreferences: UiPreferences) => {
+      // --- CORRECTED: Merge new preferences with existing ones before saving ---
+      const fullPreferences = { ...uiPreferences, ...newPreferences };
       try {
         // Optimistically update local state for immediate UI feedback
-        setUiPreferences(prev => ({...prev, ...newPreferences})); 
-        await preferenceService.savePreferences(newPreferences);
-        // No toast on success to keep it subtle, but you could add one
+        setUiPreferences(fullPreferences); 
+        await preferenceService.savePreferences(fullPreferences);
       } catch (error) {
         console.error("Failed to save preferences:", error);
         toast.error("Could not save layout preferences.");
       }
     }, 1000), // Debounce for 1 second
-    []
+    [uiPreferences] // Add uiPreferences as a dependency
   );
 
 
@@ -82,9 +87,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const fetchInitialData = useCallback(() => {
+  // --- ADDED: A reusable function to fetch all users ---
+  const fetchAllUsers = useCallback(async () => {
+    try {
+      const allUsers = await userService.getUsers();
+      setUsers(allUsers);
+    } catch (error) {
+      console.error("Failed to fetch all users:", error);
+      setUsers([]); // Fallback to empty array on error
+    }
+  }, []);
+
+  const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
-    Promise.all([
+    await Promise.all([
       customerService.getCustomers(),
       projectService.getProjects(),
       sampleService.getSamples(),
@@ -108,6 +124,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         changeOrders: Array.isArray(changeOrdersData) ? changeOrdersData : [],
         materialOrders: Array.isArray(materialOrdersData) ? materialOrdersData : [],
         vendors: Array.isArray(vendorsData) ? vendorsData : [],
+        users: [],
       });
     })
     .catch(error => {
@@ -127,6 +144,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (sessionContext.doesSessionExist) {
         fetchInitialData();
+        fetchAllUsers(); // Fetch all users on initial load
         fetchCurrentUser();
     } else {
         setData(emptyInitialData);
@@ -134,7 +152,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUiPreferences(null); // Clear preferences on logout
         setIsLoading(false);
     }
-  }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser]);
+  }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser, fetchAllUsers]);
   
   
   const fetchCustomerHistory = useCallback(async (customerId: number) => {
@@ -459,7 +477,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (project && project.status === ProjectStatus.SAMPLE_CHECKOUT) {
         await updateProject({ id: project.id, status: ProjectStatus.AWAITING_DECISION });
       }
-    } catch (error) { 
+    } catch (error) 
+      { 
       console.error("Error updating sample checkout:", error); 
       toast.error((error as Error).message); 
       throw error; 
@@ -674,6 +693,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     ...data,
     isLoading,
     currentUser,
+    fetchCurrentUser, // <-- ADDED: Expose the function to the context
+    fetchAllUsers, // <-- ADDED: Expose the new function
+    users, // <-- ADDED: Expose the users list to the context
 
     // --- NEW: Add new state and function to the provider value ---
     isLayoutEditMode,

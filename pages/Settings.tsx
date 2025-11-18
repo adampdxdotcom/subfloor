@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DownloadCloud, Database, Image as ImageIcon, AlertTriangle, Users, Trash2, Save, FileSliders } from 'lucide-react';
+import { DownloadCloud, Database, Image as ImageIcon, AlertTriangle, Users, Trash2, Save, FileSliders, UserCog, Palette } from 'lucide-react';
 import RestoreForm from '../components/RestoreForm';
 import { User } from '../types';
 import * as userService from '../services/userService';
@@ -181,13 +181,72 @@ const BackupRestoreSection: React.FC = () => {
 };
 
 // =================================================================
+// MODIFIED: USER SETTINGS COMPONENT
+// =================================================================
+const UserSettingsSection: React.FC = () => {
+    const { uiPreferences, saveUserPreferences, fetchCurrentUser, fetchAllUsers } = useData();
+    const [color, setColor] = useState('#ffffff');
+
+    // Sync local state when global preferences are loaded
+    useEffect(() => {
+        if (uiPreferences?.color) {
+            setColor(uiPreferences.color);
+        }
+    }, [uiPreferences]);
+
+    const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newColor = e.target.value;
+        setColor(newColor);
+        // Debounced function from context will handle saving
+        saveUserPreferences({ color: newColor });
+    };
+    
+    // This is a subtle UX improvement. After the debounced save, we can refetch
+    // the currentUser to ensure their color property is updated everywhere immediately.
+    const handleColorSave = async () => {
+        await saveUserPreferences.flush(); // Instantly trigger the debounced save
+        await fetchCurrentUser(); // Refetch user data to get the new color
+        await fetchAllUsers(); // Refetch the main user list to prevent stale data
+        toast.success("Color preference saved!");
+    };
+
+    return (
+        <section className="bg-surface p-6 rounded-lg shadow-md border border-border">
+            <h2 className="text-2xl font-semibold text-text-primary mb-4">
+                My Settings
+            </h2>
+            <div className="space-y-4 max-w-md">
+                <div className="flex items-center gap-4 p-4 bg-gray-800 rounded-md">
+                    <Palette className="w-6 h-6 text-accent" />
+                    <label htmlFor="userColor" className="font-medium text-text-secondary">
+                        My Calendar Color
+                    </label>
+                    <input
+                        type="color"
+                        id="userColor"
+                        value={color}
+                        onChange={handleColorChange}
+                        className="ml-auto w-24 h-10 p-1 bg-gray-700 border border-border rounded-md cursor-pointer"
+                    />
+                </div>
+                <div className="flex justify-end">
+                    <button onClick={handleColorSave} className="flex items-center gap-2 py-2 px-4 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
+                        <Save size={16}/> Save Preferences
+                    </button>
+                </div>
+            </div>
+        </section>
+    );
+};
+
+// =================================================================
 // MAIN SETTINGS PAGE COMPONENT
 // =================================================================
 const Settings: React.FC = () => {
     const { currentUser } = useData();
     const isAdmin = currentUser?.roles?.includes('Admin');
     
-    const [activeTab, setActiveTab] = useState<'users' | 'backup' | 'data'>(isAdmin ? 'users' : 'backup');
+    const [activeTab, setActiveTab] = useState<'mySettings' | 'users' | 'backup' | 'data'>(isAdmin ? 'mySettings' : 'backup');
 
     useEffect(() => {
         if (!isAdmin && (activeTab === 'users' || activeTab === 'data')) {
@@ -198,7 +257,14 @@ const Settings: React.FC = () => {
     return (
         <div className="container mx-auto p-4 md:p-8">
             <h1 className="text-3xl font-bold text-text-primary mb-6">Settings</h1>
-            <div className="flex border-b border-border mb-8">
+            <div className="flex flex-wrap border-b border-border mb-8">
+                <button
+                    onClick={() => setActiveTab('mySettings')}
+                    className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'mySettings' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                >
+                    <UserCog className="w-5 h-5 inline-block mr-2 mb-1" />
+                    My Settings
+                </button>
                 {isAdmin && (
                     <>
                         <button
@@ -208,24 +274,27 @@ const Settings: React.FC = () => {
                             <Users className="w-5 h-5 inline-block mr-2 mb-1" />
                             User Management
                         </button>
-                        <button
-                            onClick={() => setActiveTab('data')}
-                            className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'data' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
-                        >
-                            <FileSliders className="w-5 h-5 inline-block mr-2 mb-1" />
-                            Data Management
-                        </button>
                     </>
                 )}
                 <button
                     onClick={() => setActiveTab('backup')}
-                    className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'backup' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                    className={`py-3 px-6 text-lg font-semibold transition-colors  ${activeTab === 'backup' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
                 >
                     <DownloadCloud className="w-5 h-5 inline-block mr-2 mb-1" />
                     Backup & Restore
                 </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => setActiveTab('data')}
+                        className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'data' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                    >
+                        <FileSliders className="w-5 h-5 inline-block mr-2 mb-1" />
+                        Data Management
+                    </button>
+                )}
             </div>
             <div>
+                {activeTab === 'mySettings' && <UserSettingsSection />}
                 {activeTab === 'users' && <UserManagementSection />}
                 {activeTab === 'backup' && <BackupRestoreSection />}
                 {activeTab === 'data' && <SizeManagement />}

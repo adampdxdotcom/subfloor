@@ -1,5 +1,10 @@
 // src/types.ts
 
+// Since ReactGridLayout.Layouts is not defined in this file,
+// we assume it is correctly imported/defined elsewhere or we use 'any'.
+// For clean compilation, we define a placeholder type if it's external:
+type ReactGridLayout_Layouts = any; 
+
 export const PROJECT_TYPES = [
   'Flooring',
   'Tile',
@@ -139,7 +144,7 @@ export interface Sample {
 
 // --- NEW: Interface for UI Preferences from DB ---
 export interface UiPreferences {
-  projectDetailLayout?: ReactGridLayout.Layouts;
+  projectDetailLayout?: ReactGridLayout_Layouts;
 }
 
 export interface Project {
@@ -258,6 +263,7 @@ export interface AppData {
   changeOrders: ChangeOrder[];
   materialOrders: MaterialOrder[];
   vendors: Vendor[];
+  users: User[]; // ADDED from DataContext
 }
 
 export interface ActivityLogEntry {
@@ -272,6 +278,7 @@ export interface ActivityLogEntry {
 }
 
 export interface User {
+  id: string; // Corrected from userId to id
   userId: string;
   email: string;
   roles: string[];
@@ -283,9 +290,28 @@ export interface CurrentUser {
   roles: string[];
 }
 
+export interface Attendee {
+  attendeeId: string;
+  attendeeType: 'user' | 'installer';
+}
+
+export interface Event {
+  id: number;
+  title: string;
+  notes: string | null;
+  startTime: string; // ISO string format
+  endTime: string;   // ISO string format
+  isAllDay: boolean;
+  jobId: number | null;
+  createdByUserId: string;
+  createdAt: string; // ISO string format
+  attendees?: Attendee[];
+}
+
 export interface DataContextType extends AppData {
   isLoading: boolean;
   currentUser: CurrentUser | null;
+  users: User[]; // Explicitly expose User list
   // --- NEW: Add state and function for Layout Edit Mode ---
   isLayoutEditMode: boolean;
   toggleLayoutEditMode: () => void;
