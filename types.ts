@@ -142,11 +142,6 @@ export interface Sample {
   checkoutExpectedReturnDate?: string | null;
 }
 
-// --- NEW: Interface for UI Preferences from DB ---
-export interface UiPreferences {
-  projectDetailLayout?: ReactGridLayout_Layouts;
-}
-
 export interface Project {
   id: number;
   customerId: number;
@@ -288,6 +283,7 @@ export interface CurrentUser {
   userId: string;
   email: string;
   roles: string[];
+  preferences?: UserPreferences; // ADDED: Current user will now hold their own preferences
 }
 
 export interface Attendee {
@@ -308,17 +304,35 @@ export interface Event {
   attendees?: Attendee[];
 }
 
+// --- NEW: Interface for Dashboard Email Settings ---
+export interface DashboardEmailSettings {
+  isEnabled: boolean;
+  frequency: 'daily' | 'on_event';
+  includeSamplesDue: boolean;
+  includeUpcomingJobs: boolean;
+  upcomingJobsDays: number;
+  includePendingQuotes: boolean;
+  pendingQuotesDays: number;
+}
+
+// --- MODIFIED & CONSOLIDATED: A single, flexible type for all user preferences ---
+export interface UserPreferences {
+  project_dashboard_layout?: ReactGridLayout_Layouts;
+  calendar_user_colors?: { [userId: string]: string };
+  dashboard_email_settings?: DashboardEmailSettings;
+}
+
+// REMOVED UiPreferences as it is now part of UserPreferences
+
 export interface DataContextType extends AppData {
   isLoading: boolean;
   currentUser: CurrentUser | null;
   users: User[]; // Explicitly expose User list
-  // --- NEW: Add state and function for Layout Edit Mode ---
   isLayoutEditMode: boolean;
   toggleLayoutEditMode: () => void;
-  // --- NEW: Add state and function for DB Preferences ---
-  uiPreferences: UiPreferences | null;
-  saveUserPreferences: (preferences: UiPreferences) => void;
-  // --- END NEW ---
+  // --- MODIFIED: Simplified the save preferences function ---
+  saveCurrentUserPreferences: (preferences: Partial<UserPreferences>) => Promise<void>;
+  // --- END MODIFIED ---
   customerHistory: ActivityLogEntry[];
   fetchCustomerHistory: (customerId: number) => Promise<void>;
   projectHistory: ActivityLogEntry[];

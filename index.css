@@ -120,3 +120,15 @@
 .layout.edit-mode .react-grid-item {
     box-shadow: 0 0 0 2px #5a67d8; /* An indigo outline */
 }
+
+/*for email settings */
+
+.toggle-checkbox:checked {
+    @apply: right-0 border-blue-600;
+    right: 0;
+    border-color: #2563eb; /* blue-600 */
+}
+.toggle-checkbox:checked + .toggle-label {
+    @apply: bg-blue-600;
+    background-color: #2563eb; /* blue-600 */
+}

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
-import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UiPreferences, User } from '../types';
+// --- CORRECTED: Import UserPreferences and remove UiPreferences ---
+import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UserPreferences, User } from '../types';
 import { toast } from 'react-hot-toast';
 
 import { useSessionContext } from 'supertokens-auth-react/recipe/session';
@@ -12,11 +13,11 @@ import * as quoteService from '../services/quoteService';
 import * as jobService from '../services/jobService';
 import * as sampleCheckoutService from '../services/sampleCheckoutService';
 import * as changeOrderService from '../services/changeOrderService';
-import * as materialOrderService from '../services/materialOrderService'; // Corrected syntax
+import * as materialOrderService from '../services/materialOrderService';
 import * as vendorService from '../services/vendorService';
 import * as userService from '../services/userService';
-import * as preferenceService from '../services/preferenceService'; // <-- NEW
-import { debounce } from 'lodash'; // <-- NEW
+import * as preferenceService from '../services/preferenceService';
+import { debounce } from 'lodash';
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -30,16 +31,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
-  // --- CORRECTED: Initialize state with a safe empty array ---
   const [users, setUsers] = useState<User[]>([]);
-
-  // --- NEW: State for Layout Edit Mode ---
   const [isLayoutEditMode, setIsLayoutEditMode] = useState(false);
 
-  // --- NEW: State for UI Preferences ---
-  const [uiPreferences, setUiPreferences] = useState<UiPreferences | null>(null);
+  // --- REMOVED: The standalone uiPreferences state is no longer needed ---
+  // const [uiPreferences, setUiPreferences] = useState<UiPreferences | null>(null);
 
-  // --- CORRECTED: Initialize all history states with a safe empty array ---
   const [customerHistory, setCustomerHistory] = useState<ActivityLogEntry[]>([]);
   const [projectHistory, setProjectHistory] = useState<ActivityLogEntry[]>([]);
   const [quotesHistory, setQuotesHistory] = useState<ActivityLogEntry[]>([]);
@@ -48,92 +45,85 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [sampleHistory, setSampleHistory] = useState<ActivityLogEntry[]>([]);
   const [materialOrderHistory, setMaterialOrderHistory] = useState<ActivityLogEntry[]>([]);
 
-  // --- NEW: Function to toggle Layout Edit Mode ---
   const toggleLayoutEditMode = () => {
     setIsLayoutEditMode(prevMode => !prevMode);
   };
 
-  // --- NEW: Function to save preferences, debounced to prevent API spam ---
-  const saveUserPreferences = useCallback(
-    debounce(async (newPreferences: UiPreferences) => {
-      // --- CORRECTED: Merge new preferences with existing ones before saving ---
-      const fullPreferences = { ...uiPreferences, ...newPreferences };
+  // --- RENAMED & FIXED: Function name now matches DataContextType ---
+  const saveCurrentUserPreferences = useCallback(
+    debounce(async (newPreferences: Partial<UserPreferences>) => {
+      if (!currentUser) return;
+      
+      const fullPreferences = { ...currentUser.preferences, ...newPreferences };
       try {
         // Optimistically update local state for immediate UI feedback
-        setUiPreferences(fullPreferences); 
+        setCurrentUser(prevUser => prevUser ? { ...prevUser, preferences: fullPreferences as UserPreferences } : null); 
         await preferenceService.savePreferences(fullPreferences);
       } catch (error) {
         console.error("Failed to save preferences:", error);
-        toast.error("Could not save layout preferences.");
+        toast.error("Could not save your preferences.");
       }
-    }, 1000), // Debounce for 1 second
-    [uiPreferences] // Add uiPreferences as a dependency
+    }, 1000),
+    [currentUser] // Depend on the full currentUser object
   );
 
 
   const fetchCurrentUser = useCallback(async () => {
     try {
       const user = await userService.getCurrentUser();
-      setCurrentUser(user);
-
-      // --- NEW: Fetch preferences after fetching the user ---
       const prefs = await preferenceService.getPreferences();
-      setUiPreferences(prefs);
-
+      // Attach preferences directly to the user object upon fetching
+      setCurrentUser({ ...user, preferences: prefs });
     } catch (error) {
       console.error("Failed to fetch current user:", error);
       setCurrentUser(null);
-      setUiPreferences(null); // Clear preferences on error
     }
   }, []);
 
-  // --- ADDED: A reusable function to fetch all users ---
   const fetchAllUsers = useCallback(async () => {
     try {
       const allUsers = await userService.getUsers();
       setUsers(allUsers);
     } catch (error) {
       console.error("Failed to fetch all users:", error);
-      setUsers([]); // Fallback to empty array on error
+      setUsers([]);
     }
   }, []);
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
-    await Promise.all([
-      customerService.getCustomers(),
-      projectService.getProjects(),
-      sampleService.getSamples(),
-      sampleCheckoutService.getSampleCheckouts(),
-      installerService.getInstallers(),
-      quoteService.getQuotes(),
-      jobService.getJobs(),
-      changeOrderService.getChangeOrders(),
-      materialOrderService.getMaterialOrders(),
-      vendorService.getVendors(),
-    ])
-    .then(([customersData, projectsData, samplesData, sampleCheckoutsData, installersData, quotesData, jobsData, changeOrdersData, materialOrdersData, vendorsData]) => {
-      setData({
-        customers: Array.isArray(customersData) ? customersData : [],
-        projects: Array.isArray(projectsData) ? projectsData : [],
-        samples: Array.isArray(samplesData) ? samplesData : [],
-        sampleCheckouts: Array.isArray(sampleCheckoutsData) ? sampleCheckoutsData : [],
-        installers: Array.isArray(installersData) ? installersData : [],
-        quotes: Array.isArray(quotesData) ? quotesData : [],
-        jobs: Array.isArray(jobsData) ? jobsData : [],
-        changeOrders: Array.isArray(changeOrdersData) ? changeOrdersData : [],
-        materialOrders: Array.isArray(materialOrdersData) ? materialOrdersData : [],
-        vendors: Array.isArray(vendorsData) ? vendorsData : [],
-        users: [],
-      });
-    })
-    .catch(error => {
-      console.error("Initial data fetch failed (likely no session):", error);
-      setData(emptyInitialData); 
-    })
-    .finally(() => {
-      setIsLoading(false);
-    });
+    try {
+        const [customersData, projectsData, samplesData, sampleCheckoutsData, installersData, quotesData, jobsData, changeOrdersData, materialOrdersData, vendorsData] = await Promise.all([
+            customerService.getCustomers(),
+            projectService.getProjects(),
+            sampleService.getSamples(),
+            sampleCheckoutService.getSampleCheckouts(),
+            installerService.getInstallers(),
+            quoteService.getQuotes(),
+            jobService.getJobs(),
+            changeOrderService.getChangeOrders(),
+            materialOrderService.getMaterialOrders(),
+            vendorService.getVendors(),
+        ]);
+        setData({
+            customers: Array.isArray(customersData) ? customersData : [],
+            projects: Array.isArray(projectsData) ? projectsData : [],
+            samples: Array.isArray(samplesData) ? samplesData : [],
+            sampleCheckouts: Array.isArray(sampleCheckoutsData) ? sampleCheckoutsData : [],
+            installers: Array.isArray(installersData) ? installersData : [],
+            quotes: Array.isArray(quotesData) ? quotesData : [],
+            jobs: Array.isArray(jobsData) ? jobsData : [],
+            changeOrders: Array.isArray(changeOrdersData) ? changeOrdersData : [],
+            materialOrders: Array.isArray(materialOrdersData) ? materialOrdersData : [],
+            vendors: Array.isArray(vendorsData) ? vendorsData : [],
+            users: [], // users are fetched separately
+        });
+    } catch (error) {
+        console.error("Initial data fetch failed (likely no session):", error);
+        setData(emptyInitialData);
+    } finally {
+        setIsLoading(false);
+    }
   }, []); 
 
   useEffect(() => {
@@ -143,13 +133,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     if (sessionContext.doesSessionExist) {
-        fetchInitialData();
-        fetchAllUsers(); // Fetch all users on initial load
-        fetchCurrentUser();
+        fetchCurrentUser().then(() => {
+            fetchInitialData();
+            fetchAllUsers();
+        });
     } else {
         setData(emptyInitialData);
         setCurrentUser(null);
-        setUiPreferences(null); // Clear preferences on logout
         setIsLoading(false);
     }
   }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser, fetchAllUsers]);
@@ -303,22 +293,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addSample = useCallback(async (sample: any): Promise<Sample> => {
     try {
-      // 1. Get the newly created sample object back from the API.
-      // This object is our single source of truth.
       const newDbSample = await sampleService.addSample(sample);
-
-      // 2. Optimistically update the local state. No need to re-fetch everything.
       setData(prevData => ({
         ...prevData,
         samples: [...prevData.samples, newDbSample]
       }));
-
-      // 3. Fulfill the contract: return the new sample object directly.
       return newDbSample;
-
     } catch (error) { 
       console.error("Error adding sample:", error); 
-      // Make sure toast is imported if not already: import { toast } from 'react-hot-toast';
       toast.error((error as Error).message || 'Failed to add sample.'); 
       throw error; 
     }
@@ -555,50 +537,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
   
-  // --- START: THE FIX ---
   const saveJobDetails = useCallback(async (jobDetails: Partial<Job>): Promise<void> => {
     try {
       const savedDbJob = await jobService.saveJobDetails(jobDetails);
-
-      // Find the associated project *before* we set state to check its status.
-      // This uses a functional form of setState to get the most recent state.
       let updatedProject = null;
       setData(prevData => {
         const project = prevData.projects.find(p => p.id === savedDbJob.projectId);
         if (project && project.status !== ProjectStatus.SCHEDULED) {
-            // If the project needs a status update, create the updated version.
             updatedProject = { ...project, status: ProjectStatus.SCHEDULED };
         }
-
-        // --- ATOMIC STATE UPDATE ---
-        // 1. Update the jobs array
         const jobExists = prevData.jobs.some(j => j.id === savedDbJob.id);
         const newJobs = jobExists
           ? prevData.jobs.map(j => (j.id === savedDbJob.id ? savedDbJob : j))
           : [...prevData.jobs, savedDbJob];
-        
-        // 2. Update the projects array *if an update is needed*
         const newProjects = updatedProject
             ? prevData.projects.map(p => p.id === updatedProject!.id ? updatedProject! : p)
             : prevData.projects;
-
-        // 3. Return the new, complete state object
         return { ...prevData, jobs: newJobs, projects: newProjects };
       });
-
-      // If we did update the project, we still need to persist that change to the backend.
       if (updatedProject) {
           await projectService.updateProject({ id: updatedProject.id, status: updatedProject.status });
       }
-
       toast.success('Job details saved!');
     } catch (error) {
       console.error("Error saving job details:", error);
       toast.error((error as Error).message);
       throw error;
     }
-  }, []); // Dependency array is now empty, making the function stable.
-  // --- END: THE FIX ---
+  }, []);
 
   const addChangeOrder = useCallback(async (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>): Promise<void> => {
     try {
@@ -693,18 +659,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     ...data,
     isLoading,
     currentUser,
-    fetchCurrentUser, // <-- ADDED: Expose the function to the context
-    fetchAllUsers, // <-- ADDED: Expose the new function
-    users, // <-- ADDED: Expose the users list to the context
+    // --- REMOVED fetchCurrentUser and fetchAllUsers, they are internal to the context ---
+    users,
 
-    // --- NEW: Add new state and function to the provider value ---
     isLayoutEditMode,
     toggleLayoutEditMode,
 
-    // --- NEW: Add preferences state and save function to provider ---
-    uiPreferences,
-    saveUserPreferences,
-
+    // --- CORRECTED: Expose the correctly named function ---
+    saveCurrentUserPreferences: saveCurrentUserPreferences,
 
     customerHistory,
     fetchCustomerHistory,

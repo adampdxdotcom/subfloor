@@ -9,6 +9,12 @@ import supertokens from 'supertokens-node';
 import Session from 'supertokens-node/recipe/session/index.js';
 import EmailPassword from 'supertokens-node/recipe/emailpassword/index.js';
 import { middleware, errorHandler } from 'supertokens-node/framework/express/index.js';
+
+// --- SERVICE IMPORTS ---
+import { initializeEmailService } from './lib/emailService.js';
+import { initializeScheduler } from './lib/scheduler.js';
+
+// --- ROUTE IMPORTS ---
 import customerRoutes from './routes/customers.js';
 import sampleRoutes from './routes/samples.js';
 import sampleCheckoutRoutes from './routes/sampleCheckouts.js';
@@ -25,13 +31,16 @@ import searchRoutes from './routes/search.js';
 import calendarRoutes from './routes/calendar.js';
 import vendorRoutes from './routes/vendors.js';
 import userRoutes from './routes/users.js'; 
-import roleRoutes from './routes/roles.js'; // <-- MODIFIED: Imported the new role routes
-import preferenceRoutes from './routes/preferences.js'; // <-- NEW
-import eventRoutes from './routes/events.js'; // <-- ADDED: Import the new event routes
+import roleRoutes from './routes/roles.js';
+import preferenceRoutes from './routes/preferences.js';
+import eventRoutes from './routes/events.js';
+import reportRoutes from './routes/reports.js';
+import reminderRoutes from './routes/reminders.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// --- INITIALIZE SUPERTOKENS ---
 supertokens.init({
     framework: "express",
     supertokens: {
@@ -59,6 +68,12 @@ supertokens.init({
 const app = express();
 const PORT = 3001;
 
+// --- INITIALIZE SERVICES ---
+initializeEmailService();
+initializeScheduler();
+
+
+// --- MIDDLEWARE & CONFIG ---
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
@@ -103,12 +118,16 @@ app.use('/api/search', searchRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/roles', roleRoutes); // <-- MODIFIED: Registered the new role routes
-app.use('/api/preferences', preferenceRoutes); // <-- NEW
-app.use('/api/events', eventRoutes); // <-- ADDED: Register the new event routes
+app.use('/api/roles', roleRoutes);
+app.use('/api/preferences', preferenceRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/reminders', reminderRoutes);
 
+// --- ERROR HANDLING ---
 app.use(errorHandler());
 
+// --- START SERVER ---
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server is running on http://localhost:${PORT}`);
 });

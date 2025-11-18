@@ -1,5 +1,7 @@
+// src/pages/Settings.tsx
+
 import React, { useState, useEffect } from 'react';
-import { DownloadCloud, Database, Image as ImageIcon, AlertTriangle, Users, Trash2, Save, FileSliders, UserCog, Palette } from 'lucide-react';
+import { DownloadCloud, Database, Image as ImageIcon, AlertTriangle, Users, Trash2, Save, FileSliders, UserCog, Palette, Bell } from 'lucide-react';
 import RestoreForm from '../components/RestoreForm';
 import { User } from '../types';
 import * as userService from '../services/userService';
@@ -7,6 +9,7 @@ import { Role } from '../services/userService';
 import toast from 'react-hot-toast';
 import { useData } from '../context/DataContext';
 import SizeManagement from '../components/SizeManagement';
+import DashboardEmailSettings from '../components/DashboardEmailSettings'; // <-- THIS IMPORT IS NOW USED
 
 // =================================================================
 //  USER MANAGEMENT COMPONENT (Admin Only)
@@ -181,32 +184,34 @@ const BackupRestoreSection: React.FC = () => {
 };
 
 // =================================================================
-// MODIFIED: USER SETTINGS COMPONENT
+// MY SETTINGS COMPONENT
 // =================================================================
-const UserSettingsSection: React.FC = () => {
-    const { uiPreferences, saveUserPreferences, fetchCurrentUser, fetchAllUsers } = useData();
+const MySettingsSection: React.FC = () => {
+    const { currentUser, saveCurrentUserPreferences } = useData();
     const [color, setColor] = useState('#ffffff');
 
-    // Sync local state when global preferences are loaded
     useEffect(() => {
-        if (uiPreferences?.color) {
-            setColor(uiPreferences.color);
+        if (currentUser?.preferences?.calendar_user_colors?.[currentUser.userId]) {
+            setColor(currentUser.preferences.calendar_user_colors[currentUser.userId]);
         }
-    }, [uiPreferences]);
+    }, [currentUser]);
 
     const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newColor = e.target.value;
         setColor(newColor);
-        // Debounced function from context will handle saving
-        saveUserPreferences({ color: newColor });
     };
     
-    // This is a subtle UX improvement. After the debounced save, we can refetch
-    // the currentUser to ensure their color property is updated everywhere immediately.
     const handleColorSave = async () => {
-        await saveUserPreferences.flush(); // Instantly trigger the debounced save
-        await fetchCurrentUser(); // Refetch user data to get the new color
-        await fetchAllUsers(); // Refetch the main user list to prevent stale data
+        if (!currentUser) return;
+        const currentColors = currentUser.preferences?.calendar_user_colors || {};
+        const newPreferences = {
+            ...currentUser.preferences,
+            calendar_user_colors: {
+                ...currentColors,
+                [currentUser.userId]: color
+            }
+        };
+        await saveCurrentUserPreferences(newPreferences);
         toast.success("Color preference saved!");
     };
 
@@ -239,6 +244,7 @@ const UserSettingsSection: React.FC = () => {
     );
 };
 
+
 // =================================================================
 // MAIN SETTINGS PAGE COMPONENT
 // =================================================================
@@ -246,11 +252,13 @@ const Settings: React.FC = () => {
     const { currentUser } = useData();
     const isAdmin = currentUser?.roles?.includes('Admin');
     
-    const [activeTab, setActiveTab] = useState<'mySettings' | 'users' | 'backup' | 'data'>(isAdmin ? 'mySettings' : 'backup');
+    // --- MODIFIED: Added 'notifications' to the list of possible tabs ---
+    const [activeTab, setActiveTab] = useState<'mySettings' | 'users' | 'backup' | 'data' | 'notifications'>('mySettings');
 
     useEffect(() => {
-        if (!isAdmin && (activeTab === 'users' || activeTab === 'data')) {
-            setActiveTab('backup');
+        const adminTabs: (typeof activeTab)[] = ['users', 'data', 'backup'];
+        if (!isAdmin && adminTabs.includes(activeTab)) {
+            setActiveTab('mySettings');
         }
     }, [isAdmin, activeTab]);
     
@@ -258,6 +266,7 @@ const Settings: React.FC = () => {
         <div className="container mx-auto p-4 md:p-8">
             <h1 className="text-3xl font-bold text-text-primary mb-6">Settings</h1>
             <div className="flex flex-wrap border-b border-border mb-8">
+                {/* My Settings Tab */}
                 <button
                     onClick={() => setActiveTab('mySettings')}
                     className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'mySettings' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
@@ -265,6 +274,17 @@ const Settings: React.FC = () => {
                     <UserCog className="w-5 h-5 inline-block mr-2 mb-1" />
                     My Settings
                 </button>
+                
+                {/* --- NEW: Notifications Tab (Visible to all users) --- */}
+                <button
+                    onClick={() => setActiveTab('notifications')}
+                    className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'notifications' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                >
+                    <Bell className="w-5 h-5 inline-block mr-2 mb-1" />
+                    Notifications
+                </button>
+
+                {/* Admin-only Tabs */}
                 {isAdmin && (
                     <>
                         <button
@@ -274,30 +294,31 @@ const Settings: React.FC = () => {
                             <Users className="w-5 h-5 inline-block mr-2 mb-1" />
                             User Management
                         </button>
+                        <button
+                            onClick={() => setActiveTab('data')}
+                            className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'data' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                        >
+                            <FileSliders className="w-5 h-5 inline-block mr-2 mb-1" />
+                            Data Management
+                        </button>
+                         <button
+                            onClick={() => setActiveTab('backup')}
+                            className={`py-3 px-6 text-lg font-semibold transition-colors  ${activeTab === 'backup' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
+                        >
+                            <DownloadCloud className="w-5 h-5 inline-block mr-2 mb-1" />
+                            Backup & Restore
+                        </button>
                     </>
                 )}
-                <button
-                    onClick={() => setActiveTab('backup')}
-                    className={`py-3 px-6 text-lg font-semibold transition-colors  ${activeTab === 'backup' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
-                >
-                    <DownloadCloud className="w-5 h-5 inline-block mr-2 mb-1" />
-                    Backup & Restore
-                </button>
-                {isAdmin && (
-                    <button
-                        onClick={() => setActiveTab('data')}
-                        className={`py-3 px-6 text-lg font-semibold transition-colors ${activeTab === 'data' ? 'text-accent border-b-2 border-accent' : 'text-text-secondary hover:text-text-primary'}`}
-                    >
-                        <FileSliders className="w-5 h-5 inline-block mr-2 mb-1" />
-                        Data Management
-                    </button>
-                )}
             </div>
+            
+            {/* --- MODIFIED: Render content based on activeTab --- */}
             <div>
-                {activeTab === 'mySettings' && <UserSettingsSection />}
-                {activeTab === 'users' && <UserManagementSection />}
-                {activeTab === 'backup' && <BackupRestoreSection />}
-                {activeTab === 'data' && <SizeManagement />}
+                {activeTab === 'mySettings' && <MySettingsSection />}
+                {activeTab === 'notifications' && <DashboardEmailSettings />} 
+                {activeTab === 'users' && isAdmin && <UserManagementSection />}
+                {activeTab === 'backup' && isAdmin && <BackupRestoreSection />}
+                {activeTab === 'data' && isAdmin && <SizeManagement />}
             </div>
         </div>
     );
