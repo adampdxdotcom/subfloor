@@ -76,13 +76,13 @@ const SizeManagement: React.FC = () => {
 
             <div className="max-w-md space-y-2">
                 {sizes.map(size => (
-                    <div key={size} className="bg-gray-800 p-3 rounded-md flex items-center justify-between">
+                    <div key={size} className="bg-background p-3 rounded-md border border-border flex items-center justify-between">
                         {editingValue === size ? (
                             <input
                                 type="text"
                                 value={newValue}
                                 onChange={(e) => setNewValue(e.target.value)}
-                                className="flex-grow p-1 bg-gray-900 border-accent rounded"
+                                className="flex-grow p-1 bg-surface border border-primary rounded text-text-primary"
                                 autoFocus
                             />
                         ) : (
@@ -91,13 +91,13 @@ const SizeManagement: React.FC = () => {
                         <div className="flex items-center gap-2 ml-4">
                             {editingValue === size ? (
                                 <>
-                                    <button onClick={() => handleSaveEdit(size)} className="p-1 text-green-400 hover:bg-green-900/50 rounded-full"><Save size={18} /></button>
-                                    <button onClick={handleCancelEdit} className="p-1 text-red-500 hover:bg-red-900/50 rounded-full"><X size={18} /></button>
+                                    <button onClick={() => handleSaveEdit(size)} className="p-1 text-green-400 hover:bg-green-900/20 rounded-full"><Save size={18} /></button>
+                                    <button onClick={handleCancelEdit} className="p-1 text-red-500 hover:bg-red-900/20 rounded-full"><X size={18} /></button>
                                 </>
                             ) : (
                                 <>
-                                    <button onClick={() => handleEditClick(size)} className="p-1 text-text-secondary hover:text-white hover:bg-gray-700 rounded-full"><Edit size={16} /></button>
-                                    <button onClick={() => handleDelete(size)} className="p-1 text-red-500 hover:text-red-400 hover:bg-gray-700 rounded-full"><Trash2 size={16} /></button>
+                                    <button onClick={() => handleEditClick(size)} className="p-1 text-text-secondary hover:text-text-primary hover:bg-surface rounded-full"><Edit size={16} /></button>
+                                    <button onClick={() => handleDelete(size)} className="p-1 text-red-500 hover:text-red-400 hover:bg-surface rounded-full"><Trash2 size={16} /></button>
                                 </>
                             )}
                         </div>

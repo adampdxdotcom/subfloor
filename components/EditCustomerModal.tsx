@@ -62,12 +62,15 @@ const validateForm = (
 };
 
 const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, customer, initialData, onSaveSuccess }) => {
-  const { addCustomer, updateCustomer, deleteCustomer } = useData();
+  const { addCustomer, updateCustomer, deleteCustomer, currentUser } = useData();
   const [formData, setFormData] = useState(initialFormState);
   const [confirmEmail, setConfirmEmail] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // --- ADDED: Admin check for deletion rights ---
+  const isAdmin = currentUser?.roles.includes('Admin');
 
   const isEditMode = customer !== null;
 
@@ -163,7 +166,7 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md">
+      <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md border border-border">
 
         <h2 className="text-2xl font-bold mb-6 text-text-primary">
           {isEditMode ? 'Edit Customer' : 'Add New Customer'}
@@ -178,7 +181,7 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
                 placeholder="Full Name"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                className={`w-full p-2 bg-gray-800 border rounded ${errors.fullName ? 'border-red-500' : 'border-border'}`}
+                className={`w-full p-2 bg-background border rounded text-text-primary placeholder-text-secondary ${errors.fullName ? 'border-red-500' : 'border-border'}`}
               />
               {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
             </div>
@@ -190,7 +193,7 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
                 placeholder="Email (Optional)"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`w-full p-2 bg-gray-800 border rounded ${errors.email ? 'border-red-500' : 'border-border'}`}
+                className={`w-full p-2 bg-background border rounded text-text-primary placeholder-text-secondary ${errors.email ? 'border-red-500' : 'border-border'}`}
               />
               {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
             </div>
@@ -203,7 +206,7 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
                   placeholder="Confirm Email"
                   value={confirmEmail}
                   onChange={(e) => setConfirmEmail(e.target.value)}
-                  className={`w-full p-2 bg-gray-800 border rounded ${errors.confirmEmail ? 'border-red-500' : 'border-border'}`}
+                  className={`w-full p-2 bg-background border rounded text-text-primary placeholder-text-secondary ${errors.confirmEmail ? 'border-red-500' : 'border-border'}`}
                 />
                 {errors.confirmEmail && <p className="text-red-500 text-sm mt-1">{errors.confirmEmail}</p>}
               </div>
@@ -216,7 +219,7 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
                 placeholder="Phone Number"
                 value={formData.phoneNumber}
                 onChange={handleInputChange}
-                className={`w-full p-2 bg-gray-800 border rounded ${errors.phoneNumber ? 'border-red-500' : 'border-border'}`}
+                className={`w-full p-2 bg-background border rounded text-text-primary placeholder-text-secondary ${errors.phoneNumber ? 'border-red-500' : 'border-border'}`}
                 maxLength={14}
               />
               {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
@@ -228,16 +231,17 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
               placeholder="Address"
               value={formData.address}
               onChange={handleInputChange}
-              className="w-full p-2 bg-gray-800 border border-border rounded"
+              className="w-full p-2 bg-background border border-border rounded text-text-primary placeholder-text-secondary"
             />
           </div>
 
           <div className="flex items-center justify-end space-x-4 mt-6">
-            {isEditMode && (
+            {/* DELETE Button - Now conditionally rendered for Admins only */}
+            {isEditMode && isAdmin && (
               <button
                 type="button"
                 onClick={handleDelete}
-                className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed mr-auto"
+                className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mr-auto"
                 disabled={isSaving || isDeleting}
               >
                 <Trash2 size={16} />
@@ -248,7 +252,7 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
             <button
               type="button"
               onClick={onClose}
-              className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white"
+              className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary"
               disabled={isSaving || isDeleting}
             >
               Cancel
@@ -256,7 +260,7 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
 
             <button
               type="submit"
-              className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white disabled:bg-blue-800 disabled:cursor-not-allowed"
+              className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSaveDisabled}
             >
               {isSaving ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Add Customer')}

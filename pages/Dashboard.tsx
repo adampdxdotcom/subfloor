@@ -90,12 +90,12 @@ const Dashboard: React.FC = () => {
         <div className="flex items-center gap-4">
             <button 
                 onClick={() => setIsCheckoutModalOpen(true)}
-                className="bg-accent hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+                className="bg-primary hover:bg-primary-hover text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
             >
                 <PackagePlus size={18} />
                 New Checkout
             </button>
-            <Link to="/customers" className="bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            <Link to="/customers" className="bg-secondary hover:bg-secondary-hover text-white font-bold py-2 px-4 rounded-lg transition-colors">
                 Add New Project
             </Link>
         </div>
@@ -117,7 +117,7 @@ const Dashboard: React.FC = () => {
                       <button 
                         key={option} 
                         onClick={() => setFilter(option)} 
-                        className={`px-3 py-1 text-sm rounded-full transition-colors flex-shrink-0 ${filter === option ? 'bg-accent text-white' : 'bg-surface text-text-secondary hover:bg-gray-700'}`}
+                        className={`px-3 py-1 text-sm rounded-full transition-colors flex-shrink-0 ${filter === option ? 'bg-primary text-white' : 'bg-surface text-text-secondary hover:bg-gray-700'}`}
                       >
                           {option}
                       </button>

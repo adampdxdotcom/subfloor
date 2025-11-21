@@ -43,26 +43,26 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ customer, onProjectSe
 
   if (isCreating) {
     return (
-      <form onSubmit={handleCreateNewProject} className="p-4 bg-gray-800 rounded-lg border border-border space-y-4">
-        <h4 className="font-semibold">Create New Project for {customer.fullName}</h4>
+      <form onSubmit={handleCreateNewProject} className="p-4 bg-background rounded-lg border border-border space-y-4">
+        <h4 className="font-semibold text-text-primary">Create New Project for {customer.fullName}</h4>
         <input 
           type="text" 
           placeholder="Project Name (e.g., 'Master Bedroom')" 
           required 
           value={newProjectName} 
           onChange={e => setNewProjectName(e.target.value)} 
-          className="w-full p-2 bg-gray-900 border-border rounded" 
+          className="w-full p-2 bg-surface border-border rounded text-text-primary" 
         />
         <select 
           value={newProjectType} 
           onChange={e => setNewProjectType(e.target.value as typeof PROJECT_TYPES[number])} 
-          className="w-full p-2 bg-gray-900 border-border rounded"
+          className="w-full p-2 bg-surface border-border rounded text-text-primary"
         >
           {PROJECT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
         </select>
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={() => setIsCreating(false)} className="py-2 px-4 bg-gray-600 rounded">Cancel</button>
-          <button type="submit" className="py-2 px-4 bg-primary rounded">Create Project</button>
+          <button type="button" onClick={() => setIsCreating(false)} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button>
+          <button type="submit" className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary">Create Project</button>
         </div>
       </form>
     );
@@ -75,9 +75,9 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ customer, onProjectSe
           <div
             key={project.id}
             onClick={() => onProjectSelect(project)}
-            className="p-3 bg-gray-800 rounded-lg border border-transparent hover:border-accent cursor-pointer transition-colors"
+            className="p-3 bg-background rounded-lg border border-transparent hover:border-accent cursor-pointer transition-colors"
           >
-            <p className="font-semibold">{project.projectName}</p>
+            <p className="font-semibold text-text-primary">{project.projectName}</p>
             <p className="text-sm text-text-secondary">{project.projectType} - <span className="italic">{project.status}</span></p>
           </div>
         ))
@@ -86,7 +86,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({ customer, onProjectSe
       )}
       <button
         onClick={() => setIsCreating(true)}
-        className="w-full p-3 mt-2 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center justify-center gap-2 text-accent font-semibold transition-colors"
+        className="w-full p-3 mt-2 bg-background hover:bg-surface rounded-lg flex items-center justify-center gap-2 text-accent font-semibold transition-colors border border-dashed border-border"
       >
         <PlusCircle size={18} />
         Create New Project

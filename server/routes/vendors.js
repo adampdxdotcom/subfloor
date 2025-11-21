@@ -26,6 +26,8 @@ router.get('/', verifySession(), async (req, res) => {
                 v.shipping_method,
                 v.dedicated_shipping_day,
                 v.notes,
+                v.default_markup,
+                v.pricing_method,
                 COUNT(s.id) AS sample_count
             FROM 
                 vendors v
@@ -49,7 +51,8 @@ router.post('/', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
     const { 
         name, vendorType, defaultProductType, phone, address, orderingEmail, 
-        claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes 
+        claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
+        defaultMarkup, pricingMethod
     } = req.body;
 
     if (!name) {
@@ -60,13 +63,15 @@ router.post('/', verifySession(), async (req, res) => {
         const query = `
             INSERT INTO vendors (
                 name, vendor_type, default_product_type, phone, address, ordering_email, 
-                claims_email, rep_name, rep_phone, rep_email, shipping_method, dedicated_shipping_day, notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                claims_email, rep_name, rep_phone, rep_email, shipping_method, dedicated_shipping_day, notes,
+                default_markup, pricing_method
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             RETURNING *;
         `;
         const values = [
             name, vendorType, defaultProductType, phone, address, orderingEmail,
-            claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes
+            claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
+            defaultMarkup || null, pricingMethod || null
         ];
         const result = await pool.query(query, values);
         // The GET route will add the sample_count, but for a new vendor it's always 0.
@@ -85,7 +90,8 @@ router.put('/:id', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
     const { 
         name, vendorType, defaultProductType, phone, address, orderingEmail, 
-        claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes 
+        claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
+        defaultMarkup, pricingMethod
     } = req.body;
 
     if (!name) {
@@ -102,13 +108,15 @@ router.put('/:id', verifySession(), async (req, res) => {
             UPDATE vendors SET
                 name = $1, vendor_type = $2, default_product_type = $3, phone = $4, address = $5,
                 ordering_email = $6, claims_email = $7, rep_name = $8, rep_phone = $9,
-                rep_email = $10, shipping_method = $11, dedicated_shipping_day = $12, notes = $13
-            WHERE id = $14
+                rep_email = $10, shipping_method = $11, dedicated_shipping_day = $12, notes = $13,
+                default_markup = $14, pricing_method = $15
+            WHERE id = $16
             RETURNING *;
         `;
         const values = [
             name, vendorType, defaultProductType, phone, address, orderingEmail,
             claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
+            defaultMarkup || null, pricingMethod || null,
             id
         ];
         const result = await pool.query(query, values);

@@ -88,7 +88,7 @@ const CustomerList: React.FC = () => {
     <div>
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-text-primary">Customers</h1>
-        <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg transition-colors md:w-auto w-full">
+        <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors md:w-auto w-full">
           <PlusCircle className="w-5 h-5 mr-2" />
           Add Customer
         </button>
@@ -101,7 +101,7 @@ const CustomerList: React.FC = () => {
           placeholder="Search customers..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-surface border border-border rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full bg-background text-text-primary border border-border rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
 
@@ -116,10 +116,10 @@ const CustomerList: React.FC = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredCustomers.map(customer => (
-          <Link to={`/customers/${customer.id}`} key={customer.id} className="block bg-surface p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+          <Link to={`/customers/${customer.id}`} key={customer.id} className="block bg-surface p-6 rounded-lg shadow-md border border-border hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
             <div className="flex items-center mb-4">
-              <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center mr-4 shrink-0">
-                  <User className="w-6 h-6 text-white"/>
+              <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center mr-4 shrink-0 text-on-accent">
+                  <User className="w-6 h-6"/>
               </div>
               <div>
                 <h2 className="text-xl font-bold text-text-primary truncate">{customer.fullName}</h2>

@@ -21,6 +21,9 @@ CREATE TABLE vendors (
     rep_name VARCHAR(255),
     rep_phone VARCHAR(50),
     rep_email VARCHAR(255),
+    -- Pricing Overrides
+    default_markup NUMERIC(5, 2),
+    pricing_method VARCHAR(20),
     shipping_method TEXT,
     dedicated_shipping_day INT, -- 0=Sunday, 6=Saturday
     notes TEXT
@@ -41,6 +44,10 @@ CREATE TABLE samples (
     sku VARCHAR(100),
     is_available BOOLEAN DEFAULT TRUE NOT NULL,
     product_url TEXT,
+    -- New Pricing Fields
+    unit_cost NUMERIC(10, 2), -- Renamed from unit_price
+    uom VARCHAR(20),
+    carton_size NUMERIC(10, 4),
     CONSTRAINT chk_sample_format CHECK (sample_format IN ('Board', 'Loose') OR sample_format IS NULL)
 );
 
@@ -114,7 +121,11 @@ CREATE TABLE material_orders (
     supplier_id INT REFERENCES vendors(id),
     order_date DATE NOT NULL DEFAULT CURRENT_DATE,
     eta_date DATE,
+    purchaser_type VARCHAR(20) DEFAULT 'Customer',
     status VARCHAR(50) NOT NULL DEFAULT 'Ordered',
+    date_received DATE,
+    notes TEXT,
+    parent_order_id INTEGER REFERENCES material_orders(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -124,7 +135,10 @@ CREATE TABLE order_line_items (
     sample_id INTEGER NOT NULL REFERENCES samples(id),
     quantity NUMERIC(10, 2) NOT NULL,
     unit TEXT,
-    total_cost NUMERIC(10, 2)
+    total_cost NUMERIC(10, 2),
+    unit_cost_snapshot NUMERIC(10, 2),
+    markup_snapshot NUMERIC(5, 2),
+    unit_price_sold NUMERIC(10, 2)
 );
 
 CREATE TABLE photos (
@@ -139,6 +153,9 @@ CREATE TABLE sample_sizes (
     id SERIAL PRIMARY KEY,
     sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
     size_value TEXT NOT NULL,
+    unit_cost NUMERIC(10, 2),
+    carton_size NUMERIC(10, 4),
+    uom VARCHAR(20),
     UNIQUE(sample_id, size_value)
 );
 
@@ -221,4 +238,30 @@ CREATE TABLE event_attendees (
     -- Type helps us know which table to look up ('user' or 'installer')
     attendee_type VARCHAR(50) NOT NULL, 
     PRIMARY KEY (event_id, attendee_id, attendee_type)
+);
+
+-- =================================================================
+-- NEW TABLE FOR SYSTEM-WIDE PREFERENCES (Admin Controlled)
+-- =================================================================
+CREATE TABLE system_preferences (
+    key VARCHAR(100) PRIMARY KEY NOT NULL,
+    settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Insert a default row so it's always available to query
+INSERT INTO system_preferences (key, settings) VALUES ('email', '{}');
+INSERT INTO system_preferences (key, settings) VALUES ('pricing', '{"retailMarkup": 40, "contractorMarkup": 20, "calculationMethod": "Markup"}');
+INSERT INTO system_preferences (key, settings) VALUES ('branding', '{"logoUrl": null, "faviconUrl": null}');
+
+-- =================================================================
+-- NEW TABLE FOR USER PROFILES (Names & Avatars)
+-- =================================================================
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id VARCHAR(255) PRIMARY KEY,
+    first_name VARCHAR(100) DEFAULT '',
+    last_name VARCHAR(100) DEFAULT '',
+    avatar_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );

@@ -52,13 +52,13 @@ const getContrastingTextColor = (hexColor: string | null): string => {
 };
 
 const CalendarView: React.FC = () => {
-    const { installers, users } = useData();
+    const { installers, users, currentUser } = useData();
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedInstallerIds, setSelectedInstallerIds] = useState<Set<number>>(new Set());
+    const [selectedInstallerIds, setSelectedInstallerIds] = new useState<Set<number>>(new Set());
     // --- ADDED: State for the new user filter ---
-    const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+    const [selectedUserIds, setSelectedUserIds] = new useState<Set<string>>(new Set());
     
     const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<ApiEvent | null>(null); 
@@ -165,9 +165,9 @@ const CalendarView: React.FC = () => {
         <div className="bg-surface p-6 rounded-lg shadow-lg h-full flex flex-col">
             <div className="flex justify-between items-center gap-4 mb-4">
                 <div className="flex items-center">
-                    <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-700"><ChevronLeft/></button>
+                    <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-background text-text-primary"><ChevronLeft/></button>
                     <h1 className="text-2xl font-bold text-text-primary mx-4">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h1>
-                    <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-700"><ChevronRight/></button>
+                    <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-background text-text-primary"><ChevronRight/></button>
                 </div>
                 <div className="ml-auto">
                     <CalendarFilter 
@@ -181,7 +181,7 @@ const CalendarView: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-7 text-center font-semibold text-text-secondary border-b border-border pb-2">
+            <div className="grid grid-cols-7 text-center font-semibold text-text-primary border-b border-border pb-2">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
             </div>
 
@@ -194,9 +194,9 @@ const CalendarView: React.FC = () => {
                         <div 
                             key={i} 
                             onClick={() => handleDayClick(d)} 
-                            className={`border border-border flex flex-col cursor-pointer transition-colors ${isCurrentMonth ? 'hover:bg-gray-800' : 'bg-gray-800/50 text-gray-500'}`}
+                            className={`border border-border flex flex-col cursor-pointer transition-colors ${isCurrentMonth ? 'hover:bg-background' : 'bg-background text-text-secondary'}`}
                         >
-                            <span className={`font-semibold mb-1 self-start p-1 ${isToday(d) ? 'bg-accent text-white rounded-full w-7 h-7 flex items-center justify-center' : 'w-7 h-7 flex items-center justify-center'}`}>
+                            <span className={`font-semibold mb-1 self-start p-1 ${isToday(d) ? 'bg-accent text-on-accent rounded-full w-7 h-7 flex items-center justify-center' : 'w-7 h-7 flex items-center justify-center text-text-primary'}`}>
                                 {d.getDate()}
                             </span>
                             <div className="flex-1 overflow-y-auto space-y-1 p-1">
@@ -216,9 +216,21 @@ const CalendarView: React.FC = () => {
                                         const fullEvent = event.fullEvent;
                                         if (fullEvent && fullEvent.attendees && fullEvent.attendees.length === 1) {
                                             const singleAttendee = fullEvent.attendees[0];
-                                            if (singleAttendee.attendeeType === 'user') {
-                                                const user = (users || []).find(u => u.userId === singleAttendee.attendeeId);
-                                                eventColor = user?.color || '#3B82F6';
+                                            
+                                            // Priority 1: Use color directly from backend if available (most accurate)
+                                            if ((singleAttendee as any).color) {
+                                                eventColor = (singleAttendee as any).color;
+                                            } 
+                                            // Priority 2: If User, check Current User (reactive) or Context List
+                                            else if (singleAttendee.attendeeType === 'user') {
+                                                if (currentUser && currentUser.userId === singleAttendee.attendeeId) {
+                                                    // FIX: Access color from preferences, not the root user object
+                                                    eventColor = currentUser.preferences?.calendarColor || '#3B82F6';
+                                                } else {
+                                                    const user = (users || []).find(u => u.userId === singleAttendee.attendeeId);
+                                                    // Note: The User object now contains a 'color' property fetched from the DB for other users.
+                                                    eventColor = user?.color || '#3B82F6';
+                                                }
                                             } else {
                                                 const installer = (installers || []).find(i => String(i.id) === singleAttendee.attendeeId);
                                                 eventColor = installer?.color || '#3B82F6';
@@ -299,6 +311,7 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
     const [isDeleting, setIsDeleting] = useState(false);
 
     const attendeeOptions: AttendeeOption[] = React.useMemo(() => [
+        // FIX: Now that `u.color` is available on the User object (fetched from DB), we use it here.
         ...(users || []).map(u => ({ label: u.email, value: `user-${u.userId}`, type: 'user' as const, color: u.color })),
         ...(installers || []).map(i => ({ label: i.installerName, value: `installer-${String(i.id)}`, type: 'installer' as const, color: i.color }))
     ], [users, installers]);
@@ -315,7 +328,16 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                 const selectedAttendees = event.attendees.map(att => {
                     if (att.attendeeType === 'user') {
                         const user = (users || []).find(u => u.userId === att.attendeeId); 
-                        return user ? { label: user.email, value: `user-${user.userId}`, type: 'user' as const, color: user.color } : null;
+                        
+                        // When editing, we prefer the user's fetched color (`user.color`) if available.
+                        let color = user?.color || null;
+                        
+                        // If it's the current user, ensure we use the live context color if the fetched user list color is missing.
+                        if (!color && currentUser && currentUser.userId === att.attendeeId) {
+                            color = currentUser.preferences?.calendarColor;
+                        }
+
+                        return user ? { label: user.email, value: `user-${user.userId}`, type: 'user' as const, color: color } : null;
                     } else {
                         const installer = (installers || []).find((i: Installer) => String(i.id) === att.attendeeId);
                         return installer ? { label: installer.installerName, value: `installer-${String(installer.id)}`, type: 'installer' as const, color: installer.color } : null;
@@ -330,7 +352,8 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
             setStartTime('09:00');
             if (currentUser) {
                 const selfAttendee: AttendeeOption = {
-                    label: currentUser.email, value: `user-${currentUser.userId}`, type: 'user' as const, color: currentUser.color
+                    // FIX: Use preferences color for self-selection in modal
+                    label: currentUser.email, value: `user-${currentUser.userId}`, type: 'user' as const, color: currentUser.preferences?.calendarColor
                 };
                 setAttendees([selfAttendee]);
             } else { setAttendees([]); }
@@ -410,16 +433,16 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                 <div className="space-y-4">
                     <div>
                         <label htmlFor="appointmentTitle" className="block text-sm font-medium text-text-secondary">Title</label>
-                        <input type="text" id="appointmentTitle" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2 bg-gray-800 border border-border rounded" required />
+                        <input type="text" id="appointmentTitle" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" required />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label htmlFor="appointmentDate" className="block text-sm font-medium text-text-secondary">Date</label>
-                            <input type="date" id="appointmentDate" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 bg-gray-800 border border-border rounded" />
+                            <input type="date" id="appointmentDate" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />
                         </div>
                         <div>
                             <label htmlFor="appointmentTime" className="block text-sm font-medium text-text-secondary">Time</label>
-                            <input type="time" id="appointmentTime" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full p-2 bg-gray-800 border border-border rounded" />
+                            <input type="time" id="appointmentTime" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />
                         </div>
                     </div>
                     <div>
@@ -441,25 +464,25 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                                 </div>
                             )}
                             styles={{
-                            control: (base) => ({ ...base, backgroundColor: '#1f2937', borderColor: '#4b5563' }),
-                            input: (base) => ({ ...base, color: '#e5e7eb' }),
-                            multiValue: (base) => ({ ...base, backgroundColor: '#374151' }),
-                            multiValueLabel: (base) => ({ ...base, color: '#e5e7eb' }),
-                            menu: (base) => ({ ...base, backgroundColor: '#1f2937' }),
-                            option: (base, { isFocused, isSelected }) => ({ ...base, backgroundColor: isSelected ? '#4f46e5' : isFocused ? '#374151' : undefined }),
+                            control: (base) => ({ ...base, backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)' }),
+                            input: (base) => ({ ...base, color: 'var(--color-text-primary)' }),
+                            multiValue: (base) => ({ ...base, backgroundColor: 'var(--color-surface)' }),
+                            multiValueLabel: (base) => ({ ...base, color: 'var(--color-text-primary)' }),
+                            menu: (base) => ({ ...base, backgroundColor: 'var(--color-background)' }),
+                            option: (base, { isFocused, isSelected }) => ({ ...base, backgroundColor: isSelected ? 'var(--color-primary)' : isFocused ? 'var(--color-surface)' : undefined, color: isSelected ? 'var(--color-on-primary)' : 'var(--color-text-primary)' }),
                         }} />
                     </div>
                     <div>
                         <label htmlFor="appointmentNotes" className="block text-sm font-medium text-text-secondary">Notes</label>
-                        <textarea id="appointmentNotes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full p-2 bg-gray-800 border border-border rounded"></textarea>
+                        <textarea id="appointmentNotes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full p-2 bg-background border border-border rounded text-text-primary"></textarea>
                     </div>
                 </div>
                 <div className="mt-6 flex justify-end gap-4">
                     {event && (
-                        <button type="button" onClick={handleDelete} disabled={isDeleting || isSaving} className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold disabled:bg-red-900" style={{ marginRight: 'auto' }}>{isDeleting ? 'Deleting...' : 'Delete'}</button>
+                        <button type="button" onClick={handleDelete} disabled={isDeleting || isSaving} className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold disabled:opacity-50" style={{ marginRight: 'auto' }}>{isDeleting ? 'Deleting...' : 'Delete'}</button>
                     )}
-                    <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white font-semibold">Cancel</button>
-                    <button type="button" onClick={handleSave} disabled={isSaving || isDeleting} className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white font-semibold disabled:bg-gray-500">{isSaving ? 'Saving...' : 'Save Changes'}</button>
+                    <button type="button" onClick={onClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-semibold">Cancel</button>
+                    <button type="button" onClick={handleSave} disabled={isSaving || isDeleting} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary font-semibold disabled:opacity-50">{isSaving ? 'Saving...' : 'Save Changes'}</button>
                 </div>
             </div>
         </div>

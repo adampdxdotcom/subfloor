@@ -9,7 +9,14 @@
 |____context
 | |____DataContext.tsx
 |____server
+| |____lib
+| | |____emailService.js
+| | |____reports.js
+| | |____scheduler.js
 | |____temp-uploads
+| |____email-templates
+| | |____customerReminder.html
+| | |____pastDueReminder.html
 | |____routes
 | | |____photos.js
 | | |____projects.js
@@ -17,12 +24,15 @@
 | | |____customers.js
 | | |____vendors.js
 | | |____preferences.js
+| | |____reports.js
 | | |____calendar.js
 | | |____search.js
 | | |____restore.js
 | | |____samples.js
+| | |____reminders.js
 | | |____installers.js
 | | |____orders.js
+| | |____events.js
 | | |____roles.js
 | | |____backup.js
 | | |____jobs.js
@@ -31,46 +41,20 @@
 | | |____quotes.js
 | |____index.js
 | |____uploads
-| | |____photo-1762749727265-184370968.jpeg
-| | |____photo-1762785251830-612632601.jpeg
-| | |____photo-1763005987615-27309603.jpeg
-| | |____photo-1763008886313-793282931.jpg
-| | |____photo-1763305021477-103450378.jpeg
-| | |____photo-1762705750104-121879699.jpeg
-| | |____photo-1763158487707-467067919.jpg
-| | |____photo-1763007528431-780258442.jpg
-| | |____photo-1762725541780-203593309.jpeg
-| | |____photo-1763002318975-620954526.jpeg
-| | |____photo-1762706494949-518537399.jpeg
-| | |____photo-1763158425739-400456029.jpg
-| | |____photo-1763305072015-60753419.jpeg
-| | |____photo-1763051858324-386769672.jpg
-| | |____photo-1763158354247-748856351.jpg
-| | |____photo-1763003725627-488830063.jpeg
-| | |____photo-1763158579761-654023136.jpg
-| | |____photo-1762697778265-104491356.jpg
-| | |____photo-1763128935437-607666584.jpeg
-| | |____photo-1763157633538-763535150.jpg
-| | |____photo-1762652802557-41371136.jpg
-| | |____photo-1763158188811-637754847.jpg
-| | |____photo-1762651296946-276169435.jpg
-| | |____photo-1762728357598-394921334.jpeg
-| | |____photo-1762706711588-50890738.jpeg
-| | |____photo-1762792000231-374293082.jpeg
-| | |____photo-1762749775606-205983593.jpeg
-| | |____photo-1762728546803-914892401.jpeg
-| | |____photo-1763002301543-332271722.jpeg
-| | |____photo-1763158298487-485933047.jpg
-| | |____photo-1763158013383-33889946.jpg
-| | |____photo-1762728309643-556402683.jpeg
-| | |____photo-1763231317846-476439742.jpg
-| | |____photo-1763157528933-702622562.jpg
+| | |____photo-1762749727265-184370968.jpeg...etc
+| | |____branding
+| | | |____logo-1763654366165.png
+| | | |____logo-1763653815340.png
+| | | |____favicon-1763653827118.png
+| | |____avatars
+| | | |____avatar-51117396-0980-49c3-a5e2-64624d80bd84-1763561455785-832882225.png
 | | |____photo-1763157168801-385337320.jpg
 | | |____photo-1763002097382-4328641.jpeg
 | |____db.js
 | |____package.json
 | |____utils.js
 | |____node_modules
+| |____migrate-profiles.js
 | |____tree.txt
 | |____make-admin.js
 |____backup.bak
@@ -86,6 +70,7 @@
 | |____jobService.ts
 | |____customerService.ts
 | |____projectService.ts
+| |____reportService.ts
 | |____vendorService.ts
 | |____sampleCheckoutService.ts
 | |____preferenceService.ts
@@ -93,6 +78,7 @@
 | |____materialOrderService.ts
 | |____installerService.ts
 | |____sampleService.ts
+| |____eventService.ts
 |____docker-compose.yml
 |____Dockerfile
 |____index.js.bak
@@ -101,18 +87,24 @@
 |____.dockerignore
 |____.gitignore
 |____tailwind.config.js
-|____src
 |____project_1old.txt
 |____components
+| |____UserManagementSection.tsx
 | |____SampleCheckoutsSection.tsx
 | |____AddSampleInlineModal.tsx
+| |____PricingConfigurationSection.tsx
+| |____UserNotificationSettings.tsx
+| |____BackupRestoreSection.tsx
 | |____FinalizeJobSection.tsx
 | |____SampleSelector.tsx
 | |____SampleCarousel.tsx
+| |____SystemEmailSettings.tsx
 | |____ProjectInfoHeader.tsx
 | |____ActivityHistory.tsx
 | |____JobNotesSection.tsx
 | |____NavigationListener.tsx
+| |____BrandingSettingsSection.tsx
+| |____MySettingsSection.tsx
 | |____Layout.tsx
 | |____RestoreForm.tsx
 | |____EditInstallerModal.tsx
@@ -127,17 +119,20 @@
 | |____UserStatus.tsx
 | |____EditChangeOrderModal.tsx
 | |____EditProjectModal.tsx
+| |____DashboardEmailSettings.tsx
 | |____QuickCheckoutModal.tsx
 | |____AddEditVendorModal.tsx
 | |____EditCustomerModal.tsx
 | |____QuotesSection.tsx
 | |____CustomerCarousel.tsx
+| |____CalendarFilter.tsx
 | |____SizeManagement.tsx
 | |____ProjectCarousel.tsx
 | |____ProjectSelector.tsx
 | |____CustomerSelector.tsx
 |____metadata.json
 |____utils
+| |____pricingUtils.ts
 | |____cryptoUtils.ts
 | |____changeFormatter.ts
 |____todo.txt
@@ -165,6 +160,7 @@
 |____data
 | |____mockData.ts
 |____project.txt
+
 
 
 --- PROJECT OVERVIEW ---
@@ -594,3 +590,195 @@ Today's Accomplishments
         The calendar now uses these colors, dynamically changing an appointment's color based on who the single attendee is, providing instant visual recognition.
 
     Created a Powerful, Unified Calendar Filter: We refactored the simple installer filter into a comprehensive component that now allows you to filter the calendar view by any combination of Users and Installers, giving you precise control over the schedule you see.
+
+    SESSION 13 SUMMARY
+
+Session Summary: Full-Stack Email Automation, Architectural Refactor & Critical Bug Fixes
+
+This was a massive session focused on building a complete, multi-faceted automated email system from the ground up. The work involved creating new backend infrastructure, building several full-stack features, and then executing a significant architectural refactor to correctly separate system-level and user-level settings. A substantial portion of the session was also dedicated to hunting down and fixing a cascade of critical bugs, culminating in the resolution of a major data integrity issue in the application's user preference system.
+1. New Feature: Foundational Email & Scheduling Infrastructure (Backend)
+
+We built the core engine for all current and future email functionality.
+
+    Technology: Integrated Nodemailer for sending emails via Gmail and node-cron for running scheduled tasks.
+
+    Architecture: Created a new server/lib/ directory for backend business logic, housing a reusable emailService.js and a central scheduler.js.
+
+    Configuration: Implemented secure credential management using a root .env file and correctly configured docker-compose.yml with env_file to inject these variables into the server container, solving a critical startup failure.
+
+2. New Feature: Enhanced Internal "Daily Update" Email
+
+We built a complete, user-configurable daily summary email for internal users.
+
+    Initial Implementation: Created the UI for users to opt-in and configure the email's content (Samples Due, Upcoming Jobs, Pending Quotes).
+
+    Feature Enhancement: Based on your feedback, we significantly upgraded the email to also include:
+
+        A new "Jobs in Progress" section.
+
+        A personalized "My Upcoming Appointments" section, which required refactoring the data-gathering functions to be user-specific.
+
+    Testing: Built a "Send Test" button in the UI, allowing users to get immediate feedback on their configuration without waiting for the daily cron job.
+
+3. New Feature: Automated Customer-Facing Reminders
+
+We built two distinct, automated email notifications for customers.
+
+    "Due Tomorrow" Reminder: Created a cron job that runs daily, finds all samples due the next day, and sends a polite reminder email to the corresponding customer.
+
+    "Past Due" Reminder: Implemented your new feature request for an automated "nag" email. This involved:
+
+        Creating a new pastDueReminder.html template.
+
+        Adding a new cron job that finds overdue samples and sends reminders on an adjustable frequency (e.g., every 2 days).
+
+    Admin Controls: Built a "Manual Actions" panel for admins, providing buttons to instantly trigger both the "Due Tomorrow" and "Past Due" reminder emails for all eligible customers, which proved invaluable for testing.
+
+4. Major Architectural Refactor: System vs. User Preferences
+
+We addressed a core design flaw by separating admin-controlled system settings from personal user preferences.
+
+    Database: Created a new system_preferences table via a live migration to act as the single source of truth for all global settings.
+
+    Backend API: Built new, admin-only GET and PUT endpoints at /api/system-preferences to manage these settings.
+
+    UI Split: Restructured the "Settings" page, splitting the monolithic "Notifications" tab into two clear, distinct areas:
+
+        "Email Settings" (Admin Only): A new tab with a SystemEmailSettings.tsx component to control customer-facing emails.
+
+        "My Notifications" (User Facing): A refactored UserNotificationSettings.tsx component focused exclusively on a user's personal daily update preferences.
+
+    Backend Refactor: Updated the scheduler's cron jobs to read their configuration from the correct source: system_preferences for customer emails and user_preferences for the internal daily update.
+
+5. Critical Bug Fixes & Stability Hardening
+
+This session involved extensive and difficult debugging, which ultimately made the entire application more stable.
+
+    Fixed Critical Preference Overwriting Bug (MAJOR STABILITY IMPROVEMENT): Diagnosed and fixed a systemic issue where saving one user preference (e.g., calendar color) would overwrite and delete all others (email settings, project layouts). We solved this by implementing a robust deep-merge strategy within the saveCurrentUserPreferences function in DataContext.tsx, permanently fixing data loss issues across multiple features.
+
+    Solved Multiple Backend Crashes: We identified and fixed several show-stopping bugs that were crashing the server, including a TypeError on getJWTPayload, a fatal typo on toLocaleDateString, and a JavaScript syntax error (catch (error).) in the scheduler.
+
+    Fixed Repetitive SQL Errors: Methodically corrected numerous column does not exist errors in our new queries by cross-referencing the schema.sql file, fixing incorrect names like due_date, checked_in_date, sent_date, and various name columns.
+
+    "Bomb-Proofed" the Sample Name Query: Solved a bug where emails contained blank list items for samples with no style or color. We implemented a robust COALESCE(NULLIF(TRIM(CONCAT_WS(...)))) query to guarantee a descriptive fallback name (Sample ID: X) in all cases.
+
+
+    SESSION 14: User Identity, Pricing Engine & Advanced Ordering
+1. USER IDENTITY & PROFILE SYSTEM (NEW MAJOR FEATURE)
+
+We moved the application beyond simple email-based identity to full user profiles.
+
+    Database: Created a new user_profiles table linked to the authentication system.
+
+    Profile Management:
+
+        Names: Users can now save their First and Last Name.
+
+        Avatars: Implemented a full image upload pipeline for profile pictures (server/uploads/avatars).
+
+        UI: Updated UserStatus (header), Settings, and the Admin User List to display Avatars (or Initials if missing) instead of generic icons.
+
+    Security: Built a secure "Change Password" workflow using the SuperTokens SDK, requiring validation of the current password before allowing changes. (Solved a complex SDK version mismatch issue involving Tenant IDs).
+
+2. THE PRICING ENGINE (NEW MAJOR ARCHITECTURE)
+
+We built a hierarchical pricing system to automatically calculate "Retail Price" from "Unit Cost."
+
+    Global Configuration: Added a new "Pricing Config" tab in Settings (Admin only) to set default Retail Markup, Contractor Markup, and calculation method (Markup vs. Margin).
+
+    Vendor Overrides: Updated the Vendor system to allow specific vendors to override global settings (e.g., "Shaw Floors always gets 60% markup").
+
+    Waterfalls Logic: Created pricingUtils.ts to handle the logic chain: Line Item Override > Variant Override > Vendor Override > Global Default.
+
+3. PRODUCT VARIANTS & PACKAGING (DATA MODEL REFACTOR)
+
+We realized a single price per sample wasn't enough (e.g., Tile comes in 12x24 and Mosaic, with different prices).
+
+    Schema Update: Refactored the sample_sizes table to store rich data (unit_cost, carton_size, uom) instead of just text tags.
+
+    Sample Form: Completely rebuilt SampleForm.tsx with a dynamic "Variant Table," allowing users to define specific costs and packaging for every size available for a product.
+
+    Library View: Updated the card view to calculate and display the Retail Price (e.g., "$5.99 / SF") derived from the cost and markup rules.
+
+4. ADVANCED MATERIAL ORDERING
+
+We overhauled the Material Order form to use this new data to facilitate sales.
+
+    Purchaser Logic: Added a toggle for "Customer vs. Installer", which automatically switches between Retail and Contractor pricing tiers.
+
+    Variant Selection: Added a dropdown to Line Items to select specific sizes (e.g., "12x24"), which auto-fills the correct Unit and Price.
+
+    Carton Calculator: Built a smart utility button that appears when carton_size data is present. It converts "100 SF" into "5 Cartons" with one click, handling the rounding math automatically.
+
+    Snapshots: Updated the database to save a snapshot of the cost/markup at the moment of sale, ensuring historical accuracy even if prices change later.
+
+5. CRITICAL BUG FIXES & STABILITY
+
+    Calendar Colors: Fixed a disconnect between frontend storage and backend queries, allowing users to finally set their own event colors.
+
+    Dashboard Layouts: Fixed a regression where saving a custom layout would collapse widgets. Implemented a "Smart Merge" to preserve widget positions.
+
+    Printouts: Updated the "Sample Checkout" print sheet to include a "Pricing Menu"—a list of all available sizes and their Retail Prices for the checked-out item, giving customers a takeaway menu of options.
+
+Current Status:
+The application is now capable of managing the entire sales lifecycle: creating profiles, setting margin goals, defining complex product variants, and generating priced orders with automatic unit conversions.
+
+SESSION 15 SUMMARY: Branding, Theming & UI Architecture
+
+In this session, we successfully transformed Joblogger from a generic, hardcoded application into a fully white-label-ready platform with a dynamic theming engine. We also performed significant architectural cleanup on the Settings page.
+1. Full-Stack Branding Engine
+
+We built the infrastructure to allow admins to customize the application's identity without touching code.
+
+    Database: Updated system_preferences to store branding assets and color palettes.
+
+    Backend: Built secure API endpoints (POST/DELETE) using multer to handle Logo and Favicon uploads.
+
+    Frontend: Implemented a dynamic BrandingListener in App.tsx that injects the uploaded Favicon into the browser tab and the Logo into the Sidebar in real-time.
+
+2. Dynamic "Semantic" Theme Engine
+
+We moved the application away from hardcoded Tailwind colors (e.g., bg-blue-600, bg-gray-800) to a semantic variable system.
+
+    CSS Variables: Defined global variables in index.css for primary, secondary, accent, background, surface, and text.
+
+    Tailwind Config: Mapped Tailwind utilities to these CSS variables so the entire app reacts instantly to changes.
+
+    Smart Contrast: Implemented logic to automatically calculate whether text on buttons should be Black or White (text-on-primary) based on the brightness of the user's chosen color.
+
+    Full Light/Dark Mode Control: Users can now fundamentally change the app from Dark Mode to Light Mode by adjusting the "Page Background" and "Surface" colors in Settings.
+
+3. System-Wide UI Refactor (The "Scrub")
+
+We systematically refactored over 30 components to use the new semantic class names, ensuring every modal, button, card, and input respects the user's theme.
+
+    Core Modals: Customer, Project, Installer, Vendor, and Quick Checkout modals.
+
+    Project Detail View: Header, Quotes, Job Notes, Financials, Change Orders, and Material Orders.
+
+    Lists & Libraries: Sample Library, Customer List, Installer List (including removing hardcoded legacy code).
+
+    Navigation: Sidebar, User Status dropdown, and Universal Search.
+
+4. Settings Page Architecture (Refactor)
+
+The Settings.tsx file had grown to over 500 lines and contained multiple distinct features. We performed a major refactor to improve maintainability:
+
+    Component Extraction: Extracted UserManagementSection, BrandingSettingsSection, BackupRestoreSection, and MySettingsSection into their own files.
+
+    Result: Settings.tsx is now a clean layout container that simply manages tabs and renders the appropriate child component.
+
+Current Status
+
+The application is now visually customizable and architecturally cleaner. You have a robust foundation for selling this as a SaaS product or tailoring it to specific clients, with a professional-grade "Theme Editor" built directly into the admin panel.
+
+GOALS
+• Inter-employee messaging.
+• Order Management: email suppliers using predefined, supplier-specific templates.
+• Project Designer: organize projects by room, attach sample photos, generate per-room surface PDF.
+• Refactor API for proper REST structure.
+• Centralize change histories in one admin-only location.
+
+FIXES
+• Daily emails not sending; define and use a master copy-recipient address.
+• QR code printer: improve formatting and layout.

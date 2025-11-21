@@ -80,6 +80,9 @@ router.get('/', verifySession(), async (req, res) => {
         s.id, s.manufacturer_id, s.supplier_id, s.product_type, s.style, s.line,
         s.finish, s.color, s.sample_format, s.board_colors, s.sku, 
         s.is_available, s.product_url,
+        s.unit_cost,
+        s.uom,
+        s.carton_size,
         m.name AS manufacturer_name, 
         sup.name AS supplier_name, 
         p.url AS image_url, 
@@ -89,7 +92,16 @@ router.get('/', verifySession(), async (req, res) => {
         sc.id AS "checkoutId",
         sc.expected_return_date AS "checkoutExpectedReturnDate",
         (
-          SELECT COALESCE(json_agg(ss.size_value), '[]'::json)
+          SELECT COALESCE(json_agg(
+            json_build_object(
+                'size', ss.size_value, 
+                'unitCost', ss.unit_cost,
+                'cartonSize', ss.carton_size,
+                'uom', ss.uom,
+                -- Flag to help frontend distinguish old string-only data
+                'isVariant', true 
+            )
+          ), '[]'::json)
           FROM sample_sizes ss
           WHERE ss.sample_id = s.id
         ) AS sizes
@@ -114,7 +126,8 @@ router.post('/', verifySession(), async (req, res) => {
   try {
     const { 
       manufacturerId, supplierId, productType, style, line, sizes,
-      finish, color, sampleFormat, boardColors, sku, productUrl 
+      finish, color, sampleFormat, boardColors, sku, productUrl,
+      unitCost, uom, cartonSize 
     } = req.body;
     if (!manufacturerId || !productType || !style) {
         return res.status(400).json({ error: 'Manufacturer, Product Type, and Style are required.'});
@@ -123,17 +136,30 @@ router.post('/', verifySession(), async (req, res) => {
     const sampleInsertResult = await client.query(
         `INSERT INTO samples (
             manufacturer_id, supplier_id, product_type, style, line, 
-            finish, color, sample_format, board_colors, sku, product_url
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`, 
+            finish, color, sample_format, board_colors, sku, product_url,
+            unit_cost, uom, carton_size
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`, 
         [
             manufacturerId || null, supplierId || null, productType, style, line || null, 
-            finish || null, color || null, sampleFormat || null, boardColors || null, sku || null, productUrl || null
+            finish || null, color || null, sampleFormat || null, boardColors || null, sku || null, productUrl || null,
+            unitCost || null, uom || null, cartonSize || null
         ]
     );
     const newSample = toCamelCase(sampleInsertResult.rows[0]);
     if (sizes && Array.isArray(sizes) && sizes.length > 0) {
         for (const size of sizes) {
-            await client.query('INSERT INTO sample_sizes (sample_id, size_value) VALUES ($1, $2)', [newSample.id, size]);
+            // Handle both old string format and new object format
+            if (typeof size === 'string') {
+                 await client.query('INSERT INTO sample_sizes (sample_id, size_value) VALUES ($1, $2)', [newSample.id, size]);
+            } else {
+                 // FIX: Handle both 'value' (frontend form) and 'size' (potential legacy/database) keys
+                 const sizeValue = size.value || size.size; 
+                 const { unitCost, cartonSize, uom } = size;
+                 await client.query(
+                     'INSERT INTO sample_sizes (sample_id, size_value, unit_cost, carton_size, uom) VALUES ($1, $2, $3, $4, $5)', 
+                     [newSample.id, sizeValue, unitCost || null, cartonSize || null, uom || null]
+                 );
+            }
         }
     }
     await client.query('COMMIT');
@@ -157,7 +183,8 @@ router.put('/:id', verifySession(), async (req, res) => {
     try {
         const { 
           manufacturerId, supplierId, productType, style, line, sizes,
-          finish, color, sampleFormat, boardColors, sku, productUrl 
+          finish, color, sampleFormat, boardColors, sku, productUrl,
+          unitCost, uom, cartonSize 
         } = req.body;
         if (!manufacturerId || !productType || !style) {
             return res.status(400).json({ error: 'Manufacturer, Product Type, and Style are required fields.' });
@@ -170,25 +197,46 @@ router.put('/:id', verifySession(), async (req, res) => {
             UPDATE samples SET 
                 manufacturer_id = $1, supplier_id = $2, product_type = $3, style = $4, line = $5, 
                 finish = $6, color = $7, sample_format = $8, board_colors = $9, 
-                sku = $10, product_url = $11
-            WHERE id = $12;
+                sku = $10, product_url = $11,
+                unit_cost = $12, uom = $13, carton_size = $14
+            WHERE id = $15;
         `;
         await client.query(sampleUpdateQuery, [
             manufacturerId || null, supplierId || null, productType, style, line || null,
             finish || null, color || null, sampleFormat || null, boardColors || null, sku || null, productUrl || null,
+            unitCost || null, uom || null, cartonSize || null,
             id
         ]);
         await client.query('DELETE FROM sample_sizes WHERE sample_id = $1', [id]);
         if (sizes && Array.isArray(sizes) && sizes.length > 0) {
             for (const size of sizes) {
-                await client.query('INSERT INTO sample_sizes (sample_id, size_value) VALUES ($1, $2)', [id, size]);
+                // Handle both old string format and new object format
+                if (typeof size === 'string') {
+                    await client.query('INSERT INTO sample_sizes (sample_id, size_value) VALUES ($1, $2)', [id, size]);
+                } else {
+                    // FIX: Handle both 'value' and 'size' keys
+                    const sizeValue = size.value || size.size;
+                    const { unitCost, cartonSize, uom } = size;
+                    await client.query(
+                        'INSERT INTO sample_sizes (sample_id, size_value, unit_cost, carton_size, uom) VALUES ($1, $2, $3, $4, $5)', 
+                        [id, sizeValue, unitCost || null, cartonSize || null, uom || null]
+                    );
+                }
             }
         }
         await client.query('COMMIT');
         const updatedSampleQuery = `
-            SELECT s.*, m.name AS manufacturer_name, sup.name AS supplier_name, p.url AS image_url,
+            SELECT s.*, m.name AS manufacturer_name, sup.name AS supplier_name, p.url AS image_url, s.unit_cost, s.uom, s.carton_size,
             (
-              SELECT COALESCE(json_agg(ss.size_value), '[]'::json)
+              SELECT COALESCE(json_agg(
+                json_build_object(
+                    'size', ss.size_value, 
+                    'unitCost', ss.unit_cost,
+                    'cartonSize', ss.carton_size,
+                    'uom', ss.uom,
+                    'isVariant', true
+                )
+              ), '[]'::json)
               FROM sample_sizes ss
               WHERE ss.sample_id = s.id
             ) AS sizes

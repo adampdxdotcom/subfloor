@@ -2,11 +2,14 @@
 
 import pool from '../db.js';
 
-export async function getDashboardReportData(prefs) {
+// MODIFIED: Function now accepts an optional userId for personal data
+export async function getDashboardReportData(prefs, userId = null) {
     const reportData = {
         samplesDueToday: [],
         upcomingJobs: [],
         pendingQuotes: [],
+        jobsInProgress: [], // NEW
+        myAppointments: [],   // NEW
     };
 
     const client = await pool.connect();
@@ -14,7 +17,7 @@ export async function getDashboardReportData(prefs) {
         if (prefs.includeSamplesDue) {
             const samplesQuery = `
                 SELECT 
-                    s.style || ' - ' || s.color AS sample_name,
+                    COALESCE(NULLIF(TRIM(CONCAT_WS(' - ', s.product_type, s.style, s.line, s.color)), ''), 'Sample ID: ' || s.id::text) AS sample_name,
                     c.full_name AS customer_name,
                     p.project_name
                 FROM sample_checkouts sc
@@ -61,6 +64,51 @@ export async function getDashboardReportData(prefs) {
             `;
             const quotesResult = await client.query(pendingQuotesQuery, [prefs.pendingQuotesDays]);
             reportData.pendingQuotes = quotesResult.rows;
+        }
+
+        // --- NEW QUERY: Jobs in Progress ---
+        // This query assumes `prefs.includeAllUpdates` is the trigger, which we will implement on the frontend.
+        // For now, we'll use `includeUpcomingJobs` as a proxy.
+        if (prefs.includeUpcomingJobs) {
+            const jobsInProgressQuery = `
+                WITH JobAppointmentRange AS (
+                    SELECT
+                        job_id,
+                        MIN(start_date) as job_start,
+                        MAX(end_date) as job_end
+                    FROM job_appointments
+                    GROUP BY job_id
+                )
+                SELECT
+                    p.project_name,
+                    jar.job_start,
+                    jar.job_end
+                FROM jobs j
+                JOIN projects p ON j.project_id = p.id
+                JOIN JobAppointmentRange jar ON j.id = jar.job_id
+                WHERE j.is_on_hold = FALSE
+                AND CURRENT_DATE BETWEEN jar.job_start::date AND jar.job_end::date
+                ORDER BY jar.job_start;
+            `;
+            const jobsInProgressResult = await client.query(jobsInProgressQuery);
+            reportData.jobsInProgress = jobsInProgressResult.rows;
+        }
+
+        // --- NEW QUERY: User's Personal Appointments ---
+        // This runs only if a userId is provided and the user wants their appointments included.
+        if (userId && prefs.includePersonalAppointments && prefs.personalAppointmentsDays > 0) {
+             const myAppointmentsQuery = `
+                SELECT
+                    e.title,
+                    e.start_time
+                FROM events e
+                JOIN event_attendees ea ON e.id = ea.event_id
+                WHERE ea.attendee_id = $1 AND ea.attendee_type = 'user'
+                AND e.start_time::date BETWEEN CURRENT_DATE AND CURRENT_DATE + $2::int
+                ORDER BY e.start_time ASC;
+             `;
+             const myAppointmentsResult = await client.query(myAppointmentsQuery, [userId, prefs.personalAppointmentsDays]);
+             reportData.myAppointments = myAppointmentsResult.rows;
         }
 
         return reportData;

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 // --- CORRECTED: Import UserPreferences and remove UiPreferences ---
-import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UserPreferences, User } from '../types';
+import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UserPreferences, User, SystemBranding } from '../types';
 import { toast } from 'react-hot-toast';
 
 import { useSessionContext } from 'supertokens-auth-react/recipe/session';
@@ -28,6 +28,7 @@ const emptyInitialData: AppData = {
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const sessionContext = useSessionContext();
   const [data, setData] = useState<AppData>(emptyInitialData);
+  const [systemBranding, setSystemBranding] = useState<SystemBranding | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
@@ -49,22 +50,42 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLayoutEditMode(prevMode => !prevMode);
   };
 
-  // --- RENAMED & FIXED: Function name now matches DataContextType ---
+  // --- THIS IS THE FIX (RENAMED & IMPLEMENTED DEEP MERGE/FUNCTIONAL UPDATE) ---
   const saveCurrentUserPreferences = useCallback(
-    debounce(async (newPreferences: Partial<UserPreferences>) => {
-      if (!currentUser) return;
-      
-      const fullPreferences = { ...currentUser.preferences, ...newPreferences };
-      try {
-        // Optimistically update local state for immediate UI feedback
-        setCurrentUser(prevUser => prevUser ? { ...prevUser, preferences: fullPreferences as UserPreferences } : null); 
-        await preferenceService.savePreferences(fullPreferences);
-      } catch (error) {
-        console.error("Failed to save preferences:", error);
-        toast.error("Could not save your preferences.");
-      }
-    }, 1000),
-    [currentUser] // Depend on the full currentUser object
+    debounce((newPreferences: Partial<UserPreferences>) => {
+      // Use a functional update with setCurrentUser to get the most recent state
+      setCurrentUser(prevUser => {
+        if (!prevUser) return null;
+
+        // Perform a deep merge to handle nested objects
+        const mergedPreferences = {
+          ...prevUser.preferences,
+          ...newPreferences,
+          calendarColor: newPreferences.calendarColor || prevUser.preferences?.calendarColor,
+          dashboardEmail: {
+            ...(prevUser.preferences?.dashboardEmail || {}),
+            ...(newPreferences.dashboardEmail || {}),
+          },
+          calendar_user_colors: {
+            ...(prevUser.preferences?.calendar_user_colors || {}),
+            ...(newPreferences.calendar_user_colors || {}),
+          },
+          projectLayouts: newPreferences.projectLayouts || prevUser.preferences?.projectLayouts,
+        };
+
+        // Fire off the save request
+        preferenceService.savePreferences(mergedPreferences)
+          .then(() => toast.success("Preferences saved!"))
+          .catch(error => {
+            console.error("Failed to save preferences:", error);
+            toast.error("Could not save your preferences.");
+          });
+        
+        // Return the new state for optimistic update
+        return { ...prevUser, preferences: mergedPreferences as UserPreferences };
+      });
+    }, 1000), 
+    [] // No dependencies, ensures function uses latest state via functional update
   );
 
 
@@ -77,6 +98,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error) {
       console.error("Failed to fetch current user:", error);
       setCurrentUser(null);
+    }
+  }, []);
+  
+  const refreshBranding = useCallback(async () => {
+    try {
+      // We assume this method exists or will be added to preferenceService
+      const branding = await preferenceService.getSystemPreference('branding');
+      setSystemBranding(branding);
+    } catch (error) {
+      console.error("Failed to fetch branding:", error);
     }
   }, []);
 
@@ -104,6 +135,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             changeOrderService.getChangeOrders(),
             materialOrderService.getMaterialOrders(),
             vendorService.getVendors(),
+            refreshBranding()
         ]);
         setData({
             customers: Array.isArray(customersData) ? customersData : [],
@@ -124,8 +156,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
         setIsLoading(false);
     }
-  }, []); 
-
+  }, [refreshBranding]); 
+  
   useEffect(() => {
     if (sessionContext.loading) {
         setIsLoading(true);
@@ -655,15 +687,54 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateJob = useCallback((updatedJob: Job) => { setData(prevData => ({ ...prevData, jobs: prevData.jobs.map(j => j.id === updatedJob.id ? updatedJob : j) })); }, []);
 
+  const updateCurrentUserProfile = useCallback(async (firstName: string, lastName: string) => {
+    try {
+      const updatedProfile = await userService.updateUserProfile(firstName, lastName);
+      setCurrentUser(prev => prev ? { ...prev, ...updatedProfile } : null);
+      toast.success("Profile updated successfully!");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Failed to update profile.");
+      throw error;
+    }
+  }, []);
+
+  const uploadCurrentUserAvatar = useCallback(async (file: File) => {
+    try {
+      const { avatarUrl } = await userService.uploadUserAvatar(file);
+      setCurrentUser(prev => prev ? { ...prev, avatarUrl } : null);
+      toast.success("Avatar uploaded successfully!");
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      toast.error("Failed to upload avatar.");
+      throw error;
+    }
+  }, []);
+
+  const deleteCurrentUserAvatar = useCallback(async () => {
+    try {
+      await userService.deleteUserAvatar();
+      setCurrentUser(prev => prev ? { ...prev, avatarUrl: null } : null);
+      toast.success("Avatar removed.");
+    } catch (error) {
+      console.error("Error removing avatar:", error);
+      toast.error("Failed to remove avatar.");
+    }
+  }, []);
+
   const providerValue: DataContextType = {
     ...data,
     isLoading,
     currentUser,
-    // --- REMOVED fetchCurrentUser and fetchAllUsers, they are internal to the context ---
+    systemBranding,
+    refreshBranding,
     users,
 
     isLayoutEditMode,
     toggleLayoutEditMode,
+    updateCurrentUserProfile,
+    uploadCurrentUserAvatar,
+    deleteCurrentUserAvatar,
 
     // --- CORRECTED: Expose the correctly named function ---
     saveCurrentUserPreferences: saveCurrentUserPreferences,

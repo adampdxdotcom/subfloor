@@ -13,10 +13,6 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSelect, o
   const { customers } = useData();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // --- REMOVED: State for the old, incorrect form is gone ---
-  // const [isCreating, setIsCreating] = useState(false);
-  // const [newCustomerForm, setNewCustomerForm] = useState(...);
-
   const searchResults = useMemo(() => {
     if (searchTerm.length < 1) return []; // Show results even on 1 character
     return customers.filter(c =>
@@ -25,16 +21,11 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSelect, o
     );
   }, [searchTerm, customers]);
 
-  // --- REMOVED: The old, incorrect create customer handler is gone ---
-  // const handleCreateNewCustomer = async (...) => { ... };
-
   const handleSelect = (customer: Customer) => {
     onCustomerSelect(customer);
     setSearchTerm('');
   };
   
-  // --- REMOVED: The entire `if (isCreating)` block is gone ---
-
   return (
     <div className="relative">
       <input
@@ -42,7 +33,7 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSelect, o
         placeholder="Search by name or email..."
         value={searchTerm}
         onChange={e => setSearchTerm(e.target.value)}
-        className="w-full p-3 bg-gray-800 border-2 border-border rounded-lg"
+        className="w-full p-3 bg-background text-text-primary border-2 border-border rounded-lg"
       />
       {searchTerm.length > 0 && (
         <div className="absolute z-10 w-full bg-surface border border-border rounded-b-lg mt-1 shadow-lg max-h-60 overflow-y-auto">
@@ -50,7 +41,7 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSelect, o
             <div
               key={customer.id}
               onClick={() => handleSelect(customer)}
-              className="p-3 hover:bg-accent cursor-pointer border-b border-border"
+              className="p-3 hover:bg-background cursor-pointer border-b border-border text-text-primary"
             >
               <p className="font-semibold">{customer.fullName}</p>
               <p className="text-sm text-text-secondary">{customer.email}</p>
@@ -59,7 +50,7 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSelect, o
           {/* --- MODIFIED: This now calls the parent component with the search term --- */}
           <div
             onClick={() => onRequestNewCustomer(searchTerm)}
-            className="p-3 hover:bg-accent cursor-pointer flex items-center gap-2 text-accent font-semibold"
+            className="p-3 hover:bg-background cursor-pointer flex items-center gap-2 text-accent font-semibold"
           >
             <UserPlus size={18} />
             Create New Customer "{searchTerm}"

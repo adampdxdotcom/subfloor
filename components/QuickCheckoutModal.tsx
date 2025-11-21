@@ -21,7 +21,7 @@ interface QuickCheckoutModalProps {
 }
 
 const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose }) => {
-  const { addSampleCheckout } = useData();
+  const { addSampleCheckout, vendors } = useData(); // FIX: Get vendors from context
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -102,6 +102,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
               customer={selectedCustomer}
               project={selectedProject}
               samples={samplesToCheckout}
+              vendors={vendors} // FIX: Pass vendors prop
               returnDate={expectedReturnDate}
           />
         </div>
@@ -109,21 +110,21 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
         <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
           <div className="flex justify-between items-center mb-6 no-print">
             <h2 className="text-2xl font-bold text-text-primary">New Sample Checkout</h2>
-            <button onClick={handleClose} className="p-2 rounded-full hover:bg-gray-700">
-              <X className="w-6 h-6" />
+            <button onClick={handleClose} className="p-2 rounded-full hover:bg-background">
+              <X className="w-6 h-6 text-text-primary" />
             </button>
           </div>
 
           <fieldset disabled={checkoutComplete} className="flex-1 overflow-y-auto pr-4 space-y-8">
             <section>
-              <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2">1. Customer</h3>
+              <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2 text-text-primary">1. Customer</h3>
               {!selectedCustomer ? (
                 <CustomerSelector 
                   onCustomerSelect={handleCustomerSelect}
                   onRequestNewCustomer={handleRequestNewCustomer} 
                 />
               ) : (
-                <div className="bg-gray-800 p-4 rounded-lg flex justify-between items-center">
+                <div className="bg-background p-4 rounded-lg flex justify-between items-center border border-border">
                   <div className="flex items-center gap-3">
                     <User className="w-6 h-6 text-accent" />
                     <div>
@@ -148,14 +149,14 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
 
             {selectedCustomer && (
               <section>
-                <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2">2. Project</h3>
+                <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2 text-text-primary">2. Project</h3>
                 {!selectedProject ? (
                   <ProjectSelector 
                       customer={selectedCustomer} 
                       onProjectSelect={(project) => setSelectedProject(project)} 
                   />
                 ) : (
-                  <div className="bg-gray-800 p-4 rounded-lg flex justify-between items-center">
+                  <div className="bg-background p-4 rounded-lg flex justify-between items-center border border-border">
                       <div className="flex items-center gap-3">
                           <Briefcase className="w-6 h-6 text-accent" />
                           <div>
@@ -178,7 +179,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
 
             {selectedProject && (
               <section>
-                <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2">3. Samples & Return Date</h3>
+                <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2 text-text-primary">3. Samples & Return Date</h3>
                 <div className="mb-4">
                   <label htmlFor="returnDate" className="block text-sm font-medium text-text-secondary mb-2">Expected Return Date</label>
                   <div className="relative">
@@ -188,7 +189,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                           type="date"
                           value={expectedReturnDate}
                           onChange={(e) => setExpectedReturnDate(e.target.value)}
-                          className="w-full bg-gray-800 border border-border rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-accent"
+                          className="w-full bg-background border border-border rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary text-text-primary"
                       />
                   </div>
                 </div>
@@ -201,13 +202,13 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
           <div className="mt-8 pt-6 border-t border-border flex justify-end gap-4 no-print">
             {checkoutComplete ? (
               <>
-                <button type="button" onClick={handleClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">
+                <button type="button" onClick={handleClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">
                   Close
                 </button>
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="py-2 px-6 bg-accent hover:bg-blue-700 rounded text-white flex items-center gap-2"
+                  className="py-2 px-6 bg-accent hover:bg-accent-hover rounded text-on-accent flex items-center gap-2"
                 >
                   <Printer size={18} />
                   Print Summary
@@ -215,14 +216,14 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
               </>
             ) : (
               <>
-                <button type="button" onClick={handleClose} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white" disabled={isSubmitting}>
+                <button type="button" onClick={handleClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary" disabled={isSubmitting}>
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleFinishCheckout}
                   disabled={!selectedCustomer || !selectedProject || samplesToCheckout.length === 0 || isSubmitting}
-                  className="py-2 px-6 bg-primary hover:bg-secondary rounded text-white disabled:bg-gray-500 disabled-cursor-not-allowed"
+                  className="py-2 px-6 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled-cursor-not-allowed"
                 >
                   {isSubmitting ? 'Checking Out...' : `Finish Checkout (${samplesToCheckout.length})`}
                 </button>

@@ -18,11 +18,16 @@ const UserStatus = () => {
   const isEditablePage = location.pathname.startsWith('/projects/');
 
   useEffect(() => {
-    if (currentUser?.email) {
+    // PRIORITY 1: Use the uploaded avatar URL directly if it exists
+    if (currentUser?.avatarUrl) {
+        setGravatarUrl(currentUser.avatarUrl);
+    } 
+    // PRIORITY 2: Fallback to Gravatar hash if no custom avatar
+    else if (currentUser?.email) {
       const hash = createGravatarHash(currentUser.email);
       setGravatarUrl(`https://www.gravatar.com/avatar/${hash}?s=40&d=mp`);
     }
-  }, [currentUser]);
+  }, [currentUser, currentUser?.avatarUrl]); // Re-run if the uploaded URL changes
 
   // Effect to close dropdown if clicking outside of it
   useEffect(() => {
@@ -46,19 +51,24 @@ const UserStatus = () => {
     return null;
   }
 
+  // Use First Name if available, otherwise fall back to email
+  const displayName = currentUser.firstName 
+    ? `${currentUser.firstName} ${currentUser.lastName || ''}` 
+    : currentUser.email;
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* --- MODIFIED: This is now the button to open the dropdown --- */}
       <button 
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center space-x-3 text-white p-1 rounded-md hover:bg-white/10 transition-colors"
+        className="flex items-center space-x-3 text-text-primary p-1 rounded-md hover:bg-background transition-colors"
       >
         <img
           src={gravatarUrl}
           alt="User Avatar"
-          className="w-8 h-8 rounded-full bg-gray-600 border-2 border-gray-400"
+          className="w-8 h-8 rounded-full bg-gray-600 border-2 border-gray-400 object-cover"
         />
-        <span className="hidden sm:inline text-sm font-medium">{currentUser.email}</span>
+        <span className="hidden sm:inline text-sm font-medium">{displayName}</span>
       </button>
 
       {/* --- NEW: The Dropdown Menu --- */}

@@ -58,7 +58,7 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
     <div className="relative" ref={wrapperRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-700 transition-colors"
+        className="flex items-center gap-2 p-2 rounded-lg hover:bg-background transition-colors"
         aria-label="Filter calendar"
       >
         <Filter size={20} />
@@ -66,7 +66,7 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-72 bg-gray-900 border border-border rounded-lg shadow-xl z-20">
+        <div className="absolute top-full right-0 mt-2 w-72 bg-surface border border-border rounded-lg shadow-xl z-20">
           <div className="max-h-[70vh] overflow-y-auto">
             {/* Installers Section */}
             <div className="p-3 border-b border-border">
@@ -78,9 +78,9 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
             </div>
             <div className="p-1">
               {(installers || []).map(installer => (
-                <label key={`installer-${installer.id}`} className="flex items-center justify-between p-2 rounded hover:bg-gray-800">
-                  <div className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={selectedInstallerIds.has(installer.id)} onChange={() => handleInstallerToggle(installer.id)} className="h-4 w-4 rounded text-primary focus:ring-primary-dark bg-gray-700 border-gray-600" />
+                <label key={`installer-${installer.id}`} className="flex items-center justify-between p-2 rounded hover:bg-background cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={selectedInstallerIds.has(installer.id)} onChange={() => handleInstallerToggle(installer.id)} className="h-4 w-4 rounded text-primary focus:ring-primary bg-background border-border" />
                     <div className="w-4 h-4 rounded-full" style={{ backgroundColor: installer.color || '#6b7280' }} />
                     <span className="text-sm text-text-secondary">{installer.installerName}</span>
                   </div>
@@ -99,9 +99,9 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
             </div>
             <div className="p-1">
               {(users || []).map(user => (
-                <label key={`user-${user.userId}`} className="flex items-center justify-between p-2 rounded hover:bg-gray-800">
-                  <div className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={selectedUserIds.has(user.userId)} onChange={() => handleUserToggle(user.userId)} className="h-4 w-4 rounded text-primary focus:ring-primary-dark bg-gray-700 border-gray-600" />
+                <label key={`user-${user.userId}`} className="flex items-center justify-between p-2 rounded hover:bg-background cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={selectedUserIds.has(user.userId)} onChange={() => handleUserToggle(user.userId)} className="h-4 w-4 rounded text-primary focus:ring-primary bg-background border-border" />
                     <div className="w-4 h-4 rounded-full" style={{ backgroundColor: user.color || '#6b7280' }} />
                     <span className="text-sm text-text-secondary">{user.email}</span>
                   </div>

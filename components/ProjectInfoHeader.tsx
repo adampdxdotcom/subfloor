@@ -7,13 +7,13 @@ const getStatusColor = (status: ProjectStatus): string => {
     switch (status) {
         case ProjectStatus.SCHEDULED: return 'bg-green-500 text-white';
         case ProjectStatus.ACCEPTED: return 'bg-teal-500 text-white';
-        case ProjectStatus.QUOTING: return 'bg-blue-500 text-white';
+        case ProjectStatus.QUOTING: return 'bg-accent text-on-accent'; // Updated to use theme accent
         case ProjectStatus.SAMPLE_CHECKOUT: return 'bg-yellow-500 text-gray-800';
-        case ProjectStatus.AWAITING_DECISION: return 'bg-gray-500 text-white';
-        case ProjectStatus.NEW: return 'bg-gray-600 text-white';
+        case ProjectStatus.AWAITING_DECISION: return 'bg-secondary text-on-secondary';
+        case ProjectStatus.NEW: return 'bg-gray-500 text-white';
         case ProjectStatus.COMPLETED: return 'bg-indigo-500 text-white';
         case ProjectStatus.CANCELLED: return 'bg-red-700 text-white';
-        default: return 'bg-gray-700 text-white';
+        default: return 'bg-secondary text-on-secondary';
     }
 };
 
@@ -66,7 +66,7 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
                         <button onClick={onCancelLayout} className="flex items-center text-red-400 hover:text-white hover:bg-red-600 font-semibold py-2 px-3 rounded-lg transition-colors text-sm">
                             <X className="w-4 h-4 mr-2"/> Cancel
                         </button>
-                        <button onClick={onSaveLayout} className="flex items-center bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg text-sm">
+                        <button onClick={onSaveLayout} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg text-sm">
                             <Save className="w-4 h-4 mr-2"/> Save Layout
                         </button>
                     </div>
@@ -78,7 +78,7 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
                         <div>
                             <div className="flex items-center gap-3 mb-1">
                                 <h1 className="text-3xl font-bold text-text-primary">{project.projectName}</h1>
-                                <button onClick={onEdit} className="p-1 text-text-secondary hover:text-white rounded-full hover:bg-gray-700" title="Edit Project Details">
+                                <button onClick={onEdit} className="p-1 text-text-secondary hover:text-text-primary rounded-full hover:bg-background" title="Edit Project Details">
                                     <Edit size={20}/>
                                 </button>
                             </div>
@@ -86,20 +86,15 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
                         </div>
                         <div className="flex items-center space-x-4 text-sm">
                             {currentUser?.roles?.includes('Admin') && (
-                                <button onClick={onDeleteProject} disabled={isDeleting} className="flex items-center text-red-400 hover:text-white hover:bg-red-600 font-semibold py-2 px-3 rounded-lg transition-colors disabled:bg-red-900 disabled:cursor-not-allowed">
+                                <button onClick={onDeleteProject} disabled={isDeleting} className="flex items-center text-red-400 hover:text-white hover:bg-red-600 font-semibold py-2 px-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                     <Trash2 className="w-4 h-4 mr-2"/>
                                     {isDeleting ? 'Deleting...' : 'Delete Project'}
                                 </button>
                             )}
 
-                            {/* This is a less destructive action, so it's fine for all users */}
-                            {/*<button onClick={handleCancelProject} className="flex items-center text-yellow-400 hover:text-white hover:bg-yellow-600 font-semibold py-2 px-3 rounded-lg transition-colors" title="Cancel Project">
-                                <X className="w-4 h-4 mr-2"/> Cancel Project
-                            </button>*/}
-
                             <div className="relative flex items-center space-x-2">
                                 {isEditingStatus ? (
-                                    <select value={project.status} onChange={(e) => handleStatusChange(e.target.value as ProjectStatus)} onBlur={() => setIsEditingStatus(false)} className="bg-gray-700 border border-border text-white text-sm rounded-lg focus:ring-accent focus:border-accent block w-full p-2.5" autoFocus>
+                                    <select value={project.status} onChange={(e) => handleStatusChange(e.target.value as ProjectStatus)} onBlur={() => setIsEditingStatus(false)} className="bg-background border border-border text-text-primary text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" autoFocus>
                                         {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                     </select>
                                 ) : (
@@ -107,15 +102,15 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
                                         {project.status}
                                     </span>
                                 )}
-                                <button onClick={() => setIsEditingStatus(!isEditingStatus)} className="text-text-secondary hover:text-text-primary p-1 rounded-full hover:bg-gray-700" title="Change Status">
+                                <button onClick={() => setIsEditingStatus(!isEditingStatus)} className="text-text-secondary hover:text-text-primary p-1 rounded-full hover:bg-background" title="Change Status">
                                     <Edit className="w-4 h-4"/>
                                 </button>
                             </div>
                         </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-border text-text-secondary">
-                        <p><strong>Type:</strong> {project.projectType}</p>
-                        <p><strong>Created:</strong> {new Date(project.createdAt).toLocaleDateString()}</p>
+                        <p><strong className="text-text-primary">Type:</strong> {project.projectType}</p>
+                        <p><strong className="text-text-primary">Created:</strong> {new Date(project.createdAt).toLocaleDateString()}</p>
                     </div>
                 </>
             )}

@@ -12,15 +12,41 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const formatDashboardEmailHtml = (data) => {
-    let html = `<h1>Joblogger Daily Dashboard</h1><p>Here is your summary for today:</p>`;
+    let html = `<h1>Joblogger Daily Update</h1><p>Here is your summary for today:</p>`;
+    let hasContent = false;
+
+    if (data.myAppointments?.length > 0) {
+        hasContent = true;
+        html += '<h2>My Upcoming Appointments</h2><ul>';
+        data.myAppointments.forEach(item => {
+            const startTime = new Date(item.start_time).toLocaleString();
+            html += `<li><b>${item.title}</b> at ${startTime}</li>`;
+        });
+        html += '</ul>';
+    }
+
+    if (data.jobsInProgress?.length > 0) {
+        hasContent = true;
+        html += '<h2>Jobs In Progress</h2><ul>';
+        data.jobsInProgress.forEach(item => {
+            const startDate = new Date(item.job_start).toLocaleDateString();
+            const endDate = new Date(item.job_end).toLocaleDateString();
+            html += `<li><b>${item.project_name}</b> (Scheduled: ${startDate} - ${endDate})</li>`;
+        });
+        html += '</ul>';
+    }
+    
     if (data.samplesDueToday?.length > 0) {
+        hasContent = true;
         html += '<h2>Samples Due Today</h2><ul>';
         data.samplesDueToday.forEach(item => {
             html += `<li><b>${item.sample_name}</b> for ${item.customer_name} (${item.project_name})</li>`;
         });
         html += '</ul>';
     }
+
     if (data.upcomingJobs?.length > 0) {
+        hasContent = true;
         html += '<h2>Upcoming Jobs</h2><ul>';
         data.upcomingJobs.forEach(item => {
             const startDate = new Date(item.start_date).toLocaleDateString();
@@ -28,7 +54,9 @@ const formatDashboardEmailHtml = (data) => {
         });
         html += '</ul>';
     }
+
     if (data.pendingQuotes?.length > 0) {
+        hasContent = true;
         html += '<h2>Pending Quotes Requiring Follow-up</h2><ul>';
         data.pendingQuotes.forEach(item => {
             const sentDate = new Date(item.date_sent).toLocaleDateString();
@@ -36,6 +64,11 @@ const formatDashboardEmailHtml = (data) => {
         });
         html += '</ul>';
     }
+
+    if (!hasContent) {
+        html += "<p>No new updates to report today.</p>";
+    }
+
     html += '<p>Have a great day!</p>';
     return html;
 };
@@ -43,23 +76,33 @@ const formatDashboardEmailHtml = (data) => {
 const initializeScheduler = () => {
     console.log('🕒 Initializing scheduler...');
 
-    // --- JOB 1: Daily Dashboard Email (Unchanged) ---
+    // --- JOB 1: Daily Dashboard Email (MODIFIED) ---
     cron.schedule('0 7 * * *', async () => {
         console.log('🕒 Cron Job: Running Daily Dashboard Email task...');
         try {
-            const usersResult = await pool.query(`SELECT ep.email, up.settings->'dashboardEmail' as preferences FROM emailpassword_users ep JOIN user_preferences up ON ep.user_id = up.user_id WHERE (up.settings->'dashboardEmail'->>'isEnabled')::boolean = true;`);
+            const usersResult = await pool.query(`SELECT ep.user_id, ep.email, up.settings->'dashboardEmail' as preferences FROM emailpassword_users ep JOIN user_preferences up ON ep.user_id = up.user_id WHERE (up.settings->'dashboardEmail'->>'isEnabled')::boolean = true;`);
             const optedInUsers = usersResult.rows;
-            if (optedInUsers.length > 0) console.log(`Found ${optedInUsers.length} user(s) opted-in for the dashboard email.`);
+
+            if (optedInUsers.length > 0) console.log(`Found ${optedInUsers.length} user(s) opted-in for the daily update.`);
+            
             for (const user of optedInUsers) {
-                const reportData = await getDashboardReportData(user.preferences);
-                const totalItems = (reportData.samplesDueToday?.length || 0) + (reportData.upcomingJobs?.length || 0) + (reportData.pendingQuotes?.length || 0);
+                const reportData = await getDashboardReportData(user.preferences, user.user_id);
+                
+                const totalItems = 
+                    (reportData.myAppointments?.length || 0) +
+                    (reportData.jobsInProgress?.length || 0) +
+                    (reportData.samplesDueToday?.length || 0) +
+                    (reportData.upcomingJobs?.length || 0) +
+                    (reportData.pendingQuotes?.length || 0);
+
                 const shouldSend = user.preferences.frequency === 'daily' || (user.preferences.frequency === 'on_event' && totalItems > 0);
+
                 if (shouldSend) {
-                    console.log(`Sending dashboard email to ${user.email}...`);
+                    console.log(`Sending daily update to ${user.email}...`);
                     const emailHtml = formatDashboardEmailHtml(reportData);
-                    await sendEmail({ to: user.email, subject: 'Your Joblogger Daily Dashboard Summary', html: emailHtml });
+                    await sendEmail({ to: user.email, subject: 'Your Joblogger Daily Update', html: emailHtml });
                 } else {
-                    console.log(`Skipping email for ${user.email} due to 'on_event' preference and no new items.`);
+                    console.log(`Skipping email for ${user.email} due to preference and no new items.`);
                 }
             }
         } catch (error) {
@@ -105,10 +148,7 @@ const initializeScheduler = () => {
                 const sampleListHtml = checkout.samples.map(name => `<li>${name}</li>`).join('');
                 const dueDate = new Date(checkout.expected_return_date).toLocaleDateString();
 
-                let emailHtml = template.replace('{{customerName}}', checkout.customer_name);
-                emailHtml = emailHtml.replace('{{projectName}}', checkout.project_name);
-                emailHtml = emailHtml.replace('{{dueDate}}', dueDate);
-                emailHtml = emailHtml.replace('{{sampleList}}', sampleListHtml);
+                let emailHtml = template.replace('{{customerName}}', checkout.customer_name).replace('{{projectName}}', checkout.project_name).replace('{{dueDate}}', dueDate).replace('{{sampleList}}', sampleListHtml);
 
                 await sendEmail({
                     to: checkout.customer_email,
@@ -122,25 +162,21 @@ const initializeScheduler = () => {
         console.log('✅ Cron Job: Customer Sample Due Reminder task finished.');
     }, { scheduled: true, timezone: "America/New_York" });
 
-    // --- NEW JOB 3: Customer PAST DUE Sample Reminder ---
+    // --- JOB 3: Customer PAST DUE Sample Reminder (Unchanged) ---
     cron.schedule('0 9 * * *', async () => {
         console.log('🕒 Cron Job: Running Customer PAST DUE Sample Reminder task...');
         try {
-            // 1. Get the admin's setting for this feature. We assume one admin sets this for the whole system.
             const settingsResult = await pool.query(
-                `SELECT settings->'dashboardEmail'->'pastDueReminders' as prefs 
-                 FROM user_preferences 
-                 WHERE settings->'dashboardEmail'->'pastDueReminders'->>'isEnabled' = 'true' 
-                 LIMIT 1;`
+                `SELECT settings FROM system_preferences WHERE key = 'email'`
             );
-
-            if (settingsResult.rows.length === 0) {
-                console.log('Past due reminders are disabled. Task complete.');
+            const pastDuePrefs = settingsResult.rows[0]?.settings?.pastDueReminders;
+            
+            if (!pastDuePrefs || !pastDuePrefs.isEnabled) {
+                console.log('Past due reminders are disabled in system settings. Task complete.');
                 return;
             }
-            const { frequencyDays } = settingsResult.rows[0].prefs;
+            const { frequencyDays } = pastDuePrefs;
             
-            // 2. Find all overdue checkouts and calculate days overdue
             const query = `
                 SELECT
                     c.full_name as customer_name,
@@ -165,29 +201,21 @@ const initializeScheduler = () => {
             `;
             const result = await pool.query(query);
             const overdueCheckouts = result.rows;
-
             if (overdueCheckouts.length === 0) {
                 console.log('No samples are currently past due. Task complete.');
                 return;
             }
             
-            // 3. Load the template
             const templatePath = path.join(__dirname, '../email-templates/pastDueReminder.html');
             const template = await fs.readFile(templatePath, 'utf-8');
 
-            // 4. Loop, check frequency, and send email
             for (const checkout of overdueCheckouts) {
-                // The core logic: only send if the days overdue is a multiple of the frequency
-                if (checkout.days_overdue % frequencyDays === 0) {
+                if (checkout.days_overdue > 0 && checkout.days_overdue % frequencyDays === 0) {
                     console.log(`Sending past due reminder to ${checkout.customer_email} (${checkout.days_overdue} days overdue)`);
                     const sampleListHtml = checkout.samples.map(name => `<li>${name}</li>`).join('');
                     const dueDate = new Date(checkout.expected_return_date).toLocaleDateString();
 
-                    let emailHtml = template.replace('{{customerName}}', checkout.customer_name);
-                    emailHtml = emailHtml.replace('{{projectName}}', checkout.project_name);
-                    emailHtml = emailHtml.replace('{{dueDate}}', dueDate);
-                    emailHtml = emailHtml.replace('{{daysOverdue}}', checkout.days_overdue);
-                    emailHtml = emailHtml.replace('{{sampleList}}', sampleListHtml);
+                    let emailHtml = template.replace('{{customerName}}', checkout.customer_name).replace('{{projectName}}', checkout.project_name).replace('{{dueDate}}', dueDate).replace('{{daysOverdue}}', checkout.days_overdue).replace('{{sampleList}}', sampleListHtml);
 
                     await sendEmail({
                         to: checkout.customer_email,

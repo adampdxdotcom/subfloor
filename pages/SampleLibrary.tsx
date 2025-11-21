@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { PlusCircle, Search, Download, Clock, Undo2 } from 'lucide-react';
-import { Sample, Vendor } from '../types';
+import { Sample, Vendor, PricingSettings } from '../types';
 import { Link } from 'react-router-dom';
 import SampleDetailModal from '../components/SampleDetailModal';
 import { toast } from 'react-hot-toast';
@@ -9,6 +9,8 @@ import AddEditVendorModal from '../components/AddEditVendorModal';
 import SampleCarousel from '../components/SampleCarousel';
 // --- ADDED: Import the new reusable form component ---
 import SampleForm, { SampleFormData } from '../components/SampleForm';
+import * as preferenceService from '../services/preferenceService';
+import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
 
 const formatSampleName = (sample: Sample) => {
   const parts = [];
@@ -27,6 +29,15 @@ const SampleLibrary: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
+
+  useEffect(() => {
+      const fetchSettings = async () => {
+          try { setPricingSettings(await preferenceService.getPricingSettings()); }
+          catch (e) { console.error("Failed to load pricing settings for library view."); }
+      };
+      fetchSettings();
+  }, []);
   
   // --- All form-related state has been REMOVED from this component ---
 
@@ -99,6 +110,7 @@ const SampleLibrary: React.FC = () => {
   const handleAddSample = async (formData: SampleFormData) => {
     setIsSaving(true);
     try {
+      // NOTE: formData contains 'unitCost' now.
       const { supplierId, ...restOfSampleData } = formData;
       const finalSupplierId = formData.supplierId || formData.manufacturerId;
 
@@ -108,8 +120,8 @@ const SampleLibrary: React.FC = () => {
       };
 
       if (sampleDataToSave.productType !== 'Tile') {
-        sampleDataToSave.sampleFormat = null;
-        sampleDataToSave.boardColors = '';
+        (sampleDataToSave as any).sampleFormat = null;
+        (sampleDataToSave as any).boardColors = '';
       }
       
       const createdSample = await addSample(sampleDataToSave);
@@ -145,20 +157,34 @@ const SampleLibrary: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
+  // Helper to calculate display price for cards
+  const getDisplayPrice = (sample: Sample) => {
+      if (!sample.unitCost || !pricingSettings) return null;
+      
+      // Determine the active vendor ID (Supplier if different, otherwise Manufacturer)
+      const vendorId = sample.supplierId || sample.manufacturerId;
+      const vendor = vendors.find(v => v.id === vendorId);
+
+      // Get pricing rules (defaults to 'Customer' for retail sale, using global or vendor override)
+      const rules = getActivePricingRules(vendor, pricingSettings, 'Customer');
+      const price = calculatePrice(Number(sample.unitCost), rules.percentage, rules.method);
+      return price;
+  };
+
   if (isLoading) { return <div>Loading samples...</div>; }
 
   return (
     <div className="container mx-auto p-4">
        <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-text-primary">Sample Library</h1>
-        <button onClick={() => setIsAddModalOpen(true)} className="flex items-center bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg transition-colors">
+        <button onClick={() => setIsAddModalOpen(true)} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors">
           <PlusCircle className="w-5 h-5 mr-2" />
           Add New Sample
         </button>
       </div>
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-        <input type="text" placeholder="Search by style, color, manufacturer, type, or SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-surface border border-border rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-accent" />
+        <input type="text" placeholder="Search by style, color, manufacturer, type, or SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-background text-text-primary border border-border rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary" />
       </div>
 
       {searchTerm === '' && (
@@ -172,13 +198,22 @@ const SampleLibrary: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredSamples.map(sample => (
           <div key={sample.id} className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer" onClick={() => handleSampleClick(sample)}>
-            <div className="w-full h-40 bg-gray-800 flex items-center justify-center text-text-secondary">{sample.imageUrl ? (<img src={sample.imageUrl} alt={formatSampleName(sample)} className="w-full h-full object-cover" />) : (<span className="text-sm">No Image</span>)}</div>
+            <div className="w-full h-40 bg-background flex items-center justify-center">{sample.imageUrl ? (<img src={sample.imageUrl} alt={formatSampleName(sample)} className="w-full h-full object-cover" />) : (<span className="text-sm text-text-secondary">No Image</span>)}</div>
             <div className="p-4 flex flex-col flex-grow">
               <h3 className="font-bold text-lg text-text-primary truncate" title={formatSampleName(sample)}>{formatSampleName(sample)}</h3>
               <p className="text-sm text-text-secondary truncate" title={sample.manufacturerName || ''}>{sample.manufacturerName || 'N/A'}</p>
+              
+              {/* --- UPDATED: Price Display (Calculated) --- */}
+              {sample.unitCost && (
+                  <p className="text-sm font-semibold text-green-400 mt-1">
+                      {pricingSettings ? `$${getDisplayPrice(sample)?.toFixed(2)}` : '...'} 
+                      <span className="text-text-secondary font-normal"> / {sample.uom}</span>
+                  </p>
+              )}
+              
               <div className="flex-grow" />
               <div className="flex justify-between items-end mt-4 text-xs">
-                <span className="font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded-full">{sample.productType || 'N/A'}</span>
+                <span className="font-semibold bg-background text-text-secondary px-2 py-1 rounded-full">{sample.productType || 'N/A'}</span>
                 {sample.isAvailable ? (<span className="font-bold text-green-400">Available</span>) : (
                   <div className="text-right">
                     <div className="text-yellow-400 mb-2">
@@ -186,8 +221,8 @@ const SampleLibrary: React.FC = () => {
                       {sample.checkoutProjectName && sample.checkoutProjectId && (<Link to={`/projects/${sample.checkoutProjectId}`} className="text-accent hover:underline" onClick={(e) => e.stopPropagation()}> to {sample.checkoutProjectName}</Link>)}
                     </div>
                     <div className="flex items-center gap-2 justify-end">
-                      <button onClick={(e) => handleExtend(sample, e)} className="text-xs bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded flex items-center gap-1"><Clock size={12} /> Extend</button>
-                      <button onClick={(e) => handleReturn(sample, e)} className="text-xs bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded flex items-center gap-1"><Undo2 size={12} /> Return</button>
+                      <button onClick={(e) => handleExtend(sample, e)} className="text-xs bg-primary hover:bg-primary-hover text-on-primary py-1 px-2 rounded flex items-center gap-1"><Clock size={12} /> Extend</button>
+                      <button onClick={(e) => handleReturn(sample, e)} className="text-xs bg-accent hover:bg-accent-hover text-on-accent py-1 px-2 rounded flex items-center gap-1"><Undo2 size={12} /> Return</button>
                     </div>
                   </div>
                 )}
@@ -205,14 +240,14 @@ const SampleLibrary: React.FC = () => {
             {/* --- MODIFIED: The modal body is now much cleaner --- */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="md:col-span-1 space-y-4">
-                  <div className="w-full aspect-square border-2 border-dashed border-border rounded bg-gray-800 flex items-center justify-center">{previewUrl ? <img src={previewUrl} alt="Sample Preview" className="w-full h-full object-cover rounded" /> : <span className="text-sm text-gray-500">No Image</span>}</div>
+                  <div className="w-full aspect-square border-2 border-dashed border-border rounded bg-background flex items-center justify-center">{previewUrl ? <img src={previewUrl} alt="Sample Preview" className="w-full h-full object-cover rounded" /> : <span className="text-sm text-text-secondary">No Image</span>}</div>
                   <div className="space-y-2">
                     <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white font-semibold">Upload File...</button>
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-semibold">Upload File...</button>
                     <div className="text-center text-xs text-text-secondary">OR</div>
                     <div className="flex gap-2">
-                      <input type="url" placeholder="Paste image URL..." value={importUrl} onChange={e => setImportUrl(e.target.value)} className="w-full p-2 bg-gray-800 border border-border rounded text-sm" />
-                      <button type="button" onClick={() => setPreviewUrl(importUrl)} disabled={!importUrl} className="p-2 bg-blue-600 hover:bg-blue-700 rounded text-white disabled:bg-gray-500"><Download size={16} /></button>
+                      <input type="url" placeholder="Paste image URL..." value={importUrl} onChange={e => setImportUrl(e.target.value)} className="w-full p-2 bg-background text-text-primary border border-border rounded text-sm" />
+                      <button type="button" onClick={() => setPreviewUrl(importUrl)} disabled={!importUrl} className="p-2 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50"><Download size={16} /></button>
                     </div>
                   </div>
                 </div>
@@ -231,7 +266,7 @@ const SampleLibrary: React.FC = () => {
 
       {isDetailModalOpen && selectedSample && (<SampleDetailModal key={selectedSample.id} isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} sample={selectedSample} />)}
       
-      {/* AddEditVendorModal is no longer needed here as it's inside SampleForm */}
+    
     </div>
   );
 };

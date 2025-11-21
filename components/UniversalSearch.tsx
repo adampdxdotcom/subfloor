@@ -107,7 +107,7 @@ const UniversalSearch: React.FC = () => {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onFocus={() => query.length > 1 && setIsDropdownOpen(true)}
-                        className="w-full bg-gray-700 text-white pl-10 pr-4 py-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-accent"
+                        className="w-full bg-background text-text-primary pl-10 pr-4 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                 </div>
                 
@@ -129,7 +129,7 @@ const UniversalSearch: React.FC = () => {
                                                         {groupName === 'samples' ? (
                                                             <button
                                                                 onClick={() => handleSampleResultClick(result)}
-                                                                className="w-full flex items-center gap-4 p-3 hover:bg-gray-700 transition-colors text-left"
+                                                                className="w-full flex items-center gap-4 p-3 hover:bg-background transition-colors text-left"
                                                             >
                                                                 {getResultIcon(groupName as keyof GroupedSearchResults)}
                                                                 <div>
@@ -141,7 +141,7 @@ const UniversalSearch: React.FC = () => {
                                                             <Link 
                                                                 to={result.path}
                                                                 onClick={resetSearch}
-                                                                className="flex items-center gap-4 p-3 hover:bg-gray-700 transition-colors"
+                                                                className="flex items-center gap-4 p-3 hover:bg-background transition-colors"
                                                             >
                                                                 {getResultIcon(groupName as keyof GroupedSearchResults)}
                                                                 <div>

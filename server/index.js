@@ -78,6 +78,10 @@ const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
+const brandingDir = path.join(uploadsDir, 'branding');
+if (!fs.existsSync(brandingDir)) {
+  fs.mkdirSync(brandingDir);
+}
 
 const exposedHeaders = new Set([
     'front-token', 

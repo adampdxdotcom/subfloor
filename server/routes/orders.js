@@ -11,10 +11,11 @@ const getFullOrderById = async (orderId, client = pool) => {
     // --- MODIFIED QUERY ---
     const query = `
         SELECT
-            mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, mo.order_date, mo.eta_date, mo.status,
+            mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, mo.order_date, mo.eta_date, mo.purchaser_type, mo.status,
             COALESCE(
                 (SELECT json_agg(json_build_object(
                     'id', oli.id, 'quantity', oli.quantity, 'unit', oli.unit, 'totalCost', oli.total_cost, 
+                    'unitPriceSold', oli.unit_price_sold,
                     'sampleId', s.id, 
                     'style', s.style,      -- REPLACED style_color
                     'color', s.color,      -- ADDED color
@@ -41,11 +42,12 @@ router.get('/', verifySession(), async (req, res) => {
     // --- MODIFIED QUERY ---
     const baseQuery = `
         SELECT
-            mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, mo.order_date, mo.eta_date, mo.status,
+            mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, mo.order_date, mo.eta_date, mo.purchaser_type, mo.status,
             COALESCE(
                 (
                     SELECT json_agg(json_build_object(
                         'id', oli.id, 'quantity', oli.quantity, 'unit', oli.unit,
+                        'unitPriceSold', oli.unit_price_sold,
                         'totalCost', oli.total_cost, 'sampleId', s.id, 
                         'style', s.style,       -- REPLACED style_color
                         'color', s.color,       -- ADDED color
@@ -77,7 +79,7 @@ router.get('/', verifySession(), async (req, res) => {
 
 router.post('/', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
-    const { projectId, supplierId, etaDate, lineItems } = req.body;
+    const { projectId, supplierId, etaDate, purchaserType, lineItems } = req.body;
     if (!projectId || !lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
         return res.status(400).json({ error: 'projectId and a non-empty array of lineItems are required.' });
     }
@@ -85,19 +87,19 @@ router.post('/', verifySession(), async (req, res) => {
     try {
         await client.query('BEGIN');
         const orderInsertQuery = `
-            INSERT INTO material_orders (project_id, supplier_id, eta_date, status)
-            VALUES ($1, $2, $3, 'Ordered') RETURNING id;
+            INSERT INTO material_orders (project_id, supplier_id, eta_date, purchaser_type, status)
+            VALUES ($1, $2, $3, $4, 'Ordered') RETURNING id;
         `;
-        const orderResult = await client.query(orderInsertQuery, [projectId, supplierId, etaDate || null]);
+        const orderResult = await client.query(orderInsertQuery, [projectId, supplierId, etaDate || null, purchaserType || 'Customer']);
         const orderId = orderResult.rows[0].id;
         for (const item of lineItems) {
-            const { sampleId, quantity, unit, totalCost } = item;
+            const { sampleId, quantity, unit, totalCost, unitPriceSold } = item;
             if (!sampleId || quantity === undefined) throw new Error('Each line item must have a sampleId and quantity.');
             const lineItemInsertQuery = `
-                INSERT INTO order_line_items (order_id, sample_id, quantity, unit, total_cost)
-                VALUES ($1, $2, $3, $4, $5);
+                INSERT INTO order_line_items (order_id, sample_id, quantity, unit, total_cost, unit_price_sold)
+                VALUES ($1, $2, $3, $4, $5, $6);
             `;
-            await client.query(lineItemInsertQuery, [orderId, sampleId, quantity, unit || null, totalCost || null]);
+            await client.query(lineItemInsertQuery, [orderId, sampleId, quantity, unit || null, totalCost || null, unitPriceSold || null]);
         }
         await client.query('COMMIT');
         
@@ -116,7 +118,7 @@ router.post('/', verifySession(), async (req, res) => {
 router.put('/:id', verifySession(), async (req, res) => {
     const { id: orderId } = req.params;
     const userId = req.session.getUserId();
-    const { supplierId, etaDate, lineItems } = req.body;
+    const { supplierId, etaDate, purchaserType, lineItems } = req.body;
     if (!lineItems || !Array.isArray(lineItems) || lineItems.length === 0) {
         return res.status(400).json({ error: 'An order must have at least one line item.' });
     }
@@ -126,18 +128,18 @@ router.put('/:id', verifySession(), async (req, res) => {
         if (!beforeData) return res.status(404).json({ error: 'Order not found' });
         await client.query('BEGIN');
         const orderUpdateQuery = `
-            UPDATE material_orders SET supplier_id = $1, eta_date = $2 WHERE id = $3;
+            UPDATE material_orders SET supplier_id = $1, eta_date = $2, purchaser_type = $3 WHERE id = $4;
         `;
-        await client.query(orderUpdateQuery, [supplierId, etaDate || null, orderId]);
+        await client.query(orderUpdateQuery, [supplierId, etaDate || null, purchaserType || 'Customer', orderId]);
         await client.query('DELETE FROM order_line_items WHERE order_id = $1', [orderId]);
         for (const item of lineItems) {
-            const { sampleId, quantity, unit, totalCost } = item;
+            const { sampleId, quantity, unit, totalCost, unitPriceSold } = item;
             if (!sampleId || quantity === undefined) throw new Error('Each line item must have a sampleId and quantity.');
             const lineItemInsertQuery = `
-                INSERT INTO order_line_items (order_id, sample_id, quantity, unit, total_cost)
-                VALUES ($1, $2, $3, $4, $5);
+                INSERT INTO order_line_items (order_id, sample_id, quantity, unit, total_cost, unit_price_sold)
+                VALUES ($1, $2, $3, $4, $5, $6);
             `;
-            await client.query(lineItemInsertQuery, [orderId, sampleId, quantity, unit || null, totalCost || null]);
+            await client.query(lineItemInsertQuery, [orderId, sampleId, quantity, unit || null, totalCost || null, unitPriceSold || null]);
         }
         await client.query('COMMIT');
         const updatedOrder = await getFullOrderById(orderId, client);

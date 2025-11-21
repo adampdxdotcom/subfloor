@@ -1,5 +1,3 @@
-// src/types.ts
-
 // Since ReactGridLayout.Layouts is not defined in this file,
 // we assume it is correctly imported/defined elsewhere or we use 'any'.
 // For clean compilation, we define a placeholder type if it's external:
@@ -92,6 +90,8 @@ export interface Vendor {
   dedicatedShippingDay?: number | null; // 0=Sun, 6=Sat
   notes?: string | null;
   sampleCount?: number; // ADDED for future dashboard UI
+  defaultMarkup?: number | null;
+  pricingMethod?: 'Markup' | 'Margin' | null;
 }
 
 export interface Customer {
@@ -110,6 +110,13 @@ export interface Customer {
   }[];
 }
 
+export interface SampleSizeVariant {
+  value: string; // The size string (e.g., "12x24")
+  unitCost?: number | null;
+  cartonSize?: number | null;
+  uom?: Unit | null;
+}
+
 // --- MODIFIED: Sample interface completely overhauled ---
 export interface Sample {
   id: number;
@@ -118,11 +125,17 @@ export interface Sample {
   productType: ProductType | string; // ADDED, REQUIRED
   style: string;                     // ADDED, REQUIRED
   line?: string | null;              // ADDED
-  size?: string | null;              // ADDED
+  sizes?: (string | SampleSizeVariant)[]; // MODIFIED: Supports legacy strings + new objects
   finish?: string | null;            // ADDED
   color?: string | null;             // ADDED
   sampleFormat?: SampleFormat | null;// ADDED for Tile
   boardColors?: string | null;       // ADDED for Tile Boards
+  
+  // --- Pricing & Packaging Fields ---
+  unitCost?: number | null;
+  uom?: Unit | null;
+  cartonSize?: number | null;
+  
   sku: string | null;
   isAvailable: boolean;
   imageUrl?: string;
@@ -234,6 +247,9 @@ export interface OrderLineItem {
   style: string;
   color: string | null;
   manufacturerName: string | null;
+  unitCostSnapshot?: number | null;
+  markupSnapshot?: number | null;
+  unitPriceSold?: number | null;
 }
 
 export interface MaterialOrder {
@@ -243,6 +259,7 @@ export interface MaterialOrder {
   supplierName?: string | null; // Joined from vendors table
   orderDate: string;
   etaDate: string | null;
+  purchaserType: 'Customer' | 'Installer';
   status: string;
   lineItems: OrderLineItem[];
 }
@@ -277,12 +294,19 @@ export interface User {
   userId: string;
   email: string;
   roles: string[];
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+  color?: string | null; // Added to support calendar color in user lists
 }
 
 export interface CurrentUser {
   userId: string;
   email: string;
   roles: string[];
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
   preferences?: UserPreferences; // ADDED: Current user will now hold their own preferences
 }
 
@@ -315,11 +339,32 @@ export interface DashboardEmailSettings {
   pendingQuotesDays: number;
 }
 
+export interface PricingSettings {
+  retailMarkup: number;
+  contractorMarkup: number;
+  calculationMethod: 'Markup' | 'Margin';
+}
+
+export interface SystemBranding {
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  surfaceColor?: string;
+  textPrimaryColor?: string;
+  textSecondaryColor?: string;
+}
+
 // --- MODIFIED & CONSOLIDATED: A single, flexible type for all user preferences ---
 export interface UserPreferences {
-  project_dashboard_layout?: ReactGridLayout_Layouts;
-  calendar_user_colors?: { [userId: string]: string };
-  dashboard_email_settings?: DashboardEmailSettings;
+  project_dashboard_layout?: ReactGridLayout_Layouts; // Legacy field
+  projectLayouts?: ReactGridLayout_Layouts; // New preferred field
+  calendar_user_colors?: { [userId: string]: string }; // Legacy field
+  dashboard_email_settings?: DashboardEmailSettings; // Legacy field
+  dashboardEmail?: DashboardEmailSettings; // New preferred field
+  calendarColor?: string; // New preferred field
 }
 
 // REMOVED UiPreferences as it is now part of UserPreferences
@@ -327,9 +372,14 @@ export interface UserPreferences {
 export interface DataContextType extends AppData {
   isLoading: boolean;
   currentUser: CurrentUser | null;
+  systemBranding: SystemBranding | null;
+  refreshBranding: () => Promise<void>;
   users: User[]; // Explicitly expose User list
   isLayoutEditMode: boolean;
   toggleLayoutEditMode: () => void;
+  updateCurrentUserProfile: (firstName: string, lastName: string) => Promise<void>;
+  uploadCurrentUserAvatar: (file: File) => Promise<void>;
+  deleteCurrentUserAvatar: (file: File) => Promise<void>;
   // --- MODIFIED: Simplified the save preferences function ---
   saveCurrentUserPreferences: (preferences: Partial<UserPreferences>) => Promise<void>;
   // --- END MODIFIED ---

@@ -107,10 +107,22 @@ router.get('/events', verifySession(), async (req, res) => {
             FROM events e
             LEFT JOIN (
                 SELECT 
-                    event_id, 
-                    jsonb_agg(jsonb_build_object('attendeeId', attendee_id, 'attendeeType', attendee_type)) as attendees_agg
-                FROM event_attendees
-                GROUP BY event_id
+                    ea.event_id, 
+                    jsonb_agg(
+                        jsonb_build_object(
+                            'attendeeId', ea.attendee_id, 
+                            'attendeeType', ea.attendee_type,
+                            'color', (
+                                CASE 
+                                    WHEN ea.attendee_type = 'user' THEN (SELECT preferences->>'calendarColor' FROM user_preferences WHERE user_id = ea.attendee_id)
+                                    WHEN ea.attendee_type = 'installer' THEN (SELECT color FROM installers WHERE id::text = ea.attendee_id)
+                                    ELSE NULL
+                                END
+                            )
+                        )
+                    ) as attendees_agg
+                FROM event_attendees ea
+                GROUP BY ea.event_id
             ) att ON e.id = att.event_id
             ${userWhereClause} -- This WHERE clause applies ONLY to the 'events' part of the UNION
             GROUP BY e.id, att.attendees_agg

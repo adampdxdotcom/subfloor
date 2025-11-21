@@ -159,11 +159,11 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
             <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
                 <div className="flex items-center gap-3">
-                    <Move className="drag-handle cursor-move text-text-tertiary hover:text-text-primary transition-colors" size={20} />
+                    <Move className="drag-handle cursor-move text-text-secondary hover:text-text-primary transition-colors" size={20} />
                     <Calendar className="w-6 h-6 text-accent"/>
                     <h2 className="text-xl font-semibold text-text-primary">Job Details & Scheduling</h2>
                 </div>
-                <button onClick={handleSave} className="bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                <button onClick={handleSave} className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg flex items-center gap-2">
                     <Save className="w-4 h-4"/> Save Details
                 </button>
             </div>
@@ -174,16 +174,16 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 <div className="space-y-6 overflow-y-auto pr-2">
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">PO Number</label>
-                        <input type="text" value={jobDetails.poNumber || ''} onChange={e => handleJobChange('poNumber', e.target.value)} className="w-full p-2 bg-gray-800 border-border rounded"/>
+                        <input type="text" value={jobDetails.poNumber || ''} onChange={e => handleJobChange('poNumber', e.target.value)} className="w-full p-2 bg-background border-border rounded text-text-primary"/>
                     </div>
                     
-                    <div className="flex items-center space-x-3 bg-gray-800 p-3 rounded-md">
+                    <div className="flex items-center space-x-3 bg-background p-3 rounded-md">
                         <input
                             type="checkbox"
                             id="isOnHold"
                             checked={jobDetails.isOnHold || false}
                             onChange={e => handleJobChange('isOnHold', e.target.checked)}
-                            className="h-5 w-5 rounded text-accent focus:ring-accent bg-gray-700 border-gray-600"
+                            className="h-5 w-5 rounded text-primary focus:ring-primary bg-surface border-border"
                         />
                         <label htmlFor="isOnHold" className="font-semibold text-yellow-400 flex items-center">
                             <AlertTriangle className="w-5 h-5 mr-2" />
@@ -194,28 +194,28 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                     {isSchedulingApplicable && (
                         <div className="space-y-4">
                             {(jobDetails.appointments || []).map((appt) => (
-                                <div key={appt._tempId} className="bg-gray-800 p-4 rounded-lg border border-border relative">
+                                <div key={appt._tempId} className="bg-background p-4 rounded-lg border border-border relative">
                                     { (jobDetails.appointments?.length || 0) > 1 && (
-                                        <button onClick={() => removeAppointment(appt._tempId)} className="absolute -top-2 -right-2 text-gray-500 hover:text-red-500">
+                                        <button onClick={() => removeAppointment(appt._tempId)} className="absolute -top-2 -right-2 text-text-secondary hover:text-red-500">
                                             <XCircle />
                                         </button>
                                     )}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="col-span-2">
                                             <label className="block text-xs font-medium text-text-secondary mb-1">Appointment Name</label>
-                                            <input type="text" value={appt.appointmentName} onChange={e => handleAppointmentChange(appt._tempId, 'appointmentName', e.target.value)} className="w-full p-2 text-sm bg-gray-900 border-border rounded" />
+                                            <input type="text" value={appt.appointmentName} onChange={e => handleAppointmentChange(appt._tempId, 'appointmentName', e.target.value)} className="w-full p-2 text-sm bg-surface border-border rounded text-text-primary" />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-text-secondary mb-1">Start Date</label>
-                                            <input type="date" value={formatDateForInput(appt.startDate)} onChange={e => handleAppointmentChange(appt._tempId, 'startDate', e.target.value)} className="w-full p-2 text-sm bg-gray-900 border-border rounded"/>
+                                            <input type="date" value={formatDateForInput(appt.startDate)} onChange={e => handleAppointmentChange(appt._tempId, 'startDate', e.target.value)} className="w-full p-2 text-sm bg-surface border-border rounded text-text-primary"/>
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-text-secondary mb-1">End Date</label>
-                                            <input type="date" value={formatDateForInput(appt.endDate)} onChange={e => handleAppointmentChange(appt._tempId, 'endDate', e.target.value)} className="w-full p-2 text-sm bg-gray-900 border-border rounded"/>
+                                            <input type="date" value={formatDateForInput(appt.endDate)} onChange={e => handleAppointmentChange(appt._tempId, 'endDate', e.target.value)} className="w-full p-2 text-sm bg-surface border-border rounded text-text-primary"/>
                                         </div>
                                         <div className="col-span-2">
                                             <label className="block text-xs font-medium text-text-secondary mb-1">Assigned Installer</label>
-                                            <select value={appt.installerId || ''} onChange={e => handleAppointmentChange(appt._tempId, 'installerId', e.target.value ? parseInt(e.target.value) : null)} className="w-full p-2 text-sm bg-gray-900 border-border rounded">
+                                            <select value={appt.installerId || ''} onChange={e => handleAppointmentChange(appt._tempId, 'installerId', e.target.value ? parseInt(e.target.value) : null)} className="w-full p-2 text-sm bg-surface border-border rounded text-text-primary">
                                                 <option value="">-- Select Installer --</option>
                                                 {installers.map(installer => (
                                                     <option key={installer.id} value={installer.id}>{installer.installerName}</option>
@@ -225,7 +225,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                                     </div>
                                 </div>
                             ))}
-                            <button onClick={addAppointment} className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-accent hover:text-purple-300 py-2 border-2 border-dashed border-border hover:border-accent rounded-lg transition-colors">
+                            <button onClick={addAppointment} className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-primary hover:text-primary-hover py-2 border-2 border-dashed border-border hover:border-primary rounded-lg transition-colors">
                                 <PlusCircle size={16} /> Add Appointment
                             </button>
                         </div>
@@ -233,24 +233,24 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 </div>
 
                 <div className="space-y-4 flex flex-col overflow-y-auto pr-2">
-                    <div className="bg-gray-800 p-4 rounded-lg space-y-2">
-                        <div className="flex justify-between items-center font-bold text-lg"><span className="text-text-primary">Job Grand Total:</span><span>${financialSummary.grandTotal.toFixed(2)}</span></div> 
+                    <div className="bg-background p-4 rounded-lg space-y-2 border border-border">
+                        <div className="flex justify-between items-center font-bold text-lg"><span className="text-text-primary">Job Grand Total:</span><span className="text-text-primary">${financialSummary.grandTotal.toFixed(2)}</span></div> 
                         <div className="flex justify-between items-center font-semibold"><span className="text-text-secondary">Total Deposit Required:</span><span className="text-text-primary">${financialSummary.totalDeposit.toFixed(2)}</span></div> 
                         <div className="flex justify-between items-center font-bold text-lg border-t-2 border-accent pt-2 mt-2"><span className="text-text-primary">Balance Due:</span><span className="text-accent">${financialSummary.balanceDue.toFixed(2)}</span></div> 
                     </div>
                 
                     <div className="pt-2 space-y-3 flex-grow"> 
                         <label className={`flex items-center space-x-2 ${isScheduledOrLater ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                            <input type="checkbox" checked={jobDetails.depositReceived || false} onChange={e => handleJobChange('depositReceived', e.target.checked)} disabled={isScheduledOrLater} className="form-checkbox h-5 w-5 text-accent bg-gray-800 border-border rounded focus:ring-accent"/>
+                            <input type="checkbox" checked={jobDetails.depositReceived || false} onChange={e => handleJobChange('depositReceived', e.target.checked)} disabled={isScheduledOrLater} className="form-checkbox h-5 w-5 text-primary bg-background border-border rounded focus:ring-primary"/>
                             <span className="text-text-primary">Deposit Received</span>
                         </label> 
                         <label className={`flex items-center space-x-2 ${isScheduledOrLater ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                            <input type="checkbox" checked={jobDetails.contractsReceived || false} onChange={e => handleJobChange('contractsReceived', e.target.checked)} disabled={isScheduledOrLater} className="form-checkbox h-5 w-5 text-accent bg-gray-800 border-border rounded focus:ring-accent"/>
+                            <input type="checkbox" checked={jobDetails.contractsReceived || false} onChange={e => handleJobChange('contractsReceived', e.target.checked)} disabled={isScheduledOrLater} className="form-checkbox h-5 w-5 text-primary bg-background border-border rounded focus:ring-primary"/>
                             <span className="text-text-primary">Contracts Received</span>
                         </label> 
                         {isScheduledOrLater && (
                             <label className="flex items-center space-x-2 cursor-pointer">
-                                <input type="checkbox" checked={jobDetails.finalPaymentReceived || false} onChange={e => handleJobChange('finalPaymentReceived', e.target.checked)} className="form-checkbox h-5 w-5 text-accent bg-gray-800 border-border rounded focus:ring-accent"/>
+                                <input type="checkbox" checked={jobDetails.finalPaymentReceived || false} onChange={e => handleJobChange('finalPaymentReceived', e.target.checked)} className="form-checkbox h-5 w-5 text-primary bg-background border-border rounded focus:ring-primary"/>
                                 <span className="text-text-primary">Final Payment Received</span>
                             </label>
                         )}

@@ -4,43 +4,58 @@ import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIc
 import UniversalSearch from './UniversalSearch';
 import UserStatus from './UserStatus';
 import NavigationListener from './NavigationListener'; // <-- NEW: Import the listener
+import { useData } from '../context/DataContext';
 
 const Layout: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const { systemBranding } = useData();
+    
+    // Base URL needed because uploads are served from backend root
+    const API_URL = "https://flooring.dumbleigh.com";
 
     const SidebarContent = () => (
         <>
-            <h1 className="text-2xl font-bold mb-8">Joblogger</h1>
+            <div className="mb-8 flex items-center h-12">
+                {systemBranding?.logoUrl ? (
+                    <img 
+                        src={`${API_URL}${systemBranding.logoUrl}`} 
+                        alt="Company Logo" 
+                        className="max-h-12 max-w-full object-contain"
+                    />
+                ) : (
+                    <h1 className="text-2xl font-bold">Joblogger</h1>
+                )}
+            </div>
             <nav className="flex flex-col space-y-2 flex-grow">
                 {/* When a link is clicked on mobile, close the sidebar */}
-                <NavLink to="/" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`} end>
+                <NavLink to="/" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`} end>
                     <Home className="w-6 h-6" />
                     <span>Dashboard</span>
                 </NavLink>
-                <NavLink to="/customers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/customers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
                     <Users className="w-6 h-6" />
                     <span>Customers</span>
                 </NavLink>
-                <NavLink to="/installers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/installers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
                     <HardHat className="w-6 h-6" />
                     <span>Installers</span>
                 </NavLink>
-                <NavLink to="/samples" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/samples" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
                     <Layers className="w-6 h-6" />
                     <span>Sample Library</span>
                 </NavLink>
-                <NavLink to="/vendors" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/vendors" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
                     <Building className="w-6 h-6" />
                     <span>Vendor Directory</span>
                 </NavLink>
-                <NavLink to="/calendar" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/calendar" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
                     <Calendar className="w-6 h-6" />
                     <span>Calendar</span>
                 </NavLink>
             </nav>
 
             <div className="mt-auto">
-                 <NavLink to="/settings" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
+                 <NavLink to="/settings" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
                     <SettingsIcon className="w-6 h-6" />
                     <span>Settings</span>
                 </NavLink>

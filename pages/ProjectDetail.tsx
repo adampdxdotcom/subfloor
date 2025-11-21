@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom'; // <-- Import useLocation
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Project, Quote, QuoteStatus, ChangeOrder, MaterialOrder, Job } from '../types';
 // import { Trash2 } from 'lucide-react'; // REMOVED
@@ -31,7 +31,7 @@ const ProjectDetail: React.FC = () => {
     
     const { 
         currentUser, isLayoutEditMode, toggleLayoutEditMode,
-        uiPreferences, saveUserPreferences,
+        saveCurrentUserPreferences, // FIX: Use the correct function name
         projects, customers, samples, sampleCheckouts, quotes, jobs, installers, changeOrders, materialOrders,
         updateProject, deleteProject, addQuote, updateQuote, 
         saveJobDetails, addInstaller, addChangeOrder, updateChangeOrder, addMaterialOrder,
@@ -70,10 +70,32 @@ const ProjectDetail: React.FC = () => {
     const [originalLayouts, setOriginalLayouts] = useState(layouts);
 
     useEffect(() => {
-        if (uiPreferences?.projectDetailLayout) {
-            setLayouts(uiPreferences.projectDetailLayout);
+        // FIX: Read from currentUser.preferences.projectLayouts
+        const savedLayouts = currentUser?.preferences?.projectLayouts;
+        // Safety check: Only use saved layouts if they actually contain keys (e.g. 'lg', 'md')
+        if (savedLayouts && Object.keys(savedLayouts).length > 0) {
+            // SMART MERGE:
+            // If the saved layout is missing items (e.g., because they were hidden when saved),
+            // inject the default positions for those missing items so they don't collapse.
+            const mergedLayouts: ReactGridLayout.Layouts = { ...defaultLayouts };
+            
+            // Iterate through available breakpoints in the saved layout
+            (Object.keys(savedLayouts) as Array<keyof typeof defaultLayouts>).forEach((bp) => {
+                const savedItems = savedLayouts[bp] || [];
+                const defaultItems = defaultLayouts[bp] || [];
+                
+                // Find items that exist in default but are missing from saved
+                const missingItems = defaultItems.filter(
+                    defItem => !savedItems.find(savedItem => savedItem.i === defItem.i)
+                );
+                
+                // Combine saved preferences with the fallback defaults
+                mergedLayouts[bp] = [...savedItems, ...missingItems];
+            });
+            
+            setLayouts(mergedLayouts);
         }
-    }, [uiPreferences]);
+    }, [currentUser, defaultLayouts]);
 
     useEffect(() => {
         if (isLayoutEditMode) {
@@ -81,22 +103,14 @@ const ProjectDetail: React.FC = () => {
         }
     }, [isLayoutEditMode, layouts]);
     
-    // Effect to automatically exit edit mode on navigation
-    useEffect(() => {
-        return () => {
-            if (isLayoutEditMode) {
-                toggleLayoutEditMode();
-            }
-        };
-    }, [isLayoutEditMode, toggleLayoutEditMode]);
-
 
     const handleLayoutChange = (layout: ReactGridLayout.Layout[], allLayouts: ReactGridLayout.Layouts) => {
         setLayouts(allLayouts);
     };
 
     const handleSaveLayout = () => {
-        saveUserPreferences({ projectDetailLayout: layouts });
+        // FIX: Save using the correct key 'projectLayouts' and correct function
+        saveCurrentUserPreferences({ projectLayouts: layouts });
         toast.success("Layout saved!");
         toggleLayoutEditMode();
     };
@@ -109,7 +123,7 @@ const ProjectDetail: React.FC = () => {
     const handleResetLayout = () => {
         if (window.confirm("Are you sure you want to reset the layout to its default?")) {
             setLayouts(defaultLayouts);
-            saveUserPreferences({ projectDetailLayout: defaultLayouts });
+            saveCurrentUserPreferences({ projectLayouts: defaultLayouts });
             toast.success("Layout has been reset.");
             toggleLayoutEditMode();
         }

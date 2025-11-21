@@ -4,6 +4,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* === GLOBAL THEME VARIABLES === */
+:root {
+  /* Default Theme (Blue/Teal mix based on current look) */
+  /* Primary: Used for main buttons (currently blue-600/700) */
+  --color-primary: #2563eb; 
+  --color-primary-hover: #1d4ed8;
+  --color-on-primary: #ffffff;
+
+  /* Secondary: Used for secondary actions (currently gray-600) */
+  --color-secondary: #4b5563;
+  --color-secondary-hover: #374151;
+  --color-on-secondary: #ffffff;
+
+  /* Accent: Used for highlights/active states (currently teal-500/600) */
+  --color-accent: #0d9488; 
+  --color-accent-hover: #0f766e;
+  --color-on-accent: #ffffff;
+
+  /* Base Theme Colors */
+  --color-background: #111827; /* gray-900 */
+  --color-surface: #1f2937;    /* gray-800 */
+  --color-text-primary: #f9fafb; /* gray-50 */
+  --color-text-secondary: #d1d5db; /* gray-300 */
+  --color-border: #374151; /* gray-700 */
+}
+
+/* Utility Classes for Smart Text Colors */
+.text-on-primary { color: var(--color-on-primary); }
+.text-on-secondary { color: var(--color-on-secondary); }
+.text-on-accent { color: var(--color-on-accent); }
+
 /* === NEW & CORRECT PRINT STYLES === */
 /* This class hides elements on the screen */
 @media screen {
@@ -51,30 +82,30 @@
 
 /* React-Select Dark Theme Customizations */
 .react-select-container .react-select__control {
-  background-color: #262626; /* match your input bg */
-  border-color: #525252; /* match your input border */
+  background-color: var(--color-background);
+  border-color: var(--color-border);
 }
 .react-select-container .react-select__input-container {
-  color: #e5e7eb; /* match your input text color */
+  color: var(--color-text-primary);
 }
 .react-select-container .react-select__multi-value {
-  background-color: #404040;
+  background-color: var(--color-primary);
 }
 .react-select-container .react-select__multi-value__label {
-  color: #e5e7eb;
+  color: var(--color-on-primary);
 }
 .react-select-container .react-select__multi-value__remove:hover {
-  background-color: #ef4444; /* red-500 */
-  color: white;
+  background-color: var(--color-primary-hover);
+  color: var(--color-on-primary);
 }
 .react-select-container .react-select__menu {
-  background-color: #262626;
+  background-color: var(--color-surface);
 }
 .react-select-container .react-select__option--is-focused {
-  background-color: #404040;
+  background-color: var(--color-background);
 }
 .react-select-container .react-select__option--is-selected {
-  background-color: #4f46e5; /* primary color */
+  background-color: var(--color-primary);
 }
 
 /* --- Custom styles for react-grid-layout --- */
@@ -112,11 +143,6 @@
 .layout.edit-mode .drag-handle:hover {
     opacity: 1;
 }
-.layout.edit-mode .react-resizable-handle {
-    display: block;
-}
-
-/* Optional: Add a visual indicator to all items in edit mode */
 .layout.edit-mode .react-grid-item {
     box-shadow: 0 0 0 2px #5a67d8; /* An indigo outline */
 }

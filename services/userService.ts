@@ -48,6 +48,68 @@ export const getCurrentUser = async (): Promise<CurrentUser> => {
   return response.json();
 };
 
+/**
+ * Updates the current user's profile information (Name).
+ */
+export const updateUserProfile = async (firstName: string, lastName: string): Promise<{ firstName: string; lastName: string; avatarUrl: string | null }> => {
+  const response = await fetch('/api/users/me/profile', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ firstName, lastName }),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Failed to update profile');
+  }
+  return response.json();
+};
+
+/**
+ * Uploads a profile picture for the current user.
+ */
+export const uploadUserAvatar = async (file: File): Promise<{ avatarUrl: string }> => {
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  const response = await fetch('/api/users/me/avatar', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Failed to upload avatar');
+  }
+  return response.json();
+};
+
+/**
+ * Deletes the current user's profile picture.
+ */
+export const deleteUserAvatar = async (): Promise<void> => {
+  const response = await fetch('/api/users/me/avatar', {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete avatar');
+  }
+};
+
+/**
+ * Updates the current user's password.
+ */
+export const changeUserPassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+    const response = await fetch('/api/users/me/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to change password');
+    }
+};
+
 // =================================================================
 //  NEW FUNCTIONS FOR ROLE MANAGEMENT
 // =================================================================

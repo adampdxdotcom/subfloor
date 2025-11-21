@@ -46,7 +46,7 @@ const SampleCarouselCard = ({ sample, onClick }: { sample: Sample, onClick: () =
 
     return (
         <div className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer w-80 flex-shrink-0" onClick={onClick}>
-            <div className="w-full h-40 bg-gray-800 flex items-center justify-center text-text-secondary">
+            <div className="w-full h-40 bg-background flex items-center justify-center text-text-secondary">
                 {sample.imageUrl ? (
                     <img src={sample.imageUrl} alt={sample.styleColor} className="w-full h-full object-cover" />
                 ) : (
@@ -67,8 +67,8 @@ const SampleCarouselCard = ({ sample, onClick }: { sample: Sample, onClick: () =
                         )}
                     </div>
                     <div className="flex items-center gap-2 justify-end">
-                        <button onClick={handleExtend} className="text-xs bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded flex items-center gap-1"><Clock size={12} /> Extend</button>
-                        <button onClick={handleReturn} className="text-xs bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded flex items-center gap-1"><Undo2 size={12} /> Return</button>
+                        <button onClick={handleExtend} className="text-xs bg-primary hover:bg-primary-hover text-on-primary py-1 px-2 rounded flex items-center gap-1"><Clock size={12} /> Extend</button>
+                        <button onClick={handleReturn} className="text-xs bg-accent hover:bg-accent-hover text-on-accent py-1 px-2 rounded flex items-center gap-1"><Undo2 size={12} /> Return</button>
                     </div>
                 </div>
             </div>

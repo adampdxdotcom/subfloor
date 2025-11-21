@@ -86,13 +86,13 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ project, onClose, o
             <button
               type="button"
               onClick={onClose}
-              className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white"
+              className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-white"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white"
+              className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-white"
             >
               Save Changes
             </button>

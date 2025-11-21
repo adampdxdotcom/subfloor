@@ -119,10 +119,10 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onSamplesChange }) => {
         {/* Search Column */}
         <div className="space-y-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input type="text" placeholder="Search by style, color, manufacturer..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-3 pl-10 bg-gray-800 border-2 border-border rounded-lg" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary" />
+            <input type="text" placeholder="Search by style, color, manufacturer..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full p-3 pl-10 bg-background border-2 border-border rounded-lg text-text-primary" />
           </div>
-          <button type="button" onClick={() => setIsScanning(true)} className="w-full flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-accent font-semibold">
+          <button type="button" onClick={() => setIsScanning(true)} className="w-full flex items-center justify-center gap-2 p-3 bg-surface hover:bg-background border border-border rounded-lg text-primary font-semibold transition-colors">
             <ScanLine size={20} />
             Scan QR Code
           </button>
@@ -132,7 +132,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onSamplesChange }) => {
               <div 
                 key={sample.id} 
                 onClick={() => addSample(sample)} 
-                className={`p-3 bg-gray-800 rounded-lg border border-transparent transition-colors ${
+                className={`p-3 bg-background rounded-lg border border-transparent transition-colors ${
                   sample.isAvailable 
                     ? 'hover:border-accent cursor-pointer' 
                     : 'opacity-50 cursor-not-allowed'
@@ -140,7 +140,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onSamplesChange }) => {
               >
                 <div className="flex justify-between items-center">
                     <div>
-                        <p className="font-semibold">{formatSampleName(sample)}</p>
+                        <p className="font-semibold text-text-primary">{formatSampleName(sample)}</p>
                         <p className="text-sm text-text-secondary">{sample.manufacturerName || 'N/A'}</p>
                     </div>
                     {!sample.isAvailable && (
@@ -156,7 +156,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onSamplesChange }) => {
                 <button
                     type="button"
                     onClick={() => setIsAddModalOpen(true)}
-                    className="w-full flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-accent font-semibold"
+                    className="w-full flex items-center justify-center gap-2 p-3 bg-surface hover:bg-background border border-border rounded-lg text-primary font-semibold transition-colors"
                 >
                     <PlusCircle size={20} />
                     Add "{searchTerm}" as a new sample
@@ -166,21 +166,21 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onSamplesChange }) => {
         </div>
 
         {/* Checkout List Column */}
-        <div className="bg-gray-800 p-4 rounded-lg">
+        <div className="bg-background p-4 rounded-lg border border-border">
            <h4 className="font-semibold mb-3 text-text-primary">Samples to Check Out ({selectedSamples.length})</h4>
             <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
             {selectedSamples.length > 0 ? (
                 // --- MODIFIED: Display logic updated ---
                 selectedSamples.map(sample => (
-                <div key={sample.id} className="bg-gray-900 p-3 rounded-md flex justify-between items-center">
+                <div key={sample.id} className="bg-surface p-3 rounded-md flex justify-between items-center border border-border">
                     <div className="flex items-center gap-3">
-                    <Layers size={18} className="text-gray-400" />
+                    <Layers size={18} className="text-text-secondary" />
                     <div>
-                        <p className="font-semibold text-sm">{formatSampleName(sample)}</p>
+                        <p className="font-semibold text-sm text-text-primary">{formatSampleName(sample)}</p>
                         <p className="text-xs text-text-secondary">{sample.manufacturerName}</p>
                     </div>
                     </div>
-                    <button onClick={() => removeSample(sample.id)} className="p-1 text-gray-400 hover:text-red-500 rounded-full">
+                    <button onClick={() => removeSample(sample.id)} className="p-1 text-text-secondary hover:text-red-500 rounded-full">
                     <X size={16} />
                     </button>
                 </div>

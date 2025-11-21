@@ -34,7 +34,7 @@ const JobNotesSection: React.FC<JobNotesSectionProps> = ({ job, onSaveNotes }) =
     <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
       <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
         <div className="flex items-center gap-3">
-            <Move className="drag-handle cursor-move text-text-tertiary hover:text-text-primary transition-colors" size={20} />
+            <Move className="drag-handle cursor-move text-text-secondary hover:text-text-primary transition-colors" size={20} />
             <h3 className="text-xl font-semibold text-text-primary">Job Notes</h3>
         </div>
       </div>
@@ -44,7 +44,7 @@ const JobNotesSection: React.FC<JobNotesSectionProps> = ({ job, onSaveNotes }) =
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Add any internal notes about the job, scheduling, materials, etc."
-          className="w-full flex-grow p-2 bg-background border border-border rounded-md focus:ring-2 focus:ring-primary focus:outline-none transition"
+          className="w-full flex-grow p-2 bg-background border border-border rounded-md text-text-primary placeholder-text-secondary focus:ring-2 focus:ring-primary focus:outline-none transition"
           disabled={isSaving}
         />
       </div>
@@ -53,7 +53,7 @@ const JobNotesSection: React.FC<JobNotesSectionProps> = ({ job, onSaveNotes }) =
         <button
           onClick={handleSave}
           disabled={isSaving || notes === (job?.notes ?? '')}
-          className="bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed transition"
+          className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
           <Save size={18} />
           {isSaving ? 'Saving...' : 'Save Notes'}

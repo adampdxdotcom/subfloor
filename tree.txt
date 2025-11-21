@@ -3,7 +3,14 @@
 |____context
 | |____DataContext.tsx
 |____server
+| |____lib
+| | |____emailService.js
+| | |____reports.js
+| | |____scheduler.js
 | |____temp-uploads
+| |____email-templates
+| | |____customerReminder.html
+| | |____pastDueReminder.html
 | |____routes
 | | |____photos.js
 | | |____projects.js
@@ -11,12 +18,15 @@
 | | |____customers.js
 | | |____vendors.js
 | | |____preferences.js
+| | |____reports.js
 | | |____calendar.js
 | | |____search.js
 | | |____restore.js
 | | |____samples.js
+| | |____reminders.js
 | | |____installers.js
 | | |____orders.js
+| | |____events.js
 | | |____roles.js
 | | |____backup.js
 | | |____jobs.js
@@ -31,18 +41,24 @@
 | | |____photo-1763008886313-793282931.jpg
 | | |____photo-1763305021477-103450378.jpeg
 | | |____photo-1762705750104-121879699.jpeg
+| | |____photo-1763596744178-917538936.jpg
 | | |____photo-1763158487707-467067919.jpg
 | | |____photo-1763007528431-780258442.jpg
 | | |____photo-1762725541780-203593309.jpeg
 | | |____photo-1763002318975-620954526.jpeg
+| | |____photo-1763597159342-960400104.jpg
 | | |____photo-1762706494949-518537399.jpeg
 | | |____photo-1763158425739-400456029.jpg
 | | |____photo-1763305072015-60753419.jpeg
 | | |____photo-1763051858324-386769672.jpg
 | | |____photo-1763158354247-748856351.jpg
+| | |____photo-1763594471862-593408660.jpg
 | | |____photo-1763003725627-488830063.jpeg
 | | |____photo-1763158579761-654023136.jpg
 | | |____photo-1762697778265-104491356.jpg
+| | |____photo-1763596732521-44570316.jpg
+| | |____photo-1763596927584-876577736.jpg
+| | |____photo-1763337186651-838860524.jpg
 | | |____photo-1763128935437-607666584.jpeg
 | | |____photo-1763157633538-763535150.jpg
 | | |____photo-1762652802557-41371136.jpg
@@ -59,12 +75,19 @@
 | | |____photo-1762728309643-556402683.jpeg
 | | |____photo-1763231317846-476439742.jpg
 | | |____photo-1763157528933-702622562.jpg
+| | |____branding
+| | | |____logo-1763654366165.png
+| | | |____logo-1763653815340.png
+| | | |____favicon-1763653827118.png
+| | |____avatars
+| | | |____avatar-51117396-0980-49c3-a5e2-64624d80bd84-1763561455785-832882225.png
 | | |____photo-1763157168801-385337320.jpg
 | | |____photo-1763002097382-4328641.jpeg
 | |____db.js
 | |____package.json
 | |____utils.js
 | |____node_modules
+| |____migrate-profiles.js
 | |____tree.txt
 | |____make-admin.js
 |____backup.bak
@@ -80,6 +103,7 @@
 | |____jobService.ts
 | |____customerService.ts
 | |____projectService.ts
+| |____reportService.ts
 | |____vendorService.ts
 | |____sampleCheckoutService.ts
 | |____preferenceService.ts
@@ -87,6 +111,7 @@
 | |____materialOrderService.ts
 | |____installerService.ts
 | |____sampleService.ts
+| |____eventService.ts
 |____docker-compose.yml
 |____Dockerfile
 |____index.js.bak
@@ -95,18 +120,24 @@
 |____.dockerignore
 |____.gitignore
 |____tailwind.config.js
-|____src
 |____project_1old.txt
 |____components
+| |____UserManagementSection.tsx
 | |____SampleCheckoutsSection.tsx
 | |____AddSampleInlineModal.tsx
+| |____PricingConfigurationSection.tsx
+| |____UserNotificationSettings.tsx
+| |____BackupRestoreSection.tsx
 | |____FinalizeJobSection.tsx
 | |____SampleSelector.tsx
 | |____SampleCarousel.tsx
+| |____SystemEmailSettings.tsx
 | |____ProjectInfoHeader.tsx
 | |____ActivityHistory.tsx
 | |____JobNotesSection.tsx
 | |____NavigationListener.tsx
+| |____BrandingSettingsSection.tsx
+| |____MySettingsSection.tsx
 | |____Layout.tsx
 | |____RestoreForm.tsx
 | |____EditInstallerModal.tsx
@@ -121,17 +152,20 @@
 | |____UserStatus.tsx
 | |____EditChangeOrderModal.tsx
 | |____EditProjectModal.tsx
+| |____DashboardEmailSettings.tsx
 | |____QuickCheckoutModal.tsx
 | |____AddEditVendorModal.tsx
 | |____EditCustomerModal.tsx
 | |____QuotesSection.tsx
 | |____CustomerCarousel.tsx
+| |____CalendarFilter.tsx
 | |____SizeManagement.tsx
 | |____ProjectCarousel.tsx
 | |____ProjectSelector.tsx
 | |____CustomerSelector.tsx
 |____metadata.json
 |____utils
+| |____pricingUtils.ts
 | |____cryptoUtils.ts
 | |____changeFormatter.ts
 |____todo.txt
