@@ -175,16 +175,18 @@ const SampleLibrary: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4">
-       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-text-primary">Sample Library</h1>
-        <button onClick={() => setIsAddModalOpen(true)} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors">
-          <PlusCircle className="w-5 h-5 mr-2" />
-          Add New Sample
-        </button>
-      </div>
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-        <input type="text" placeholder="Search by style, color, manufacturer, type, or SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-background text-text-primary border border-border rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary" />
+      <div className="bg-surface p-6 rounded-lg shadow-md mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+          <h1 className="text-3xl font-bold text-text-primary">Sample Library</h1>
+          <button onClick={() => setIsAddModalOpen(true)} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors shadow-md">
+            <PlusCircle className="w-5 h-5 mr-2" />
+            Add New Sample
+          </button>
+        </div>
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={18} />
+          <input type="text" placeholder="Search by style, color, manufacturer, type, or SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all shadow-inner" />
+        </div>
       </div>
 
       {searchTerm === '' && (

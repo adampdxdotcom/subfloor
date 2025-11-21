@@ -685,6 +685,39 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const receiveMaterialOrder = useCallback(async (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean }): Promise<void> => {
+    try {
+      const updatedOrder = await materialOrderService.receiveMaterialOrder(orderId, data);
+      setData(prevData => ({
+        ...prevData,
+        materialOrders: prevData.materialOrders.map(order => order.id === updatedOrder.id ? updatedOrder : order),
+      }));
+      toast.success('Order received!');
+    } catch (error) {
+      console.error("Error receiving material order:", error);
+      toast.error((error as Error).message);
+      throw error;
+    }
+  }, []);
+
+  const reportMaterialOrderDamage = useCallback(async (orderId: number, data: { items: any[]; replacementEta: string; notes: string; sendEmailNotification: boolean }): Promise<void> => {
+    try {
+      const { originalOrder, replacementOrder } = await materialOrderService.reportMaterialOrderDamage(orderId, data);
+      setData(prevData => ({
+        ...prevData,
+        materialOrders: [
+          ...prevData.materialOrders.map(order => order.id === originalOrder.id ? originalOrder : order),
+          replacementOrder
+        ],
+      }));
+      toast.success('Damage reported & replacement ordered!');
+    } catch (error) {
+      console.error("Error reporting damage:", error);
+      toast.error((error as Error).message);
+      throw error;
+    }
+  }, []);
+
   const updateJob = useCallback((updatedJob: Job) => { setData(prevData => ({ ...prevData, jobs: prevData.jobs.map(j => j.id === updatedJob.id ? updatedJob : j) })); }, []);
 
   const updateCurrentUserProfile = useCallback(async (firstName: string, lastName: string) => {
@@ -779,6 +812,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addMaterialOrder,
     updateMaterialOrder,
     deleteMaterialOrder,
+    receiveMaterialOrder,
+    reportMaterialOrderDamage,
     addVendor,
     updateVendor,
     deleteVendor,

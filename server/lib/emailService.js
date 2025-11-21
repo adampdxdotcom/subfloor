@@ -1,6 +1,12 @@
 // server/lib/emailService.js
 
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let transporter;
 
@@ -36,18 +42,59 @@ const initializeEmailService = () => {
     }
 };
 
-const sendEmail = async ({ to, subject, html }) => {
+const loadTemplate = (templateName, data) => {
+    try {
+        const templatePath = path.join(__dirname, '../email-templates', `${templateName}.html`);
+        let html = fs.readFileSync(templatePath, 'utf-8');
+
+        // Special handling for line items (Order Receipt)
+        if (data.lineItems && Array.isArray(data.lineItems)) {
+            const rows = data.lineItems.map(item => 
+                `<tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px;">${item.quantity} ${item.unit || ''}</td>
+                    <td style="padding: 8px;">${item.style} ${item.color ? '- ' + item.color : ''}</td>
+                </tr>`
+            ).join('');
+            html = html.replace('{{lineItemsRows}}', rows);
+        }
+
+        // General Replacement
+        Object.keys(data).forEach(key => {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            // If the data is an object/array (like lineItems), don't print [object Object]
+            const val = (typeof data[key] === 'object') ? '' : data[key];
+            html = html.replace(regex, val || '');
+        });
+
+        return html;
+    } catch (error) {
+        console.error(`🔥 Error loading template ${templateName}:`, error);
+        return `<p>Error loading email template.</p>`;
+    }
+};
+
+const sendEmail = async (arg1, arg2, arg3, arg4) => {
     if (!transporter) {
         console.error('🔥 Nodemailer transporter is not available or failed to initialize. Cannot send email.');
         return false;
     }
 
-    const mailOptions = {
-        from: `"Joblogger" <${process.env.GMAIL_USER}>`,
-        to,
-        subject,
-        html,
-    };
+    // Handle Overloading:
+    // 1. Legacy: ({ to, subject, html })
+    // 2. New: (to, subject, templateName, data)
+    let to, subject, html;
+    
+    if (typeof arg1 === 'object' && arg1.to) {
+        ({ to, subject, html } = arg1);
+    } else {
+        to = arg1;
+        subject = arg2;
+        const templateName = arg3;
+        const data = arg4 || {};
+        html = loadTemplate(templateName, data);
+    }
+
+    const mailOptions = { from: `"Joblogger" <${process.env.GMAIL_USER}>`, to, subject, html };
 
     try {
         await transporter.sendMail(mailOptions);

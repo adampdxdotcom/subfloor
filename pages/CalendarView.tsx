@@ -209,7 +209,11 @@ const CalendarView: React.FC = () => {
                                     const isStartOfWeek = d.getDay() === 0;
                                     const showLabel = isStartDate || isStartOfWeek;
                                     const isUserAppointment = event.type === 'user_appointment';
-                                    const labelText = event.type === 'appointment' ? `${event.title} (${event.customerName.split(' ')[0]})` : event.title;
+                                    
+                                    const isMaterialOrder = event.type === 'material_order_eta';
+                                    const isReceived = isMaterialOrder && (event.fullEvent as any)?.status === 'Received';
+                                    
+                                    let labelText = event.type === 'appointment' ? `${event.title} (${event.customerName.split(' ')[0]})` : event.title;
                                     
                                     let eventColor = event.backgroundColor || '#6b7280';
                                     if (isUserAppointment) {
@@ -247,6 +251,17 @@ const CalendarView: React.FC = () => {
                                     else if (isEndDate) classNames += ' rounded-r-md';
                                     if (event.isOnHold) classNames += ' on-hold-event';
 
+                                    // Style logic for standard events (Jobs/Orders)
+                                    const itemStyle: React.CSSProperties = !event.isOnHold 
+                                        ? { backgroundColor: eventColor, color: textColor } 
+                                        : { color: '#a0a0a0' };
+
+                                    if (isReceived && !event.isOnHold) {
+                                        // Apply hash pattern for received orders
+                                        itemStyle.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.2) 5px, rgba(0,0,0,0.2) 10px)';
+                                        labelText = `✓ ${labelText}`; // Add visual indicator to text as well
+                                    }
+
                                     if (isUserAppointment) {
                                         return (
                                             <div
@@ -266,7 +281,7 @@ const CalendarView: React.FC = () => {
                                                 to={`/projects/${event.id}`} 
                                                 key={event.appointmentId} 
                                                 className={classNames}
-                                                style={!event.isOnHold ? { backgroundColor: eventColor, color: textColor } : { color: '#a0a0a0' }}
+                                                style={itemStyle}
                                                 title={labelText}
                                             >
                                                 {showLabel ? labelText : '\u00A0'}

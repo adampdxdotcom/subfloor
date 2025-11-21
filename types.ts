@@ -261,6 +261,15 @@ export interface MaterialOrder {
   etaDate: string | null;
   purchaserType: 'Customer' | 'Installer';
   status: string;
+  dateReceived?: string; // New
+  notes?: string; // New
+  parentOrderId?: number; // New
+  // Expanded fields for Receiving Workflow
+  projectName?: string;
+  customerName?: string;
+  customerEmail?: string;
+  installerName?: string;
+  installerEmail?: string;
   lineItems: OrderLineItem[];
 }
 
@@ -424,6 +433,8 @@ export interface DataContextType extends AppData {
   addMaterialOrder: (orderData: any) => Promise<void>;
   updateMaterialOrder: (orderId: number, orderData: any) => Promise<void>;
   deleteMaterialOrder: (orderId: number) => Promise<void>;
+  receiveMaterialOrder: (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean }) => Promise<void>;
+  reportMaterialOrderDamage: (orderId: number, data: { items: any[]; replacementEta: string; notes: string; sendEmailNotification: boolean }) => Promise<void>;
   addVendor: (vendor: Omit<Vendor, 'id'>) => Promise<void>;
   updateVendor: (vendor: Vendor) => Promise<void>;
   deleteVendor: (vendorId: number) => Promise<void>;

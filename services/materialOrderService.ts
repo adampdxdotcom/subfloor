@@ -89,3 +89,32 @@ export const getMaterialOrderHistory = async (orderId: number): Promise<Activity
     return response.json();
 };
 // =================================================================
+
+export const receiveMaterialOrder = async (
+  orderId: number, 
+  data: { dateReceived: string; notes: string; sendEmailNotification: boolean }
+): Promise<MaterialOrder> => {
+  const response = await fetch(`${API_BASE_URL}/${orderId}/receive`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.error || 'Failed to receive material order');
+  }
+  return response.json();
+};
+
+export const reportMaterialOrderDamage = async (
+  orderId: number, 
+  data: { items: any[]; replacementEta: string; notes: string; sendEmailNotification: boolean }
+): Promise<{ originalOrder: MaterialOrder; replacementOrder: MaterialOrder }> => {
+  const response = await fetch(`${API_BASE_URL}/${orderId}/damage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to report damage');
+  return response.json();
+};

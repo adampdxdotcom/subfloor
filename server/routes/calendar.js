@@ -73,7 +73,7 @@ router.get('/events', verifySession(), async (req, res) => {
                 '#8B5CF6' AS "backgroundColor",
                 false AS "isOnHold",
                 'material_order_eta' AS "type",
-                '{}'::jsonb AS "fullEvent"
+                jsonb_build_object('status', mo.status) AS "fullEvent"
             FROM material_orders mo
             JOIN projects p ON mo.project_id = p.id
             JOIN customers c ON p.customer_id = c.id

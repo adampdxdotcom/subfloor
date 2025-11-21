@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom'; 
-import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon, Building } from 'lucide-react';
+import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon, Building, Truck } from 'lucide-react';
 import UniversalSearch from './UniversalSearch';
 import UserStatus from './UserStatus';
 import NavigationListener from './NavigationListener'; // <-- NEW: Import the listener
@@ -31,6 +31,10 @@ const Layout: React.FC = () => {
                 <NavLink to="/" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`} end>
                     <Home className="w-6 h-6" />
                     <span>Dashboard</span>
+                </NavLink>
+                <NavLink to="/orders" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                    <Truck className="w-6 h-6" />
+                    <span>Orders</span>
                 </NavLink>
                 <NavLink to="/customers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
                     <Users className="w-6 h-6" />

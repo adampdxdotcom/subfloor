@@ -62,27 +62,29 @@ const InstallerList: React.FC = () => {
 
   return (
     <div>
-      <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold text-text-primary">Installers</h1>
-        <button 
-          onClick={openAddModal}
-          className="flex items-center justify-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors md:w-auto w-full"
-        >
-          <PlusCircle className="w-5 h-5 mr-2" />
-          Add Installer
-        </button>
-      </div>
+      <div className="bg-surface p-6 rounded-lg shadow-md mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+          <h1 className="text-3xl font-bold text-text-primary">Installers</h1>
+          <button 
+            onClick={openAddModal}
+            className="flex items-center justify-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors md:w-auto w-full shadow-md"
+          >
+            <PlusCircle className="w-5 h-5 mr-2" />
+            Add Installer
+          </button>
+        </div>
 
-      {/* --- NEW: Search bar, identical to the one on the Customers page --- */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-        <input
-          type="text"
-          placeholder="Search installers by name or email..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-background text-text-primary border border-border rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary"
-        />
+        {/* Search bar */}
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={18} />
+          <input
+            type="text"
+            placeholder="Search installers by name or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all shadow-inner"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

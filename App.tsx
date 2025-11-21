@@ -22,6 +22,7 @@ import QuoteDetail from './pages/QuoteDetail';
 import Settings from './pages/Settings';
 import VendorList from './pages/VendorList';
 import VendorDetail from './pages/VendorDetail'; // <-- 1. ADD THIS IMPORT
+import OrderDashboard from './pages/OrderDashboard';
 
 const API_URL = "https://flooring.dumbleigh.com";
 
@@ -135,6 +136,7 @@ function App() {
             <Route path="vendors" element={<VendorList />} />
             {/* --- 2. ADD THIS NEW NESTED ROUTE --- */}
             <Route path="vendors/:vendorId" element={<VendorDetail />} />
+            <Route path="orders" element={<OrderDashboard />} />
             <Route path="installers" element={<InstallerList />} />
             <Route path="installers/:installerId" element={<InstallerDetail />} />
             <Route path="quotes/:quoteId" element={<QuoteDetail />} />
