@@ -77,6 +77,20 @@ export const updateSample = async (sampleId: number, sampleData: any): Promise<S
     return response.json();
 };
 
+// --- NEW: Toggle Discontinued Status ---
+export const toggleSampleDiscontinued = async (sampleId: number, isDiscontinued: boolean): Promise<Sample> => {
+    const response = await fetch(`${API_BASE_URL}/${sampleId}/discontinue`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDiscontinued }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update discontinued status');
+    }
+    return response.json();
+};
+
 export const deleteSample = async (sampleId: number): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/${sampleId}`, {
         method: 'DELETE',

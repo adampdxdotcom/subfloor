@@ -80,6 +80,7 @@ router.get('/', verifySession(), async (req, res) => {
         s.id, s.manufacturer_id, s.supplier_id, s.product_type, s.style, s.line,
         s.finish, s.color, s.sample_format, s.board_colors, s.sku, 
         s.is_available, s.product_url,
+        s.is_discontinued,
         s.unit_cost,
         s.uom,
         s.carton_size,
@@ -254,6 +255,45 @@ router.put('/:id', verifySession(), async (req, res) => {
         await client.query('ROLLBACK');
         console.error(err.message);
         res.status(500).json({ error: 'Internal server error while updating sample.' });
+    } finally {
+        client.release();
+    }
+});
+
+// --- PATCH /api/samples/:id/discontinue ---
+router.patch('/:id/discontinue', verifySession(), async (req, res) => {
+    const { id } = req.params;
+    const { isDiscontinued } = req.body;
+    const userId = req.session.getUserId();
+
+    if (typeof isDiscontinued !== 'boolean') {
+        return res.status(400).json({ error: 'isDiscontinued must be a boolean.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        const beforeResult = await client.query('SELECT * FROM samples WHERE id = $1', [id]);
+        if (beforeResult.rows.length === 0) return res.status(404).json({ error: 'Sample not found' });
+        
+        const beforeData = toCamelCase(beforeResult.rows[0]);
+
+        await client.query('BEGIN');
+        const updateQuery = 'UPDATE samples SET is_discontinued = $1 WHERE id = $2 RETURNING *';
+        const result = await client.query(updateQuery, [isDiscontinued, id]);
+        const updatedSample = toCamelCase(result.rows[0]);
+
+        await logActivity(userId, 'UPDATE', 'SAMPLE', id, { 
+            action: 'TOGGLE_DISCONTINUED',
+            before: beforeData, 
+            after: updatedSample 
+        }, client);
+
+        await client.query('COMMIT');
+        res.json(updatedSample);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error toggling discontinued status:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
     } finally {
         client.release();
     }

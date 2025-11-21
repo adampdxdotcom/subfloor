@@ -355,6 +355,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const toggleSampleDiscontinued = useCallback(async (sampleId: number, isDiscontinued: boolean): Promise<void> => {
+    try {
+      const updatedSample = await sampleService.toggleSampleDiscontinued(sampleId, isDiscontinued);
+      setData(prevData => ({
+        ...prevData,
+        samples: prevData.samples.map(s => 
+          s.id === updatedSample.id ? updatedSample : s
+        )
+      }));
+      // Optimistically update sample checkouts if needed, though usually not required for just a status flag
+      toast.success(isDiscontinued ? 'Sample marked as discontinued' : 'Sample restored to active library');
+    } catch (error) {
+      console.error("Error toggling discontinued status:", error);
+      toast.error((error as Error).message);
+      throw error;
+    }
+  }, []);
+
   const deleteSample = useCallback(async (sampleId: number): Promise<void> => {
     try {
       await sampleService.deleteSample(sampleId);
@@ -792,6 +810,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addSample,
     updateSample,
     deleteSample,
+    toggleSampleDiscontinued, // ADDED
     fetchSamples,
     addCustomer, 
     updateCustomer,

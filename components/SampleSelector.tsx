@@ -34,6 +34,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onSamplesChange }) => {
     
     return samples.filter(sample => 
       !selectedSamples.some(ss => ss.id === sample.id) &&
+      !sample.isDiscontinued && // ADDED: Exclude discontinued items
       (
         (sample.style && sample.style.toLowerCase().includes(lowercasedTerm)) ||
         (sample.color && sample.color.toLowerCase().includes(lowercasedTerm)) ||
@@ -77,7 +78,10 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onSamplesChange }) => {
         const foundSample = samples.find(s => s.id === sampleId);
         
         if (foundSample) {
-          if (!foundSample.isAvailable) {
+          // ADDED: Guard against discontinued items
+          if (foundSample.isDiscontinued) {
+            toast.error(`Sample "${formatSampleName(foundSample)}" is discontinued and cannot be used.`);
+          } else if (!foundSample.isAvailable) {
             toast.error(`Sample "${formatSampleName(foundSample)}" is already checked out.`);
           } else if (selectedSamples.some(s => s.id === foundSample.id)) {
             toast.error(`Sample "${formatSampleName(foundSample)}" is already in your list.`);

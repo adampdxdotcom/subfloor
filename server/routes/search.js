@@ -27,10 +27,11 @@ router.get('/', verifySession(), async (req, res) => {
             FROM samples s
             LEFT JOIN vendors m ON s.manufacturer_id = m.id
             WHERE 
-                LOWER(s.style) LIKE $1 OR 
-                LOWER(s.color) LIKE $1 OR 
-                LOWER(m.name) LIKE $1 OR
-                LOWER(s.product_type) LIKE $1
+                (LOWER(s.style) LIKE $1 OR 
+                 LOWER(s.color) LIKE $1 OR 
+                 LOWER(m.name) LIKE $1 OR
+                 LOWER(s.product_type) LIKE $1)
+                AND s.is_discontinued = FALSE
             
             UNION
             
@@ -44,7 +45,8 @@ router.get('/', verifySession(), async (req, res) => {
                 '/samples' as path
             FROM sample_sizes ss
             JOIN samples s ON ss.sample_id = s.id
-            WHERE LOWER(ss.size_value) LIKE $1;
+            WHERE LOWER(ss.size_value) LIKE $1
+            AND s.is_discontinued = FALSE;
         `;
         
         const customersQuery = `

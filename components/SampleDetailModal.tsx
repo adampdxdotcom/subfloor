@@ -3,7 +3,7 @@ import { useData } from '../context/DataContext';
 import { Sample, Vendor, PRODUCT_TYPES, SAMPLE_FORMATS, ProductType, SampleFormat, UNITS, PricingSettings, SampleSizeVariant } from '../types';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
-import { Edit, X, Calendar, ChevronsRight, Undo2, Link as LinkIcon, Download, Trash2, QrCode, Printer, Clock, History } from 'lucide-react';
+import { Edit, X, Calendar, ChevronsRight, Undo2, Link as LinkIcon, Download, Trash2, QrCode, Printer, Clock, History, Archive } from 'lucide-react';
 import AddEditVendorModal from './AddEditVendorModal';
 import * as preferenceService from '../services/preferenceService';
 import { calculatePrice, getActivePricingRules, formatCurrency } from '../utils/pricingUtils';
@@ -55,7 +55,7 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
   const { 
     currentUser,
     vendors, sampleCheckouts, projects, fetchSamples, updateSample, addVendor,
-    updateSampleCheckout, deleteSample, extendSampleCheckout,
+    updateSampleCheckout, deleteSample, extendSampleCheckout, toggleSampleDiscontinued,
     sampleHistory, fetchSampleHistory
   } = useData();
   
@@ -74,6 +74,8 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
   const [vendorModalPurpose, setVendorModalPurpose] = useState<'manufacturer' | 'supplier'>('general');
+  
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
   useEffect(() => {
       const fetchSettings = async () => {
@@ -280,6 +282,23 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
       return { retailPrice, cartonPrice, rules };
   };
 
+  const handleToggleDiscontinued = async () => {
+      if (!sample) return;
+      const action = sample.isDiscontinued ? 'restore' : 'discontinue';
+      if (!confirm(`Are you sure you want to ${action} "${formatSampleName(sample)}"?`)) return;
+
+      setIsTogglingStatus(true);
+      try {
+          await toggleSampleDiscontinued(sample.id, !sample.isDiscontinued);
+          // The toast is handled in DataContext
+          onClose(); // Close modal after action
+      } catch (err) {
+          // Error toast handled in DataContext
+      } finally {
+          setIsTogglingStatus(false);
+      }
+  };
+
   if (!isOpen || !sample) return null;
 
   return (
@@ -402,6 +421,9 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                       <p className="flex items-center gap-2"><strong className="text-text-primary">Product Link:</strong> {sample.productUrl ? <a href={sample.productUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline flex items-center">Visit Site <LinkIcon size={14} className="ml-1"/></a> : 'N/A'}</p>
                       <div className="mt-4 pt-4 border-t border-border">
                           <p className="flex items-center gap-2"><strong className="text-text-primary">Status:</strong> <span className={`font-bold px-2 py-1 rounded-full text-xs ${sample.isAvailable ? 'bg-green-800/50 text-green-300' : 'bg-yellow-800/50 text-yellow-300'}`}>{sample.isAvailable ? 'Available' : 'Checked Out'}</span></p>
+                          {sample.isDiscontinued && (
+                               <p className="mt-2 flex items-center gap-2"><strong className="text-text-primary">Archived Status:</strong> <span className="font-bold px-2 py-1 rounded-full text-xs bg-red-800/50 text-red-300">Discontinued</span></p>
+                          )}
                       </div>
                   </div>
               </div>
@@ -436,6 +458,20 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                   </div>
               </div>
             <div className="flex justify-end gap-4 mt-8 border-t border-border pt-6">
+              {/* --- NEW: Discontinue / Restore Action (Admin Only) --- */}
+              {currentUser?.roles?.includes('Admin') && !isEditing && (
+                  <div className="mr-auto">
+                      <button 
+                        type="button" 
+                        onClick={handleToggleDiscontinued}
+                        disabled={isTogglingStatus || (!sample.isAvailable && !sample.isDiscontinued)} // If checked out and trying to discontinue, block it. If trying to restore, allow it.
+                        className={`flex items-center py-2 px-4 rounded font-semibold text-white transition-colors ${sample.isDiscontinued ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'}`}
+                      >
+                          <Archive className="w-4 h-4 mr-2" /> {sample.isDiscontinued ? 'Restore Sample' : 'Discontinue Sample'}
+                      </button>
+                  </div>
+              )}
+
               {/* --- READ-ONLY FOOTER ACTIONS (Edit mode actions are inside SampleForm) --- */}
               {!isEditing && (
                   <div className="flex items-center gap-4">

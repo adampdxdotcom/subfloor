@@ -138,6 +138,7 @@ export interface Sample {
   
   sku: string | null;
   isAvailable: boolean;
+  isDiscontinued: boolean; // ADDED
   imageUrl?: string;
   productUrl?: string | null;
   

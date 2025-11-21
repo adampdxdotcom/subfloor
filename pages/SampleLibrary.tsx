@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useData } from '../context/DataContext';
-import { PlusCircle, Search, Download, Clock, Undo2 } from 'lucide-react';
+import { PlusCircle, Search, Download, Clock, Undo2, Archive, LayoutGrid } from 'lucide-react';
 import { Sample, Vendor, PricingSettings } from '../types';
 import { Link } from 'react-router-dom';
 import SampleDetailModal from '../components/SampleDetailModal';
@@ -30,6 +30,9 @@ const SampleLibrary: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
+  
+  // --- NEW: Tab State ---
+  const [viewMode, setViewMode] = useState<'active' | 'discontinued'>('active');
 
   useEffect(() => {
       const fetchSettings = async () => {
@@ -67,18 +70,27 @@ const SampleLibrary: React.FC = () => {
     });
   }, [samples, sampleCheckouts]);
 
+  // --- MODIFIED: Filter Logic handles Tabs AND Search ---
   const filteredSamples = useMemo(() => {
+    // 1. First filter by the Tab (Active vs Discontinued)
+    let baseList = samples.filter(s => 
+        viewMode === 'active' ? !s.isDiscontinued : s.isDiscontinued
+    );
+
+    // 2. Then filter by search term
     const lowercasedTerm = searchTerm.toLowerCase();
-    if (!lowercasedTerm) return samples;
-    return samples.filter(sample => {
+    if (!lowercasedTerm) return baseList;
+
+    return baseList.filter(sample => {
         const styleMatch = sample.style && sample.style.toLowerCase().includes(lowercasedTerm);
         const colorMatch = sample.color && sample.color.toLowerCase().includes(lowercasedTerm);
         const manufacturerMatch = sample.manufacturerName && sample.manufacturerName.toLowerCase().includes(lowercasedTerm);
         const typeMatch = sample.productType && sample.productType.toLowerCase().includes(lowercasedTerm);
         const skuMatch = sample.sku && sample.sku.toLowerCase().includes(lowercasedTerm);
+        // Note: We don't filter discontinued logic here anymore, it's done in step 1
         return styleMatch || colorMatch || manufacturerMatch || typeMatch || skuMatch;
     });
-  }, [samples, searchTerm]);
+  }, [samples, searchTerm, viewMode]);
 
   const handleExtend = async (sample: Sample, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -178,10 +190,34 @@ const SampleLibrary: React.FC = () => {
       <div className="bg-surface p-6 rounded-lg shadow-md mb-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-text-primary">Sample Library</h1>
-          <button onClick={() => setIsAddModalOpen(true)} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors shadow-md">
-            <PlusCircle className="w-5 h-5 mr-2" />
-            Add New Sample
-          </button>
+          <div className="flex items-center gap-4">
+              {/* --- NEW: View Toggle Buttons --- */}
+              <div className="bg-background p-1 rounded-lg flex items-center border border-border">
+                  <button 
+                    onClick={() => setViewMode('active')}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                        viewMode === 'active' ? 'bg-surface shadow text-primary' : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                      <LayoutGrid size={16} /> Active
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('discontinued')}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                        viewMode === 'discontinued' ? 'bg-surface shadow text-red-400' : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                      <Archive size={16} /> Discontinued
+                  </button>
+              </div>
+
+              {viewMode === 'active' && (
+                  <button onClick={() => setIsAddModalOpen(true)} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors shadow-md">
+                    <PlusCircle className="w-5 h-5 mr-2" />
+                    Add New Sample
+                  </button>
+              )}
+          </div>
         </div>
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={18} />
@@ -189,7 +225,7 @@ const SampleLibrary: React.FC = () => {
         </div>
       </div>
 
-      {searchTerm === '' && (
+      {searchTerm === '' && viewMode === 'active' && (
         <>
           <SampleCarousel title="Checked Out - Next Due" samples={checkedOutSamples} onSampleClick={handleSampleClick} />
           <div className="border-t border-border my-8"></div>
@@ -214,6 +250,11 @@ const SampleLibrary: React.FC = () => {
               )}
               
               <div className="flex-grow" />
+              
+              {viewMode === 'discontinued' && (
+                  <div className="mb-2 text-center bg-red-900/30 text-red-400 text-xs font-bold py-1 rounded border border-red-900/50 uppercase tracking-wider">Discontinued</div>
+              )}
+              
               <div className="flex justify-between items-end mt-4 text-xs">
                 <span className="font-semibold bg-background text-text-secondary px-2 py-1 rounded-full">{sample.productType || 'N/A'}</span>
                 {sample.isAvailable ? (<span className="font-bold text-green-400">Available</span>) : (
@@ -232,7 +273,7 @@ const SampleLibrary: React.FC = () => {
             </div>
           </div>
         ))}
-        {filteredSamples.length === 0 && (<p className="text-text-secondary col-span-full text-center">{searchTerm ? 'No samples match your search.' : 'No samples found in the library.'}</p>)}
+        {filteredSamples.length === 0 && (<p className="text-text-secondary col-span-full text-center">{searchTerm ? 'No samples match your search.' : `No samples found in the ${viewMode} library.`}</p>)}
       </div>
 
       {isAddModalOpen && (

@@ -43,6 +43,7 @@ CREATE TABLE samples (
     board_colors TEXT,  -- For extra colors on a board
     sku VARCHAR(100),
     is_available BOOLEAN DEFAULT TRUE NOT NULL,
+    is_discontinued BOOLEAN DEFAULT FALSE NOT NULL,
     product_url TEXT,
     -- New Pricing Fields
     unit_cost NUMERIC(10, 2), -- Renamed from unit_price
