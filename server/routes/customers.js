@@ -179,7 +179,7 @@ router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => 
     }
 
     const deletedData = toCamelCase(customerToDelete.rows[0]);
-    await client.query('DELETE FROM customers WHERE id = $1');
+    await client.query('DELETE FROM customers WHERE id = $1', [id]);
     await logActivity(userId, 'DELETE', 'CUSTOMER', id, { deletedData });
 
     await client.query('COMMIT');

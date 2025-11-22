@@ -1,0 +1,20 @@
+flooring.dumbleigh.com {
+    tls /var/db/caddy/data/caddy/certificates/temp/67a9118d32b21.pem /var/db/caddy/data/caddy/certificates/temp/67a9118d32b21.key
+
+    # Backend: Express API, Supertokens, uploads, etc.
+    @backend path /api/* /auth/* /uploads/*
+    reverse_proxy @backend 192.168.1.10:3001 {
+        transport http {
+            versions h2 h1.1
+            response_header_timeout 5m
+        }
+    }
+
+    # Frontend: Vite dev server with HMR
+    reverse_proxy 192.168.1.10:5173 {
+        transport http {
+            versions h2 h1.1
+            response_header_timeout 5m
+        }
+    }
+}

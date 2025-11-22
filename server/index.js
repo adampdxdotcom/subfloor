@@ -40,6 +40,30 @@ import reminderRoutes from './routes/reminders.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// --- DYNAMIC DOMAIN CONFIGURATION ---
+// If running in Prod Docker without a specific domain set, default to localhost:3001
+const APP_DOMAIN = process.env.APP_DOMAIN || "http://localhost:3001";
+const API_DOMAIN = process.env.API_DOMAIN || "http://localhost:3001";
+
+// --- HELPER: Extract Cookie Domain ---
+// Converts "https://flooring.example.com" -> ".example.com" for cookie sharing
+const getCookieDomain = (urlStr) => {
+    try {
+        const hostname = new URL(urlStr).hostname;
+        // Localhost/IPs don't use specific cookie domains
+        if (hostname === 'localhost' || hostname === '127.0.0.1') return undefined;
+        
+        const parts = hostname.split('.');
+        // If it's a standard domain (e.g. sub.domain.com), use the last two parts
+        if (parts.length >= 2) {
+            return `.${parts.slice(-2).join('.')}`;
+        }
+        return hostname;
+    } catch (e) {
+        return undefined;
+    }
+};
+
 // --- INITIALIZE SUPERTOKENS ---
 supertokens.init({
     framework: "express",
@@ -49,23 +73,34 @@ supertokens.init({
     },
     appInfo: {
         appName: "Joblogger",
-        apiDomain: "https://flooring.dumbleigh.com",
-        websiteDomain: "https://flooring.dumbleigh.com",
+        apiDomain: API_DOMAIN,
+        websiteDomain: APP_DOMAIN,
         apiBasePath: "/api/auth",
         websiteBasePath: "/auth"
     },
     recipeList: [
         EmailPassword.init(),
         Session.init({
-            olderCookieDomain: "flooring.dumbleigh.com",
-            cookieDomain: ".dumbleigh.com",
-            cookieSecure: true,             
+            // --- DYNAMIC COOKIE CONFIG ---
+            cookieDomain: getCookieDomain(APP_DOMAIN),
+            cookieSecure: APP_DOMAIN.startsWith('https'), // Secure only if on HTTPS
             cookieSameSite: "lax" 
         })
     ]
 });
 
 const app = express();
+app.set('trust proxy', true); 
+
+// --- DIAGNOSTIC LOGGER ---
+// (Kept for now to ensure connectivity is stable)
+//app.use((req, res, next) => {
+//    console.log(`👉 INCOMING: ${req.method} ${req.url}`);
+//    console.log('   Host:', req.headers['host']);
+//    next();
+//});
+// -------------------------
+
 const PORT = 3001;
 
 // --- INITIALIZE SERVICES ---
@@ -89,7 +124,7 @@ const exposedHeaders = new Set([
 ]);
 
 app.use(cors({
-    origin: "https://flooring.dumbleigh.com",
+    origin: APP_DOMAIN, // Use the dynamic domain from env
     allowedHeaders: ["content-type", ...supertokens.getAllCORSHeaders()],
     exposedHeaders: [...exposedHeaders],
     credentials: true,
@@ -127,6 +162,23 @@ app.use('/api/preferences', preferenceRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/reminders', reminderRoutes);
+
+// --- SERVE FRONTEND (PRODUCTION ONLY) ---
+if (process.env.NODE_ENV === 'production') {
+    const publicPath = path.join(__dirname, 'public');
+    
+    // Serve static files from the React build
+    app.use(express.static(publicPath));
+
+    // Handle React Routing, return all requests to React app
+    app.get('*', (req, res, next) => {
+        // Skip API requests or Uploads to avoid interfering with 404s on the API side
+        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+            return next();
+        }
+        res.sendFile(path.join(publicPath, 'index.html'));
+    });
+}
 
 // --- ERROR HANDLING ---
 app.use(errorHandler());

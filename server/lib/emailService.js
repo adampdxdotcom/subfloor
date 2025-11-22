@@ -11,8 +11,13 @@ const __dirname = path.dirname(__filename);
 let transporter;
 
 const initializeEmailService = () => {
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-        console.warn('🔥 GMAIL_USER or GMAIL_APP_PASSWORD environment variables not set. Email service is disabled.');
+    // --- FIX: Check for both old (GMAIL_) and new (EMAIL_) variable names ---
+    // Priority is given to EMAIL_USER (Standardized)
+    const emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER;
+    const emailPass = process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD;
+
+    if (!emailUser || !emailPass) {
+        console.warn('🔥 EMAIL_USER or EMAIL_PASS environment variables not set. Email service is disabled.');
         return;
     }
 
@@ -22,8 +27,8 @@ const initializeEmailService = () => {
             port: 465,
             secure: true,
             auth: {
-                user: process.env.GMAIL_USER,
-                pass: process.env.GMAIL_APP_PASSWORD,
+                user: emailUser,
+                pass: emailPass,
             },
             connectionTimeout: 10000, 
         });
@@ -94,7 +99,9 @@ const sendEmail = async (arg1, arg2, arg3, arg4) => {
         html = loadTemplate(templateName, data);
     }
 
-    const mailOptions = { from: `"Joblogger" <${process.env.GMAIL_USER}>`, to, subject, html };
+    // Determine the sender address based on what variables are available
+    const emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER;
+    const mailOptions = { from: `"Joblogger" <${emailUser}>`, to, subject, html };
 
     try {
         await transporter.sendMail(mailOptions);

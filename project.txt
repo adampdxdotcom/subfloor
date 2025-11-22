@@ -15,7 +15,9 @@
 | | |____scheduler.js
 | |____temp-uploads
 | |____email-templates
+| | |____orderReceived.html
 | | |____customerReminder.html
+| | |____orderDamage.html
 | | |____pastDueReminder.html
 | |____routes
 | | |____photos.js
@@ -41,11 +43,13 @@
 | | |____quotes.js
 | |____index.js
 | |____uploads
-| | |____photo-1762749727265-184370968.jpeg...etc
+| | |____photo-1762749727265-184370968.jpeg etc...
 | | |____branding
 | | | |____logo-1763654366165.png
+| | | |____logo-1763825160367.png
 | | | |____logo-1763653815340.png
 | | | |____favicon-1763653827118.png
+| | | |____logo-1763825080181.png
 | | |____avatars
 | | | |____avatar-51117396-0980-49c3-a5e2-64624d80bd84-1763561455785-832882225.png
 | | |____photo-1763157168801-385337320.jpg
@@ -81,6 +85,7 @@
 | |____eventService.ts
 |____docker-compose.yml
 |____Dockerfile
+|____caddyfile.old
 |____index.js.bak
 |____.env
 |____temp-uploads
@@ -102,7 +107,9 @@
 | |____ProjectInfoHeader.tsx
 | |____ActivityHistory.tsx
 | |____JobNotesSection.tsx
+| |____ReceiveOrderModal.tsx
 | |____NavigationListener.tsx
+| |____OrderCarousel.tsx
 | |____BrandingSettingsSection.tsx
 | |____MySettingsSection.tsx
 | |____Layout.tsx
@@ -119,9 +126,11 @@
 | |____UserStatus.tsx
 | |____EditChangeOrderModal.tsx
 | |____EditProjectModal.tsx
+| |____AddEditMaterialOrderModal.tsx
 | |____DashboardEmailSettings.tsx
 | |____QuickCheckoutModal.tsx
 | |____AddEditVendorModal.tsx
+| |____GlobalProjectSelector.tsx
 | |____EditCustomerModal.tsx
 | |____QuotesSection.tsx
 | |____CustomerCarousel.tsx
@@ -131,12 +140,14 @@
 | |____ProjectSelector.tsx
 | |____CustomerSelector.tsx
 |____metadata.json
+|____database-backup-2025-11-21T15-07-42-773Z.dump
 |____utils
 | |____pricingUtils.ts
 | |____cryptoUtils.ts
 | |____changeFormatter.ts
 |____todo.txt
 |____package.json
+|____Dockerfile.prod
 |____schema.sql
 |____types.ts
 |____Dockerfile.server
@@ -148,6 +159,7 @@
 | |____CustomerDetail.tsx
 | |____InstallerDetail.tsx
 | |____CalendarView.tsx
+| |____OrderDashboard.tsx
 | |____Settings.tsx
 | |____SampleLibrary.tsx
 | |____CustomerList.tsx
@@ -160,6 +172,8 @@
 |____data
 | |____mockData.ts
 |____project.txt
+|____docker-compose.prod.yml
+
 
 
 
@@ -771,6 +785,70 @@ The Settings.tsx file had grown to over 500 lines and contained multiple distinc
 Current Status
 
 The application is now visually customizable and architecturally cleaner. You have a robust foundation for selling this as a SaaS product or tailoring it to specific clients, with a professional-grade "Theme Editor" built directly into the admin panel.
+
+Here is the detailed summary of Session 16.
+
+This session marked a pivotal transition from "Active Development" to "Production Deployment." We started with UI polish, implemented a major lifecycle feature, and then spent the majority of the time architecting a robust, self-contained production environment.
+1. Dashboard & UI Logic Fixes
+
+We refined the dashboard to provide a clearer "at-a-glance" view.
+
+    Fixed "Invalid Date" Bug: Solved a parsing error where ISO date strings were breaking the "Upcoming Deliveries" display. We implemented robust date parsing to handle both SQL and ISO formats safely.
+
+    Consolidated Order Logic: Removed the confusing second order carousel. We standardized on a single "Upcoming Deliveries (Next 5 Days)" view, giving you a focused window into immediate logistics.
+
+2. New Subsystem: "Discontinued Samples"
+
+We built a complete lifecycle management system for inventory that is no longer available but must be kept for historical records.
+
+    Database: Added is_discontinued boolean column to the samples table via a live migration.
+
+    Backend API:
+
+        Updated Search logic to exclude discontinued items from global search.
+
+        Created PATCH /discontinue endpoint to toggle status.
+
+    Frontend UI:
+
+        Library: Added "Active" vs. "Discontinued" tabs to filter the view.
+
+        Detail Modal: Added Admin-only "Discontinue" / "Restore" buttons.
+
+    Guardrails: Updated the SampleSelector and QRScanner to strictly block users from adding discontinued items to new Checkouts or Orders.
+
+3. Infrastructure: The "Production" Build (Major Milestone)
+
+We moved the application from a loose "Dev Mode" (Vite + Node separately) to a hardened "Monolith Container" suitable for real-world deployment.
+
+    Multi-Stage Dockerfile: Created Dockerfile.prod that builds the React frontend and copies the optimized static files into the Node backend, creating a single, lightweight image.
+
+    Full-Stack Server: Modified server/index.js to serve the React static files for any non-API request, eliminating the need for a separate frontend server in production.
+
+    Environment Hardening:
+
+        Implemented a "Trust Proxy" configuration to allow secure cookies behind Caddy.
+
+        Standardized .env variable injection to prevent "Zombie Data" issues.
+
+    Caddy Configuration: Refactored the Caddyfile to remove complex split-routing, pointing all traffic to the single production container.
+
+4. Disaster Recovery & Stability Checks
+
+We rigorously tested the Backup & Restore system in the new environment, uncovering and fixing several critical edge cases.
+
+    Restore Tooling: Updated the Docker image to include postgresql-client so pg_restore actually functions in production.
+
+    "Clean Slate" Restore: Rewrote server/routes/restore.js to use --clean --if-exists flags, ensuring that restoring a backup correctly overwrites existing data without dependency conflicts.
+
+    Schema drift: Manually applied missing migrations to the restored production database to match the latest codebase.
+
+    Bug Fix: Fixed a crash in the DELETE Customer route caused by a missing SQL parameter.
+
+Current Status:
+You now have a dual-environment setup. You can code in Dev with hot-reloading, and deploy to Prod with a single Docker command, confident that your data is persistent and secure.
+
+
 
 GOALS
 • Inter-employee messaging.

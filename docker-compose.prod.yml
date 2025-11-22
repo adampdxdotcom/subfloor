@@ -1,0 +1,56 @@
+services:
+  joblogger-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: joblogger_prod
+    restart: always
+    ports:
+      - "5173:3001"
+    env_file:
+      - .env
+    # ---------------------------------------
+    environment:
+      - NODE_ENV=production
+      - APP_DOMAIN=${APP_DOMAIN}
+      - API_DOMAIN=${API_DOMAIN}
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    volumes:
+      - ./server/uploads:/app/server/uploads
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: joblogger_db_prod
+    restart: always
+    # We have to hardcode these here because variable substitution 
+    # was failing on your machine.
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: joblogger
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  supertokens:
+    image: registry.supertokens.io/supertokens/supertokens-postgresql
+    container_name: joblogger_supertokens_prod
+    restart: always
+    depends_on:
+      - db
+    environment:
+      POSTGRESQL_CONNECTION_URI: "postgresql://postgres:password@db:5432/joblogger"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data_prod:

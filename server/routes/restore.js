@@ -45,19 +45,38 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
                 .on('error', reject);
         });
 
-        if (!process.env.DATABASE_URL) {
-            throw new Error('DATABASE_URL environment variable is not set!');
-        }
-        const dbUrl = new URL(process.env.DATABASE_URL);
-        const dbUser = dbUrl.username;
-        const dbPassword = dbUrl.password;
-        const dbHost = dbUrl.hostname;
-        const dbName = dbUrl.pathname.slice(1); // Remove leading '/'
+        // --- UPDATED: Parse DATABASE_URL from environment ---
+        // In Prod, we use DATABASE_URL. In Dev, we might have individual vars.
+        let dbUser, dbPassword, dbHost, dbPort, dbName;
 
-        const restoreCommand = `PGPASSWORD="${dbPassword}" pg_restore -U "${dbUser}" -h "${dbHost}" --clean --if-exists -d "${dbName}" "${dumpFilePath}"`;
+        if (process.env.DATABASE_URL) {
+            const dbUrl = new URL(process.env.DATABASE_URL);
+            dbUser = dbUrl.username;
+            dbPassword = dbUrl.password;
+            dbHost = dbUrl.hostname;
+            dbPort = dbUrl.port || '5432';
+            dbName = dbUrl.pathname.slice(1); // Remove leading '/'
+        } else {
+            // Fallback for Dev if DATABASE_URL isn't set
+            dbUser = process.env.DB_USER;
+            dbPassword = process.env.DB_PASSWORD;
+            dbHost = process.env.DB_HOST;
+            dbPort = process.env.DB_PORT || '5432';
+            dbName = process.env.DB_NAME;
+        }
+
+        if (!dbUser || !dbPassword || !dbHost || !dbName) {
+             throw new Error('Missing database configuration variables.');
+        }
+
+        // --- UPDATED: Robust pg_restore command ---
+        // Added --no-owner --no-privileges to avoid permission errors
+        const restoreCommand = `PGPASSWORD="${dbPassword}" pg_restore -U "${dbUser}" -h "${dbHost}" -p "${dbPort}" -d "${dbName}" --clean --if-exists --no-owner --no-privileges "${dumpFilePath}"`;
         
         console.log('Executing pg_restore command...');
+        
         exec(restoreCommand, (error, stdout, stderr) => {
+            // Clean up temp files
             if (fs.existsSync(dumpFilePath)) fs.unlinkSync(dumpFilePath);
             if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
