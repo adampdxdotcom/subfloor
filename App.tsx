@@ -21,10 +21,12 @@ import InstallerDetail from './pages/InstallerDetail';
 import QuoteDetail from './pages/QuoteDetail';
 import Settings from './pages/Settings';
 import VendorList from './pages/VendorList';
-import VendorDetail from './pages/VendorDetail'; // <-- 1. ADD THIS IMPORT
+import VendorDetail from './pages/VendorDetail'; 
 import OrderDashboard from './pages/OrderDashboard';
 
-const API_URL = "https://flooring.dumbleigh.com";
+// --- DYNAMIC URL CONFIGURATION ---
+// Reads from .env in Prod, or defaults to empty (relative path) in Dev
+const API_URL = import.meta.env.VITE_APP_DOMAIN || "";
 
 // Helper to darken a hex color for hover states
 const darkenColor = (hex: string, percent: number) => {
@@ -64,7 +66,12 @@ const BrandingListener = () => {
       const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
       link.type = 'image/x-icon';
       link.rel = 'icon';
-      link.href = `${API_URL}${systemBranding.faviconUrl}`;
+      // Ensure we handle full URLs vs relative paths correctly
+      const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+      link.href = systemBranding.faviconUrl.startsWith('http') 
+          ? systemBranding.faviconUrl 
+          : `${baseUrl}${systemBranding.faviconUrl}`;
+          
       document.getElementsByTagName('head')[0].appendChild(link);
     }
 

@@ -3,7 +3,9 @@ import supertokens from 'supertokens-node';
 import EmailPassword from 'supertokens-node/recipe/emailpassword/index.js';
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 import pool from '../db.js';
-import { verifyRole } from '../utils.js';
+import { verifyRole, encrypt } from '../utils.js';
+import { sendEmail } from '../lib/emailService.js'; // Import email service
+import crypto from 'crypto'; // For random password generation
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -287,29 +289,68 @@ router.put('/me/password', verifySession(), async (req, res, next) => {
 //  SECURED ADMIN-ONLY ROUTES
 // =================================================================
 
-// POST /api/users - Create a new user (Admin Only)
+// POST /api/users - Invite a new user (Admin Only)
 router.post('/', verifySession(), verifyRole('Admin'), async (req, res, next) => {
-  const { email, password } = req.body;
+  const { email, role, firstName, lastName } = req.body; // Expect Name & Role now
   const tenantId = "public";
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required.' });
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' });
   }
+
+  // 1. Generate a secure random placeholder password
+  const placeholderPassword = crypto.randomBytes(24).toString('hex') + 'A1!';
+
   const client = await pool.connect();
   try {
-    const response = await EmailPassword.signUp(tenantId, email, password);
+    // 2. Create User with Placeholder
+    const response = await EmailPassword.signUp(tenantId, email, placeholderPassword);
+    
     if (response.status === 'OK') {
         const newUserId = response.user.id;
-        const userCountResult = await client.query('SELECT COUNT(*) FROM all_auth_recipe_users');
-        const isFirstUser = parseInt(userCountResult.rows[0].count, 10) === 1;
-        const roleNameToAssign = isFirstUser ? 'Admin' : 'User';
+        
+        // 3. Assign Role
+        const roleNameToAssign = role || 'User';
         const roleResult = await client.query("SELECT id FROM app_roles WHERE name = $1", [roleNameToAssign]);
         if (roleResult.rows.length > 0) {
             const roleId = roleResult.rows[0].id;
             await client.query("INSERT INTO app_user_roles (user_id, role_id) VALUES ($1, $2)", [newUserId, roleId]);
         } else {
-            console.error(`FATAL: Default role '${roleNameToAssign}' not found. New user ${newUserId} was created without a role.`);
+            console.error(`FATAL: Role '${roleNameToAssign}' not found. User ${newUserId} created without role.`);
         }
+
+        // 4. Save Profile (Name)
+        if (firstName || lastName) {
+            await client.query(
+                `INSERT INTO user_profiles (user_id, first_name, last_name, updated_at) VALUES ($1, $2, $3, NOW())`,
+                [newUserId, firstName || '', lastName || '']
+            );
+        }
+
+        // 5. Generate Invite Link
+        const tokenResponse = await EmailPassword.createResetPasswordToken(tenantId, newUserId, email);
+        if (tokenResponse.status === 'OK') {
+            const inviteLink = `${process.env.APP_DOMAIN || 'http://localhost:5173'}/auth/reset-password?token=${tokenResponse.token}`;
+            
+            // 6. Send Email
+            const emailSuccess = await sendEmail({
+                to: email,
+                subject: 'You have been invited to Joblogger',
+                templateName: 'userInvite', // Use the new template
+                data: {
+                    firstName: firstName || 'there',
+                    inviteLink: inviteLink,
+                    currentYear: new Date().getFullYear()
+                }
+            });
+
+            if (!emailSuccess) {
+                // Warn the admin but don't fail the request since the user exists
+                return res.status(201).json({ userId: newUserId, message: "User created, but failed to send invite email." });
+            }
+        }
+
         res.status(201).json({ userId: newUserId, email: response.user.email });
+        
     } else if (response.status === 'EMAIL_ALREADY_EXISTS_ERROR') {
       res.status(409).json({ message: 'This email address is already in use.' });
     } else {

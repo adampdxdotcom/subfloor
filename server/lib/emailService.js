@@ -4,47 +4,47 @@ import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import pool from '../db.js';
+import { decrypt } from '../utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-let transporter;
-
-const initializeEmailService = () => {
-    // --- FIX: Check for both old (GMAIL_) and new (EMAIL_) variable names ---
-    // Priority is given to EMAIL_USER (Standardized)
-    const emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER;
-    const emailPass = process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD;
-
-    if (!emailUser || !emailPass) {
-        console.warn('🔥 EMAIL_USER or EMAIL_PASS environment variables not set. Email service is disabled.');
-        return;
-    }
+// Helper to get credentials (DB -> Env Fallback)
+const getTransporterConfig = async () => {
+    let emailUser, emailPass;
 
     try {
-        transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true,
-            auth: {
-                user: emailUser,
-                pass: emailPass,
-            },
-            connectionTimeout: 10000, 
-        });
-
-        transporter.verify((error, success) => {
-            if (error) {
-                console.error('🔥 Failed to verify Nodemailer transporter config:', error);
-                transporter = undefined;
-            } else {
-                console.log('✅ 📧 Nodemailer transporter configured and verified successfully. Ready to send emails.');
+        // 1. Check Database
+        const res = await pool.query("SELECT settings FROM system_preferences WHERE key = 'email_settings'");
+        if (res.rows.length > 0 && res.rows[0].settings) {
+            const s = res.rows[0].settings;
+            if (s.emailUser && s.emailPass) {
+                emailUser = s.emailUser;
+                // decrypt function handles corrupted/null data gracefully
+                emailPass = decrypt(s.emailPass); 
             }
-        });
-
-    } catch (error) {
-        console.error('🔥 An unexpected error occurred during Nodemailer initialization:', error);
+        }
+    } catch (e) {
+        console.warn("Failed to fetch email settings from DB, falling back to ENV", e.message);
     }
+
+    // 2. Fallback to ENV
+    if (!emailUser || !emailPass) {
+        emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER;
+        emailPass = process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD;
+    }
+
+    if (!emailUser || !emailPass) {
+        return null;
+    }
+
+    return { user: emailUser, pass: emailPass };
+};
+
+// Kept for backward compatibility, but effectively empty now
+const initializeEmailService = () => {
+    console.log("📧 Email Service initialized (Lazy loading credentials enabled).");
 };
 
 const loadTemplate = (templateName, data) => {
@@ -79,10 +79,22 @@ const loadTemplate = (templateName, data) => {
 };
 
 const sendEmail = async (arg1, arg2, arg3, arg4) => {
-    if (!transporter) {
-        console.error('🔥 Nodemailer transporter is not available or failed to initialize. Cannot send email.');
+    // 1. Get Credentials
+    const config = await getTransporterConfig();
+    
+    if (!config) {
+        console.error('🔥 Email credentials missing (Check Settings or ENV). Cannot send email.');
         return false;
     }
+
+    // 2. Create Transporter (On demand)
+    const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: { user: config.user, pass: config.pass },
+        connectionTimeout: 10000, 
+    });
 
     // Handle Overloading:
     // 1. Legacy: ({ to, subject, html })
@@ -90,7 +102,10 @@ const sendEmail = async (arg1, arg2, arg3, arg4) => {
     let to, subject, html;
     
     if (typeof arg1 === 'object' && arg1.to) {
-        ({ to, subject, html } = arg1);
+        to = arg1.to;
+        subject = arg1.subject;
+        // Fix: If html is missing but templateName exists, load the template
+        html = arg1.html || (arg1.templateName ? loadTemplate(arg1.templateName, arg1.data) : '');
     } else {
         to = arg1;
         subject = arg2;
@@ -100,8 +115,7 @@ const sendEmail = async (arg1, arg2, arg3, arg4) => {
     }
 
     // Determine the sender address based on what variables are available
-    const emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER;
-    const mailOptions = { from: `"Joblogger" <${emailUser}>`, to, subject, html };
+    const mailOptions = { from: `"Joblogger" <${config.user}>`, to, subject, html };
 
     try {
         await transporter.sendMail(mailOptions);

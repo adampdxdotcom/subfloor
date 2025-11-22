@@ -12,7 +12,9 @@ const UserManagementSection: React.FC = () => {
     const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [newUserEmail, setNewUserEmail] = useState('');
-    const [newUserPassword, setNewUserPassword] = useState('');
+    const [newUserFirstName, setNewUserFirstName] = useState('');
+    const [newUserLastName, setNewUserLastName] = useState('');
+    const [newUserRole, setNewUserRole] = useState('User');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -36,17 +38,19 @@ const UserManagementSection: React.FC = () => {
 
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newUserEmail || !newUserPassword) {
-            toast.error('Email and password cannot be empty.');
+        if (!newUserEmail) {
+            toast.error('Email is required to send an invitation.');
             return;
         }
         try {
-            const newUser = await userService.createUser(newUserEmail, newUserPassword);
-            const displayUser: User = { ...newUser, roles: ['User'] };
+            const newUser = await userService.createUser(newUserEmail, newUserFirstName, newUserLastName, newUserRole);
+            const displayUser: User = { ...newUser, roles: [newUserRole], firstName: newUserFirstName, lastName: newUserLastName };
             setUsers([...users, displayUser].sort((a, b) => a.email.localeCompare(b.email)));
-            toast.success(`User ${newUser.email} created successfully!`);
+            toast.success(`Invitation sent to ${newUser.email}!`);
             setNewUserEmail('');
-            setNewUserPassword('');
+            setNewUserFirstName('');
+            setNewUserLastName('');
+            setNewUserRole('User');
         } catch (error: any) {
             toast.error(`Failed to create user: ${error.message}`);
         }
@@ -144,17 +148,42 @@ const UserManagementSection: React.FC = () => {
                     )}
                 </div>
                 <div className="md:col-span-2 lg:col-span-1">
-                    <h3 className="text-xl font-medium mb-3 text-text-primary">Create New User</h3>
+                    <h3 className="text-xl font-medium mb-3 text-text-primary">Invite New User</h3>
                     <form onSubmit={handleCreateUser} className="space-y-4 bg-background p-4 rounded-md border border-border">
                         <div>
-                            <label className="block text-sm font-medium text-text-secondary">Email</label>
+                            <label className="block text-sm font-medium text-text-secondary">Email Address <span className="text-red-400">*</span></label>
                             <input type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="mt-1 block w-full p-2 bg-surface border-border rounded text-text-primary placeholder-text-secondary" placeholder="new.user@example.com" autoComplete="off" />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-text-secondary">Password</label>
-                            <input type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} className="mt-1 block w-full p-2 bg-surface border-border rounded text-text-primary placeholder-text-secondary" placeholder="Enter a secure password" autoComplete="new-password" />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary">First Name</label>
+                                <input type="text" value={newUserFirstName} onChange={(e) => setNewUserFirstName(e.target.value)} className="mt-1 block w-full p-2 bg-surface border-border rounded text-text-primary placeholder-text-secondary" placeholder="John" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary">Last Name</label>
+                                <input type="text" value={newUserLastName} onChange={(e) => setNewUserLastName(e.target.value)} className="mt-1 block w-full p-2 bg-surface border-border rounded text-text-primary placeholder-text-secondary" placeholder="Doe" />
+                            </div>
                         </div>
-                        <button type="submit" className="w-full bg-primary hover:bg-primary-hover text-on-primary py-2 px-4 rounded-md">Create User</button>
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary">Initial Role</label>
+                            <select 
+                                value={newUserRole} 
+                                onChange={(e) => setNewUserRole(e.target.value)} 
+                                className="mt-1 block w-full p-2 bg-surface border-border rounded text-text-primary"
+                            >
+                                {availableRoles.map(role => (
+                                    <option key={role.id} value={role.name}>{role.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="pt-2">
+                            <button type="submit" className="w-full bg-primary hover:bg-primary-hover text-on-primary py-2 px-4 rounded-md font-medium flex items-center justify-center gap-2">
+                                <Users size={18} /> Send Invitation
+                            </button>
+                            <p className="text-xs text-text-tertiary mt-2 text-center">
+                                The user will receive an email with a link to set their password.
+                            </p>
+                        </div>
                     </form>
                 </div>
             </div>

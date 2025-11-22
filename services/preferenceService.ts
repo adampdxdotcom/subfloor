@@ -66,6 +66,13 @@ export const saveSystemPreferences = async (key: string, settings: any): Promise
   if (!response.ok) throw new Error(`Failed to save system preference: ${key}`);
 };
 
+export const sendTestSystemEmail = async (): Promise<void> => {
+    const response = await fetch(`${SYSTEM_PREFS_URL}/email_test`, {
+        method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to send test email.');
+};
+
 // Helper specific to pricing to ensure type safety
 export const getPricingSettings = async (): Promise<PricingSettings> => {
     // The key 'pricing' should match the key used in the system_preferences table insertion

@@ -17,11 +17,16 @@ export const getUsers = async (): Promise<User[]> => {
   return response.json();
 };
 
-export const createUser = async (email: string, password: string): Promise<User> => {
+export const createUser = async (
+  email: string, 
+  firstName?: string, 
+  lastName?: string, 
+  role?: string
+): Promise<User> => {
   const response = await fetch('/api/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, firstName, lastName, role }),
   });
   if (!response.ok) {
     const errorData = await response.json();

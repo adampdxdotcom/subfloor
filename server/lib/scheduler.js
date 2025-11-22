@@ -11,6 +11,11 @@ import { getDashboardReportData } from './reports.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Global variables to hold the running tasks so we can stop them
+let dailyEmailTask;
+let reminderTask;
+let pastDueTask;
+
 const formatDashboardEmailHtml = (data) => {
     let html = `<h1>Joblogger Daily Update</h1><p>Here is your summary for today:</p>`;
     let hasContent = false;
@@ -73,14 +78,34 @@ const formatDashboardEmailHtml = (data) => {
     return html;
 };
 
-const initializeScheduler = () => {
+export const initializeScheduler = async () => {
+    // 1. STOP existing tasks if they are running (allows for live reloading)
+    if (dailyEmailTask) dailyEmailTask.stop();
+    if (reminderTask) reminderTask.stop();
+    if (pastDueTask) pastDueTask.stop();
+
     console.log('🕒 Initializing scheduler...');
 
-    // --- JOB 1: Daily Dashboard Email (MODIFIED) ---
-    cron.schedule('0 7 * * *', async () => {
+    // 2. Determine Schedule Time & Timezone from DB
+    let cronSchedule = '0 7 * * *'; // Default 7 AM
+    let timezone = "America/New_York"; // Default
+
+    try {
+        const res = await pool.query("SELECT settings FROM system_preferences WHERE key = 'email'");
+        const s = res.rows[0]?.settings;
+        if (s?.dailyUpdateTime) {
+            const [hour, minute] = s.dailyUpdateTime.split(':');
+            cronSchedule = `${parseInt(minute)} ${parseInt(hour)} * * *`;
+        }
+        if (s?.timezone) timezone = s.timezone;
+        console.log(`🕒 Configured Daily Email: ${s?.dailyUpdateTime || '07:00'} in ${timezone}`);
+    } catch (e) { console.error("Error fetching schedule settings, using defaults.", e); }
+
+    // --- JOB 1: Daily Dashboard Email (Assignable) ---
+    dailyEmailTask = cron.schedule(cronSchedule, async () => {
         console.log('🕒 Cron Job: Running Daily Dashboard Email task...');
         try {
-            const usersResult = await pool.query(`SELECT ep.user_id, ep.email, up.settings->'dashboardEmail' as preferences FROM emailpassword_users ep JOIN user_preferences up ON ep.user_id = up.user_id WHERE (up.settings->'dashboardEmail'->>'isEnabled')::boolean = true;`);
+            const usersResult = await pool.query(`SELECT ep.user_id, ep.email, up.preferences->'dashboardEmail' as preferences FROM emailpassword_users ep JOIN user_preferences up ON ep.user_id = up.user_id WHERE (up.preferences->'dashboardEmail'->>'isEnabled')::boolean = true;`);
             const optedInUsers = usersResult.rows;
 
             if (optedInUsers.length > 0) console.log(`Found ${optedInUsers.length} user(s) opted-in for the daily update.`);
@@ -109,10 +134,10 @@ const initializeScheduler = () => {
             console.error('🔥 An error occurred during the Daily Dashboard Email task:', error);
         }
         console.log('✅ Cron Job: Daily Dashboard Email task finished.');
-    }, { scheduled: true, timezone: "America/New_York" });
+    }, { scheduled: true, timezone });
 
-    // --- JOB 2: Customer Sample Due Reminder (Unchanged) ---
-    cron.schedule('0 8 * * *', async () => {
+    // --- JOB 2: Customer Sample Due Reminder (Assignable) ---
+    reminderTask = cron.schedule('0 8 * * *', async () => {
         console.log('🕒 Cron Job: Running Customer Sample Due Reminder task...');
         try {
             const query = `
@@ -160,10 +185,10 @@ const initializeScheduler = () => {
             console.error('🔥 An error occurred during the Customer Sample Due Reminder task:', error);
         }
         console.log('✅ Cron Job: Customer Sample Due Reminder task finished.');
-    }, { scheduled: true, timezone: "America/New_York" });
+    }, { scheduled: true, timezone });
 
-    // --- JOB 3: Customer PAST DUE Sample Reminder (Unchanged) ---
-    cron.schedule('0 9 * * *', async () => {
+    // --- JOB 3: Customer PAST DUE Sample Reminder (Assignable) ---
+    pastDueTask = cron.schedule('0 9 * * *', async () => {
         console.log('🕒 Cron Job: Running Customer PAST DUE Sample Reminder task...');
         try {
             const settingsResult = await pool.query(
@@ -228,9 +253,7 @@ const initializeScheduler = () => {
             console.error('🔥 An error occurred during the Past Due Reminder task:', error);
         }
         console.log('✅ Cron Job: Customer PAST DUE Sample Reminder task finished.');
-    }, { scheduled: true, timezone: "America/New_York" });
+    }, { scheduled: true, timezone });
 
     console.log('✅ 🕒 Scheduler initialized with all jobs.');
 };
-
-export { initializeScheduler };

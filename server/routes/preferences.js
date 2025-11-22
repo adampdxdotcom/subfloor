@@ -1,7 +1,9 @@
 import express from 'express';
 import pool from '../db.js';
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
-import { verifyRole } from '../utils.js';
+import { verifyRole, encrypt } from '../utils.js';
+import { sendEmail } from '../lib/emailService.js';
+import { initializeScheduler } from '../lib/scheduler.js'; // Import scheduler
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -51,6 +53,93 @@ router.put('/', verifySession(), async (req, res) => {
 // SYSTEM PREFERENCES (Admin Only)
 // =================================================================
 
+// =================================================================
+// EMAIL SETTINGS (Specific Handler for Encryption)
+// =================================================================
+
+// GET /system/email_settings (Redacts password)
+router.get('/system/email_settings', verifySession(), verifyRole('Admin'), async (req, res) => {
+    try {
+        const result = await pool.query("SELECT settings FROM system_preferences WHERE key = 'email_settings'");
+        if (result.rows.length === 0) return res.json({});
+        
+        const settings = result.rows[0].settings;
+        
+        // SECURITY: Never send the encrypted OR decrypted password to the frontend.
+        if (settings.emailPass) {
+            settings.emailPass = '********'; 
+        }
+        
+        res.json(settings);
+    } catch (err) {
+        console.error('Error fetching email settings:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// PUT /system/email_settings (Handles Encryption)
+router.put('/system/email_settings', verifySession(), verifyRole('Admin'), async (req, res) => {
+    const { emailUser, emailPass } = req.body;
+    
+    try {
+        let finalSettings = { emailUser };
+
+        // 1. Fetch existing settings to get the currently encrypted password
+        const existingResult = await pool.query("SELECT settings FROM system_preferences WHERE key = 'email_settings'");
+        const existingSettings = existingResult.rows.length > 0 ? existingResult.rows[0].settings : {};
+
+        // 2. Handle Password Logic
+        if (emailPass === '********') {
+            // User didn't change the password, keep the old encrypted one
+            finalSettings.emailPass = existingSettings.emailPass;
+        } else if (emailPass && emailPass.trim() !== '') {
+            // User entered a new password, encrypt it
+            finalSettings.emailPass = encrypt(emailPass);
+        } else {
+            // User cleared the password
+            finalSettings.emailPass = null;
+        }
+
+        const query = `
+            INSERT INTO system_preferences (key, settings, updated_at) VALUES ('email_settings', $1, NOW())
+            ON CONFLICT (key) DO UPDATE SET settings = $1, updated_at = NOW();
+        `;
+        await pool.query(query, [finalSettings]);
+        
+        res.json({ message: 'Email settings saved.' });
+    } catch (err) {
+        console.error('Error saving email settings:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /system/email_test (Trigger a test email)
+router.post('/system/email_test', verifySession(), verifyRole('Admin'), async (req, res) => {
+    const userId = req.session.getUserId();
+    try {
+        // 1. Get the current admin's email address
+        const userResult = await pool.query("SELECT email FROM emailpassword_users WHERE user_id = $1", [userId]);
+        if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        const adminEmail = userResult.rows[0].email;
+
+        // 2. Send a raw HTML test email
+        const success = await sendEmail({
+            to: adminEmail,
+            subject: 'Joblogger SMTP Test',
+            html: '<h1>Success!</h1><p>Your email settings are configured correctly.</p>'
+        });
+
+        if (success) {
+            res.json({ message: 'Test email sent successfully.' });
+        } else {
+            res.status(500).json({ error: 'Failed to send test email. Check server logs.' });
+        }
+    } catch (err) {
+        console.error('Error sending test email:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // GET /system/branding (Public/User Accessible)
 router.get('/system/branding', verifySession(), async (req, res) => {
     try {
@@ -85,10 +174,37 @@ router.put('/system/:key', verifySession(), verifyRole('Admin'), async (req, res
             ON CONFLICT (key) DO UPDATE SET settings = $2, updated_at = NOW();
         `;
         await pool.query(query, [key, req.body]);
+        
+        // RELOAD SCHEDULER if email settings changed
+        if (key === 'email') {
+            await initializeScheduler();
+        }
+
         res.json({ message: 'System preferences saved.' });
     } catch (err) {
         console.error(`Error saving system preference '${key}':`, err.message);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /system/scheduler_debug (Check who is opted in)
+router.post('/system/scheduler_debug', verifySession(), verifyRole('Admin'), async (req, res) => {
+    try {
+        // Run the EXACT query the scheduler uses
+        const query = `
+            SELECT ep.email, up.preferences->'dashboardEmail' as prefs 
+            FROM emailpassword_users ep 
+            JOIN user_preferences up ON ep.user_id = up.user_id 
+            WHERE (up.preferences->'dashboardEmail'->>'isEnabled')::boolean = true;
+        `;
+        const result = await pool.query(query);
+        res.json({ 
+            count: result.rowCount, 
+            users: result.rows.map(r => ({ email: r.email, frequency: r.prefs.frequency })) 
+        });
+    } catch (err) {
+        console.error('Scheduler debug error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 

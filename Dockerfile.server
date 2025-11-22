@@ -22,7 +22,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install the PostgreSQL client tools, which are needed at runtime
-RUN apk add --no-cache postgresql15-client
+RUN apk add --no-cache postgresql15-client tzdata
 
 # Copy the installed node_modules from the builder stage
 COPY --from=builder /app/node_modules ./node_modules

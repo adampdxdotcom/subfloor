@@ -163,9 +163,13 @@ app.use('/api/events', eventRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/reminders', reminderRoutes);
 
-// --- SERVE FRONTEND (PRODUCTION ONLY) ---
-if (process.env.NODE_ENV === 'production') {
-    const publicPath = path.join(__dirname, 'public');
+// --- SERVE FRONTEND (DYNAMIC) ---
+const publicPath = path.join(__dirname, 'public');
+
+// If the 'public' folder exists (created by Docker build), serve it.
+// This makes it work regardless of NODE_ENV setting.
+if (fs.existsSync(publicPath)) {
+    console.log('📂 Serving static frontend from ./public');
     
     // Serve static files from the React build
     app.use(express.static(publicPath));
