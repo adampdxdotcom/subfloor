@@ -1,29 +1,19 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useData } from '../context/DataContext';
-import { PlusCircle, Search, Download, Clock, Undo2, Archive, LayoutGrid } from 'lucide-react';
-import { Sample, Vendor, PricingSettings } from '../types';
+import { PlusCircle, Search, Download, Clock, Undo2, Archive, LayoutGrid, ChevronRight } from 'lucide-react';
+import { Product, Vendor, PricingSettings } from '../types';
 import { Link } from 'react-router-dom';
-import SampleDetailModal from '../components/SampleDetailModal';
 import { toast } from 'react-hot-toast';
 import AddEditVendorModal from '../components/AddEditVendorModal';
-import SampleCarousel from '../components/SampleCarousel';
-// --- ADDED: Import the new reusable form component ---
-import SampleForm, { SampleFormData } from '../components/SampleForm';
+import ProductForm from '../components/ProductForm'; 
 import * as preferenceService from '../services/preferenceService';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
-
-const formatSampleName = (sample: Sample) => {
-  const parts = [];
-  if (sample.line) parts.push(sample.line);
-  if (sample.style) parts.push(sample.style);
-  if (sample.color) parts.push(sample.color);
-  if (parts.length === 0) { return `Sample #${sample.id}`; }
-  return parts.join(' - ');
-};
+import ProductDetailModal from '../components/ProductDetailModal'; // Import New Modal
+import SampleCarousel from '../components/SampleCarousel'; // Import Carousel
 
 const SampleLibrary: React.FC = () => {
   const {
-    samples, addSample, isLoading, vendors, addVendor,
+    products, addProduct, isLoading, vendors, 
     sampleCheckouts, updateSampleCheckout, extendSampleCheckout
   } = useData();
 
@@ -44,36 +34,27 @@ const SampleLibrary: React.FC = () => {
   
   // --- All form-related state has been REMOVED from this component ---
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [importUrl, setImportUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // This is now only used by the image uploader, can be refactored further if needed
   const resetAddModal = () => {
-    setSelectedFile(null);
-    setPreviewUrl(null);
-    setImportUrl('');
     setIsAddModalOpen(false);
   };
 
-  const checkedOutSamples = useMemo(() => {
-    const activeCheckouts = new Map(sampleCheckouts.filter(sc => sc.actualReturnDate === null).map(sc => [sc.sampleId, sc]));
-    return samples.filter(sample => activeCheckouts.has(sample.id)).sort((a, b) => {
-        const checkoutA = activeCheckouts.get(a.id);
-        const checkoutB = activeCheckouts.get(b.id);
-        if (!checkoutA || !checkoutB) return 0;
-        return new Date(checkoutA.expectedReturnDate).getTime() - new Date(checkoutB.expectedReturnDate).getTime();
-    });
-  }, [samples, sampleCheckouts]);
+  // --- FIXED: Filter active checkouts for the carousel ---
+  const activeCheckouts = useMemo(() => {
+      return sampleCheckouts
+          .filter(sc => sc.actualReturnDate === null)
+          .sort((a, b) => new Date(a.expectedReturnDate).getTime() - new Date(b.expectedReturnDate).getTime());
+  }, [sampleCheckouts]);
 
   // --- MODIFIED: Filter Logic handles Tabs AND Search ---
-  const filteredSamples = useMemo(() => {
+  const filteredProducts = useMemo(() => {
     // 1. First filter by the Tab (Active vs Discontinued)
-    let baseList = samples.filter(s => 
+    let baseList = products.filter(s => 
         viewMode === 'active' ? !s.isDiscontinued : s.isDiscontinued
     );
 
@@ -81,109 +62,64 @@ const SampleLibrary: React.FC = () => {
     const lowercasedTerm = searchTerm.toLowerCase();
     if (!lowercasedTerm) return baseList;
 
-    return baseList.filter(sample => {
-        const styleMatch = sample.style && sample.style.toLowerCase().includes(lowercasedTerm);
-        const colorMatch = sample.color && sample.color.toLowerCase().includes(lowercasedTerm);
-        const manufacturerMatch = sample.manufacturerName && sample.manufacturerName.toLowerCase().includes(lowercasedTerm);
-        const typeMatch = sample.productType && sample.productType.toLowerCase().includes(lowercasedTerm);
-        const skuMatch = sample.sku && sample.sku.toLowerCase().includes(lowercasedTerm);
-        // Note: We don't filter discontinued logic here anymore, it's done in step 1
-        return styleMatch || colorMatch || manufacturerMatch || typeMatch || skuMatch;
+    return baseList.filter(p => {
+        const nameMatch = p.name.toLowerCase().includes(lowercasedTerm);
+        const manufMatch = p.manufacturerName?.toLowerCase().includes(lowercasedTerm);
+        
+        // Deep Search: Check variants too!
+        const variantMatch = p.variants.some(v => 
+            (v.name && v.name.toLowerCase().includes(lowercasedTerm)) ||
+            (v.size && v.size.toLowerCase().includes(lowercasedTerm)) ||
+            (v.sku && v.sku.toLowerCase().includes(lowercasedTerm))
+        );
+        
+        return nameMatch || manufMatch || variantMatch;
     });
-  }, [samples, searchTerm, viewMode]);
+  }, [products, searchTerm, viewMode]);
 
-  const handleExtend = async (sample: Sample, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!sample.checkoutId) return toast.error("Could not find checkout record to extend.");
-    const checkoutToExtend = sampleCheckouts.find(sc => sc.id === sample.checkoutId);
-    if (checkoutToExtend) await extendSampleCheckout(checkoutToExtend);
-  };
-
-  const handleReturn = async (sample: Sample, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm(`Are you sure you want to return "${formatSampleName(sample)}"?`)) {
-      const checkoutToReturn = sampleCheckouts.find(sc => sc.id === sample.checkoutId);
-      if (checkoutToReturn) await updateSampleCheckout(checkoutToReturn);
-    }
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      const newPreviewUrl = URL.createObjectURL(file);
-      setPreviewUrl(newPreviewUrl);
-      setImportUrl('');
-    }
-  };
-
-  // --- MODIFIED: The main save handler is now simplified ---
-  // It receives the complete form data from the SampleForm component
-  const handleAddSample = async (formData: SampleFormData) => {
+  // --- MODIFIED: Add Product Handler ---
+  const handleAddProduct = async (formData: FormData) => {
     setIsSaving(true);
     try {
-      // NOTE: formData contains 'unitCost' now.
-      const { supplierId, ...restOfSampleData } = formData;
-      const finalSupplierId = formData.supplierId || formData.manufacturerId;
-
-      const sampleDataToSave = { 
-        ...restOfSampleData, 
-        supplierId: finalSupplierId,
-      };
-
-      if (sampleDataToSave.productType !== 'Tile') {
-        (sampleDataToSave as any).sampleFormat = null;
-        (sampleDataToSave as any).boardColors = '';
-      }
-      
-      const createdSample = await addSample(sampleDataToSave);
-
-      if (selectedFile) {
-        const uploadData = new FormData();
-        uploadData.append('photo', selectedFile);
-        uploadData.append('entityType', 'sample');
-        uploadData.append('entityId', String(createdSample.id));
-        const res = await fetch('/api/photos', { method: 'POST', body: uploadData });
-        if (!res.ok) throw new Error('Photo upload failed');
-      } else if (importUrl) {
-        const res = await fetch('/api/photos/from-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageUrl: importUrl, entityType: 'sample', entityId: createdSample.id }),
-        });
-        if (!res.ok) throw new Error('Photo import failed');
-      }
-
-      toast.success('Sample added successfully!');
+      await addProduct(formData); // NEW
+      toast.success('Product added successfully!');
       resetAddModal();
     } catch (error) {
       console.error(error);
-      toast.error('Failed to add sample.');
+      toast.error('Failed to add product.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSampleClick = (sample: Sample) => {
-    setSelectedSample(sample);
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product);
     setIsDetailModalOpen(true);
   };
 
   // Helper to calculate display price for cards
-  const getDisplayPrice = (sample: Sample) => {
-      if (!sample.unitCost || !pricingSettings) return null;
+  const getDisplayPriceRange = (product: Product) => {
+      if (!product.variants || product.variants.length === 0 || !pricingSettings) return null;
       
-      // Determine the active vendor ID (Supplier if different, otherwise Manufacturer)
-      const vendorId = sample.supplierId || sample.manufacturerId;
+      // Get active vendor
+      const vendorId = product.supplierId || product.manufacturerId;
       const vendor = vendors.find(v => v.id === vendorId);
-
-      // Get pricing rules (defaults to 'Customer' for retail sale, using global or vendor override)
       const rules = getActivePricingRules(vendor, pricingSettings, 'Customer');
-      const price = calculatePrice(Number(sample.unitCost), rules.percentage, rules.method);
-      return price;
+
+      const prices = product.variants
+        .filter(v => v.unitCost)
+        .map(v => calculatePrice(Number(v.unitCost), rules.percentage, rules.method));
+      
+      if (prices.length === 0) return null;
+      
+      const min = Math.min(...prices);
+      const max = Math.max(...prices);
+      
+      if (min === max) return `$${min.toFixed(2)}`;
+      return `$${min.toFixed(2)} - $${max.toFixed(2)}`;
   };
 
-  if (isLoading) { return <div>Loading samples...</div>; }
+  if (isLoading) { return <div>Loading library...</div>; }
 
   return (
     <div className="container mx-auto p-4">
@@ -214,7 +150,7 @@ const SampleLibrary: React.FC = () => {
               {viewMode === 'active' && (
                   <button onClick={() => setIsAddModalOpen(true)} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors shadow-md">
                     <PlusCircle className="w-5 h-5 mr-2" />
-                    Add New Sample
+                    Add New Product
                   </button>
               )}
           </div>
@@ -225,91 +161,88 @@ const SampleLibrary: React.FC = () => {
         </div>
       </div>
 
-      {searchTerm === '' && viewMode === 'active' && (
+      {searchTerm === '' && viewMode === 'active' && activeCheckouts.length > 0 && (
         <>
-          <SampleCarousel title="Checked Out - Next Due" samples={checkedOutSamples} onSampleClick={handleSampleClick} />
+          <SampleCarousel 
+            title="Currently Checked Out" 
+            checkouts={activeCheckouts} 
+            onItemClick={handleProductClick} 
+          /> 
           <div className="border-t border-border my-8"></div>
-          <h2 className="text-2xl font-semibold mb-6 text-text-primary">All Samples</h2>
+          <h2 className="text-2xl font-semibold mb-6 text-text-primary">All Products</h2>
         </>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredSamples.map(sample => (
-          <div key={sample.id} className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer" onClick={() => handleSampleClick(sample)}>
-            <div className="w-full h-40 bg-background flex items-center justify-center">{sample.imageUrl ? (<img src={sample.imageUrl} alt={formatSampleName(sample)} className="w-full h-full object-cover" />) : (<span className="text-sm text-text-secondary">No Image</span>)}</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
+        {filteredProducts.map(product => {
+          // DEBUG: Check console to see exactly what URL is coming from backend
+          // console.log("Rendering Product:", product.id, product.defaultImageUrl);
+          return (
+          <div key={product.id} className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleProductClick(product)}>
+            
+            {/* Image Area */}
+            <div className="w-full h-48 bg-background flex items-center justify-center relative">
+                {product.defaultImageUrl ? (
+                    <img src={product.defaultImageUrl} alt={product.name} className="w-full h-full object-cover" />
+                ) : (
+                    <div className="text-center p-4">
+                        <span className="text-4xl opacity-20 font-bold text-text-tertiary block mb-2">
+                            {product.name.substring(0, 2).toUpperCase()}
+                        </span>
+                        <span className="text-xs text-text-secondary">No Image</span>
+                    </div>
+                )}
+                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+                    {product.variants.length} Variants
+                </div>
+            </div>
+
             <div className="p-4 flex flex-col flex-grow">
-              <h3 className="font-bold text-lg text-text-primary truncate" title={formatSampleName(sample)}>{formatSampleName(sample)}</h3>
-              <p className="text-sm text-text-secondary truncate" title={sample.manufacturerName || ''}>{sample.manufacturerName || 'N/A'}</p>
+              <h3 className="font-bold text-lg text-text-primary truncate" title={product.name}>{product.name}</h3>
+              <p className="text-sm text-text-secondary truncate">{product.manufacturerName || 'Unknown Vendor'}</p>
               
-              {/* --- UPDATED: Price Display (Calculated) --- */}
-              {sample.unitCost && (
-                  <p className="text-sm font-semibold text-green-400 mt-1">
-                      {pricingSettings ? `$${getDisplayPrice(sample)?.toFixed(2)}` : '...'} 
-                      <span className="text-text-secondary font-normal"> / {sample.uom}</span>
-                  </p>
-              )}
-              
+              {/* Price Range */}
+              <div className="mt-2">
+                  {getDisplayPriceRange(product) ? (
+                      <p className="text-sm font-semibold text-green-400">
+                          {getDisplayPriceRange(product)} <span className="text-text-secondary font-normal text-xs">/ Unit</span>
+                      </p>
+                  ) : (
+                      <p className="text-xs text-text-tertiary italic">No pricing set</p>
+                  )}
+              </div>
+
               <div className="flex-grow" />
               
               {viewMode === 'discontinued' && (
                   <div className="mb-2 text-center bg-red-900/30 text-red-400 text-xs font-bold py-1 rounded border border-red-900/50 uppercase tracking-wider">Discontinued</div>
               )}
               
-              <div className="flex justify-between items-end mt-4 text-xs">
-                <span className="font-semibold bg-background text-text-secondary px-2 py-1 rounded-full">{sample.productType || 'N/A'}</span>
-                {sample.isAvailable ? (<span className="font-bold text-green-400">Available</span>) : (
-                  <div className="text-right">
-                    <div className="text-yellow-400 mb-2">
-                      <span className="font-bold block">Checked Out</span>
-                      {sample.checkoutProjectName && sample.checkoutProjectId && (<Link to={`/projects/${sample.checkoutProjectId}`} className="text-accent hover:underline" onClick={(e) => e.stopPropagation()}> to {sample.checkoutProjectName}</Link>)}
-                    </div>
-                    <div className="flex items-center gap-2 justify-end">
-                      <button onClick={(e) => handleExtend(sample, e)} className="text-xs bg-primary hover:bg-primary-hover text-on-primary py-1 px-2 rounded flex items-center gap-1"><Clock size={12} /> Extend</button>
-                      <button onClick={(e) => handleReturn(sample, e)} className="text-xs bg-accent hover:bg-accent-hover text-on-accent py-1 px-2 rounded flex items-center gap-1"><Undo2 size={12} /> Return</button>
-                    </div>
-                  </div>
-                )}
+              <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
+                <span className="text-xs font-semibold bg-background text-text-secondary px-2 py-1 rounded">{product.productType}</span>
+                <ChevronRight size={16} className="text-text-tertiary" />
               </div>
             </div>
           </div>
-        ))}
-        {filteredSamples.length === 0 && (<p className="text-text-secondary col-span-full text-center">{searchTerm ? 'No samples match your search.' : `No samples found in the ${viewMode} library.`}</p>)}
+        )})}
+        {filteredProducts.length === 0 && (<p className="text-text-secondary col-span-full text-center py-10">No products found.</p>)}
       </div>
 
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold mb-6 text-text-primary">Add New Sample</h2>
-            {/* --- MODIFIED: The modal body is now much cleaner --- */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="md:col-span-1 space-y-4">
-                  <div className="w-full aspect-square border-2 border-dashed border-border rounded bg-background flex items-center justify-center">{previewUrl ? <img src={previewUrl} alt="Sample Preview" className="w-full h-full object-cover rounded" /> : <span className="text-sm text-text-secondary">No Image</span>}</div>
-                  <div className="space-y-2">
-                    <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-semibold">Upload File...</button>
-                    <div className="text-center text-xs text-text-secondary">OR</div>
-                    <div className="flex gap-2">
-                      <input type="url" placeholder="Paste image URL..." value={importUrl} onChange={e => setImportUrl(e.target.value)} className="w-full p-2 bg-background text-text-primary border border-border rounded text-sm" />
-                      <button type="button" onClick={() => setPreviewUrl(importUrl)} disabled={!importUrl} className="p-2 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50"><Download size={16} /></button>
-                    </div>
-                  </div>
-                </div>
-                <div className="md:col-span-2">
-                    <SampleForm 
-                        onSave={handleAddSample}
-                        onCancel={resetAddModal}
-                        isSaving={isSaving}
-                        saveButtonText="Add Sample"
-                    />
-                </div>
-            </div>
+          <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-6 text-text-primary">Create New Product Line</h2>
+            
+            <ProductForm 
+                onSave={handleAddProduct} 
+                onCancel={resetAddModal} 
+                isSaving={isSaving} 
+            />
+
           </div>
         </div>
       )}
-
-      {isDetailModalOpen && selectedSample && (<SampleDetailModal key={selectedSample.id} isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} sample={selectedSample} />)}
-      
-    
+      {isDetailModalOpen && selectedProduct && (<ProductDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} product={selectedProduct} />)}
     </div>
   );
 };

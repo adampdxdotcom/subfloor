@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Customer, Project, Sample, PricingSettings, Vendor } from '../types';
+import { Customer, Project, PricingSettings, Vendor } from '../types';
+import { CheckoutItem } from './SampleSelector'; // Import from selector
 import * as preferenceService from '../services/preferenceService';
 import { calculatePrice, getActivePricingRules, formatCurrency } from '../utils/pricingUtils';
 
 interface PrintableCheckoutProps {
   customer: Customer | null;
   project: Project | null;
-  samples: Sample[];
-  vendors: Vendor[]; // Needed for pricing rules
+  checkoutItems: CheckoutItem[]; // Updated Prop
+  vendors: Vendor[]; 
   returnDate: string;
 }
 
-// NOTE: This component does not need forwardRef with the new method.
-export const PrintableCheckout: React.FC<PrintableCheckoutProps> = ({ customer, project, samples, vendors, returnDate }) => {
+export const PrintableCheckout: React.FC<PrintableCheckoutProps> = ({ customer, project, checkoutItems, vendors, returnDate }) => {
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
 
   useEffect(() => {
@@ -26,43 +26,6 @@ export const PrintableCheckout: React.FC<PrintableCheckoutProps> = ({ customer, 
   if (!customer || !project) {
     return null;
   }
-
-  const renderPricingMenu = (sample: Sample) => {
-      if (!pricingSettings || !sample.sizes || sample.sizes.length === 0) return null;
-      
-      const vendorId = sample.supplierId || sample.manufacturerId;
-      const vendor = vendors.find(v => v.id === vendorId);
-      const rules = getActivePricingRules(vendor, pricingSettings, 'Customer');
-
-      return (
-          <div className="mt-1 pl-2 border-l-2 border-gray-300 text-xs text-gray-600">
-              <p className="font-semibold text-gray-500 mb-0.5">Available Options:</p>
-              {sample.sizes.map((s, idx) => {
-                  const isString = typeof s === 'string';
-                  const name = isString ? s : s.value;
-                  // Calculate Price
-                  let priceDisplay = "";
-                  if (!isString && s.unitCost) {
-                      const retail = calculatePrice(Number(s.unitCost), rules.percentage, rules.method);
-                      priceDisplay = `${formatCurrency(retail)} / ${s.uom || sample.uom || 'SF'}`;
-                      
-                      // Calculate Carton Price
-                      if (s.cartonSize) {
-                          const cartonPrice = retail * Number(s.cartonSize);
-                          priceDisplay += `  (${formatCurrency(cartonPrice)} / Box)`;
-                      }
-                  }
-                  
-                  return (
-                      <div key={idx} className="flex justify-between w-2/3">
-                          <span>• {name}</span>
-                          <span className="font-mono">{priceDisplay}</span>
-                      </div>
-                  );
-              })}
-          </div>
-      );
-  };
 
   return (
     // This div is the container for everything that will appear on the printed page.
@@ -91,20 +54,22 @@ export const PrintableCheckout: React.FC<PrintableCheckoutProps> = ({ customer, 
           <table className="w-full mt-4 text-left border-collapse">
             <thead>
               <tr className="border-b-2 border-gray-300">
-                <th className="p-2 font-semibold">Style / Color</th>
+                <th className="p-2 font-semibold">Product / Variant</th>
                 <th className="p-2 font-semibold">Manufacturer</th>
-                <th className="p-2 font-semibold">Type</th>
+                <th className="p-2 font-semibold">Sample Type</th>
               </tr>
             </thead>
             <tbody>
-              {samples.map((sample) => (
-                <tr key={sample.id} className="border-b border-gray-200">
+              {checkoutItems.map((item, idx) => (
+                <tr key={idx} className="border-b border-gray-200">
                   <td className="p-2 align-top">
-                      <div className="font-bold">{sample.style} {sample.color ? `- ${sample.color}` : ''}</div>
-                      {renderPricingMenu(sample)}
+                      <div className="font-bold">{item.productName}</div>
+                      <div className="text-sm text-gray-600">{item.variantName}</div>
                   </td>
-                  <td className="p-2 align-top">{sample.manufacturerName || 'N/A'}</td>
-                  <td className="p-2 align-top">{sample.productType}</td>
+                  <td className="p-2 align-top">{item.manufacturerName || 'N/A'}</td>
+                  <td className="p-2 align-top">
+                      {item.sampleType} <span className="text-sm text-gray-500">(Qty: {item.quantity})</span>
+                  </td>
                 </tr>
               ))}
             </tbody>

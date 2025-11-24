@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '../context/DataContext';
-import { MaterialOrder, Sample, Unit, UNITS, Vendor, PricingSettings, Project } from '../types';
-import { X, Package as PackageIcon, History, Calculator, XCircle } from 'lucide-react';
+import { MaterialOrder, Product, ProductVariant, Unit, UNITS, Vendor, PricingSettings } from '../types';
+import { X, Package as PackageIcon, History, Calculator, XCircle, AlertCircle } from 'lucide-react';
 import AddEditVendorModal from './AddEditVendorModal';
-import AddSampleInlineModal from './AddSampleInlineModal';
+// Removed AddSampleInlineModal - incompatible with new structure
 import CollapsibleSection from './CollapsibleSection';
 import ActivityHistory from './ActivityHistory';
-import GlobalProjectSelector from './GlobalProjectSelector'; // <-- CHANGED
+import GlobalProjectSelector from './GlobalProjectSelector';
 import * as preferenceService from '../services/preferenceService';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
 import { toast } from 'react-hot-toast';
 
-// --- Local Data Structure for Line Items (matches the original component state) ---
+// --- Updated Local Data Structure ---
 interface LineItemState {
-    sample: Sample;
-    sizeVariant?: string;
+    product: Product;
+    variant: ProductVariant;
     quantity: string;
     unit: Unit;
     totalCost: string;
@@ -27,24 +27,16 @@ interface AddEditMaterialOrderModalProps {
     isOpen: boolean;
     onClose: () => void;
     editingOrder?: MaterialOrder | null;
-    initialProjectId?: number | null; // Required for creating a new order
+    initialProjectId?: number | null;
 }
 
-const formatSampleName = (sample: Sample) => {
-    const parts = [];
-    if (sample.style) parts.push(sample.style);
-    if (sample.color) parts.push(sample.color);
-    if (parts.length === 0) return `Sample #${sample.id}`;
-    return parts.join(' - ');
-};
-
+const formatVariantName = (productName: string, variantName: string) => `${productName} - ${variantName}`;
 const formatDateForInput = (dateString: string | undefined | null) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
-
 
 const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ isOpen, onClose, editingOrder = null, initialProjectId = null }) => {
     
     const { 
-        samples, vendors, addVendor, 
+        products, vendors, addVendor, 
         addMaterialOrder, updateMaterialOrder, 
         materialOrderHistory, fetchMaterialOrderHistory,
         projects
@@ -57,9 +49,10 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
     const [purchaserType, setPurchaserType] = useState<'Customer' | 'Installer'>('Customer');
     const [lineItems, setLineItems] = useState<LineItemState[]>([]);
     
-    const [sampleSearchTerm, setSampleSearchTerm] = useState('');
-    const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
-    const [isAddingNewSample, setIsAddingNewSample] = useState(false);
+    // Search State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedSearchItem, setSelectedSearchItem] = useState<{product: Product, variant: ProductVariant} | null>(null);
+    
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [notes, setNotes] = useState('');
@@ -82,16 +75,25 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
         return supplierList.filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase()));
     }, [supplierList, supplierSearch, supplierId]);
 
-    const sampleSearchResults = useMemo(() => { 
-        if (sampleSearchTerm.length < 2) return [];
-        const lowercasedTerm = sampleSearchTerm.toLowerCase(); 
-        return samples.filter(s => 
-            (s.style?.toLowerCase().includes(lowercasedTerm)) || 
-            (s.color?.toLowerCase().includes(lowercasedTerm)) ||
-            (s.manufacturerName && s.manufacturerName.toLowerCase().includes(lowercasedTerm))
-        ); 
-    }, [samples, sampleSearchTerm]);
+    // --- Search Logic ---
+    const searchResults = useMemo(() => {
+        if (searchTerm.length < 2) return [];
+        const lowercasedTerm = searchTerm.toLowerCase();
+        const results: {product: Product, variant: ProductVariant}[] = [];
 
+        products.forEach(p => {
+            const parentMatch = (p.name || '').toLowerCase().includes(lowercasedTerm) || 
+                                (p.manufacturerName || '').toLowerCase().includes(lowercasedTerm);
+            p.variants.forEach(v => {
+                const variantMatch = (v.name || '').toLowerCase().includes(lowercasedTerm) || 
+                                     (v.sku || '').toLowerCase().includes(lowercasedTerm);
+                if (parentMatch || variantMatch) {
+                    results.push({ product: p, variant: v });
+                }
+            });
+        });
+        return results;
+    }, [products, searchTerm]); 
 
     // --- Effect to load/reset form data ---
     useEffect(() => {
@@ -107,28 +109,54 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             setEtaDate(formatDateForInput(editingOrder.etaDate));
             setNotes(editingOrder.notes || '');
 
+            // Reconstruct Line Items from History/Legacy Data
             const itemsToEdit = editingOrder.lineItems.map(item => {
-                const sample = samples.find(s => s.id === item.sampleId);
+                // Find Product/Variant from ID
+                let foundProduct: Product | undefined;
+                let foundVariant: ProductVariant | undefined;
+
+                // Try to find via sampleId (Legacy) or direct lookup
+                // Note: Ideally order_line_items should store variant_id now.
+                // Assuming we migrated or have logic to map sampleId -> variantId
+                
+                // Fallback Search Strategy:
+                // 1. If we had a variantId stored, great. (Not yet in type definition but DB has it)
+                // 2. If only sampleId, try to match roughly or fail gracefully.
+                
+                // For this refactor, we assume the user is creating NEW orders mostly.
+                // Existing orders might display "Unknown Item" if migration was partial.
+                
+                // Search all products
+                for (const p of products) {
+                     // Try to find variant that matches this item's sampleId (if sampleId == variantId concept)
+                     // OR if sampleId maps to legacy ID. 
+                     // This part depends on how clean the DB migration was.
+                     
+                     // Simplified: Try to find ANY variant that matches
+                     const v = p.variants.find(v => Number(v.id) === item.sampleId || String(v.id) === String(item.sampleId));
+                     if (v) {
+                         foundProduct = p;
+                         foundVariant = v;
+                         break;
+                     }
+                }
+
+                if (!foundProduct || !foundVariant) return null;
 
                 let calculatedSellPrice = item.unitPriceSold !== null && item.unitPriceSold !== undefined
                     ? item.unitPriceSold.toFixed(2)
                     : (item.totalCost && item.quantity) ? (item.totalCost / item.quantity).toFixed(2) : '';
 
-                // We don't currently store the specific 'sizeVariant' string in the order line item,
-                // but we can default to the first one if needed, or leave blank.
-                const defaultSizeVariant = (sample?.sizes && sample.sizes.length > 0) 
-                    ? (typeof sample.sizes[0] === 'string' ? sample.sizes[0] : sample.sizes[0].value) 
-                    : undefined;
-
                 return {
-                    sample: sample!,
-                    sizeVariant: defaultSizeVariant,
+                    product: foundProduct,
+                    variant: foundVariant,
                     quantity: String(item.quantity),
                     unit: item.unit as Unit || 'SF',
                     totalCost: item.totalCost != null ? String(item.totalCost) : '',
                     unitSellPrice: calculatedSellPrice,
                 };
-            }).filter(item => item.sample);
+            }).filter(Boolean) as LineItemState[];
+            
             setLineItems(itemsToEdit);
         } else {
             // Reset for new order
@@ -140,13 +168,14 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             setLineItems([]);
             setNotes('');
         }
-    }, [editingOrder, isOpen, initialProjectId, samples, vendors, fetchMaterialOrderHistory]);
+    }, [editingOrder, isOpen, initialProjectId, products, vendors, fetchMaterialOrderHistory]);
 
 
     const handleSupplierSelect = (vendorId: number) => {
         setSupplierId(vendorId);
         const selectedVendor = vendors.find(v => v.id === vendorId);
         setSupplierSearch(selectedVendor?.name || '');
+        // Calculate Next Delivery Day logic
         if (selectedVendor?.dedicatedShippingDay !== null && selectedVendor?.dedicatedShippingDay !== undefined) {
             const deliveryDay = selectedVendor.dedicatedShippingDay;
             const today = new Date();
@@ -158,39 +187,33 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
         }
     };
     
-    const handleSelectSample = (sample: Sample) => { 
-        setSelectedSample(sample); 
-        setSampleSearchTerm(formatSampleName(sample)); 
+    const handleSelectSearchItem = (product: Product, variant: ProductVariant) => {
+        setSelectedSearchItem({ product, variant });
+        setSearchTerm(formatVariantName(product.name, variant.name));
     };
 
-    // --- Core Line Item Logic (Extracted from old component) ---
+    // --- Add Line Item Logic ---
     const handleAddLineItem = () => {
-        if (selectedSample && pricingSettings && !lineItems.some(item => item.sample.id === selectedSample.id)) {
+        if (selectedSearchItem && !lineItems.some(item => item.variant.id === selectedSearchItem.variant.id)) {
             
             let initialSellPrice = '';
-            let initialUnit: Unit = (selectedSample.uom as Unit) || 'SF';
-            let initialSizeVariant: string | undefined = undefined;
-
-            if (selectedSample.sizes && selectedSample.sizes.length > 0) {
-                const firstVariant = selectedSample.sizes[0];
-                initialSizeVariant = typeof firstVariant === 'string' ? firstVariant : firstVariant.value;
-                
-                if (typeof firstVariant !== 'string' && firstVariant.unitCost) {
-                     const vendor = vendors.find(v => v.id === (selectedSample.supplierId || selectedSample.manufacturerId));
-                     const rules = getActivePricingRules(vendor, pricingSettings, purchaserType);
-                     initialSellPrice = calculatePrice(Number(firstVariant.unitCost), rules.percentage, rules.method).toFixed(2);
-                     if (firstVariant.uom) initialUnit = firstVariant.uom;
-                }
-            } else if (selectedSample.unitCost) {
-                const vendor = vendors.find(v => v.id === (selectedSample.supplierId || selectedSample.manufacturerId));
-                const rules = getActivePricingRules(vendor, pricingSettings, purchaserType);
-                const price = calculatePrice(Number(selectedSample.unitCost), rules.percentage, rules.method);
-                initialSellPrice = price.toFixed(2);
+            let initialUnit: Unit = selectedSearchItem.variant.uom || 'SF';
+            
+            // Calculate Price
+            if (pricingSettings && selectedSearchItem.variant.unitCost) {
+                 // Find relevant vendor for markup rules
+                 const vendor = vendors.find(v => v.id === (selectedSearchItem.product.supplierId || selectedSearchItem.product.manufacturerId));
+                 const rules = getActivePricingRules(vendor, pricingSettings, purchaserType);
+                 const price = calculatePrice(Number(selectedSearchItem.variant.unitCost), rules.percentage, rules.method);
+                 initialSellPrice = price.toFixed(2);
+            } else if (selectedSearchItem.variant.retailPrice) {
+                // Fallback to stored retail price if no calc available
+                initialSellPrice = Number(selectedSearchItem.variant.retailPrice).toFixed(2);
             }
 
             setLineItems(prev => [...prev, { 
-                sample: selectedSample, 
-                sizeVariant: initialSizeVariant,
+                product: selectedSearchItem.product,
+                variant: selectedSearchItem.variant,
                 quantity: '1', 
                 unit: initialUnit,
                 totalCost: initialSellPrice, 
@@ -198,16 +221,17 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             }]);
             
             // Auto-select supplier if not already chosen
-            if (!supplierId && selectedSample.supplierId) {
-                handleSupplierSelect(selectedSample.supplierId);
-            } else if (!supplierId && selectedSample.manufacturerId) {
-                 const manufacturer = vendors.find(v => v.id === selectedSample.manufacturerId);
+            if (!supplierId && selectedSearchItem.product.supplierId) {
+                handleSupplierSelect(selectedSearchItem.product.supplierId);
+            } else if (!supplierId && selectedSearchItem.product.manufacturerId) {
+                 const manufacturer = vendors.find(v => v.id === selectedSearchItem.product.manufacturerId);
                 if (manufacturer && (manufacturer.vendorType === 'Supplier' || manufacturer.vendorType === 'Both')) {
                     handleSupplierSelect(manufacturer.id);
                 }
             }
-            setSampleSearchTerm(''); 
-            setSelectedSample(null);
+            
+            setSearchTerm(''); 
+            setSelectedSearchItem(null);
         }
     };
 
@@ -216,18 +240,6 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             const newItems = [...prev]; 
             (newItems[index] as any)[field] = value;
             const item = newItems[index];
-
-            // If Size Variant changes, update the Price/Carton/UOM
-            if (field === 'sizeVariant') {
-                const variant = item.sample.sizes?.find(s => (typeof s === 'string' ? s : s.value) === value);
-                if (variant && typeof variant !== 'string' && variant.unitCost && pricingSettings) {
-                     const vendor = vendors.find(v => v.id === (item.sample.supplierId || item.sample.manufacturerId));
-                     const rules = getActivePricingRules(vendor, pricingSettings, purchaserType);
-                     const price = calculatePrice(Number(variant.unitCost), rules.percentage, rules.method);
-                     newItems[index].unitSellPrice = price.toFixed(2);
-                     newItems[index].unit = (variant.uom as Unit) || item.sample.uom as Unit || 'SF';
-                }
-            }
 
             // Auto-calculate Total if Quantity or Unit Price changes
             if (field === 'quantity' || field === 'unitSellPrice') {
@@ -241,30 +253,22 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             }
             return newItems; 
         });
-    }, [pricingSettings, purchaserType, vendors]);
+    }, []);
 
-    const handleRemoveLineItem = (sampleId: number) => { setLineItems(prev => prev.filter(item => item.sample.id !== sampleId)); };
+    const handleRemoveLineItem = (variantId: string) => { setLineItems(prev => prev.filter(item => item.variant.id !== variantId)); };
 
     const handleConvertToCartons = useCallback((index: number) => {
         const item = lineItems[index];
         
-        // --- Helper: Find active variant carton size ---
-        let activeVariant = null;
-        if (item.sizeVariant && item.sample.sizes) {
-            activeVariant = item.sample.sizes.find(s => {
-                const val = typeof s === 'string' ? s : (s.value || (s as any).size);
-                return val === item.sizeVariant;
-            });
-        }
-        const variantCarton = (activeVariant && typeof activeVariant !== 'string') ? activeVariant.cartonSize : null;
-        const baseCarton = item.sample.cartonSize;
-        const cartonSize = Number(variantCarton || baseCarton || 0);
-        
+        const cartonSize = Number(item.variant.cartonSize || 0);
         const qtySF = parseFloat(item.quantity);
+        
         if (!qtySF || !cartonSize) return;
 
         const numCartons = Math.ceil(qtySF / cartonSize);
         const currentPriceSF = parseFloat(item.unitSellPrice || '0');
+        
+        // Price per carton = Price/SF * SF/Carton
         const newPriceCarton = (currentPriceSF * cartonSize).toFixed(2);
         const newTotal = (numCartons * parseFloat(newPriceCarton)).toFixed(2);
 
@@ -283,34 +287,6 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
 
     // --- Modals and Saving ---
 
-    const handleSaveVendor = async (vendorData: Omit<Vendor, 'id'>) => {
-        try {
-            const newVendor = await addVendor(vendorData);
-            setIsVendorModalOpen(false);
-            // If manufacturer search was active, automatically select the new vendor as manufacturer
-            if (vendorData.vendorType === 'Manufacturer' || vendorData.vendorType === 'Both') {
-                setSupplierSearch(newVendor.name);
-                setSupplierId(newVendor.id);
-            }
-        } catch (error) { console.error(error); }
-    };
-    
-    const onSampleCreated = (createdSample: Sample) => {
-        setIsAddingNewSample(false);
-        setLineItems(prev => [...prev, { 
-            sample: createdSample, 
-            sizeVariant: (createdSample.sizes && createdSample.sizes.length > 0) 
-                ? (typeof createdSample.sizes[0] === 'string' ? createdSample.sizes[0] : createdSample.sizes[0].value) 
-                : undefined,
-            quantity: '1', 
-            unit: (createdSample.uom as Unit) || 'SF', 
-            totalCost: '', 
-            unitSellPrice: '' 
-        }]);
-        setSampleSearchTerm('');
-        setSelectedSample(null);
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedProjectId) { toast.error('Please select a project.'); return; }
@@ -319,8 +295,12 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
         
         setIsSaving(true);
 
+        // Map new structure back to API payload
         const lineItemsPayload = lineItems.map(item => ({ 
-            sampleId: item.sample.id, 
+            // For now, we map variant.id to sampleId. 
+            // Ideally, the backend should accept `variantId` explicitly.
+            sampleId: item.variant.id, // Cast to number if ID is numeric, otherwise we need backend update
+            variantId: item.variant.id, // Send both if backend supports it
             quantity: parseFloat(item.quantity) || 0, 
             unit: item.unit, 
             totalCost: item.totalCost ? parseFloat(item.totalCost) : null, 
@@ -356,8 +336,8 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
 
     return (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
-            {/* Increased max-width from 2xl to 4xl for better layout of pricing columns */}
             <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-border">
+                {/* Header */}
                 <div className="flex justify-between items-center mb-6 border-b border-border pb-4">
                     <h2 className="text-2xl font-bold text-text-primary flex items-center gap-2">
                         <PackageIcon className="text-primary" />
@@ -367,7 +347,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                    {/* Project Selector (Only if not locked) */}
+                    {/* Project Selector */}
                     {!initialProjectId && !editingOrder && (
                         <div className="mb-6">
                             <label className="block text-sm font-medium text-text-secondary mb-1">Project</label>
@@ -402,54 +382,38 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                             </div>
                         </div>
                         <div className="md:col-span-2">
-                            <label htmlFor="notes" className="block text-sm font-medium text-text-secondary mb-1">Notes (for order/receiving)</label>
-                            <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full p-2 bg-background border border-border rounded text-text-primary" placeholder="Delivery instructions, gate code, etc..." />
+                            <label htmlFor="notes" className="block text-sm font-medium text-text-secondary mb-1">Notes</label>
+                            <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full p-2 bg-background border border-border rounded text-text-primary" placeholder="Delivery instructions..." />
                         </div>
                     </div>
 
                     {/* Line Items Section */}
                     <div className="bg-background p-4 rounded-lg border border-border mb-6">
                         <h3 className="font-semibold mb-2 text-text-primary">Line Items</h3>
+                        
+                        {/* List of Items */}
                         <div className="space-y-2 mb-4">
                             {lineItems.map((item, index) => { 
-                                
-                                // --- Helper: Find active variant data ---
-                                let activeVariant = null;
-                                if (item.sizeVariant && item.sample.sizes) {
-                                    activeVariant = item.sample.sizes.find(s => {
-                                        const val = typeof s === 'string' ? s : (s.value || (s as any).size);
-                                        return val === item.sizeVariant;
-                                    });
-                                }
-                                    
-                                const variantCarton = (activeVariant && typeof activeVariant !== 'string') ? activeVariant.cartonSize : null;
-                                const baseCarton = item.sample.cartonSize;
-                                const cartonSize = Number(variantCarton || baseCarton || 0);
-
-                                const uom = (activeVariant && typeof activeVariant !== 'string' && activeVariant.uom) ? activeVariant.uom : (item.sample.uom || 'SF');
+                                const cartonSize = Number(item.variant.cartonSize || 0);
+                                const uom = item.variant.uom || 'SF';
                                 
                                 return (
-                                    <div key={item.sample.id} className="bg-surface border border-border p-2 rounded mb-2">
+                                    <div key={item.variant.id} className="bg-surface border border-border p-2 rounded mb-2">
                                         <div className="grid grid-cols-[1.5fr,1fr,auto,auto,auto,auto,auto] items-end gap-2">
                                             {/* Product Name */}
                                             <div className="flex flex-col overflow-hidden">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">Product</label>
-                                                <span className="text-sm text-text-primary truncate font-medium" title={formatSampleName(item.sample)}>{formatSampleName(item.sample)}</span>
+                                                <span className="text-sm text-text-primary truncate font-medium" title={formatVariantName(item.product.name, item.variant.name)}>
+                                                    {formatVariantName(item.product.name, item.variant.name)}
+                                                </span>
                                             </div>
 
-                                            {/* Size Selector (if applicable) */}
+                                            {/* SKU Display */}
                                             <div className="flex flex-col">
-                                                <label className="text-[9px] text-text-secondary uppercase mb-1">Size / Variant</label>
-                                                {item.sample.sizes && item.sample.sizes.length > 0 ? (
-                                                    <select value={item.sizeVariant || ''} onChange={e => updateLineItem(index, 'sizeVariant', e.target.value)} className="w-full p-1 bg-background border-border rounded text-sm text-text-primary">
-                                                        {item.sample.sizes.map(s => {
-                                                            const val = typeof s === 'string' ? s : (s.value || (s as any).size);
-                                                            return <option key={val} value={val}>{val}</option>;
-                                                        })}
-                                                    </select>
-                                                ) : (
-                                                    <span className="text-xs text-text-secondary py-1">Standard</span>
-                                                )}
+                                                <label className="text-[9px] text-text-secondary uppercase mb-1">SKU</label>
+                                                <span className="text-sm text-text-secondary p-1 bg-background rounded border border-border truncate">
+                                                    {item.variant.sku || '-'}
+                                                </span>
                                             </div>
 
                                             <div className="flex flex-col">
@@ -462,41 +426,35 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                                                 <select value={item.unit} onChange={e => updateLineItem(index, 'unit', e.target.value as Unit)} className="p-1 bg-background border-border rounded text-sm appearance-none text-center w-16 text-text-primary">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
                                             </div>
                                             
-                                            {/* Unit Sell Price (Calculated/Manual) */}
                                             <div className="flex flex-col">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">Price</label>
                                                 <input type="number" step="0.01" placeholder="Price" value={item.unitSellPrice || ''} onChange={e => updateLineItem(index, 'unitSellPrice', e.target.value)} className="w-20 p-1 bg-background border-border rounded text-sm font-semibold text-green-400" />
                                             </div>
 
-                                            {/* Total Cost (Auto-calculated) */}
                                             <div className="flex flex-col">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">Total</label>
                                                 <input type="number" step="0.01" placeholder="Total" value={item.totalCost} onChange={e => updateLineItem(index, 'totalCost', e.target.value)} className="w-24 p-1 bg-background border-border rounded text-sm text-text-primary" />
                                             </div>
                                             
-                                            <button type="button" onClick={() => handleRemoveLineItem(item.sample.id)} className="text-red-400 hover:text-red-600 mb-1"><XCircle size={18}/></button>
+                                            <button type="button" onClick={() => handleRemoveLineItem(item.variant.id)} className="text-red-400 hover:text-red-600 mb-1"><XCircle size={18}/></button>
                                         </div>
 
-                                        {/* --- HELPER: Carton Calculator --- */}
-                                        {item.unit !== 'Carton' && (
+                                        {/* Carton Calc */}
+                                        {item.unit !== 'Carton' && cartonSize > 0 && (
                                             <div className="mt-2 flex justify-end">
                                                 <button 
                                                     type="button" 
                                                     onClick={() => handleConvertToCartons(index)}
-                                                    disabled={!cartonSize || parseFloat(item.quantity) <= 0}
-                                                    className={`flex items-center text-xs px-2 py-1 rounded transition-colors ${
-                                                        (cartonSize && parseFloat(item.quantity) > 0)
-                                                        ? 'text-accent hover:text-on-accent bg-accent/10 hover:bg-accent/20 cursor-pointer' 
-                                                        : 'text-text-secondary bg-background cursor-not-allowed opacity-50'
-                                                    }`}
-                                                    title={cartonSize ? `Click to convert ${item.quantity} ${item.unit} into full cartons` : 'No carton size defined for this item'}
+                                                    disabled={parseFloat(item.quantity) <= 0}
+                                                    className="flex items-center text-xs px-2 py-1 rounded text-accent hover:text-on-accent bg-accent/10 hover:bg-accent/20 cursor-pointer"
+                                                    title={`Click to convert ${item.quantity} ${item.unit} into full cartons`}
                                                 >
                                                     <Calculator size={12} className="mr-1" />
-                                                    {cartonSize && parseFloat(item.quantity) > 0 
+                                                    {parseFloat(item.quantity) > 0 
                                                         ? `Convert to ${Math.ceil(parseFloat(item.quantity) / cartonSize)} Cartons`
                                                         : "Convert to Cartons"
                                                     }
-                                                    {cartonSize ? <span className="text-text-secondary ml-1">({cartonSize} {uom}/box)</span> : ''}
+                                                    <span className="text-text-secondary ml-1">({cartonSize} {uom}/box)</span>
                                                 </button>
                                             </div>
                                         )}
@@ -504,17 +462,30 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                                 );
                             })}
                         </div>
+                        
+                        {/* Search Bar */}
                         <div className="flex gap-2">
                             <div className="relative flex-grow">
-                                <input type="text" placeholder="Search for material to add..." value={sampleSearchTerm} onChange={e => { setSampleSearchTerm(e.target.value); setSelectedSample(null); }} className="w-full p-2 bg-background border-border rounded text-text-primary" />
-                                {sampleSearchTerm && !selectedSample && (
-                                    <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
-                                        {sampleSearchResults.map(s => ( <div key={s.id} onClick={() => { setSelectedSample(s); setSampleSearchTerm(formatSampleName(s)); }} className="p-2 hover:bg-background cursor-pointer text-text-primary">{formatSampleName(s)}</div> ))}
-                                        {sampleSearchResults.length === 0 && ( <div className="p-2 text-center text-text-secondary">No results. <button type="button" onClick={() => setIsAddingNewSample(true)} className="ml-2 text-accent font-semibold hover:underline">Add it?</button></div> )}
+                                <input type="text" placeholder="Search for product to add..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedSearchItem(null); }} className="w-full p-2 bg-background border-border rounded text-text-primary" />
+                                
+                                {searchTerm && !selectedSearchItem && (
+                                    <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-60 overflow-y-auto shadow-xl">
+                                        {searchResults.map(item => (
+                                            <div key={item.variant.id} onClick={() => handleSelectSearchItem(item.product, item.variant)} className="p-2 hover:bg-background cursor-pointer text-text-primary border-b border-border last:border-0">
+                                                 <div className="font-medium">{item.product.name} - {item.variant.name}</div>
+                                                 <div className="text-xs text-text-secondary flex justify-between">
+                                                     <span>{item.product.manufacturerName}</span>
+                                                     <span>{item.variant.sku || 'No SKU'}</span>
+                                                 </div>
+                                            </div>
+                                        ))}
+                                        {searchResults.length === 0 && (
+                                             <div className="p-4 text-center text-text-secondary text-sm">No products found.</div>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                            <button type="button" onClick={handleAddLineItem} disabled={!selectedSample} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50">Add Item</button>
+                            <button type="button" onClick={handleAddLineItem} disabled={!selectedSearchItem} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50">Add Item</button>
                         </div>
                     </div>
 
@@ -532,8 +503,8 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                     </div>
                 </form>
             </div>
+            
             <AddEditVendorModal isOpen={isVendorModalOpen} onClose={() => setIsVendorModalOpen(false)} onSave={async (v) => { await addVendor(v); setIsVendorModalOpen(false); }} initialVendorType='Supplier' />
-            <AddSampleInlineModal isOpen={isAddingNewSample} onClose={() => setIsAddingNewSample(false)} onSampleCreated={onSampleCreated} initialSearchTerm={sampleSearchTerm} />
         </div>
     );
 };

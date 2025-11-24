@@ -28,11 +28,11 @@ router.get('/', verifySession(), async (req, res) => {
                 v.notes,
                 v.default_markup,
                 v.pricing_method,
-                COUNT(s.id) AS sample_count
+                COUNT(p.id) AS sample_count
             FROM 
                 vendors v
             LEFT JOIN 
-                samples s ON v.id = s.manufacturer_id
+                products p ON v.id = p.manufacturer_id
             GROUP BY
                 v.id
             ORDER BY 
@@ -166,7 +166,7 @@ router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => 
     } catch (err) {
         console.error(err.message);
         if (err.code === '23503') { // Foreign key violation
-             return res.status(409).json({ error: 'Cannot delete vendor because it is currently in use by a sample or material order.' });
+             return res.status(409).json({ error: 'Cannot delete vendor because it is currently in use by a product, sample, or material order.' });
         }
         res.status(500).json({ error: 'Failed to delete vendor.' });
     }

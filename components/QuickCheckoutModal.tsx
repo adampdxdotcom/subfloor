@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import { useData } from '../context/DataContext';
-import { Customer, Project, Sample } from '../types';
+import { Customer, Project } from '../types';
 import { X, User, Briefcase, CheckCircle, Calendar, Printer } from 'lucide-react';
 import CustomerSelector from './CustomerSelector';
 import ProjectSelector from './ProjectSelector';
-import SampleSelector from './SampleSelector';
+import SampleSelector, { CheckoutItem } from './SampleSelector'; // Updated
 import { toast } from 'react-hot-toast';
 import { PrintableCheckout } from './PrintableCheckout';
 import EditCustomerModal from './EditCustomerModal';
@@ -25,7 +25,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [samplesToCheckout, setSamplesToCheckout] = useState<Sample[]>([]);
+  const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([]); // Changed State
   const [expectedReturnDate, setExpectedReturnDate] = useState(getTwoWeeksFromNowISO());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutComplete, setCheckoutComplete] = useState(false);
@@ -33,14 +33,14 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
   const [customerNameToCreate, setCustomerNameToCreate] = useState('');
 
-  const handleSamplesChange = useCallback((newSamples: Sample[]) => {
-    setSamplesToCheckout(newSamples);
+  const handleItemsChange = useCallback((newItems: CheckoutItem[]) => {
+    setCheckoutItems(newItems);
   }, []);
 
   const handleClose = () => {
     setSelectedCustomer(null);
     setSelectedProject(null);
-    setSamplesToCheckout([]);
+    setCheckoutItems([]);
     setExpectedReturnDate(getTwoWeeksFromNowISO());
     setCheckoutComplete(false);
     setIsSubmitting(false);
@@ -52,7 +52,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   const handleCustomerSelect = (customer: Customer) => {
     setSelectedCustomer(customer);
     setSelectedProject(null);
-    setSamplesToCheckout([]);
+    setCheckoutItems([]);
   };
 
   const handleRequestNewCustomer = (name: string) => {
@@ -61,22 +61,24 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   };
 
   const handleFinishCheckout = async () => {
-    if (!selectedProject || samplesToCheckout.length === 0 || !expectedReturnDate) {
+    if (!selectedProject || checkoutItems.length === 0 || !expectedReturnDate) {
       toast.error("Please ensure a project, samples, and a return date are selected.");
       return;
     }
     setIsSubmitting(true);
-    const toastId = toast.loading(`Checking out ${samplesToCheckout.length} sample(s)...`);
+    const toastId = toast.loading(`Checking out ${checkoutItems.length} item(s)...`);
     try {
-        const checkoutPromises = samplesToCheckout.map(sample => 
+        const checkoutPromises = checkoutItems.map(item => 
             addSampleCheckout({
                 projectId: selectedProject.id,
-                sampleId: sample.id,
+                variantId: item.variantId,
+                sampleType: item.sampleType,
+                quantity: item.quantity,
                 expectedReturnDate: new Date(expectedReturnDate).toISOString(),
             })
         );
         await Promise.all(checkoutPromises);
-        toast.success(`${samplesToCheckout.length} sample(s) checked out successfully.`, {
+        toast.success(`${checkoutItems.length} item(s) checked out successfully.`, {
             id: toastId,
             icon: <CheckCircle className="text-green-500" />
         });
@@ -101,8 +103,8 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
           <PrintableCheckout 
               customer={selectedCustomer}
               project={selectedProject}
-              samples={samplesToCheckout}
-              vendors={vendors} // FIX: Pass vendors prop
+              checkoutItems={checkoutItems} // Changed Prop
+              vendors={vendors} 
               returnDate={expectedReturnDate}
           />
         </div>
@@ -194,7 +196,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                   </div>
                 </div>
                 <p className="text-text-secondary mb-4">Search or scan samples to add to the checkout list.</p>
-                <SampleSelector onSamplesChange={handleSamplesChange} />
+                <SampleSelector onItemsChange={handleItemsChange} />
               </section>
             )}
           </fieldset>
@@ -222,10 +224,10 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                 <button
                   type="button"
                   onClick={handleFinishCheckout}
-                  disabled={!selectedCustomer || !selectedProject || samplesToCheckout.length === 0 || isSubmitting}
+                  disabled={!selectedCustomer || !selectedProject || checkoutItems.length === 0 || isSubmitting}
                   className="py-2 px-6 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled-cursor-not-allowed"
                 >
-                  {isSubmitting ? 'Checking Out...' : `Finish Checkout (${samplesToCheckout.length})`}
+                  {isSubmitting ? 'Checking Out...' : `Finish Checkout (${checkoutItems.length})`}
                 </button>
               </>
             )}

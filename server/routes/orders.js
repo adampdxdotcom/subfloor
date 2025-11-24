@@ -19,14 +19,15 @@ const getFullOrderById = async (orderId, client = pool) => {
                 (SELECT json_agg(json_build_object(
                     'id', oli.id, 'quantity', oli.quantity, 'unit', oli.unit, 'totalCost', oli.total_cost, 
                     'unitPriceSold', oli.unit_price_sold,
-                    'sampleId', s.id, 
-                    'style', s.style,
-                    'color', s.color,
+                    'variantId', v.id, 
+                    'style', p.name,       -- Parent Name
+                    'color', v.name,       -- Variant Name (Color)
                     'manufacturerName', m.name
                 )) 
                 FROM order_line_items oli 
-                JOIN samples s ON oli.sample_id = s.id 
-                LEFT JOIN vendors m ON s.manufacturer_id = m.id
+                JOIN product_variants v ON oli.variant_id = v.id
+                JOIN products p ON v.product_id = p.id
+                LEFT JOIN vendors m ON p.manufacturer_id = m.id
                 WHERE oli.order_id = mo.id),
                 '[]'::json
             ) AS line_items
@@ -59,14 +60,15 @@ router.get('/', verifySession(), async (req, res) => {
                     SELECT json_agg(json_build_object(
                         'id', oli.id, 'quantity', oli.quantity, 'unit', oli.unit,
                         'unitPriceSold', oli.unit_price_sold,
-                        'totalCost', oli.total_cost, 'sampleId', s.id, 
-                        'style', s.style,
-                        'color', s.color,
+                        'totalCost', oli.total_cost, 'variantId', v.id, 
+                        'style', p.name,
+                        'color', v.name,
                         'manufacturerName', m.name
                     ))
                     FROM order_line_items oli
-                    JOIN samples s ON oli.sample_id = s.id
-                    LEFT JOIN vendors m ON s.manufacturer_id = m.id
+                    JOIN product_variants v ON oli.variant_id = v.id
+                    JOIN products p ON v.product_id = p.id
+                    LEFT JOIN vendors m ON p.manufacturer_id = m.id
                     WHERE oli.order_id = mo.id
                 ),
                 '[]'::json
@@ -114,11 +116,11 @@ router.post('/', verifySession(), async (req, res) => {
         const orderId = orderResult.rows[0].id;
 
         for (const item of lineItems) {
-            const { sampleId, quantity, unit, totalCost, unitPriceSold } = item;
+            const { variantId, quantity, unit, totalCost, unitPriceSold } = item; // CHANGED
             await client.query(`
-                INSERT INTO order_line_items (order_id, sample_id, quantity, unit, total_cost, unit_price_sold)
+                INSERT INTO order_line_items (order_id, variant_id, quantity, unit, total_cost, unit_price_sold)
                 VALUES ($1, $2, $3, $4, $5, $6);
-            `, [orderId, sampleId, quantity, unit || null, totalCost || null, unitPriceSold || null]);
+            `, [orderId, variantId, quantity, unit || null, totalCost || null, unitPriceSold || null]);
         }
 
         await client.query('COMMIT');
@@ -154,11 +156,11 @@ router.put('/:id', verifySession(), async (req, res) => {
 
         await client.query('DELETE FROM order_line_items WHERE order_id = $1', [orderId]);
         for (const item of lineItems) {
-            const { sampleId, quantity, unit, totalCost, unitPriceSold } = item;
+            const { variantId, quantity, unit, totalCost, unitPriceSold } = item; // CHANGED
             await client.query(`
-                INSERT INTO order_line_items (order_id, sample_id, quantity, unit, total_cost, unit_price_sold)
+                INSERT INTO order_line_items (order_id, variant_id, quantity, unit, total_cost, unit_price_sold)
                 VALUES ($1, $2, $3, $4, $5, $6);
-            `, [orderId, sampleId, quantity, unit || null, totalCost || null, unitPriceSold || null]);
+            `, [orderId, variantId, quantity, unit || null, totalCost || null, unitPriceSold || null]);
         }
 
         await client.query('COMMIT');
@@ -305,9 +307,9 @@ router.post('/:id/damage', verifySession(), async (req, res) => {
         // 2. Add Line Items to Replacement Order
         for (const item of items) {
             await client.query(`
-                INSERT INTO order_line_items (order_id, sample_id, quantity, unit, total_cost, unit_price_sold)
+                INSERT INTO order_line_items (order_id, variant_id, quantity, unit, total_cost, unit_price_sold)
                 VALUES ($1, $2, $3, $4, 0.00, 0.00); -- Usually replacements are free cost-wise in the system until adjusted
-            `, [newOrderId, item.sampleId, item.quantity, item.unit]);
+            `, [newOrderId, item.variantId, item.quantity, item.unit]);
         }
 
         // 3. Ensure Original Order is Marked Received (if not already)

@@ -1,18 +1,19 @@
 import React, { useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
-// --- MODIFIED: Import the Sample type for our utility function ---
-import { Project, ProjectStatus, Sample, SampleCheckout } from '../types';
+import { Project, ProjectStatus, SampleCheckout } from '../types';
 import { ChevronRight, Bell, Clock, Undo2 } from 'lucide-react';
 
-// --- ADDED: The standard formatSampleName utility ---
-const formatSampleName = (sample: Sample | undefined) => {
-  if (!sample) return 'Loading sample...';
-  const parts = [];
-  if (sample.style) parts.push(sample.style);
-  if (sample.color) parts.push(sample.color);
-  if (parts.length === 0) return `Sample #${sample.id}`;
-  return parts.join(' - ');
+// --- NEW: Helper to find Product Variant Name ---
+const getCheckoutDisplayName = (checkout: SampleCheckout, products: any[]) => {
+    for (const p of products) {
+        const variant = p.variants.find((v: any) => String(v.id) === String(checkout.variantId));
+        if (variant) {
+            return `${p.name} - ${variant.name}`;
+        }
+    }
+    // Fallback if variant not found (or legacy data)
+    return 'Unknown Sample';
 };
 
 const getStatusColor = (status: ProjectStatus): string => {
@@ -44,7 +45,7 @@ const getOverdueAlert = (project: Project, sampleCheckouts: SampleCheckout[]): {
 };
 
 const ProjectCard = ({ project }: { project: Project }) => {
-    const { customers, sampleCheckouts, samples, updateSampleCheckout, extendSampleCheckout } = useData();
+    const { customers, sampleCheckouts, products, updateSampleCheckout, extendSampleCheckout } = useData();
     const customer = customers.find(c => c.id === project.customerId);
     const statusColor = getStatusColor(project.status);
     const overdueAlert = getOverdueAlert(project, sampleCheckouts);
@@ -77,9 +78,7 @@ const ProjectCard = ({ project }: { project: Project }) => {
                     <h4 className="text-xs font-bold uppercase text-text-secondary mb-2">Samples Out</h4>
                     <div className="space-y-2">
                         {activeCheckouts.map(checkout => {
-                            const sample = samples.find(s => s.id === checkout.sampleId);
-                            // --- MODIFIED: Use the formatSampleName utility for correct display ---
-                            const displayName = formatSampleName(sample);
+                            const displayName = getCheckoutDisplayName(checkout, products);
                             return (
                                 <div key={checkout.id} className="flex justify-between items-center text-sm">
                                     <span className="text-text-primary truncate" title={displayName}>{displayName}</span>

@@ -16,7 +16,7 @@ import { initializeScheduler } from './lib/scheduler.js';
 
 // --- ROUTE IMPORTS ---
 import customerRoutes from './routes/customers.js';
-import sampleRoutes from './routes/samples.js';
+import productRoutes from './routes/products.js'; // Replaces samples.js
 import sampleCheckoutRoutes from './routes/sampleCheckouts.js';
 import projectRoutes from './routes/projects.js';
 import installerRoutes from './routes/installers.js';
@@ -36,6 +36,7 @@ import preferenceRoutes from './routes/preferences.js';
 import eventRoutes from './routes/events.js';
 import reportRoutes from './routes/reports.js';
 import reminderRoutes from './routes/reminders.js';
+import jobNotesRoutes from './routes/jobNotes.js'; // Import new routes
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -142,7 +143,7 @@ app.use(middleware());
 // --- API ENDPOINTS ---
 app.get('/api', (req, res) => res.json({ message: 'Backend is running!' }));
 app.use('/api/customers', customerRoutes);
-app.use('/api/samples', sampleRoutes);
+app.use('/api/products', productRoutes); // New Endpoint
 app.use('/api/sample-checkouts', sampleCheckoutRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/installers', installerRoutes);
@@ -162,6 +163,7 @@ app.use('/api/preferences', preferenceRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/reminders', reminderRoutes);
+app.use('/api/jobs', jobNotesRoutes); // Mount under /api/jobs to match the :id/notes structure
 
 // --- SERVE FRONTEND (DYNAMIC) ---
 const publicPath = path.join(__dirname, 'public');

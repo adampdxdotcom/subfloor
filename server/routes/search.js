@@ -9,44 +9,34 @@ router.get('/', verifySession(), async (req, res) => {
     const searchTerm = req.query.q;
 
     if (!searchTerm || typeof searchTerm !== 'string' || searchTerm.length < 2) {
-        return res.json({ customers: [], installers: [], projects: [], samples: [] });
+        return res.json({ customers: [], installers: [], projects: [], products: [] });
     }
 
     const searchQuery = `%${searchTerm.toLowerCase()}%`;
 
     try {
-        // --- MODIFIED: The Sample search query is updated to include searching by size ---
-        const samplesQuery = `
-            -- First, find samples where style, color, manufacturer, or product type match
-            SELECT 
-                'sample' AS type, 
-                s.id, 
-                CONCAT_WS(' - ', NULLIF(s.style, ''), NULLIF(s.color, '')) AS title, 
-                m.name AS subtitle, 
-                '/samples' as path
-            FROM samples s
-            LEFT JOIN vendors m ON s.manufacturer_id = m.id
+        // --- NEW: Product Search (Inventory 2.0) ---
+        // We use DISTINCT ON to avoid returning the same product 10 times if 10 variants match
+        const productsQuery = `
+            SELECT DISTINCT ON (p.id)
+                'product' AS type,
+                p.id, -- UUID
+                p.name AS title,
+                v.name AS subtitle,
+                -- If the search matched a specific variant SKU or name, we could try to highlight that,
+                -- but for a simple search, pointing to the parent Product is correct.
+                '/samples' AS path -- Logic on frontend will open the modal
+            FROM products p
+            LEFT JOIN vendors v ON p.manufacturer_id = v.id
+            LEFT JOIN product_variants pv ON p.id = pv.product_id
             WHERE 
-                (LOWER(s.style) LIKE $1 OR 
-                 LOWER(s.color) LIKE $1 OR 
-                 LOWER(m.name) LIKE $1 OR
-                 LOWER(s.product_type) LIKE $1)
-                AND s.is_discontinued = FALSE
-            
-            UNION
-            
-            -- Second, find samples where a size matches the search term
-            SELECT 
-                'sample' AS type, 
-                s.id,
-                CONCAT_WS(' - ', NULLIF(s.style, ''), NULLIF(s.color, '')) AS title,
-                -- Use the matched size as the subtitle for better context
-                'Size: ' || ss.size_value AS subtitle, 
-                '/samples' as path
-            FROM sample_sizes ss
-            JOIN samples s ON ss.sample_id = s.id
-            WHERE LOWER(ss.size_value) LIKE $1
-            AND s.is_discontinued = FALSE;
+                p.is_discontinued = FALSE AND (
+                    LOWER(p.name) LIKE $1 OR 
+                    LOWER(v.name) LIKE $1 OR
+                    LOWER(pv.name) LIKE $1 OR
+                    LOWER(pv.sku) LIKE $1
+                )
+            LIMIT 10;
         `;
         
         const customersQuery = `
@@ -74,19 +64,19 @@ router.get('/', verifySession(), async (req, res) => {
         `;
 
         const [
-            samplesResult,
+            productsResult,
             customersResult,
             installersResult,
             projectsResult
         ] = await Promise.all([
-            pool.query(samplesQuery, [searchQuery]),
+            pool.query(productsQuery, [searchQuery]),
             pool.query(customersQuery, [searchQuery]),
             pool.query(installersQuery, [searchQuery]),
             pool.query(projectsQuery, [searchQuery])
         ]);
 
         const results = {
-            samples: samplesResult.rows,
+            products: productsResult.rows, // Renamed from samples
             customers: customersResult.rows,
             installers: installersResult.rows,
             projects: projectsResult.rows,

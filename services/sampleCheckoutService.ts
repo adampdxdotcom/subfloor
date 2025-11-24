@@ -17,7 +17,7 @@ export const getSampleCheckouts = async (projectId?: number): Promise<SampleChec
 /**
  * Creates a new sample checkout record.
  */
-export const addSampleCheckout = async (checkoutData: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>): Promise<SampleCheckout> => {
+export const addSampleCheckout = async (checkoutData: any): Promise<SampleCheckout> => {
     const response = await fetch(API_BASE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,7 +36,7 @@ export const returnSampleCheckout = async (checkout: SampleCheckout): Promise<Sa
     const response = await fetch(`${API_BASE_URL}/${checkout.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sampleId: checkout.sampleId }) // Backend expects sampleId
+        body: JSON.stringify({}) 
     });
     if (!response.ok) {
         throw new Error('Failed to return sample.');

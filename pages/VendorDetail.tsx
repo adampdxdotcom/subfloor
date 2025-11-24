@@ -3,44 +3,29 @@ import { useParams } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 // --- MODIFIED: Added Edit icon ---
 import { Building, Truck, Phone, Mail, User, Search, Layers, X, Edit } from 'lucide-react';
-import { Sample, Vendor } from '../types';
-import SampleDetailModal from '../components/SampleDetailModal';
+import { Product, Vendor } from '../types';
+// --- REPLACED: SampleDetailModal with ProductDetailModal ---
+import ProductDetailModal from '../components/ProductDetailModal';
 // --- ADDED: Import the AddEditVendorModal ---
 import AddEditVendorModal from '../components/AddEditVendorModal';
 import { toast } from 'react-hot-toast';
 
-const formatSampleName = (sample: Sample) => {
-    const parts = [];
-    if (sample.line) parts.push(sample.line);
-    if (sample.style) parts.push(sample.style);
-    if (sample.color) parts.push(sample.color);
-    if (parts.length === 0) return `Sample #${sample.id}`;
-    return parts.join(' - ');
-};
-
-const VendorSampleCard = ({ sample, onClick }: { sample: Sample, onClick: () => void }) => {
-    const displayName = formatSampleName(sample);
+const VendorProductCard = ({ product, onClick }: { product: Product, onClick: () => void }) => {
     return (
         <div onClick={onClick} className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer hover:border-accent transition-colors">
             <div className="w-full h-40 bg-gray-800 flex items-center justify-center text-text-secondary">
-                {sample.imageUrl ? (
-                    <img src={sample.imageUrl} alt={displayName} className="w-full h-full object-cover" />
+                {product.defaultImageUrl ? (
+                    <img src={product.defaultImageUrl} alt={product.name} className="w-full h-full object-cover" />
                 ) : (
                     <span className="text-sm">No Image</span>
                 )}
             </div>
             <div className="p-4 flex flex-col flex-grow">
-                <h3 className="font-bold text-lg text-text-primary truncate" title={displayName}>{displayName}</h3>
+                <h3 className="font-bold text-lg text-text-primary truncate" title={product.name}>{product.name}</h3>
                 <div className="flex-grow" />
                 <div className="flex justify-between items-end mt-4 text-xs">
-                    <span className="font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded-full">{sample.productType || 'N/A'}</span>
-                    {sample.isAvailable ? (
-                        <span className="font-bold text-green-400">Available</span>
-                    ) : (
-                        <div className="text-right">
-                            <span className="font-bold text-yellow-400">Checked Out</span>
-                        </div>
-                    )}
+                    <span className="font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded-full">{product.productType || 'N/A'}</span>
+                    <span className="text-text-secondary">{product.variants?.length || 0} Variants</span>
                 </div>
             </div>
         </div>
@@ -51,11 +36,11 @@ const VendorSampleCard = ({ sample, onClick }: { sample: Sample, onClick: () => 
 const VendorDetail: React.FC = () => {
     const { vendorId } = useParams<{ vendorId: string }>();
     // --- MODIFIED: Destructure updateVendor for the modal ---
-    const { vendors, samples, isLoading, updateVendor } = useData();
+    const { vendors, products, isLoading, updateVendor } = useData();
     
     const [searchTerm, setSearchTerm] = useState('');
     const [productTypeFilter, setProductTypeFilter] = useState<string>('All');
-    const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     // --- ADDED: State to control the vendor edit modal ---
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -64,39 +49,37 @@ const VendorDetail: React.FC = () => {
         vendors.find(v => v.id === parseInt(vendorId || '')),
     [vendors, vendorId]);
 
-    const vendorSamples = useMemo(() => {
+    const vendorProducts = useMemo(() => {
         if (!vendor) return [];
-        return samples.filter(s => s.manufacturerId === vendor.id);
-    }, [vendor, samples]);
+        return products.filter(p => p.manufacturerId === vendor.id);
+    }, [vendor, products]);
 
-    const filteredSamples = useMemo(() => {
-        let filtered = vendorSamples;
+    const filteredProducts = useMemo(() => {
+        let filtered = vendorProducts;
         if (productTypeFilter !== 'All') {
-            filtered = filtered.filter(s => s.productType === productTypeFilter);
+            filtered = filtered.filter(p => p.productType === productTypeFilter);
         }
         if (searchTerm) {
             const lowercasedTerm = searchTerm.toLowerCase();
-            filtered = filtered.filter(s => {
-                const styleMatch = s.style && s.style.toLowerCase().includes(lowercasedTerm);
-                const colorMatch = s.color && s.color.toLowerCase().includes(lowercasedTerm);
-                const skuMatch = s.sku && s.sku.toLowerCase().includes(lowercasedTerm);
-                return styleMatch || colorMatch || skuMatch;
+            filtered = filtered.filter(p => {
+                const nameMatch = p.name.toLowerCase().includes(lowercasedTerm);
+                return nameMatch;
             });
         }
         return filtered;
-    }, [vendorSamples, productTypeFilter, searchTerm]);
+    }, [vendorProducts, productTypeFilter, searchTerm]);
 
     const availableProductTypes = useMemo(() => 
-        [...new Set(vendorSamples.map(s => s.productType).filter(Boolean))].sort(), 
-    [vendorSamples]);
+        [...new Set(vendorProducts.map(p => p.productType).filter(Boolean))].sort(), 
+    [vendorProducts]);
 
-    const handleSampleClick = (sample: Sample) => {
-        setSelectedSample(sample);
+    const handleProductClick = (product: Product) => {
+        setSelectedProduct(product);
         setIsDetailModalOpen(true);
     };
 
-    const handleCloseSampleModal = () => {
-        setSelectedSample(null);
+    const handleCloseProductModal = () => {
+        setSelectedProduct(null);
         setIsDetailModalOpen(false);
     };
 
@@ -173,7 +156,7 @@ const VendorDetail: React.FC = () => {
             {isManufacturer && (
                 <div>
                     <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-t border-border pt-8">
-                        <h2 className="text-3xl font-bold text-text-primary mb-4 md:mb-0">Samples ({filteredSamples.length})</h2>
+                        <h2 className="text-3xl font-bold text-text-primary mb-4 md:mb-0">Product Lines ({filteredProducts.length})</h2>
                         <div className="flex items-center gap-4 w-full md:w-auto">
                             <div className="relative flex-grow">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1-2 text-text-secondary" />
@@ -199,24 +182,24 @@ const VendorDetail: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {filteredSamples.map(sample => (
-                            <VendorSampleCard key={sample.id} sample={sample} onClick={() => handleSampleClick(sample)} />
+                        {filteredProducts.map(product => (
+                            <VendorProductCard key={product.id} product={product} onClick={() => handleProductClick(product)} />
                         ))}
                     </div>
-                    {filteredSamples.length === 0 && vendorSamples.length > 0 && (
-                        <p className="text-center text-text-secondary py-8 col-span-full">No samples match your current filters.</p>
+                    {filteredProducts.length === 0 && vendorProducts.length > 0 && (
+                        <p className="text-center text-text-secondary py-8 col-span-full">No products match your current filters.</p>
                     )}
-                    {vendorSamples.length === 0 && (
-                        <p className="text-center text-text-secondary py-8 col-span-full">This manufacturer has no samples in the library yet.</p>
+                    {vendorProducts.length === 0 && (
+                        <p className="text-center text-text-secondary py-8 col-span-full">This manufacturer has no products in the library yet.</p>
                     )}
                 </div>
             )}
             
-            {isDetailModalOpen && selectedSample && (
-                <SampleDetailModal 
+            {isDetailModalOpen && selectedProduct && (
+                <ProductDetailModal 
                     isOpen={isDetailModalOpen}
-                    onClose={handleCloseSampleModal}
-                    sample={selectedSample}
+                    onClose={handleCloseProductModal}
+                    product={selectedProduct}
                 />
             )}
 

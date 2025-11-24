@@ -1,12 +1,12 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 // --- CORRECTED: Import UserPreferences and remove UiPreferences ---
-import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Sample, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UserPreferences, User, SystemBranding } from '../types';
+import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Product, ProductVariant, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UserPreferences, User, SystemBranding } from '../types';
 import { toast } from 'react-hot-toast';
 
 import { useSessionContext } from 'supertokens-auth-react/recipe/session';
 
 import * as customerService from '../services/customerService';
-import * as sampleService from '../services/sampleService';
+import * as productService from '../services/productService'; // New Service
 import * as projectService from '../services/projectService';
 import * as installerService from '../services/installerService';
 import * as quoteService from '../services/quoteService';
@@ -45,6 +45,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [vendorHistory, setVendorHistory] = useState<ActivityLogEntry[]>([]);
   const [sampleHistory, setSampleHistory] = useState<ActivityLogEntry[]>([]);
   const [materialOrderHistory, setMaterialOrderHistory] = useState<ActivityLogEntry[]>([]);
+  
+  // State for main entities (Product replaces Sample)
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [products, setProducts] = useState<Product[]>([]); // Replaces samples
+  const [sampleCheckouts, setSampleCheckouts] = useState<SampleCheckout[]>([]);
+  const [installers, setInstallers] = useState<Installer[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
+  const [materialOrders, setMaterialOrders] = useState<MaterialOrder[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+
 
   const toggleLayoutEditMode = () => {
     setIsLayoutEditMode(prevMode => !prevMode);
@@ -124,10 +137,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-        const [customersData, projectsData, samplesData, sampleCheckoutsData, installersData, quotesData, jobsData, changeOrdersData, materialOrdersData, vendorsData] = await Promise.all([
+        const [customersData, projectsData, fetchedProducts, sampleCheckoutsData, installersData, quotesData, jobsData, changeOrdersData, materialOrdersData, vendorsData] = await Promise.all([
             customerService.getCustomers(),
             projectService.getProjects(),
-            sampleService.getSamples(),
+            productService.getProducts(), // New Fetch Call
             sampleCheckoutService.getSampleCheckouts(),
             installerService.getInstallers(),
             quoteService.getQuotes(),
@@ -140,7 +153,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setData({
             customers: Array.isArray(customersData) ? customersData : [],
             projects: Array.isArray(projectsData) ? projectsData : [],
-            samples: Array.isArray(samplesData) ? samplesData : [],
+            samples: [], // Deprecated, kept for AppData consistency until full migration
+            products: Array.isArray(fetchedProducts) ? fetchedProducts : [], // NEW
             sampleCheckouts: Array.isArray(sampleCheckoutsData) ? sampleCheckoutsData : [],
             installers: Array.isArray(installersData) ? installersData : [],
             quotes: Array.isArray(quotesData) ? quotesData : [],
@@ -150,6 +164,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             vendors: Array.isArray(vendorsData) ? vendorsData : [],
             users: [], // users are fetched separately
         });
+        setCustomers(customersData);
+        setProjects(projectsData);
+        setProducts(fetchedProducts); // NEW
+        setSampleCheckouts(sampleCheckoutsData);
+        setInstallers(installersData);
+        setQuotes(quotesData);
+        setJobs(jobsData);
+        setChangeOrders(changeOrdersData);
+        setMaterialOrders(materialOrdersData);
+        setVendors(vendorsData);
+        
     } catch (error) {
         console.error("Initial data fetch failed (likely no session):", error);
         setData(emptyInitialData);
@@ -177,118 +202,201 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser, fetchAllUsers]);
   
   
-  const fetchCustomerHistory = useCallback(async (customerId: number) => {
-    try {
-      const historyData = await customerService.getCustomerHistory(customerId);
-      setCustomerHistory(historyData);
-    } catch (error) {
-      console.error("Error fetching customer history:", error);
-      toast.error("Could not load customer history.");
-      setCustomerHistory([]); 
-    }
-  }, []);
+  // Generic helper for history fetch (re-defined here to access pool/service context if needed)
+  const fetchActivityHistory = (entityType: string, setHistory: React.Dispatch<React.SetStateAction<ActivityLogEntry[]>>) => 
+    useCallback(async (id: number | string) => {
+        const serviceMap = {
+            'CUSTOMER': customerService.getCustomerHistory,
+            'PROJECT': projectService.getProjectHistory,
+            'QUOTE': quoteService.getQuotesHistory,
+            'INSTALLER': installerService.getInstallerHistory,
+            'VENDOR': vendorService.getVendorHistory,
+            'PRODUCT': (id: number | string) => productService.getProductHistory(String(id)), // Assume Product/Variant IDs are strings/UUIDs
+            'ORDER': materialOrderService.getMaterialOrderHistory,
+        };
+        
+        const service = serviceMap[entityType as keyof typeof serviceMap];
+        if (!service) {
+            console.error(`No history service found for entity type: ${entityType}`);
+            return;
+        }
 
-  const fetchProjectHistory = useCallback(async (projectId: number) => {
-    try {
-      const historyData = await projectService.getProjectHistory(projectId);
-      setProjectHistory(historyData);
-    } catch (error) {
-      console.error("Error fetching project history:", error);
-      toast.error("Could not load project history.");
-      setProjectHistory([]);
-    }
-  }, []);
-  
-  const fetchQuotesHistory = useCallback(async (projectId: number) => {
-    try {
-      const historyData = await quoteService.getQuotesHistory(projectId);
-      setQuotesHistory(historyData);
-    } catch (error) {
-      console.error("Error fetching quote history:", error);
-      toast.error("Could not load quote history.");
-      setQuotesHistory([]);
-    }
-  }, []);
-  
-  const fetchInstallerHistory = useCallback(async (installerId: number) => {
-    try {
-      const historyData = await installerService.getInstallerHistory(installerId);
-      setInstallerHistory(historyData);
-    } catch (error) {
-      console.error("Error fetching installer history:", error);
-      toast.error("Could not load installer history.");
-      setInstallerHistory([]);
-    }
-  }, []);
+        try {
+            const historyData = await service(id);
+            setHistory(historyData);
+        } catch (error) {
+            console.error(`Error fetching ${entityType} history:`, error);
+            toast.error(`Could not load ${entityType} history.`);
+            setHistory([]);
+        }
+    }, []);
 
-  const fetchVendorHistory = useCallback(async (vendorId: number) => {
-    try {
-      const historyData = await vendorService.getVendorHistory(vendorId);
-      setVendorHistory(historyData);
-    } catch (error) {
-      console.error("Error fetching vendor history:", error);
-      toast.error("Could not load vendor history.");
-      setVendorHistory([]);
-    }
-  }, []);
+  const fetchCustomerHistory = fetchActivityHistory('CUSTOMER', setCustomerHistory);
+  const fetchProjectHistory = fetchActivityHistory('PROJECT', setProjectHistory);
+  const fetchQuotesHistory = fetchActivityHistory('QUOTE', setQuotesHistory);
+  const fetchInstallerHistory = fetchActivityHistory('INSTALLER', setInstallerHistory);
+  const fetchVendorHistory = fetchActivityHistory('VENDOR', setVendorHistory);
+  const fetchSampleHistory = fetchActivityHistory('PRODUCT', setSampleHistory); // Updated Entity Name
+  const fetchMaterialOrderHistory = fetchActivityHistory('ORDER', setMaterialOrderHistory);
 
-  const fetchSampleHistory = useCallback(async (sampleId: number) => {
-    try {
-      const historyData = await sampleService.getSampleHistory(sampleId);
-      setSampleHistory(historyData);
-    } catch (error) {
-      console.error("Error fetching sample history:", error);
-      toast.error("Could not load sample history.");
-      setSampleHistory([]);
-    }
-  }, []);
-  
-  const fetchMaterialOrderHistory = useCallback(async (orderId: number) => {
-    try {
-      const historyData = await materialOrderService.getMaterialOrderHistory(orderId);
-      setMaterialOrderHistory(historyData);
-    } catch (error) {
-      console.error("Error fetching material order history:", error);
-      toast.error("Could not load material order history.");
-      setMaterialOrderHistory([]);
-    }
-  }, []);
 
   const addVendor = useCallback(async (vendor: Omit<Vendor, 'id'>): Promise<void> => {
       const newVendor = await vendorService.addVendor(vendor);
-      setData(prevData => ({ ...prevData, vendors: [...prevData.vendors, newVendor] }));
+      setVendors(prevData => ([...prevData, newVendor]));
   }, []);
   
   const updateVendor = useCallback(async (vendor: Vendor): Promise<void> => {
       const updatedVendor = await vendorService.updateVendor(vendor.id, vendor);
-      setData(prevData => ({
-          ...prevData,
-          vendors: prevData.vendors.map(v => v.id === updatedVendor.id ? updatedVendor : v),
-      }));
+      setVendors(prevData => (
+          prevData.map(v => v.id === updatedVendor.id ? updatedVendor : v)
+      ));
   }, []);
 
   const deleteVendor = useCallback(async (vendorId: number): Promise<void> => {
       await vendorService.deleteVendor(vendorId);
-      setData(prevData => ({
-          ...prevData,
-          vendors: prevData.vendors.filter(v => v.id !== vendorId),
-      }));
+      setVendors(prevData => (
+          prevData.filter(v => v.id !== vendorId)
+      ));
   }, []);
 
-  const fetchSamples = useCallback(async () => {
-    try {
-      const samplesData = await sampleService.getSamples();
-      setData(prevData => ({ ...prevData, samples: Array.isArray(samplesData) ? samplesData : prevData.samples }));
-    } catch (error) {
-      console.error("Error fetching samples:", error);
-      toast.error('Could not refresh samples.');
-    }
-  }, []);
+  // ------------------------------------
+  // --- PRODUCT / INVENTORY V2 CRUD ---
+  // ------------------------------------
+  
+    const fetchProducts = async () => {
+        try {
+            const fetched = await productService.getProducts();
+            setProducts(fetched);
+        } catch (error) {
+            console.error("Failed to refresh products", error);
+        }
+    };
+
+    const addProduct = async (formData: FormData) => {
+        try {
+            const newProduct = await productService.createProduct(formData);
+            setProducts(prev => [...prev, newProduct]);
+            toast.success('Product created successfully');
+            return newProduct;
+        } catch (error: any) {
+            console.error("Failed to add product", error);
+            toast.error(error.message || 'Failed to add product');
+            throw error;
+        }
+    };
+
+    const updateProduct = async (id: string, formData: FormData) => {
+        try {
+            await productService.updateProduct(id, formData);
+            
+            // REFRESH: We must fetch from server to get any side-effects 
+            // (like auto-created Master Board variants)
+            await fetchProducts();
+            toast.success('Product updated successfully');
+        } catch (error: any) {
+            console.error("Failed to update product", error);
+            toast.error(error.message);
+            throw error;
+        }
+    };
+
+    const deleteProduct = async (id: string) => {
+        try {
+            await productService.deleteProduct(id);
+            setProducts(prev => prev.filter(p => p.id !== id));
+            toast.success('Product deleted successfully');
+        } catch (error: any) {
+            console.error("Failed to delete product", error);
+            toast.error(error.message);
+            throw error;
+        }
+    };
+
+    const addVariant = async (productId: string, formData: FormData) => {
+        try {
+            const newVariant = await productService.addVariant(productId, formData);
+            // Update local state: Find product and append variant
+            setProducts(prev => prev.map(p => {
+                if (p.id === productId) {
+                    return { ...p, variants: [...p.variants, newVariant] };
+                }
+                return p;
+            }));
+            toast.success('Variant added successfully');
+            return newVariant;
+        } catch (error: any) {
+            console.error("Failed to add variant", error);
+            toast.error(error.message);
+            throw error;
+        }
+    };
+
+    const updateVariant = async (variantId: string, formData: FormData) => {
+        try {
+            const updatedVariant = await productService.updateVariant(variantId, formData);
+            setProducts(prev => prev.map(p => {
+                // Optimistically check if this product owns the variant to update it
+                if (p.variants.some(v => String(v.id) === String(variantId))) {
+                    return {
+                        ...p,
+                        variants: p.variants.map(v => String(v.id) === String(variantId) ? updatedVariant : v)
+                    };
+                }
+                return p;
+            }));
+            toast.success('Variant updated successfully');
+            return updatedVariant;
+        } catch (error: any) {
+            console.error("Failed to update variant", error);
+            toast.error(error.message);
+            throw error;
+        }
+    };
+
+    const deleteVariant = async (variantId: string, productId: string) => {
+        try {
+            await productService.deleteVariant(variantId);
+            setProducts(prev => prev.map(p => {
+                if (p.id === productId) {
+                    return { ...p, variants: p.variants.filter(v => String(v.id) !== String(variantId)) };
+                }
+                return p;
+            }));
+            toast.success('Variant deleted successfully');
+        } catch (error: any) {
+            console.error("Failed to delete variant", error);
+            toast.error(error.message);
+            throw error;
+        }
+    };
+    
+    // --- TEMPORARY DEPRECATED SAMPLE API FUNCTIONS (for old UI compatibility) ---
+    // These functions now operate on the `products` state in a backwards-compatible manner.
+    
+    const fetchSamples = fetchProducts; // Alias
+    
+    const addSample = useCallback(async (sample: any): Promise<any> => {
+        toast.error("Deprecated function called: Use addProduct.");
+        throw new Error("Deprecated function called.");
+    }, []);
+
+    const updateSample = useCallback(async (sampleId: number, sampleData: any): Promise<void> => {
+        toast.error("Deprecated function called: Use updateProduct.");
+    }, []);
+    
+    const toggleSampleDiscontinued = useCallback(async (sampleId: number, isDiscontinued: boolean): Promise<void> => {
+        toast.error("Deprecated function called: Use updateProduct/ProductService.");
+    }, []);
+
+    const deleteSample = useCallback(async (sampleId: number): Promise<void> => {
+        toast.error("Deprecated function called: Use deleteProduct.");
+    }, []);
+    // ------------------------------------
 
   const addInstaller = useCallback(async (installer: Omit<Installer, 'id' | 'jobs'>): Promise<Installer> => {
     try {
       const newDbInstaller = await installerService.addInstaller(installer);
-      setData(prevData => ({ ...prevData, installers: [...prevData.installers, newDbInstaller] }));
+      setInstallers(prevData => ([...prevData, newDbInstaller]));
       toast.success('Installer created successfully!');
       return newDbInstaller;
     } catch (error) { 
@@ -301,7 +409,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateInstaller = useCallback(async (installer: Installer): Promise<void> => {
     try {
       const updatedDbInstaller = await installerService.updateInstaller(installer);
-      setData(prevData => ({ ...prevData, installers: prevData.installers.map(i => i.id === updatedDbInstaller.id ? updatedDbInstaller : i) }));
+      setInstallers(prevData => (prevData.map(i => i.id === updatedDbInstaller.id ? updatedDbInstaller : i)));
       toast.success('Installer updated successfully!');
     } catch (error) { 
       console.error("Error updating installer:", error); 
@@ -313,83 +421,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const deleteInstaller = useCallback(async (installerId: number): Promise<void> => {
     try {
       await installerService.deleteInstaller(installerId);
-      setData(prevData => ({
-        ...prevData,
-        installers: prevData.installers.filter(installer => installer.id !== installerId),
-      }));
+      setInstallers(prevData => (
+        prevData.filter(installer => installer.id !== installerId)
+      ));
     } catch (error) {
       console.error("Error deleting installer:", error);
       throw error;
     }
   }, []);
 
-  const addSample = useCallback(async (sample: any): Promise<Sample> => {
-    try {
-      const newDbSample = await sampleService.addSample(sample);
-      setData(prevData => ({
-        ...prevData,
-        samples: [...prevData.samples, newDbSample]
-      }));
-      return newDbSample;
-    } catch (error) { 
-      console.error("Error adding sample:", error); 
-      toast.error((error as Error).message || 'Failed to add sample.'); 
-      throw error; 
-    }
-  }, []);
-  
-  const updateSample = useCallback(async (sampleId: number, sampleData: any): Promise<void> => {
-    try {
-      const updatedDbSample = await sampleService.updateSample(sampleId, sampleData);
-      setData(prevData => ({
-        ...prevData,
-        samples: prevData.samples.map(s => 
-          s.id === updatedDbSample.id ? updatedDbSample : s
-        )
-      }));
-      toast.success('Sample details updated!');
-    } catch (error) { 
-      console.error("Error updating sample:", error); 
-      toast.error((error as Error).message); 
-      throw error; 
-    }
-  }, []);
-
-  const toggleSampleDiscontinued = useCallback(async (sampleId: number, isDiscontinued: boolean): Promise<void> => {
-    try {
-      const updatedSample = await sampleService.toggleSampleDiscontinued(sampleId, isDiscontinued);
-      setData(prevData => ({
-        ...prevData,
-        samples: prevData.samples.map(s => 
-          s.id === updatedSample.id ? updatedSample : s
-        )
-      }));
-      // Optimistically update sample checkouts if needed, though usually not required for just a status flag
-      toast.success(isDiscontinued ? 'Sample marked as discontinued' : 'Sample restored to active library');
-    } catch (error) {
-      console.error("Error toggling discontinued status:", error);
-      toast.error((error as Error).message);
-      throw error;
-    }
-  }, []);
-
-  const deleteSample = useCallback(async (sampleId: number): Promise<void> => {
-    try {
-      await sampleService.deleteSample(sampleId);
-      setData(prevData => ({
-        ...prevData,
-        samples: prevData.samples.filter(sample => sample.id !== sampleId),
-      }));
-    } catch (error) {
-      console.error("Error deleting sample:", error);
-      throw error;
-    }
-  }, []);
 
   const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>): Promise<Customer> => {
     try {
       const newDbCustomer = await customerService.addCustomer(customer);
-      setData(prevData => ({ ...prevData, customers: [...prevData.customers, newDbCustomer] }));
+      setCustomers(prevData => ([...prevData, newDbCustomer]));
       toast.success('Customer created successfully!');
       return newDbCustomer;
     } catch (error) {
@@ -402,12 +447,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateCustomer = useCallback(async (customer: Customer): Promise<void> => {
     try {
       const updatedDbCustomer = await customerService.updateCustomer(customer);
-      setData(prevData => ({
-        ...prevData,
-        customers: prevData.customers.map(c => 
+      setCustomers(prevData => (
+        prevData.map(c => 
           c.id === updatedDbCustomer.id ? updatedDbCustomer : c
         )
-      }));
+      ));
       toast.success('Customer updated successfully!');
     } catch (error) {
       console.error("Error updating customer:", error);
@@ -419,10 +463,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const deleteCustomer = useCallback(async (customerId: number): Promise<void> => {
     try {
       await customerService.deleteCustomer(customerId);
-      setData(prevData => ({
-        ...prevData,
-        customers: prevData.customers.filter(customer => customer.id !== customerId),
-      }));
+      setCustomers(prevData => (
+        prevData.filter(customer => customer.id !== customerId)
+      ));
     } catch (error) {
       console.error("Error deleting customer:", error);
       throw error;
@@ -445,10 +488,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateProject = useCallback(async (projectToUpdate: Partial<Project> & { id: number }) => {
     try {
       const updatedDbProject = await projectService.updateProject(projectToUpdate);
-      setData(prevData => ({ 
-        ...prevData, 
-        projects: prevData.projects.map(p => p.id === updatedDbProject.id ? { ...p, ...updatedDbProject } : p) 
-      }));
+      setProjects(prevData => (
+        prevData.map(p => p.id === updatedDbProject.id ? { ...p, ...updatedDbProject } : p)
+      ));
       if (projectToUpdate.status) {
         toast.success(`Project status updated to: ${projectToUpdate.status.replace(/_/g, ' ')}`);
       } else {
@@ -464,15 +506,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const deleteProject = useCallback(async (projectId: number): Promise<void> => {
     try {
       await projectService.deleteProject(projectId);
-      setData(prevData => ({
-        ...prevData,
-        projects: prevData.projects.filter(p => p.id !== projectId),
-        quotes: prevData.quotes.filter(q => q.projectId !== projectId),
-        jobs: prevData.jobs.filter(j => j.projectId !== projectId),
-        changeOrders: prevData.changeOrders.filter(co => co.projectId !== projectId),
-        materialOrders: prevData.materialOrders.filter(mo => mo.projectId !== projectId),
-        sampleCheckouts: prevData.sampleCheckouts.filter(sc => sc.projectId !== projectId),
-      }));
+      setProjects(prevData => (
+        prevData.filter(p => p.id !== projectId)
+      ));
+      setQuotes(prevData => (prevData.filter(q => q.projectId !== projectId)));
+      setJobs(prevData => (prevData.filter(j => j.projectId !== projectId)));
+      setChangeOrders(prevData => (prevData.filter(co => co.projectId !== projectId)));
+      setMaterialOrders(prevData => (prevData.filter(mo => mo.projectId !== projectId)));
+      setSampleCheckouts(prevData => (prevData.filter(sc => sc.projectId !== projectId)));
     } catch (error) {
       console.error(`Error deleting project ${projectId}:`, error);
       throw error;
@@ -482,13 +523,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addSampleCheckout = useCallback(async (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>): Promise<void> => {
     try {
       const newDbCheckout = await sampleCheckoutService.addSampleCheckout(checkout);
-      setData(prevData => ({ 
-        ...prevData, 
-        sampleCheckouts: [...prevData.sampleCheckouts, newDbCheckout], 
-        samples: prevData.samples.map(s => s.id === newDbCheckout.sampleId ? { ...s, isAvailable: false } : s) 
-      }));
+      setSampleCheckouts(prevData => ([...prevData, newDbCheckout]));
+      // Note: We no longer update the `isAvailable` flag on the Sample entity itself, 
+      // as Inventory 2.0 uses dedicated checkout logic or inventory counts.
+      
       toast.success('Sample checked out!');
       await updateProject({ id: checkout.projectId, status: ProjectStatus.SAMPLE_CHECKOUT });
+
+      // --- FIX: Optimistically update the "Active Checkouts" count on the variant ---
+      if (checkout.variantId) {
+          setProducts(prev => prev.map(p => {
+              // Find if this product contains the variant
+              if (p.variants.some(v => String(v.id) === String(checkout.variantId))) {
+                  return { ...p, variants: p.variants.map(v => String(v.id) === String(checkout.variantId) 
+                      ? { ...v, activeCheckouts: (v.activeCheckouts || 0) + 1 } : v) };
+              }
+              return p;
+          }));
+      }
+
     } catch (error) { 
       console.error("Error adding sample checkout:", error); 
       toast.error((error as Error).message); 
@@ -499,23 +552,35 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateSampleCheckout = useCallback(async (checkout: SampleCheckout): Promise<void> => {
     try {
       const updatedDbCheckout = await sampleCheckoutService.returnSampleCheckout(checkout);
-      const project = data.projects.find(p => p.id === updatedDbCheckout.projectId);
-      setData(prevData => ({ 
-        ...prevData, 
-        sampleCheckouts: prevData.sampleCheckouts.map(sc => sc.id === updatedDbCheckout.id ? updatedDbCheckout : sc), 
-        samples: prevData.samples.map(s => s.id === updatedDbCheckout.sampleId ? { ...s, isAvailable: true } : s) 
-      }));
+      const project = projects.find(p => p.id === updatedDbCheckout.projectId);
+      setSampleCheckouts(prevData => (
+        prevData.map(sc => sc.id === updatedDbCheckout.id ? updatedDbCheckout : sc)
+      ));
+      // No longer updating isAvailable on Sample entity.
+      
       toast.success('Sample returned!');
       if (project && project.status === ProjectStatus.SAMPLE_CHECKOUT) {
         await updateProject({ id: project.id, status: ProjectStatus.AWAITING_DECISION });
       }
+
+      // --- FIX: Optimistically decrement the "Active Checkouts" count ---
+      if (updatedDbCheckout.variantId) {
+          setProducts(prev => prev.map(p => {
+              if (p.variants.some(v => String(v.id) === String(updatedDbCheckout.variantId))) {
+                  return { ...p, variants: p.variants.map(v => String(v.id) === String(updatedDbCheckout.variantId) 
+                      ? { ...v, activeCheckouts: Math.max(0, (v.activeCheckouts || 0) - 1) } : v) };
+              }
+              return p;
+          }));
+      }
+
     } catch (error) 
       { 
       console.error("Error updating sample checkout:", error); 
       toast.error((error as Error).message); 
       throw error; 
     }
-  }, [data.projects, updateProject]);
+  }, [projects, updateProject]);
 
   const extendSampleCheckout = useCallback(async (checkout: SampleCheckout): Promise<void> => {
     try {
@@ -527,12 +592,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             expectedReturnDate: newReturnDate
         });
 
-        setData(prevData => ({
-            ...prevData,
-            sampleCheckouts: prevData.sampleCheckouts.map(sc =>
+        setSampleCheckouts(prevData => (
+            prevData.map(sc =>
                 sc.id === updatedCheckout.id ? updatedCheckout : sc
-            ),
-        }));
+            )
+        ));
         toast.success('Checkout extended by 2 days!');
     } catch (error) {
         console.error("Error extending sample checkout:", error);
@@ -544,7 +608,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addQuote = useCallback(async (quote: Omit<Quote, 'id'|'dateSent'>): Promise<void> => {
     try {
       const newDbQuote = await quoteService.addQuote(quote);
-      setData(prevData => ({ ...prevData, quotes: [...prevData.quotes, newDbQuote] }));
+      setQuotes(prevData => ([...prevData, newDbQuote]));
       toast.success('Quote added successfully!');
       if (quote.projectId) {
         await updateProject({ id: quote.projectId, status: ProjectStatus.QUOTING });
@@ -559,7 +623,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateQuote = useCallback(async (quote: Partial<Quote> & { id: number }): Promise<void> => {
     try {
       const updatedDbQuote = await quoteService.updateQuote(quote);
-      setData(prevData => ({ ...prevData, quotes: prevData.quotes.map(q => q.id === updatedDbQuote.id ? { ...q, ...updatedDbQuote } : q) }));
+      setQuotes(prevData => (prevData.map(q => q.id === updatedDbQuote.id ? { ...q, ...updatedDbQuote } : q)));
       toast.success('Quote updated!');
     } catch (error) 
       { console.error("Error updating quote:", error); 
@@ -572,11 +636,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const { updatedQuote, updatedProject } = await quoteService.acceptQuote(quote);
 
-      setData(prevData => ({
-        ...prevData,
-        quotes: prevData.quotes.map(q => q.id === updatedQuote.id ? { ...q, ...updatedQuote } : q),
-        projects: prevData.projects.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p)
-      }));
+      setQuotes(prevData => (
+        prevData.map(q => q.id === updatedQuote.id ? { ...q, ...updatedQuote } : q)
+      ));
+      setProjects(prevData => (
+        prevData.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p)
+      ));
       
       toast.success('Quote accepted and project status updated!');
 
@@ -591,20 +656,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const savedDbJob = await jobService.saveJobDetails(jobDetails);
       let updatedProject = null;
-      setData(prevData => {
-        const project = prevData.projects.find(p => p.id === savedDbJob.projectId);
+      
+      // Update local state
+      setJobs(prevData => {
+        const project = projects.find(p => p.id === savedDbJob.projectId);
         if (project && project.status !== ProjectStatus.SCHEDULED) {
             updatedProject = { ...project, status: ProjectStatus.SCHEDULED };
         }
-        const jobExists = prevData.jobs.some(j => j.id === savedDbJob.id);
+        const jobExists = prevData.some(j => j.id === savedDbJob.id);
         const newJobs = jobExists
-          ? prevData.jobs.map(j => (j.id === savedDbJob.id ? savedDbJob : j))
-          : [...prevData.jobs, savedDbJob];
-        const newProjects = updatedProject
-            ? prevData.projects.map(p => p.id === updatedProject!.id ? updatedProject! : p)
-            : prevData.projects;
-        return { ...prevData, jobs: newJobs, projects: newProjects };
+          ? prevData.map(j => (j.id === savedDbJob.id ? savedDbJob : j))
+          : [...prevData, savedDbJob];
+        
+        // Update projects state locally
+        setProjects(p => updatedProject ? p.map(pr => pr.id === updatedProject!.id ? updatedProject! : pr) : p);
+        
+        return newJobs;
       });
+
+      // Update project status on server if needed
       if (updatedProject) {
           await projectService.updateProject({ id: updatedProject.id, status: updatedProject.status });
       }
@@ -614,12 +684,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast.error((error as Error).message);
       throw error;
     }
-  }, []);
+  }, [projects]);
 
   const addChangeOrder = useCallback(async (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>): Promise<void> => {
     try {
       const newChangeOrder = await changeOrderService.addChangeOrder(changeOrder);
-      setData(prevData => ({ ...prevData, changeOrders: [...prevData.changeOrders, newChangeOrder] }));
+      setChangeOrders(prevData => ([...prevData, newChangeOrder]));
       toast.success('Change order added!');
     } catch (error) {
       console.error("Error adding change order:", error);
@@ -631,12 +701,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateChangeOrder = useCallback(async (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt' | 'quoteId'>>): Promise<void> => {
     try {
       const updatedChangeOrder = await changeOrderService.updateChangeOrder(changeOrderId, changeOrderData);
-      setData(prevData => ({
-        ...prevData,
-        changeOrders: prevData.changeOrders.map(co =>
+      setChangeOrders(prevData => (
+        prevData.map(co =>
           co.id === updatedChangeOrder.id ? updatedChangeOrder : co
-        ),
-      }));
+        )
+      ));
       toast.success('Change order updated!');
     } catch (error) {
       console.error("Error updating change order:", error);
@@ -648,10 +717,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const deleteChangeOrder = useCallback(async (changeOrderId: number): Promise<void> => {
     try {
         await changeOrderService.deleteChangeOrder(changeOrderId);
-        setData(prevData => ({
-            ...prevData,
-            changeOrders: prevData.changeOrders.filter(co => co.id !== changeOrderId),
-        }));
+        setChangeOrders(prevData => (
+            prevData.filter(co => co.id !== changeOrderId)
+        ));
     } catch (error) {
         console.error("Error deleting change order:", error);
         throw error;
@@ -661,10 +729,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addMaterialOrder = useCallback(async (orderData: any): Promise<void> => {
     try {
         const newOrder = await materialOrderService.addMaterialOrder(orderData);
-        setData(prevData => ({
-            ...prevData,
-            materialOrders: [...prevData.materialOrders, newOrder],
-        }));
+        setMaterialOrders(prevData => ([...prevData, newOrder]));
         toast.success('Material order created!');
     } catch (error) {
         console.error("Error adding material order:", error);
@@ -676,10 +741,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateMaterialOrder = useCallback(async (orderId: number, orderData: any): Promise<void> => {
     try {
       const updatedOrder = await materialOrderService.updateMaterialOrder(orderId, orderData);
-      setData(prevData => ({
-        ...prevData,
-        materialOrders: prevData.materialOrders.map(order => order.id === updatedOrder.id ? updatedOrder : order),
-      }));
+      setMaterialOrders(prevData => (
+        prevData.map(order => order.id === updatedOrder.id ? updatedOrder : order)
+      ));
       toast.success('Material order updated!');
     } catch (error) {
       console.error("Error updating material order:", error);
@@ -691,10 +755,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const deleteMaterialOrder = useCallback(async (orderId: number): Promise<void> => {
     try {
       await materialOrderService.deleteMaterialOrder(orderId);
-      setData(prevData => ({
-        ...prevData,
-        materialOrders: prevData.materialOrders.filter(order => order.id !== orderId),
-      }));
+      setMaterialOrders(prevData => (
+        prevData.filter(order => order.id !== orderId)
+      ));
       toast.success('Material order deleted!');
     } catch (error) {
       console.error("Error deleting material order:", error);
@@ -706,10 +769,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const receiveMaterialOrder = useCallback(async (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean }): Promise<void> => {
     try {
       const updatedOrder = await materialOrderService.receiveMaterialOrder(orderId, data);
-      setData(prevData => ({
-        ...prevData,
-        materialOrders: prevData.materialOrders.map(order => order.id === updatedOrder.id ? updatedOrder : order),
-      }));
+      setMaterialOrders(prevData => (
+        prevData.map(order => order.id === updatedOrder.id ? updatedOrder : order)
+      ));
       toast.success('Order received!');
     } catch (error) {
       console.error("Error receiving material order:", error);
@@ -721,13 +783,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const reportMaterialOrderDamage = useCallback(async (orderId: number, data: { items: any[]; replacementEta: string; notes: string; sendEmailNotification: boolean }): Promise<void> => {
     try {
       const { originalOrder, replacementOrder } = await materialOrderService.reportMaterialOrderDamage(orderId, data);
-      setData(prevData => ({
-        ...prevData,
-        materialOrders: [
-          ...prevData.materialOrders.map(order => order.id === originalOrder.id ? originalOrder : order),
+      setMaterialOrders(prevData => ([
+          ...prevData.map(order => order.id === originalOrder.id ? originalOrder : order),
           replacementOrder
-        ],
-      }));
+      ]));
       toast.success('Damage reported & replacement ordered!');
     } catch (error) {
       console.error("Error reporting damage:", error);
@@ -736,7 +795,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const updateJob = useCallback((updatedJob: Job) => { setData(prevData => ({ ...prevData, jobs: prevData.jobs.map(j => j.id === updatedJob.id ? updatedJob : j) })); }, []);
+  const updateJob = useCallback((updatedJob: Job) => { setJobs(prevData => (prevData.map(j => j.id === updatedJob.id ? updatedJob : j))); }, []);
 
   const updateCurrentUserProfile = useCallback(async (firstName: string, lastName: string) => {
     try {
@@ -773,13 +832,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+
   const providerValue: DataContextType = {
-    ...data,
+    customers,
+    projects,
+    samples: [], // Deprecated, replaced by products
+    sampleCheckouts,
+    installers,
+    quotes,
+    jobs,
+    changeOrders,
+    materialOrders,
+    vendors,
+    users,
+    
+    // NEW INVENTORY V2
+    products, 
+
     isLoading,
     currentUser,
     systemBranding,
     refreshBranding,
-    users,
 
     isLayoutEditMode,
     toggleLayoutEditMode,
@@ -801,17 +874,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     vendorHistory,            
     fetchVendorHistory,       
     sampleHistory,            
-    fetchSampleHistory,
+    fetchSampleHistory: (id) => fetchActivityHistory('PRODUCT', setSampleHistory)(id),
     materialOrderHistory,
     fetchMaterialOrderHistory,
+
+    fetchSamples, // Alias to fetchProducts
+    addSample, // Deprecated stub
+    updateSample, // Deprecated stub
+    deleteSample, // Deprecated stub
+    toggleSampleDiscontinued, // Deprecated stub
+    
+    // NEW PRODUCT CRUD
+    fetchProducts,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    addVariant,
+    updateVariant,
+    deleteVariant,
+
     addInstaller, 
     updateInstaller,
     deleteInstaller,
-    addSample,
-    updateSample,
-    deleteSample,
-    toggleSampleDiscontinued, // ADDED
-    fetchSamples,
     addCustomer, 
     updateCustomer,
     deleteCustomer,

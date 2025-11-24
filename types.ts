@@ -47,6 +47,15 @@ export const PRODUCT_TYPES = [
 
 export type ProductType = typeof PRODUCT_TYPES[number];
 
+export const SAMPLE_TYPES = [
+  'Board',
+  'Hand Sample', 
+  'Strap Set',
+  'Folder'
+] as const;
+
+export type SampleType = typeof SAMPLE_TYPES[number];
+
 export const SAMPLE_FORMATS = [
   'Loose',
   'Board'
@@ -117,7 +126,49 @@ export interface SampleSizeVariant {
   uom?: Unit | null;
 }
 
+// --- NEW: Product Line Architecture (Inventory 2.0) ---
+
+export interface ProductVariant {
+  id: string; // UUID
+  productId: string;
+  name: string; // e.g. "Gunstock" or "Matte White"
+  
+  // Attributes
+  size?: string | null;
+  color?: string | null;
+  finish?: string | null;
+  style?: string | null;
+
+  // Financials & Logistics
+  sku?: string | null;
+  unitCost?: number | null;
+  retailPrice?: number | null;
+  uom?: Unit | null;
+  cartonSize?: number | null;
+  imageUrl?: string | null;
+  activeCheckouts?: number; // New field from SQL aggregation
+  isMaster?: boolean; // New field for "Line Board" logic
+  hasSample?: boolean; // New field for Physical Inventory tracking
+}
+
+export interface Product {
+  id: string; // UUID
+  manufacturerId: number | null;
+  supplierId: number | null; // Preferred supplier
+  name: string; // e.g. "Forever Oak Collection"
+  productType: ProductType;
+  description?: string | null;
+  productLineUrl?: string | null;
+  defaultImageUrl?: string | null;
+  isDiscontinued: boolean;
+  
+  // Joined Fields
+  manufacturerName?: string | null;
+  variants: ProductVariant[];
+}
+
 // --- MODIFIED: Sample interface completely overhauled ---
+// @deprecated - Will be replaced by Product & ProductVariant
 export interface Sample {
   id: number;
   manufacturerId: number | null;
@@ -169,7 +220,11 @@ export interface Project {
 export interface SampleCheckout {
   id: number;
   projectId: number;
-  sampleId: number;
+  sampleId: number; // This will eventually point to a ProductVariant
+  // New fields for Inventory 2.0
+  variantId?: string | null; 
+  sampleType?: SampleType;
+  quantity?: number;
   checkoutDate: string;
   expectedReturnDate: string;
   actualReturnDate: string | null;
@@ -225,6 +280,16 @@ export interface Job {
   isOnHold: boolean;
   notes?: string | null;
   appointments: JobAppointment[];
+}
+
+export interface JobNote {
+  id: number;
+  jobId: number;
+  userId: string;
+  content: string;
+  authorName: string;
+  authorAvatar?: string | null;
+  createdAt: string;
 }
 
 export interface ChangeOrder {
@@ -411,9 +476,12 @@ export interface DataContextType extends AppData {
   addInstaller: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>;
   updateInstaller: (installer: Installer) => Promise<void>;
   deleteInstaller: (installerId: number) => Promise<void>;
+  
+  // Legacy Sample Functions (Will be replaced)
   addSample: (sampleData: any) => Promise<Sample>;
   updateSample: (sampleId: number, sampleData: any) => Promise<void>;
   deleteSample: (sampleId: number) => Promise<void>;
+  
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>) => Promise<Customer>;
   updateCustomer: (customer: Customer) => Promise<void>;
   deleteCustomer: (customerId: number) => Promise<void>;
@@ -439,4 +507,15 @@ export interface DataContextType extends AppData {
   addVendor: (vendor: Omit<Vendor, 'id'>) => Promise<void>;
   updateVendor: (vendor: Vendor) => Promise<void>;
   deleteVendor: (vendorId: number) => Promise<void>;
+
+  // NEW INVENTORY CRUD
+  fetchProducts: () => Promise<void>;
+  addProduct: (formData: FormData) => Promise<Product>;
+  updateProduct: (id: string, formData: FormData) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  addVariant: (productId: string, formData: FormData) => Promise<ProductVariant>;
+  updateVariant: (variantId: string, formData: FormData) => Promise<ProductVariant>;
+  deleteVariant: (variantId: string, productId: string) => Promise<void>;
+
+  toggleSampleDiscontinued: (sampleId: number, isDiscontinued: boolean) => Promise<void>;
 }

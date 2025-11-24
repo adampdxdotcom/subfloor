@@ -221,7 +221,8 @@ const ProjectDetail: React.FC = () => {
                 )}
 
                 <div key="sample-checkouts" className="h-full overflow-hidden">
-                    <SampleCheckoutsSection project={project} isModalOpen={activeModal === 'sample'} onCloseModal={() => setActiveModal(null)} />
+                    {/* MODIFIED: Removed isModalOpen/onCloseModal props as the component now manages its own state */}
+                    <SampleCheckoutsSection project={project} />
                 </div>
                 
                 {isQuoteAccepted && (

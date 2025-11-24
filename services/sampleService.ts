@@ -1,6 +1,12 @@
 import { Sample } from "../types";
 
-const API_BASE_URL = '/api/samples';
+const API_BASE_URL = '/api/products';
+
+export interface SizeStat {
+    value: string;
+    usageCount: number;
+    isStandard: boolean;
+}
 
 export const getSamples = async (): Promise<Sample[]> => {
     const response = await fetch(API_BASE_URL);
@@ -14,6 +20,15 @@ export const getUniqueSizes = async (): Promise<string[]> => {
     const response = await fetch(`${API_BASE_URL}/sizes`);
     if (!response.ok) {
         throw new Error('Failed to fetch unique sizes.');
+    }
+    return response.json();
+};
+
+export const getUniqueSizeStats = async (): Promise<SizeStat[]> => {
+    const response = await fetch(`${API_BASE_URL}/sizes/stats`);
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Error ${response.status}: ${text || response.statusText}`);
     }
     return response.json();
 };
@@ -44,6 +59,19 @@ export const deleteSizeValue = async (value: string): Promise<any> => {
         throw new Error(errorData.error || 'Failed to delete size value.');
     }
     return response.json();
+};
+
+// --- NEW: Function to create a standalone size ---
+export const createSize = async (value: string): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/sizes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value })
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create size.');
+    }
 };
 
 export const addSample = async (sampleData: any): Promise<Sample> => {

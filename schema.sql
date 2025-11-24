@@ -1,5 +1,8 @@
 -- SQL Schema for Joblogger
 
+-- Enable UUIDs for Inventory 2.0
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE customers (
     id SERIAL PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
@@ -29,27 +32,34 @@ CREATE TABLE vendors (
     notes TEXT
 );
 
-CREATE TABLE samples (
-    id SERIAL PRIMARY KEY,
+-- NEW INVENTORY V2 TABLES
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     manufacturer_id INT REFERENCES vendors(id),
     supplier_id INT REFERENCES vendors(id),
+    name TEXT NOT NULL,
     product_type TEXT NOT NULL,
-    style TEXT NOT NULL,
-    line TEXT,
-    -- 'size' column is now removed, replaced by the sample_sizes table
+    description TEXT,
+    product_line_url TEXT,
+    default_image_url TEXT,
+    is_discontinued BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE product_variants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    name TEXT, -- e.g. Color Name
+    size TEXT,
     finish TEXT,
-    color TEXT,
-    sample_format TEXT, -- For 'Board' or 'Loose'
-    board_colors TEXT,  -- For extra colors on a board
-    sku VARCHAR(100),
-    is_available BOOLEAN DEFAULT TRUE NOT NULL,
-    is_discontinued BOOLEAN DEFAULT FALSE NOT NULL,
-    product_url TEXT,
-    -- New Pricing Fields
-    unit_cost NUMERIC(10, 2), -- Renamed from unit_price
+    style TEXT,
+    sku TEXT,
+    unit_cost NUMERIC(10, 2),
+    retail_price NUMERIC(10, 2),
     uom VARCHAR(20),
     carton_size NUMERIC(10, 4),
-    CONSTRAINT chk_sample_format CHECK (sample_format IN ('Board', 'Loose') OR sample_format IS NULL)
+    image_url TEXT,
+    is_master BOOLEAN DEFAULT FALSE,
+    has_sample BOOLEAN DEFAULT TRUE -- Tracks if we physically carry this specific variant sample
 );
 
 CREATE TABLE installers (
@@ -73,7 +83,9 @@ CREATE TABLE projects (
 CREATE TABLE sample_checkouts (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
-    sample_id INT REFERENCES samples(id) ON DELETE RESTRICT,
+    variant_id UUID REFERENCES product_variants(id) ON DELETE RESTRICT,
+    sample_type TEXT, -- 'Board', 'Hand Sample', etc.
+    quantity INT DEFAULT 1,
     checkout_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     expected_return_date TIMESTAMPTZ,
     actual_return_date TIMESTAMPTZ
@@ -133,7 +145,7 @@ CREATE TABLE material_orders (
 CREATE TABLE order_line_items (
     id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL REFERENCES material_orders(id) ON DELETE CASCADE,
-    sample_id INTEGER NOT NULL REFERENCES samples(id),
+    variant_id UUID NOT NULL REFERENCES product_variants(id),
     quantity NUMERIC(10, 2) NOT NULL,
     unit TEXT,
     total_cost NUMERIC(10, 2),
@@ -146,18 +158,8 @@ CREATE TABLE photos (
     id SERIAL PRIMARY KEY,
     url VARCHAR(255) NOT NULL,
     entity_type VARCHAR(50) NOT NULL,
-    entity_id INT NOT NULL,
+    entity_id VARCHAR(255) NOT NULL, -- Changed to VARCHAR to support UUIDs
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE sample_sizes (
-    id SERIAL PRIMARY KEY,
-    sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
-    size_value TEXT NOT NULL,
-    unit_cost NUMERIC(10, 2),
-    carton_size NUMERIC(10, 4),
-    uom VARCHAR(20),
-    UNIQUE(sample_id, size_value)
 );
 
 CREATE TABLE activity_log (
@@ -205,6 +207,10 @@ CREATE TABLE user_preferences (
 
 CREATE INDEX idx_user_preferences_user_id ON user_preferences(user_id);
 CREATE INDEX idx_job_appointments_job_id ON job_appointments(job_id);
+
+CREATE TABLE standard_sizes (
+    size_value VARCHAR(255) PRIMARY KEY
+);
 
 INSERT INTO app_roles (name, description) VALUES
 ('Admin', 'Full access to all system features, including user management and settings.'),
@@ -265,4 +271,15 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     avatar_url TEXT,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =================================================================
+-- JOB NOTES V2 (Threaded Timeline)
+-- =================================================================
+CREATE TABLE IF NOT EXISTS job_notes (
+    id SERIAL PRIMARY KEY,
+    job_id INT REFERENCES jobs(id) ON DELETE CASCADE,
+    user_id VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );

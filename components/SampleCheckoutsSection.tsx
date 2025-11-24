@@ -1,37 +1,37 @@
 import React, { useState, useMemo } from 'react';
-import { Project, Sample, SampleCheckout } from '../types';
-import { Check, Clock, X, Search, PlusCircle, Layers, Move } from 'lucide-react'; // <-- IMPORT Move
+import { Project, Product, ProductVariant, SampleCheckout } from '../types';
+import { Check, Clock, X, Search, Layers, Move } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import AddSampleInlineModal from './AddSampleInlineModal';
 import { toast } from 'react-hot-toast';
 
 interface SampleCheckoutsSectionProps {
     project: Project;
-    isModalOpen: boolean;
-    onCloseModal: () => void;
+    // These are now optional/deprecated as state is local
+    isModalOpen?: boolean; 
+    onCloseModal?: () => void;
 }
 
-const formatSampleName = (sample: Sample) => {
-  const parts = [];
-  if (sample.style) parts.push(sample.style);
-  if (sample.color) parts.push(sample.color);
-  if (parts.length === 0) return `Sample #${sample.id}`;
-  return parts.join(' - ');
+// Helper to format display name
+const formatVariantName = (productName: string, variantName: string) => {
+  return `${productName} - ${variantName}`;
 };
 
-const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project, isModalOpen, onCloseModal }) => {
+const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project }) => {
     const { 
-        samples, 
+        products, 
         sampleCheckouts,
         addSampleCheckout,
         updateSampleCheckout,
         extendSampleCheckout,
     } = useData();
     
+    // Internal state for modal management
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    
     const [searchTerm, setSearchTerm] = useState(''); 
-    const [selectedSample, setSelectedSample] = useState<Sample | null>(null); 
+    // Store the selected item as a pair of Product + Variant
+    const [selectedSearchItem, setSelectedSearchItem] = useState<{product: Product, variant: ProductVariant} | null>(null); 
     const [returnDate, setReturnDate] = useState('');
-    const [isAddInlineModalOpen, setAddInlineModalOpen] = useState(false);
 
     const projectCheckouts = useMemo(() => {
         return sampleCheckouts
@@ -39,43 +39,65 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
             .sort((a, b) => new Date(b.checkoutDate).getTime() - new Date(a.checkoutDate).getTime());
     }, [sampleCheckouts, project.id]);
     
+    // --- NEW: Search Logic for Products/Variants ---
     const searchResults = useMemo(() => {
         if (searchTerm.length < 2) return [];
         const lowercasedTerm = searchTerm.toLowerCase();
-        return samples.filter(s => 
-            (s.style?.toLowerCase().includes(lowercasedTerm) || 
-             s.color?.toLowerCase().includes(lowercasedTerm) || 
-             s.manufacturerName?.toLowerCase().includes(lowercasedTerm))
-        );
-    }, [samples, searchTerm]); 
+        const results: {product: Product, variant: ProductVariant}[] = [];
+
+        products.forEach(p => {
+            // Match against Parent Name or Manufacturer
+            // FIX: Added safe checks (?.) and fallbacks (|| '') to prevent crashes
+            const parentMatch = (p.name || '').toLowerCase().includes(lowercasedTerm) || 
+                                (p.manufacturerName || '').toLowerCase().includes(lowercasedTerm);
+            
+            p.variants.forEach(v => {
+                // Match against Variant Name or SKU
+                // FIX: Added safe checks (?.) here too
+                const variantMatch = (v.name || '').toLowerCase().includes(lowercasedTerm) || 
+                                     (v.sku || '').toLowerCase().includes(lowercasedTerm);
+                
+                // If either matches, include this specific variant in results
+                if (parentMatch || variantMatch) {
+                    results.push({ product: p, variant: v });
+                }
+            });
+        });
+        return results;
+    }, [products, searchTerm]); 
     
     const resetModalState = () => { 
         setSearchTerm(''); 
-        setSelectedSample(null); 
+        setSelectedSearchItem(null); 
         setReturnDate(''); 
     }; 
     
-    const handleCloseMainModal = () => {
-        resetModalState();
-        onCloseModal();
+    const handleOpenModal = () => {
+        setIsModalOpen(true);
     };
 
-    const handleSelectSample = (sample: Sample) => {
-        if (!sample.isAvailable) {
-            toast.error(`"${formatSampleName(sample)}" is currently checked out.`);
-            return;
+    const handleCloseMainModal = () => {
+        resetModalState();
+        setIsModalOpen(false);
+    };
+
+    const handleSelectVariant = (product: Product, variant: ProductVariant) => {
+        // Warn if already checked out
+        if ((variant.activeCheckouts || 0) > 0) {
+             toast(`Note: "${variant.name}" is marked as checked out.`, { icon: '⚠️' });
         }
-        setSelectedSample(sample);
-        setSearchTerm(formatSampleName(sample));
+        setSelectedSearchItem({ product, variant });
+        setSearchTerm(formatVariantName(product.name, variant.name));
     }; 
     
     const handleCheckoutSubmit = async (e: React.FormEvent) => { 
         e.preventDefault(); 
-        if (!selectedSample || !returnDate) return; 
+        if (!selectedSearchItem || !returnDate) return; 
         try { 
             await addSampleCheckout({ 
                 projectId: project.id, 
-                sampleId: selectedSample.id, 
+                sampleId: 0, // Legacy field, backend handles or ignores
+                variantId: selectedSearchItem.variant.id, // NEW Field
                 expectedReturnDate: new Date(returnDate).toISOString(), 
             }); 
             handleCloseMainModal();
@@ -97,36 +119,43 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
         catch (error) { console.error("Extend failed:", error); toast.error("Failed to extend checkout."); }
     };
 
-    const handleSampleCreated = (newSample: Sample) => {
-        handleSelectSample(newSample);
-        setAddInlineModalOpen(false);
+    // Helper to look up display info for the list
+    const getCheckoutDisplay = (checkout: SampleCheckout) => {
+        for (const p of products) {
+            // FIX: Added safe check for variants array
+            if (!p.variants) continue;
+            const v = p.variants.find(v => String(v.id) === String(checkout.variantId));
+            if (v) return formatVariantName(p.name, v.name);
+        }
+        return 'Unknown Sample';
     };
-    
+
     return (
         <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
-            <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
+             {/* Header */}
+             <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <Move className="drag-handle cursor-move text-text-secondary hover:text-text-primary transition-colors" size={20} />
                     <Layers className="w-6 h-6 text-accent" />
                     <h3 className="text-xl font-semibold text-text-primary">Sample Checkouts</h3>
                 </div>
                 <button 
-                  onClick={() => onCloseModal()} // This button in ProjectDetail will set the modal state
+                  onClick={handleOpenModal} 
                   className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-1 px-3 text-sm rounded-lg"
                 >
                     Check Out
                 </button>
             </div>
 
+            {/* List of Checkouts */}
             <div className="p-4 overflow-y-auto flex-grow">
                 <div className="space-y-3"> 
                     {projectCheckouts.map(checkout => { 
-                        const sample = samples.find(s => s.id === checkout.sampleId); 
-                        if (!sample) return null;
+                        const displayName = getCheckoutDisplay(checkout);
                         return ( 
                             <div key={checkout.id} className="bg-background p-3 rounded-md flex justify-between items-center"> 
                                 <div>
-                                    <p className="font-semibold text-text-primary">{formatSampleName(sample)}</p>
+                                    <p className="font-semibold text-text-primary">{displayName}</p>
                                     <p className="text-xs text-text-secondary">Expected Return: {new Date(checkout.expectedReturnDate).toLocaleDateString()}</p>
                                 </div> 
                                 {checkout.actualReturnDate ? ( 
@@ -143,57 +172,61 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                     {projectCheckouts.length === 0 && <p className="text-text-secondary text-center py-4">No samples checked out for this project.</p>} 
                 </div>
             </div>
-            
-            {isModalOpen && ( 
+
+            {/* Add Checkout Modal */}
+            {isModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"> 
                     <div className="bg-surface p-8 rounded-lg w-full max-w-md border border-border"> 
-                        <div className="flex justify-between items-center mb-6">
+                        {/* Modal Header */}
+                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold text-text-primary">Check Out Sample</h3> 
                             <button onClick={handleCloseMainModal} className="text-text-secondary hover:text-text-primary"><X size={24} /></button>
                         </div>
                         <form onSubmit={handleCheckoutSubmit} className="space-y-4"> 
+                            {/* Search Input */}
                             <div> 
                                 <label className="text-sm font-medium text-text-secondary block mb-2">1. Find Sample</label> 
                                 <div className="relative"> 
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={20} />
-                                    <input type="text" placeholder="Search by style, color, manufacturer..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedSample(null); }} className="w-full p-2 pl-10 bg-background border border-border rounded text-text-primary" /> 
-                                    {searchTerm.length > 1 && !selectedSample && ( 
-                                        <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-60 overflow-y-auto"> 
-                                            {searchResults.map(sample => (
-                                                <div key={sample.id} onClick={() => handleSelectSample(sample)} className={`p-2 ${sample.isAvailable ? 'hover:bg-background cursor-pointer text-text-primary' : 'opacity-50 cursor-not-allowed text-text-secondary'}`}>
-                                                    <p className="font-semibold">{formatSampleName(sample)}</p>
-                                                    <p className="text-xs text-text-secondary">{sample.manufacturerName}</p>
-                                                    {!sample.isAvailable && sample.checkoutProjectName && (<p className="text-xs text-yellow-400 mt-1">Out to: {sample.checkoutProjectName}</p>)}
+                                    <input type="text" placeholder="Search by style, color, manufacturer..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedSearchItem(null); }} className="w-full p-2 pl-10 bg-background border border-border rounded text-text-primary" /> 
+                                    
+                                    {/* Search Results Dropdown */}
+                                    {searchTerm.length > 1 && !selectedSearchItem && ( 
+                                        <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-60 overflow-y-auto shadow-xl"> 
+                                            {searchResults.map(item => (
+                                                <div key={item.variant.id} onClick={() => handleSelectVariant(item.product, item.variant)} className={`p-2 hover:bg-background cursor-pointer text-text-primary border-b border-border last:border-0`}>
+                                                    <p className="font-semibold">{item.product.name} - {item.variant.name}</p>
+                                                    <div className="flex justify-between text-xs mt-1">
+                                                        <span className="text-text-secondary">{item.product.manufacturerName}</span>
+                                                        {(item.variant.activeCheckouts || 0) > 0 && <span className="text-orange-400 font-bold">Currently Out</span>}
+                                                    </div>
                                                 </div> 
                                             ))} 
                                             {searchResults.length === 0 && ( 
-                                                <button type="button" onClick={() => setAddInlineModalOpen(true)} className="w-full flex items-center justify-center gap-2 p-3 bg-surface hover:bg-background text-accent font-semibold border-t border-border"><PlusCircle size={16} /> Add "{searchTerm}" as new</button>
+                                                <div className="p-4 text-center text-text-secondary text-sm">No matching samples found.</div>
                                             )} 
                                         </div> 
                                     )} 
                                 </div> 
                             </div>  
-                            <div> 
+                            
+                            {/* Date Input */}
+                             <div> 
                                 <label className="text-sm font-medium text-text-secondary block mb-2">2. Select Return Date</label> 
                                 <input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full p-2 bg-background border-border rounded text-text-primary" required/> 
                             </div> 
+                            
+                            {/* Actions */}
                             <div className="flex justify-end space-x-2 pt-4 border-t border-border"> 
                                 <button type="button" onClick={handleCloseMainModal} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button> 
-                                <button type="submit" disabled={!selectedSample || !returnDate} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled:cursor-not-allowed">Check Out Sample</button> 
+                                <button type="submit" disabled={!selectedSearchItem || !returnDate} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled:cursor-not-allowed">Check Out Sample</button> 
                             </div> 
                         </form> 
                     </div> 
-                </div> 
-            )} 
-
-            <AddSampleInlineModal
-                isOpen={isAddInlineModalOpen}
-                onClose={() => setAddInlineModalOpen(false)}
-                onSampleCreated={handleSampleCreated}
-                initialSearchTerm={searchTerm}
-            />
+                </div>
+            )}
         </div>
-    ); 
+    );
 };
 
 export default SampleCheckoutsSection;
