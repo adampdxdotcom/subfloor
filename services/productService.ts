@@ -102,6 +102,22 @@ export const addVariant = async (productId: string, formData: FormData): Promise
     return response.json();
 };
 
+// --- NEW: Batch Create Variants ---
+export const createVariantsBatch = async (productId: string, variants: any[]): Promise<any[]> => {
+    const response = await fetch(`${API_URL}/${productId}/variants/batch`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ variants }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to batch create variants.');
+    }
+    return response.json();
+};
+
 /**
  * Patches a specific Product Variant.
  */

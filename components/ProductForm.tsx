@@ -44,6 +44,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [pendingVendorName, setPendingVendorName] = useState('');
     const [targetVendorField, setTargetVendorField] = useState<'manufacturer' | 'supplier' | null>(null);
+    
+    // NOTE: Removed [showGenerator, setShowGenerator] state
 
     // Effect to set initial URL if provided
     useEffect(() => {
@@ -121,6 +123,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
 
         await onSave(formData);
     };
+    
+    // NOTE: Removed handleGeneratorSuccess function
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -229,6 +233,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
                 <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full p-2 bg-surface border border-border rounded text-text-primary h-24" />
             </div>
 
+            {/* NOTE: Removed Variant Generator Button */}
+            
             <div className="flex justify-end gap-4 pt-4 border-t border-border">
                 <button type="button" onClick={onCancel} className="px-4 py-2 text-text-secondary hover:text-text-primary">Cancel</button>
                 <button type="submit" disabled={isSaving} className="px-6 py-2 bg-primary hover:bg-primary-hover text-on-primary rounded font-bold flex items-center gap-2">
@@ -244,6 +250,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
                     onSave={handleSaveNewVendor}
                 />
             )}
+
+            {/* NOTE: Removed BATCH GENERATOR MODAL */}
         </form>
     );
 };

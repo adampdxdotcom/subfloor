@@ -356,6 +356,56 @@ router.post('/:id/variants', verifySession(), verifyRole(['Admin', 'User']), upl
     }
 });
 
+// POST /api/products/:id/variants/batch - Batch Create Variants (Generator)
+router.post('/:id/variants/batch', verifySession(), verifyRole(['Admin', 'User']), async (req, res) => {
+    const { id: productId } = req.params;
+    const userId = req.session.getUserId();
+    const { variants } = req.body; // Expects an array of variant objects
+
+    if (!variants || !Array.isArray(variants) || variants.length === 0) {
+        return res.status(400).json({ error: 'A non-empty array of variants is required.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const createdVariants = [];
+        const query = `
+            INSERT INTO product_variants (
+                product_id, name, size, finish, style, sku, 
+                unit_cost, retail_price, uom, carton_size, image_url, has_sample
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING *;
+        `;
+
+        for (const v of variants) {
+            // Use smart defaults from the request or null
+            const result = await client.query(query, [
+                productId, v.name, v.size, v.finish, v.style, v.sku,
+                v.unitCost, v.retailPrice, v.uom, v.cartonSize, v.imageUrl || null, 
+                v.hasSample !== undefined ? v.hasSample : true 
+            ]);
+            createdVariants.push(toCamelCase(result.rows[0]));
+        }
+
+        await logActivity(userId, 'CREATE', 'PRODUCT', productId, { 
+            action: 'BATCH_VARIANT_CREATE',
+            count: createdVariants.length 
+        }, client); // Pass client to log within transaction
+
+        await client.query('COMMIT');
+        res.status(201).json(createdVariants);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error creating batch variants:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
 // PATCH /api/products/:id - Update Parent Product
 router.patch('/:id', verifySession(), verifyRole(['Admin', 'User']), upload.single('image'), async (req, res) => {
     const { id } = req.params;
