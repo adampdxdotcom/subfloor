@@ -46,9 +46,9 @@ export const returnSampleCheckout = async (checkout: SampleCheckout): Promise<Sa
 
 // --- NEW FUNCTION TO EXTEND CHECKOUTS ---
 /**
- * Partially updates a sample checkout record, e.g., to change the return date.
+ * Partially updates a sample checkout record, e.g., to change the return date or selection status.
  */
-export const patchSampleCheckout = async (checkoutId: number, data: Partial<Omit<SampleCheckout, 'id'>>): Promise<SampleCheckout> => {
+export const patchSampleCheckout = async (checkoutId: number, data: { expectedReturnDate?: string; isSelected?: boolean }): Promise<SampleCheckout> => {
     const response = await fetch(`${API_BASE_URL}/${checkoutId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

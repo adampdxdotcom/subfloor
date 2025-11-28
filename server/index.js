@@ -35,8 +35,12 @@ import roleRoutes from './routes/roles.js';
 import preferenceRoutes from './routes/preferences.js';
 import eventRoutes from './routes/events.js';
 import reportRoutes from './routes/reports.js';
+import reportGeneratorRoutes from './routes/reportGenerator.js'; // NEW: Business Reports
 import reminderRoutes from './routes/reminders.js';
-import jobNotesRoutes from './routes/jobNotes.js'; // Import new routes
+import importRoutes from './routes/import.js'; // NEW: Import Tool
+import notificationRoutes from './routes/notifications.js'; // NEW: Notifications
+import jobNotesRoutes from './routes/jobNotes.js'; 
+import messageRoutes from './routes/messages.js'; // NEW: Direct Messages
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -161,9 +165,13 @@ app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/preferences', preferenceRoutes);
 app.use('/api/events', eventRoutes);
-app.use('/api/reports', reportRoutes);
+app.use('/api/reports', reportRoutes); // Existing Dashboard Reports
+app.use('/api/report-generator', reportGeneratorRoutes); // NEW: Business Reports
+app.use('/api/import', importRoutes); // NEW: Import Tool
 app.use('/api/reminders', reminderRoutes);
+app.use('/api/notifications', notificationRoutes); // NEW: Notifications
 app.use('/api/jobs', jobNotesRoutes); // Mount under /api/jobs to match the :id/notes structure
+app.use('/api/messages', messageRoutes); // NEW: Direct Messages
 
 // --- SERVE FRONTEND (DYNAMIC) ---
 const publicPath = path.join(__dirname, 'public');

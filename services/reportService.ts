@@ -5,6 +5,24 @@ import { UserPreferences } from '../types';
 
 type DashboardEmailPrefs = UserPreferences['dashboardEmail'];
 
+export interface ProductReportFilters {
+    includeDiscontinued?: boolean;
+    manufacturerId?: number | string;
+    productType?: string;
+}
+
+export interface JobReportFilters {
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+}
+
+export interface InstallerReportFilters {
+    startDate?: string;
+    endDate?: string;
+    installerId?: number | string;
+}
+
 export const sendTestDashboardEmail = async (settings: DashboardEmailPrefs): Promise<any> => {
     try {
         const response = await axios.post('/api/reports/dashboard/send-test', { settings });
@@ -32,6 +50,38 @@ export const sendAllPastDueReminders = async (): Promise<{ message: string }> =>
         return response.data;
     } catch (error) {
         console.error("Error sending all past due reminders:", error);
+        throw error;
+    }
+};
+
+// --- NEW REPORT GENERATOR FUNCTIONS ---
+
+export const getProductReport = async (params: ProductReportFilters = {}): Promise<any[]> => {
+    try {
+        const response = await axios.get('/api/report-generator/products', { params });
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching product report:", error);
+        throw error;
+    }
+};
+
+export const getJobReport = async (params: JobReportFilters = {}): Promise<any[]> => {
+    try {
+        const response = await axios.get('/api/report-generator/jobs', { params });
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching job report:", error);
+        throw error;
+    }
+};
+
+export const getInstallerReport = async (params: InstallerReportFilters = {}): Promise<any[]> => {
+    try {
+        const response = await axios.get('/api/report-generator/installers', { params });
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching installer report:", error);
         throw error;
     }
 };

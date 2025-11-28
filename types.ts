@@ -1,3 +1,5 @@
+// src/types.ts
+
 // Since ReactGridLayout.Layouts is not defined in this file,
 // we assume it is correctly imported/defined elsewhere or we use 'any'.
 // For clean compilation, we define a placeholder type if it's external:
@@ -214,6 +216,7 @@ export interface Project {
   projectType: ProjectType;
   status: ProjectStatus;
   finalChoice: string | null;
+  managerId?: string | null; // NEW FIELD
   createdAt: string;
 }
 
@@ -228,6 +231,7 @@ export interface SampleCheckout {
   checkoutDate: string;
   expectedReturnDate: string;
   actualReturnDate: string | null;
+  isSelected?: boolean; // NEW field for marking final selection
 }
 
 export interface Installer {
@@ -289,6 +293,7 @@ export interface JobNote {
   content: string;
   authorName: string;
   authorAvatar?: string | null;
+  authorEmail?: string; // NEW
   createdAt: string;
 }
 
@@ -432,6 +437,40 @@ export interface SystemBranding {
   textSecondaryColor?: string;
 }
 
+// --- IMPORT TOOL TYPES ---
+export interface ImportProfile {
+    id: number;
+    profileName: string;
+    mappingRules: Record<string, string>; // e.g. { "productName": "Column A", "unitCost": "Price" }
+    createdAt: string;
+}
+
+// The standard fields our database expects
+export type ImportField = 
+    | 'productName' 
+    | 'manufacturer' 
+    | 'variantName' // Color/Style
+    | 'sku' 
+    | 'size' 
+    | 'cartonSize'
+    | 'unitCost' 
+    | 'retailPrice';
+
+// A single row of data after it has been mapped from CSV
+export interface MappedRow {
+    productName?: string;
+    manufacturer?: string;
+    variantName?: string;
+    sku?: string;
+    size?: string;
+    cartonSize?: number;
+    unitCost?: number;
+    retailPrice?: number;
+    // Metadata
+    originalRowIndex: number;
+    status?: 'new' | 'update' | 'error' | 'ignored';
+}
+
 // --- MODIFIED & CONSOLIDATED: A single, flexible type for all user preferences ---
 export interface UserPreferences {
   project_dashboard_layout?: ReactGridLayout_Layouts; // Legacy field
@@ -491,6 +530,7 @@ export interface DataContextType extends AppData {
   addSampleCheckout: (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>) => Promise<void>;
   updateSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
   extendSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
+  toggleSampleSelection: (checkout: SampleCheckout) => Promise<void>; // New
   addQuote: (quote: Omit<Quote, 'id'|'dateSent'>) => Promise<void>;
   updateQuote: (quote: Partial<Quote> & {id: number}) => Promise<void>;
   acceptQuote: (quote: Partial<Quote> & { id: number }) => Promise<void>;
@@ -507,6 +547,9 @@ export interface DataContextType extends AppData {
   addVendor: (vendor: Omit<Vendor, 'id'>) => Promise<void>;
   updateVendor: (vendor: Vendor) => Promise<void>;
   deleteVendor: (vendorId: number) => Promise<void>;
+  
+  unreadCount: number; // NEW
+  refreshNotifications: () => Promise<void>; // NEW
 
   // NEW INVENTORY CRUD
   fetchProducts: () => Promise<void>;
@@ -514,6 +557,7 @@ export interface DataContextType extends AppData {
   updateProduct: (id: string, formData: FormData) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   addVariant: (productId: string, formData: FormData) => Promise<ProductVariant>;
+  addVariantsBatch: (productId: string, variantsData: any[]) => Promise<void>; // New
   updateVariant: (variantId: string, formData: FormData) => Promise<ProductVariant>;
   deleteVariant: (variantId: string, productId: string) => Promise<void>;
 

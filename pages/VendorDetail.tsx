@@ -1,43 +1,23 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react'; // Added useEffect
 import { useParams } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 // --- MODIFIED: Added Edit icon ---
 import { Building, Truck, Phone, Mail, User, Search, Layers, X, Edit } from 'lucide-react';
-import { Product, Vendor } from '../types';
+import { Product, Vendor, PricingSettings } from '../types'; // Added PricingSettings
 // --- REPLACED: SampleDetailModal with ProductDetailModal ---
 import ProductDetailModal from '../components/ProductDetailModal';
 // --- ADDED: Import the AddEditVendorModal ---
 import AddEditVendorModal from '../components/AddEditVendorModal';
 import { toast } from 'react-hot-toast';
-
-const VendorProductCard = ({ product, onClick }: { product: Product, onClick: () => void }) => {
-    return (
-        <div onClick={onClick} className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer hover:border-accent transition-colors">
-            <div className="w-full h-40 bg-gray-800 flex items-center justify-center text-text-secondary">
-                {product.defaultImageUrl ? (
-                    <img src={product.defaultImageUrl} alt={product.name} className="w-full h-full object-cover" />
-                ) : (
-                    <span className="text-sm">No Image</span>
-                )}
-            </div>
-            <div className="p-4 flex flex-col flex-grow">
-                <h3 className="font-bold text-lg text-text-primary truncate" title={product.name}>{product.name}</h3>
-                <div className="flex-grow" />
-                <div className="flex justify-between items-end mt-4 text-xs">
-                    <span className="font-semibold bg-gray-700 text-gray-300 px-2 py-1 rounded-full">{product.productType || 'N/A'}</span>
-                    <span className="text-text-secondary">{product.variants?.length || 0} Variants</span>
-                </div>
-            </div>
-        </div>
-    );
-};
-
+import ProductCard from '../components/ProductCard'; // NEW
+import * as preferenceService from '../services/preferenceService'; // NEW
 
 const VendorDetail: React.FC = () => {
     const { vendorId } = useParams<{ vendorId: string }>();
     // --- MODIFIED: Destructure updateVendor for the modal ---
     const { vendors, products, isLoading, updateVendor } = useData();
     
+    const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [productTypeFilter, setProductTypeFilter] = useState<string>('All');
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -45,13 +25,24 @@ const VendorDetail: React.FC = () => {
     // --- ADDED: State to control the vendor edit modal ---
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+    useEffect(() => {
+        preferenceService.getPricingSettings().then(setPricingSettings).catch(console.error);
+    }, []);
+
     const vendor = useMemo(() => 
         vendors.find(v => v.id === parseInt(vendorId || '')),
     [vendors, vendorId]);
 
     const vendorProducts = useMemo(() => {
         if (!vendor) return [];
-        return products.filter(p => p.manufacturerId === vendor.id);
+        // Manufacturer products are filtered by manufacturer_id
+        const manufProducts = products.filter(p => p.manufacturerId === vendor.id);
+        // Products supplied by this vendor, but manufactured by others (optional display)
+        const suppliedProducts = products.filter(p => p.supplierId === vendor.id && p.manufacturerId !== vendor.id);
+        
+        // For the VENDOR detail page, we primarily show what they manufacture,
+        // but we could extend this later if needed. For now, stick to manufactured lines.
+        return manufProducts;
     }, [vendor, products]);
 
     const filteredProducts = useMemo(() => {
@@ -62,8 +53,13 @@ const VendorDetail: React.FC = () => {
         if (searchTerm) {
             const lowercasedTerm = searchTerm.toLowerCase();
             filtered = filtered.filter(p => {
+                // Check parent name, manufacturer, and variants (deep search)
                 const nameMatch = p.name.toLowerCase().includes(lowercasedTerm);
-                return nameMatch;
+                const variantMatch = p.variants.some(v => 
+                    (v.name && v.name.toLowerCase().includes(lowercasedTerm)) ||
+                    (v.sku && v.sku.toLowerCase().includes(lowercasedTerm))
+                );
+                return nameMatch || variantMatch;
             });
         }
         return filtered;
@@ -183,7 +179,12 @@ const VendorDetail: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {filteredProducts.map(product => (
-                            <VendorProductCard key={product.id} product={product} onClick={() => handleProductClick(product)} />
+                            <ProductCard 
+                                key={product.id} 
+                                product={product} 
+                                pricingSettings={pricingSettings}
+                                onClick={handleProductClick} 
+                            />
                         ))}
                     </div>
                     {filteredProducts.length === 0 && vendorProducts.length > 0 && (

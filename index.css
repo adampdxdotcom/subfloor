@@ -143,6 +143,10 @@
 .layout.edit-mode .drag-handle:hover {
     opacity: 1;
 }
+/* --- FIX: Show resize handle in edit mode --- */
+.layout.edit-mode .react-resizable-handle {
+    display: block; /* Un-hide it */
+}
 .layout.edit-mode .react-grid-item {
     box-shadow: 0 0 0 2px #5a67d8; /* An indigo outline */
 }

@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { createGravatarHash } from '../utils/cryptoUtils';
-import { LogOut, Settings, XCircle } from 'lucide-react'; // <-- Import new icons
+import { LogOut, Settings, XCircle, Bell, Check } from 'lucide-react'; // Added icons
 import { signOut } from 'supertokens-auth-react/recipe/session';
-import { useLocation } from 'react-router-dom'; // <-- Import to check current page
+import { useLocation, Link } from 'react-router-dom'; 
+import * as notificationService from '../services/notificationService'; // Direct service access
 
 const UserStatus = () => {
   // --- MODIFIED: Get new state and functions from context ---
-  const { currentUser, isLayoutEditMode, toggleLayoutEditMode } = useData();
+  const { currentUser, isLayoutEditMode, toggleLayoutEditMode, unreadCount, refreshNotifications } = useData();
   const location = useLocation(); // Get the current URL path
 
   const [gravatarUrl, setGravatarUrl] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [notifications, setNotifications] = useState<notificationService.Notification[]>([]); // Local state for list
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // --- Check if the current page is one that supports layout editing ---
@@ -20,7 +22,7 @@ const UserStatus = () => {
   useEffect(() => {
     // PRIORITY 1: Use the uploaded avatar URL directly if it exists
     if (currentUser?.avatarUrl) {
-        setGravatarUrl(currentUser.avatarUrl);
+      setGravatarUrl(currentUser.avatarUrl);
     } 
     // PRIORITY 2: Fallback to Gravatar hash if no custom avatar
     else if (currentUser?.email) {
@@ -42,6 +44,15 @@ const UserStatus = () => {
     };
   }, []);
 
+  // Load notifications when dropdown opens
+  useEffect(() => {
+      if (isDropdownOpen) {
+          notificationService.getNotifications().then(setNotifications);
+          // Also refresh the global count to be safe
+          refreshNotifications();
+      }
+  }, [isDropdownOpen, refreshNotifications]);
+
   const onLogout = async () => {
     await signOut();
     window.location.href = "/auth";
@@ -56,6 +67,14 @@ const UserStatus = () => {
     ? `${currentUser.firstName} ${currentUser.lastName || ''}` 
     : currentUser.email;
 
+  const handleNotificationClick = async (n: notificationService.Notification) => {
+      if (!n.isRead) {
+          await notificationService.markAsRead(n.id);
+          refreshNotifications();
+      }
+      setIsDropdownOpen(false);
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* --- MODIFIED: This is now the button to open the dropdown --- */}
@@ -63,6 +82,11 @@ const UserStatus = () => {
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         className="flex items-center space-x-3 text-text-primary p-1 rounded-md hover:bg-background transition-colors"
       >
+        {unreadCount > 0 && (
+            <span className="absolute top-0 left-0 -mt-1 -ml-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold border border-surface z-10">
+                {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+        )}
         <img
           src={gravatarUrl}
           alt="User Avatar"
@@ -73,8 +97,50 @@ const UserStatus = () => {
 
       {/* --- NEW: The Dropdown Menu --- */}
       {isDropdownOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-surface rounded-md shadow-lg z-50 border border-border">
-          <div className="p-2">
+        <div className="absolute right-0 mt-2 w-80 bg-surface rounded-md shadow-lg z-50 border border-border overflow-hidden">
+          
+          {/* NOTIFICATION HEADER */}
+          <div className="p-3 border-b border-border bg-background flex justify-between items-center">
+              <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">Notifications</span>
+              {unreadCount > 0 && (
+                  <button 
+                    onClick={async () => { await notificationService.markAllAsRead(); refreshNotifications(); setIsDropdownOpen(false); }}
+                    className="text-xs text-accent hover:text-white flex items-center gap-1"
+                  >
+                      <Check size={12} /> Mark all read
+                  </button>
+              )}
+          </div>
+
+          {/* NOTIFICATION LIST */}
+          <div className="max-h-60 overflow-y-auto">
+              {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-text-secondary text-sm italic">No notifications</div>
+              ) : (
+                  notifications.map(n => (
+                      <Link 
+                        key={n.id} 
+                        to={n.linkUrl} 
+                        onClick={() => handleNotificationClick(n)}
+                        className={`block p-3 border-b border-border hover:bg-background transition-colors ${!n.isRead ? 'bg-accent/10 border-l-4 border-l-accent' : ''}`}
+                      >
+                          <div className="flex gap-3">
+                              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                  {/* Assuming Notification type has a property for initial/sender icon */}
+                                  {n.senderInitial || '?'} 
+                              </div>
+                              <div>
+                                  <p className="text-sm text-text-primary line-clamp-2">{n.message}</p>
+                                  <p className="text-[10px] text-text-tertiary mt-1">{new Date(n.createdAt).toLocaleDateString()}</p>
+                              </div>
+                          </div>
+                      </Link>
+                  ))
+              )}
+          </div>
+
+          {/* MENU ITEMS */}
+          <div className="p-2 border-t border-border bg-background/50">
             
             {/* --- NEW: Edit Page Layout Button (conditional) --- */}
             {isEditablePage && (

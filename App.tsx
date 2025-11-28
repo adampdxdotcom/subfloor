@@ -23,6 +23,9 @@ import Settings from './pages/Settings';
 import VendorList from './pages/VendorList';
 import VendorDetail from './pages/VendorDetail'; 
 import OrderDashboard from './pages/OrderDashboard';
+import Reports from './pages/Reports';
+import ImportData from './pages/ImportData'; // NEW IMPORT
+import Messages from './pages/Messages'; // NEW IMPORT
 
 // --- DYNAMIC URL CONFIGURATION ---
 // Reads from .env in Prod, or defaults to empty (relative path) in Dev
@@ -140,6 +143,10 @@ function App() {
             <Route path="customers/:customerId" element={<CustomerDetail />} />
             <Route path="projects/:projectId" element={<ProjectDetail />} />
             <Route path="samples" element={<SampleLibrary />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="import" element={<ImportData />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="messages/:partnerId" element={<Messages />} />
             <Route path="vendors" element={<VendorList />} />
             {/* --- 2. ADD THIS NEW NESTED ROUTE --- */}
             <Route path="vendors/:vendorId" element={<VendorDetail />} />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom'; 
-import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon, Building, Truck } from 'lucide-react';
+import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon, Building, Truck, ClipboardList, Database, MessageCircle } from 'lucide-react'; // Added MessageCircle
 import UniversalSearch from './UniversalSearch';
 import UserStatus from './UserStatus';
 import NavigationListener from './NavigationListener'; // <-- NEW: Import the listener
@@ -10,20 +10,20 @@ const Layout: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { systemBranding } = useData();
     
-    // Base URL needed because uploads are served from backend root
-    const API_URL = "https://flooring.dumbleigh.com";
+    // Ensure this matches your production domain or use relative path for local dev proxy
+    const API_URL = import.meta.env.PROD ? "https://flooring.dumbleigh.com" : "";
 
     const SidebarContent = () => (
         <>
-            <div className="mb-8 flex items-center h-12">
+            <div className="mb-8 flex items-center h-12 px-2">
                 {systemBranding?.logoUrl ? (
                     <img 
-                        src={`${API_URL}${systemBranding.logoUrl}`} 
+                        src={systemBranding.logoUrl.startsWith('http') ? systemBranding.logoUrl : `${API_URL}${systemBranding.logoUrl}`} 
                         alt="Company Logo" 
                         className="max-h-12 max-w-full object-contain"
                     />
                 ) : (
-                    <h1 className="text-2xl font-bold">Joblogger</h1>
+                    <h1 className="text-2xl font-bold text-primary">Subfloor</h1>
                 )}
             </div>
             <nav className="flex flex-col space-y-2 flex-grow">
@@ -31,10 +31,6 @@ const Layout: React.FC = () => {
                 <NavLink to="/" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`} end>
                     <Home className="w-6 h-6" />
                     <span>Dashboard</span>
-                </NavLink>
-                <NavLink to="/orders" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
-                    <Truck className="w-6 h-6" />
-                    <span>Orders</span>
                 </NavLink>
                 <NavLink to="/customers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
                     <Users className="w-6 h-6" />
@@ -52,9 +48,25 @@ const Layout: React.FC = () => {
                     <Building className="w-6 h-6" />
                     <span>Vendor Directory</span>
                 </NavLink>
+                <NavLink to="/orders" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                    <Truck className="w-6 h-6" />
+                    <span>Orders</span>
+                </NavLink>                
+                <NavLink to="/import" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                    <Database className="w-6 h-6" />
+                    <span>Import Data</span>
+                </NavLink>
                 <NavLink to="/calendar" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
                     <Calendar className="w-6 h-6" />
                     <span>Calendar</span>
+                </NavLink>
+                <NavLink to="/reports" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                    <ClipboardList className="w-6 h-6" />
+                    <span>Reports</span>
+                </NavLink>
+                <NavLink to="/messages" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                    <MessageCircle className="w-6 h-6" />
+                    <span>Messages</span>
                 </NavLink>
             </nav>
 

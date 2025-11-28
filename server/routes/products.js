@@ -328,6 +328,9 @@ router.post('/:id/variants', verifySession(), verifyRole(['Admin', 'User']), upl
             imageUrl = await downloadExternalImage(bodyImageUrl);
         }
 
+        // SANITIZATION: Handle empty strings from FormData for numeric fields
+        const safeCartonSize = (cartonSize === '' || cartonSize === 'null' || isNaN(Number(cartonSize))) ? null : cartonSize;
+
         const query = `
             INSERT INTO product_variants (
                 product_id, name, size, finish, style, sku, 
@@ -339,7 +342,7 @@ router.post('/:id/variants', verifySession(), verifyRole(['Admin', 'User']), upl
 
         const result = await pool.query(query, [
             productId, name, size, finish, style, sku, 
-            unitCost, retailPrice, uom, cartonSize, imageUrl, finalHasSample
+            unitCost, retailPrice, uom, safeCartonSize, imageUrl, finalHasSample
         ]);
 
         const newVariant = result.rows[0];
@@ -381,10 +384,13 @@ router.post('/:id/variants/batch', verifySession(), verifyRole(['Admin', 'User']
         `;
 
         for (const v of variants) {
+            // SANITIZE cartonSize for batch
+            const safeCartonSize = (v.cartonSize === '' || v.cartonSize === 'null' || isNaN(Number(v.cartonSize))) ? null : v.cartonSize;
+
             // Use smart defaults from the request or null
             const result = await client.query(query, [
                 productId, v.name, v.size, v.finish, v.style, v.sku,
-                v.unitCost, v.retailPrice, v.uom, v.cartonSize, v.imageUrl || null, 
+                v.unitCost, v.retailPrice, v.uom, safeCartonSize, v.imageUrl || null, 
                 v.hasSample !== undefined ? v.hasSample : true 
             ]);
             createdVariants.push(toCamelCase(result.rows[0]));
@@ -569,7 +575,8 @@ router.patch('/variants/:id', verifySession(), verifyRole(['Admin', 'User']), up
         retailPrice: 'retail_price',
         cartonSize: 'carton_size',
         imageUrl: 'image_url',
-        hasSample: 'has_sample'
+        hasSample: 'has_sample',
+        uom: 'uom'
     };
 
     const fields = [];
@@ -580,8 +587,13 @@ router.patch('/variants/:id', verifySession(), verifyRole(['Admin', 'User']), up
         const dbCol = dbMap[key] || key;
         // Safety check
         if (['name', 'size', 'finish', 'style', 'sku', 'uom', 'has_sample', ...Object.values(dbMap)].includes(dbCol)) {
+            
+            // SANITIZATION: Handle empty strings for numeric carton_size
+            let safeValue = value === 'null' ? null : value;
+            if (dbCol === 'carton_size' && safeValue === '') safeValue = null;
+
             fields.push(`${dbCol} = $${idx}`);
-            values.push(value === 'null' ? null : value);
+            values.push(safeValue);
             idx++;
         }
     }
@@ -653,7 +665,7 @@ router.get('/variants/:id/qr', async (req, res) => {
         res.send(qrCodeImage);
     } catch (err) {
         console.error('Failed to generate QR code for variant ID:', id, err);
-        res.status(500).send('Error generating QR code');
+        res.status(500).json('Error generating QR code');
     }
 });
 
@@ -674,7 +686,7 @@ router.get('/:id/qr', async (req, res) => {
         res.send(qrCodeImage);
     } catch (err) {
         console.error('Failed to generate QR code for product ID:', id, err);
-        res.status(500).send('Error generating QR code');
+        res.status(500).json('Error generating QR code');
     }
 });
 

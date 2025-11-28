@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calculator, Plus, Trash2, ArrowRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import * as productService from '../services/productService';
 import CreatableSelect from 'react-select/creatable';
 import * as sampleService from '../services/sampleService';
 import { useData } from '../context/DataContext';
@@ -23,7 +22,7 @@ interface Option {
 }
 
 const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId, manufacturerId, pricingSettings, onClose, onSuccess }) => {
-    const { vendors } = useData();
+    const { vendors, addVariantsBatch } = useData(); // Get the new function
 
     // --- 1. Common Data State (Applies to all) ---
     const [commonData, setCommonData] = useState({
@@ -31,6 +30,7 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
         retailPrice: '',
         cartonSize: '',
         uom: 'SF',
+        sku: '', // New Field
         style: '',
         finish: '',
         hasSample: false // Default to Order Only (User Request)
@@ -105,6 +105,7 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                     size: sizeOpt.value,
                     // Copy common data
                     ...commonData,
+                    sku: commonData.sku, // Pass it through
                     // Ensure numbers are parsed for backend consistency
                     unitCost: parseFloat(commonData.unitCost) || 0,
                     retailPrice: parseFloat(commonData.retailPrice) || 0,
@@ -121,13 +122,18 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
     const handleSave = async () => {
         if (preview.length === 0) return;
         try {
-            // Use the new batch creation service method
-            const created = await productService.createVariantsBatch(productId, preview);
-            toast.success(`Successfully created ${created.length} variants.`);
-            onSuccess(created);
+            // Use Context instead of Service
+            await addVariantsBatch(productId, preview);
+            
+            // We don't have the 'created' array return from the context wrapper easily available
+            // unless we modify the wrapper to return it. 
+            // But onSuccess() was just for the toast mostly. 
+            // Let's just call onSuccess with empty array or update signature if needed.
+            onSuccess([]); 
             onClose();
         } catch (error: any) {
-            toast.error(error.message);
+            // Toast is handled in context
+            console.error(error);
         }
     };
 
@@ -174,6 +180,10 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                         <div className="bg-background p-4 rounded-lg border border-border">
                             <h3 className="font-semibold text-text-primary mb-4 text-sm uppercase tracking-wider">1. Common Pricing & Specs</h3>
                             <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-medium text-text-secondary mb-1">Common SKU (Optional)</label>
+                                    <input type="text" value={commonData.sku} onChange={e => setCommonData({...commonData, sku: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary" placeholder="e.g. Base SKU" />
+                                </div>
                                 <div>
                                     <label className="block text-xs font-medium text-text-secondary mb-1">Unit Cost</label>
                                     <input type="number" step="0.01" value={commonData.unitCost} onChange={e => handleCostChange(e.target.value)} className="w-full p-2 bg-surface border border-border rounded text-text-primary" />
@@ -256,6 +266,7 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                                         <thead className="bg-surface sticky top-0">
                                             <tr>
                                                 <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">Variant Name</th>
+                                                <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">SKU</th>
                                                 <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">Size</th>
                                                 <th className="p-3 text-xs font-medium text-text-secondary border-b border-border text-right">Cost</th>
                                                 <th className="p-3 text-xs font-medium text-text-secondary border-b border-border text-right">Retail</th>
@@ -266,6 +277,7 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                                             {preview.map((item, idx) => (
                                                 <tr key={idx} className="border-b border-border hover:bg-surface/50">
                                                     <td className="p-3 text-sm text-text-primary font-medium">{item.name || <span className="italic text-text-secondary">--</span>}</td>
+                                                    <td className="p-3 text-sm text-text-secondary">{item.sku || <span className="italic text-text-secondary">--</span>}</td>
                                                     <td className="p-3 text-sm text-text-primary">{item.size || <span className="italic text-text-secondary">--</span>}</td>
                                                     <td className="p-3 text-sm text-text-primary text-right">${item.unitCost.toFixed(2)}</td>
                                                     <td className="p-3 text-sm text-text-primary text-right">${item.retailPrice.toFixed(2)}</td>

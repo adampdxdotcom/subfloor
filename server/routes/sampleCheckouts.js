@@ -40,7 +40,7 @@ router.post('/', verifySession(), async (req, res) => {
   }
 });
 
-// PUT /api/sample-checkouts/:id
+// PUT /api/sample-checkouts/:id (Used for returning a sample)
 router.put('/:id', verifySession(), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -58,19 +58,22 @@ router.put('/:id', verifySession(), async (req, res) => {
   }
 });
 
-// PATCH /api/sample-checkouts/:id
+// PATCH /api/sample-checkouts/:id (Used for updating expected return date OR is_selected status)
 router.patch('/:id', verifySession(), async (req, res) => {
   const { id } = req.params;
-  const { expectedReturnDate } = req.body;
+  const { expectedReturnDate, isSelected } = req.body;
 
-  if (!expectedReturnDate) {
-    return res.status(400).json({ error: 'expectedReturnDate is required.' });
+  if (!expectedReturnDate && isSelected === undefined) {
+    return res.status(400).json({ error: 'No fields provided to update.' });
   }
 
   try {
     const result = await pool.query(
-      `UPDATE sample_checkouts SET expected_return_date = $1 WHERE id = $2 RETURNING *`,
-      [expectedReturnDate, id]
+      `UPDATE sample_checkouts 
+       SET expected_return_date = COALESCE($1, expected_return_date),
+           is_selected = COALESCE($2, is_selected)
+       WHERE id = $3 RETURNING *`,
+      [expectedReturnDate || null, isSelected, id]
     );
 
     if (result.rows.length === 0) {

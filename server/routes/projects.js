@@ -76,9 +76,9 @@ router.get('/:id', verifySession(), async (req, res) => {
   } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// POST /api/projects (Unchanged)
+// POST /api/projects (Modified to include manager_id)
 router.post('/', verifySession(), async (req, res) => {
-  const { customerId, projectName, projectType, status, finalChoice, installerId } = req.body;
+  const { customerId, projectName, projectType, status, finalChoice, installerId, managerId } = req.body;
   const userId = req.session.getUserId();
   if (!customerId || !projectName || !projectType) {
     return res.status(400).json({ error: 'customerId, projectName, and projectType are required.' });
@@ -87,9 +87,10 @@ router.post('/', verifySession(), async (req, res) => {
   try {
     await client.query('BEGIN');
     const projectResult = await client.query(
-      `INSERT INTO projects (customer_id, project_name, project_type, status, final_choice) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [customerId, projectName, projectType, status || 'New', finalChoice]
+      `INSERT INTO projects (customer_id, project_name, project_type, status, final_choice, manager_id) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      // Default manager to Creator if not provided
+      [customerId, projectName, projectType, status || 'New', finalChoice, managerId || userId]
     );
     const newProject = projectResult.rows[0];
     if (installerId) {
@@ -111,12 +112,12 @@ router.post('/', verifySession(), async (req, res) => {
   }
 });
 
-// PUT /api/projects/:id (Unchanged)
+// PUT /api/projects/:id (Modified to include manager_id)
 router.put('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const userId = req.session.getUserId();
     try {
-        const { projectName, projectType, status, finalChoice } = req.body;
+        const { projectName, projectType, status, finalChoice, managerId } = req.body;
         const beforeResult = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
         if (beforeResult.rows.length === 0) {
             return res.status(404).json({ error: 'Project not found' });
@@ -126,9 +127,10 @@ router.put('/:id', verifySession(), async (req, res) => {
             `UPDATE projects 
              SET 
                 project_name = COALESCE($1, project_name), project_type = COALESCE($2, project_type),
-                status = COALESCE($3, status), final_choice = COALESCE($4, final_choice)
-             WHERE id = $5 RETURNING *`,
-            [projectName, projectType, status, finalChoice, id]
+                status = COALESCE($3, status), final_choice = COALESCE($4, final_choice),
+                manager_id = COALESCE($5, manager_id)
+             WHERE id = $6 RETURNING *`,
+            [projectName, projectType, status, finalChoice, managerId, id]
         );
         const updatedProject = toCamelCase(result.rows[0]);
         await logActivity(userId, 'UPDATE', 'PROJECT', id, { before: beforeData, after: updatedProject });

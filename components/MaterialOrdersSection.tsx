@@ -4,6 +4,7 @@ import { Project, MaterialOrder } from '../types';
 import { Edit, Trash2, Package as PackageIcon, Move } from 'lucide-react';
 import { formatCurrency } from '../utils/pricingUtils';
 import AddEditMaterialOrderModal from './AddEditMaterialOrderModal';
+import ModalPortal from './ModalPortal'; // NEW
 
 interface MaterialOrdersSectionProps {
     project: Project;
@@ -68,12 +69,14 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                 )}
             </div>
             {isModalOpen && (
-                <AddEditMaterialOrderModal 
-                    isOpen={isModalOpen} 
-                    onClose={onCloseModal} 
-                    editingOrder={editingOrder} 
-                    initialProjectId={project.id} 
-                />
+                <ModalPortal>
+                    <AddEditMaterialOrderModal 
+                        isOpen={isModalOpen} 
+                        onClose={onCloseModal} 
+                        editingOrder={editingOrder} 
+                        initialProjectId={project.id} 
+                    />
+                </ModalPortal>
             )}
         </div>
     );

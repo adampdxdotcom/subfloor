@@ -17,11 +17,13 @@ export async function getDashboardReportData(prefs, userId = null) {
         if (prefs.includeSamplesDue) {
             const samplesQuery = `
                 SELECT 
-                    COALESCE(NULLIF(TRIM(CONCAT_WS(' - ', s.product_type, s.style, s.line, s.color)), ''), 'Sample ID: ' || s.id::text) AS sample_name,
+                    -- Construct name from Product + Variant info
+                    COALESCE(prod.name || ' - ' || pv.name, 'Unknown Sample') AS sample_name,
                     c.full_name AS customer_name,
                     p.project_name
                 FROM sample_checkouts sc
-                JOIN samples s ON sc.sample_id = s.id
+                JOIN product_variants pv ON sc.variant_id = pv.id
+                JOIN products prod ON pv.product_id = prod.id
                 JOIN projects p ON sc.project_id = p.id
                 JOIN customers c ON p.customer_id = c.id
                 WHERE sc.expected_return_date::date = CURRENT_DATE AND sc.actual_return_date IS NULL;

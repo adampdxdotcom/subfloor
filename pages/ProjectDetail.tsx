@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Project, Quote, QuoteStatus, ChangeOrder, MaterialOrder, Job } from '../types';
@@ -21,11 +21,12 @@ import JobNotesSection from '../components/JobNotesSection';
 // import DeleteProjectSection from '../components/DeleteProjectSection'; // REMOVED
 import { toast } from 'react-hot-toast';
 import * as jobService from '../services/jobService';
+import * as notificationService from '../services/notificationService'; // NEW
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const ProjectDetail: React.FC = () => {
-    const { projectId } = useParams<{ projectId: string }>();
+    const { projectId: routeProjectId } = useParams<{ projectId: string }>();
     const navigate = useNavigate();
     const location = useLocation();
     
@@ -38,7 +39,8 @@ const ProjectDetail: React.FC = () => {
         projectHistory,
         fetchProjectHistory,
         updateJob,
-        isLoading: isDataLoading 
+        isLoading: isDataLoading,
+        refreshNotifications // NEW: Need this to clear the red dot
     } = useData();
     
     const [activeModal, setActiveModal] = useState<'sample' | 'quote' | 'order' | null>(null);
@@ -48,7 +50,7 @@ const ProjectDetail: React.FC = () => {
     const [editingChangeOrder, setEditingChangeOrder] = useState<ChangeOrder | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     
-    const numericProjectId = useMemo(() => parseInt(projectId || ''), [projectId]);
+    const numericProjectId = useMemo(() => parseInt(routeProjectId || '', 10), [routeProjectId]);
     const project = useMemo(() => projects.find(p => p.id === numericProjectId), [projects, numericProjectId]);
     const job = useMemo(() => jobs.find(j => j.projectId === numericProjectId), [jobs, numericProjectId]);
     const customer = useMemo(() => customers.find(c => c.id === project?.customerId), [customers, project]);
@@ -69,6 +71,7 @@ const ProjectDetail: React.FC = () => {
     const [layouts, setLayouts] = useState(defaultLayouts);
     const [originalLayouts, setOriginalLayouts] = useState(layouts);
 
+    // Initial load and layout merge
     useEffect(() => {
         // FIX: Read from currentUser.preferences.projectLayouts
         const savedLayouts = currentUser?.preferences?.projectLayouts;
@@ -103,6 +106,32 @@ const ProjectDetail: React.FC = () => {
         }
     }, [isLayoutEditMode, layouts]);
     
+    const fetchPageSpecificData = useCallback(async () => {
+        if (isDataLoading || isNaN(numericProjectId)) return;
+        
+        fetchProjectHistory(numericProjectId);
+        try {
+            // Check if job is already loaded via DataProvider fetch
+            if (!job) {
+                const jobData = await jobService.getJobForProject(numericProjectId);
+                if (jobData) updateJob(jobData);
+            }
+        } catch (error) { toast.error("Could not load job schedule details."); }
+    }, [numericProjectId, isDataLoading, fetchProjectHistory, updateJob, job]);
+
+
+    useEffect(() => {
+        fetchPageSpecificData();
+    }, [numericProjectId, isDataLoading, fetchProjectHistory, updateJob, fetchPageSpecificData]);
+
+    // --- NEW: Auto-mark notifications as read when viewing project ---
+    useEffect(() => {
+        if (numericProjectId && !isNaN(numericProjectId)) {
+            // Fire and forget - don't block render
+            notificationService.markReferenceAsRead(numericProjectId).then(() => refreshNotifications());
+        }
+    }, [numericProjectId, refreshNotifications]);
+
 
     const handleLayoutChange = (layout: ReactGridLayout.Layout[], allLayouts: ReactGridLayout.Layouts) => {
         setLayouts(allLayouts);
@@ -129,18 +158,6 @@ const ProjectDetail: React.FC = () => {
         }
     };
     
-    useEffect(() => {
-        if (isDataLoading || isNaN(numericProjectId)) return;
-        const fetchPageSpecificData = async () => {
-            fetchProjectHistory(numericProjectId);
-            try {
-                const jobData = await jobService.getJobForProject(numericProjectId);
-                if (jobData) updateJob(jobData);
-            } catch (error) { toast.error("Could not load job schedule details."); }
-        };
-        fetchPageSpecificData();
-    }, [numericProjectId, isDataLoading, fetchProjectHistory, updateJob]);
-
     const handleOpenEditChangeOrderModal = (changeOrder: ChangeOrder) => { setEditingChangeOrder(changeOrder); };
     
     // Logic for deleting the project, called from ProjectInfoHeader

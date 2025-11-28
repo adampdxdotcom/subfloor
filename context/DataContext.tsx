@@ -17,6 +17,7 @@ import * as materialOrderService from '../services/materialOrderService';
 import * as vendorService from '../services/vendorService';
 import * as userService from '../services/userService';
 import * as preferenceService from '../services/preferenceService';
+import * as notificationService from '../services/notificationService'; // NEW
 import { debounce } from 'lodash';
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -57,6 +58,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
   const [materialOrders, setMaterialOrders] = useState<MaterialOrder[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
+
+  // --- NEW: Notification State ---
+  const [unreadCount, setUnreadCount] = useState(0);
 
 
   const toggleLayoutEditMode = () => {
@@ -202,6 +206,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser, fetchAllUsers]);
   
   
+  // --- NEW: Notification Poller (Run every 10s) ---
+  useEffect(() => {
+      if (!currentUser) return;
+      
+      const checkNotifications = async () => {
+          try {
+              const count = await notificationService.getUnreadCount();
+              setUnreadCount(count);
+          } catch (e) { console.error("Notification poll failed", e); }
+      };
+
+      checkNotifications(); // Initial check
+      const interval = setInterval(checkNotifications, 10000); // 10s loop (Snappier)
+      return () => clearInterval(interval);
+  }, [currentUser]);
+
   // Generic helper for history fetch (re-defined here to access pool/service context if needed)
   const fetchActivityHistory = (entityType: string, setHistory: React.Dispatch<React.SetStateAction<ActivityLogEntry[]>>) => 
     useCallback(async (id: number | string) => {
@@ -330,6 +350,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             throw error;
         }
     };
+    
+    // --- NEW: Batch Add Variants (Fixes "Live Update" for Generator) ---
+    const addVariantsBatch = useCallback(async (productId: string, variantsData: any[]) => {
+        try {
+            // We assume the Service handles the array loop or bulk insert
+            const newVariants = await productService.createVariantsBatch(productId, variantsData);
+            
+            setProducts(prev => prev.map(p => {
+                if (p.id === productId) {
+                    // Append all new variants
+                    return { ...p, variants: [...p.variants, ...newVariants] };
+                }
+                return p;
+            }));
+            
+            toast.success(`Generated ${newVariants.length} variants successfully`);
+        } catch (error: any) {
+            console.error("Failed to batch add variants", error);
+            toast.error(error.message || 'Failed to add variants batch');
+            throw error;
+        }
+    }, []);
 
     const updateVariant = async (variantId: string, formData: FormData) => {
         try {
@@ -603,6 +645,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toast.error((error as Error).message);
         throw error;
     }
+  }, []);
+
+  // --- NEW: Toggle "Selected" status for Design Board ---
+  const toggleSampleSelection = useCallback(async (checkout: SampleCheckout): Promise<void> => {
+      try {
+          const updated = await sampleCheckoutService.patchSampleCheckout(checkout.id, {
+              isSelected: !checkout.isSelected
+          });
+          setSampleCheckouts(prev => prev.map(sc => 
+              sc.id === updated.id ? updated : sc
+          ));
+          toast.success(updated.isSelected ? "Sample selected!" : "Sample deselected.");
+      } catch (error) {
+          console.error("Error toggling selection:", error);
+          toast.error("Failed to update selection.");
+      }
   }, []);
 
   const addQuote = useCallback(async (quote: Omit<Quote, 'id'|'dateSent'>): Promise<void> => {
@@ -890,6 +948,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateProduct,
     deleteProduct,
     addVariant,
+    addVariantsBatch, // Expose it
     updateVariant,
     deleteVariant,
 
@@ -905,6 +964,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addSampleCheckout, 
     updateSampleCheckout,
     extendSampleCheckout,
+    toggleSampleSelection, // Expose new function
     addQuote, 
     updateQuote,
     acceptQuote,
@@ -920,7 +980,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addVendor,
     updateVendor,
     deleteVendor,
-    updateJob
+    updateJob,
+    unreadCount, // Expose count
+    refreshNotifications: async () => setUnreadCount(await notificationService.getUnreadCount()) // Helper
   };
 
   return (

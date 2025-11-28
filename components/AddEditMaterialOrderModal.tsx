@@ -28,12 +28,18 @@ interface AddEditMaterialOrderModalProps {
     onClose: () => void;
     editingOrder?: MaterialOrder | null;
     initialProjectId?: number | null;
+    // NEW: Data to start the order with (from Sample Selection)
+    prefillData?: {
+        product: Product;
+        variant: ProductVariant;
+        projectId: number;
+    } | null;
 }
 
 const formatVariantName = (productName: string, variantName: string) => `${productName} - ${variantName}`;
 const formatDateForInput = (dateString: string | undefined | null) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
 
-const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ isOpen, onClose, editingOrder = null, initialProjectId = null }) => {
+const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ isOpen, onClose, editingOrder = null, initialProjectId = null, prefillData = null }) => {
     
     const { 
         products, vendors, addVendor, 
@@ -123,9 +129,6 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                 // 1. If we had a variantId stored, great. (Not yet in type definition but DB has it)
                 // 2. If only sampleId, try to match roughly or fail gracefully.
                 
-                // For this refactor, we assume the user is creating NEW orders mostly.
-                // Existing orders might display "Unknown Item" if migration was partial.
-                
                 // Search all products
                 for (const p of products) {
                      // Try to find variant that matches this item's sampleId (if sampleId == variantId concept)
@@ -158,6 +161,44 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             }).filter(Boolean) as LineItemState[];
             
             setLineItems(itemsToEdit);
+        
+        // --- NEW: Handle Prefill Data (From Sample Checkout) ---
+        } else if (prefillData) {
+            setSelectedProjectId(prefillData.projectId);
+            
+            // Auto-select Supplier
+            const supplierId = prefillData.product.supplierId || prefillData.product.manufacturerId;
+            const vendor = vendors.find(v => v.id === supplierId);
+
+            if (vendor) {
+                setSupplierId(vendor.id);
+                setSupplierSearch(vendor.name);
+            } else {
+                setSupplierId(null);
+                setSupplierSearch('');
+            }
+
+            // Calculate Price Logic
+            let initialSellPrice = '';
+            
+            if (pricingSettings && prefillData.variant.unitCost) {
+                 const rules = getActivePricingRules(vendor, pricingSettings, purchaserType);
+                 const price = calculatePrice(Number(prefillData.variant.unitCost), rules.percentage, rules.method);
+                 initialSellPrice = price.toFixed(2);
+            } else if (prefillData.variant.retailPrice) {
+                initialSellPrice = Number(prefillData.variant.retailPrice).toFixed(2);
+            }
+
+            // Add Line Item
+            setLineItems([{
+                product: prefillData.product,
+                variant: prefillData.variant,
+                quantity: '1',
+                unit: prefillData.variant.uom || 'SF',
+                totalCost: initialSellPrice,
+                unitSellPrice: initialSellPrice
+            }]);
+
         } else {
             // Reset for new order
             setSelectedProjectId(initialProjectId);
@@ -168,7 +209,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             setLineItems([]);
             setNotes('');
         }
-    }, [editingOrder, isOpen, initialProjectId, products, vendors, fetchMaterialOrderHistory]);
+    }, [editingOrder, isOpen, initialProjectId, products, vendors, fetchMaterialOrderHistory, prefillData, pricingSettings, purchaserType]);
 
 
     const handleSupplierSelect = (vendorId: number) => {
@@ -357,6 +398,14 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                             />
                         </div>
                     )}
+                    
+                    {prefillData && selectedProjectId && (
+                        <div className="mb-6 p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-900 flex items-center gap-2">
+                            <AlertCircle size={18} />
+                            Order initiated from selected sample in project <strong>{currentProject?.projectName}</strong>.
+                        </div>
+                    )}
+
 
                     {/* Top Form Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

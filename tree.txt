@@ -5,31 +5,38 @@
 |____server
 | |____lib
 | | |____emailService.js
+| | |____reportGenerator.js
 | | |____reports.js
 | | |____scheduler.js
 | |____temp-uploads
 | |____email-templates
 | | |____orderReceived.html
+| | |____userInvite.html
 | | |____customerReminder.html
 | | |____orderDamage.html
 | | |____pastDueReminder.html
 | |____routes
+| | |____notifications.js
 | | |____photos.js
 | | |____projects.js
+| | |____reportGenerator.js
 | | |____users.js
 | | |____customers.js
 | | |____vendors.js
 | | |____preferences.js
+| | |____messages.js
+| | |____products.js
 | | |____reports.js
 | | |____calendar.js
 | | |____search.js
 | | |____restore.js
-| | |____samples.js
+| | |____jobNotes.js
 | | |____reminders.js
 | | |____installers.js
 | | |____orders.js
 | | |____events.js
 | | |____roles.js
+| | |____import.js
 | | |____backup.js
 | | |____jobs.js
 | | |____sampleCheckouts.js
@@ -37,56 +44,10 @@
 | | |____quotes.js
 | |____index.js
 | |____uploads
-| | |____photo-1762749727265-184370968.jpeg
-| | |____photo-1762785251830-612632601.jpeg
-| | |____photo-1763005987615-27309603.jpeg
-| | |____photo-1763008886313-793282931.jpg
-| | |____photo-1763305021477-103450378.jpeg
-| | |____photo-1762705750104-121879699.jpeg
-| | |____photo-1763596744178-917538936.jpg
-| | |____photo-1763158487707-467067919.jpg
-| | |____photo-1763771036299-980788278.webp
-| | |____photo-1763824198961-170420256.jpg
-| | |____photo-1763007528431-780258442.jpg
-| | |____photo-1762725541780-203593309.jpeg
-| | |____photo-1763824432203-551710172.jpg
-| | |____photo-1763002318975-620954526.jpeg
-| | |____photo-1763597159342-960400104.jpg
-| | |____photo-1762706494949-518537399.jpeg
-| | |____photo-1763771769033-790750910.jpeg
-| | |____photo-1763158425739-400456029.jpg
-| | |____photo-1763305072015-60753419.jpeg
-| | |____photo-1763051858324-386769672.jpg
-| | |____photo-1763772069067-781105573.jpg
-| | |____photo-1763158354247-748856351.jpg
-| | |____photo-1763594471862-593408660.jpg
-| | |____photo-1763003725627-488830063.jpeg
-| | |____photo-1763158579761-654023136.jpg
-| | |____photo-1762697778265-104491356.jpg
-| | |____photo-1763596732521-44570316.jpg
-| | |____photo-1763596927584-876577736.jpg
-| | |____photo-1763337186651-838860524.jpg
-| | |____photo-1763128935437-607666584.jpeg
-| | |____photo-1763157633538-763535150.jpg
-| | |____photo-1762652802557-41371136.jpg
-| | |____photo-1763824522842-381107900.jpg
-| | |____photo-1763158188811-637754847.jpg
-| | |____photo-1762651296946-276169435.jpg
-| | |____photo-1762728357598-394921334.jpeg
-| | |____photo-1762706711588-50890738.jpeg
-| | |____photo-1762792000231-374293082.jpeg
-| | |____photo-1763824585317-147385691.jpg
-| | |____photo-1763771888530-474585924.jpg
-| | |____photo-1762749775606-205983593.jpeg
-| | |____photo-1762728546803-914892401.jpeg
-| | |____photo-1763002301543-332271722.jpeg
-| | |____photo-1763158298487-485933047.jpg
-| | |____photo-1763158013383-33889946.jpg
-| | |____photo-1762728309643-556402683.jpeg
-| | |____photo-1763231317846-476439742.jpg
-| | |____photo-1763157528933-702622562.jpg
+| | |____photo-1762749727265-184370968.jpeg etc
 | | |____branding
 | | | |____logo-1763654366165.png
+| | | |____logo-1763829676299.png
 | | | |____logo-1763825160367.png
 | | | |____logo-1763653815340.png
 | | | |____favicon-1763653827118.png
@@ -111,9 +72,11 @@
 |____postcss.config.js
 |____services
 | |____quoteService.ts
+| |____jobNotesService.ts
 | |____userService.ts
 | |____jobService.ts
 | |____customerService.ts
+| |____notificationService.ts
 | |____projectService.ts
 | |____reportService.ts
 | |____vendorService.ts
@@ -124,6 +87,7 @@
 | |____installerService.ts
 | |____sampleService.ts
 | |____eventService.ts
+| |____productService.ts
 |____docker-compose.yml
 |____Dockerfile
 |____caddyfile.old
@@ -137,24 +101,40 @@
 |____components
 | |____UserManagementSection.tsx
 | |____SampleCheckoutsSection.tsx
+| |____VariantGeneratorModal.tsx
 | |____AddSampleInlineModal.tsx
 | |____PricingConfigurationSection.tsx
 | |____UserNotificationSettings.tsx
 | |____BackupRestoreSection.tsx
 | |____FinalizeJobSection.tsx
 | |____SampleSelector.tsx
+| |____ProductCard.tsx
 | |____SampleCarousel.tsx
 | |____SystemEmailSettings.tsx
+| |____ProductDetailModal.tsx
+| |____MentionInput.tsx
 | |____ProjectInfoHeader.tsx
 | |____ActivityHistory.tsx
+| |____ProductForm.tsx
 | |____JobNotesSection.tsx
 | |____ReceiveOrderModal.tsx
 | |____NavigationListener.tsx
 | |____OrderCarousel.tsx
 | |____BrandingSettingsSection.tsx
 | |____MySettingsSection.tsx
+| |____import
+| | |____ImportReview.tsx
+| | |____FileUploader.tsx
+| | |____ColumnMapper.tsx
 | |____Layout.tsx
 | |____RestoreForm.tsx
+| |____VariantImageModal.tsx
+| |____reports
+| | |____InstallerReportTable.tsx
+| | |____JobReportTable.tsx
+| | |____ReportCharts.tsx
+| | |____ProductReportTable.tsx
+| |____ModalPortal.tsx
 | |____EditInstallerModal.tsx
 | |____ChangeOrderSection.tsx
 | |____PrintableCheckout.tsx
@@ -169,6 +149,7 @@
 | |____EditProjectModal.tsx
 | |____AddEditMaterialOrderModal.tsx
 | |____DashboardEmailSettings.tsx
+| |____SmartMessage.tsx
 | |____QuickCheckoutModal.tsx
 | |____AddEditVendorModal.tsx
 | |____GlobalProjectSelector.tsx
@@ -185,6 +166,7 @@
 |____utils
 | |____pricingUtils.ts
 | |____cryptoUtils.ts
+| |____csvUtils.ts
 | |____changeFormatter.ts
 |____todo.txt
 |____package.json
@@ -205,9 +187,12 @@
 | |____SampleLibrary.tsx
 | |____CustomerList.tsx
 | |____VendorList.tsx
+| |____Reports.tsx
+| |____Messages.tsx
 | |____InstallerList.tsx
 | |____Dashboard.tsx
 | |____VendorDetail.tsx
+| |____ImportData.tsx
 | |____ProjectDetail.tsx
 | |____QuoteDetail.tsx
 |____data

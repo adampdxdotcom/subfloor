@@ -147,15 +147,14 @@ export const initializeScheduler = async () => {
                     p.project_name,
                     sc.expected_return_date,
                     json_agg(
-                        COALESCE(
-                            NULLIF(TRIM(CONCAT_WS(' - ', s.product_type, s.style, s.line, s.color)), ''),
-                            'Sample ID: ' || s.id::text
-                        )
+                        -- New Schema: Product Name + Variant Name
+                        COALESCE(prod.name || ' - ' || pv.name, 'Sample ID: ' || pv.id::text)
                     ) as samples
                 FROM sample_checkouts sc
                 JOIN projects p ON sc.project_id = p.id
                 JOIN customers c ON p.customer_id = c.id
-                JOIN samples s ON sc.sample_id = s.id
+                JOIN product_variants pv ON sc.variant_id = pv.id
+                JOIN products prod ON pv.product_id = prod.id
                 WHERE sc.expected_return_date::date = CURRENT_DATE + INTERVAL '1 day'
                   AND sc.actual_return_date IS NULL
                   AND c.email IS NOT NULL AND c.email != ''
@@ -210,15 +209,14 @@ export const initializeScheduler = async () => {
                     sc.expected_return_date,
                     (CURRENT_DATE - sc.expected_return_date::date) as days_overdue,
                     json_agg(
-                        COALESCE(
-                            NULLIF(TRIM(CONCAT_WS(' - ', s.product_type, s.style, s.line, s.color)), ''),
-                            'Sample ID: ' || s.id::text
-                        )
+                        -- New Schema: Product Name + Variant Name
+                        COALESCE(prod.name || ' - ' || pv.name, 'Sample ID: ' || pv.id::text)
                     ) as samples
                 FROM sample_checkouts sc
                 JOIN projects p ON sc.project_id = p.id
                 JOIN customers c ON p.customer_id = c.id
-                JOIN samples s ON sc.sample_id = s.id
+                JOIN product_variants pv ON sc.variant_id = pv.id
+                JOIN products prod ON pv.product_id = prod.id
                 WHERE sc.expected_return_date::date < CURRENT_DATE
                   AND sc.actual_return_date IS NULL
                   AND c.email IS NOT NULL AND c.email != ''

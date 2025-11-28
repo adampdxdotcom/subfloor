@@ -1,5 +1,5 @@
 ================================================================================
-                            PROJECT SUMMARY: Joblogger
+                            PROJECT SUMMARY: Subfloor
 ================================================================================
 
 
@@ -11,31 +11,38 @@
 |____server
 | |____lib
 | | |____emailService.js
+| | |____reportGenerator.js
 | | |____reports.js
 | | |____scheduler.js
 | |____temp-uploads
 | |____email-templates
 | | |____orderReceived.html
+| | |____userInvite.html
 | | |____customerReminder.html
 | | |____orderDamage.html
 | | |____pastDueReminder.html
 | |____routes
+| | |____notifications.js
 | | |____photos.js
 | | |____projects.js
+| | |____reportGenerator.js
 | | |____users.js
 | | |____customers.js
 | | |____vendors.js
 | | |____preferences.js
+| | |____messages.js
+| | |____products.js
 | | |____reports.js
 | | |____calendar.js
 | | |____search.js
 | | |____restore.js
-| | |____samples.js
+| | |____jobNotes.js
 | | |____reminders.js
 | | |____installers.js
 | | |____orders.js
 | | |____events.js
 | | |____roles.js
+| | |____import.js
 | | |____backup.js
 | | |____jobs.js
 | | |____sampleCheckouts.js
@@ -43,9 +50,10 @@
 | | |____quotes.js
 | |____index.js
 | |____uploads
-| | |____photo-1762749727265-184370968.jpeg etc...
+| | |____photo-1762749727265-184370968.jpeg etc
 | | |____branding
 | | | |____logo-1763654366165.png
+| | | |____logo-1763829676299.png
 | | | |____logo-1763825160367.png
 | | | |____logo-1763653815340.png
 | | | |____favicon-1763653827118.png
@@ -70,9 +78,11 @@
 |____postcss.config.js
 |____services
 | |____quoteService.ts
+| |____jobNotesService.ts
 | |____userService.ts
 | |____jobService.ts
 | |____customerService.ts
+| |____notificationService.ts
 | |____projectService.ts
 | |____reportService.ts
 | |____vendorService.ts
@@ -83,6 +93,7 @@
 | |____installerService.ts
 | |____sampleService.ts
 | |____eventService.ts
+| |____productService.ts
 |____docker-compose.yml
 |____Dockerfile
 |____caddyfile.old
@@ -96,24 +107,40 @@
 |____components
 | |____UserManagementSection.tsx
 | |____SampleCheckoutsSection.tsx
+| |____VariantGeneratorModal.tsx
 | |____AddSampleInlineModal.tsx
 | |____PricingConfigurationSection.tsx
 | |____UserNotificationSettings.tsx
 | |____BackupRestoreSection.tsx
 | |____FinalizeJobSection.tsx
 | |____SampleSelector.tsx
+| |____ProductCard.tsx
 | |____SampleCarousel.tsx
 | |____SystemEmailSettings.tsx
+| |____ProductDetailModal.tsx
+| |____MentionInput.tsx
 | |____ProjectInfoHeader.tsx
 | |____ActivityHistory.tsx
+| |____ProductForm.tsx
 | |____JobNotesSection.tsx
 | |____ReceiveOrderModal.tsx
 | |____NavigationListener.tsx
 | |____OrderCarousel.tsx
 | |____BrandingSettingsSection.tsx
 | |____MySettingsSection.tsx
+| |____import
+| | |____ImportReview.tsx
+| | |____FileUploader.tsx
+| | |____ColumnMapper.tsx
 | |____Layout.tsx
 | |____RestoreForm.tsx
+| |____VariantImageModal.tsx
+| |____reports
+| | |____InstallerReportTable.tsx
+| | |____JobReportTable.tsx
+| | |____ReportCharts.tsx
+| | |____ProductReportTable.tsx
+| |____ModalPortal.tsx
 | |____EditInstallerModal.tsx
 | |____ChangeOrderSection.tsx
 | |____PrintableCheckout.tsx
@@ -128,6 +155,7 @@
 | |____EditProjectModal.tsx
 | |____AddEditMaterialOrderModal.tsx
 | |____DashboardEmailSettings.tsx
+| |____SmartMessage.tsx
 | |____QuickCheckoutModal.tsx
 | |____AddEditVendorModal.tsx
 | |____GlobalProjectSelector.tsx
@@ -144,6 +172,7 @@
 |____utils
 | |____pricingUtils.ts
 | |____cryptoUtils.ts
+| |____csvUtils.ts
 | |____changeFormatter.ts
 |____todo.txt
 |____package.json
@@ -164,9 +193,12 @@
 | |____SampleLibrary.tsx
 | |____CustomerList.tsx
 | |____VendorList.tsx
+| |____Reports.tsx
+| |____Messages.tsx
 | |____InstallerList.tsx
 | |____Dashboard.tsx
 | |____VendorDetail.tsx
+| |____ImportData.tsx
 | |____ProjectDetail.tsx
 | |____QuoteDetail.tsx
 |____data
@@ -179,7 +211,7 @@
 
 --- PROJECT OVERVIEW ---
 
-Joblogger is a full-stack web application designed to be a comprehensive management tool for small contracting businesses, such as flooring installers. It provides a single, centralized platform to track the entire lifecycle of a job, from initial customer inquiry to final completion.
+Subfloor is a full-stack web application designed to be a comprehensive management tool for small contracting businesses, such as flooring installers. It provides a single, centralized platform to track the entire lifecycle of a job, from initial customer inquiry to final completion.
 
 The application is built to handle the complex, real-world workflows of a contracting business. Key functionalities include:
 
@@ -526,7 +558,7 @@ Features We Discussed But Did Not Implement
 
 session 11
 
-SESSION NOTES: Joblogger
+SESSION NOTES: Subfloor
 Session Summary: Project Dashboard Refactor & "Edit Mode" Implementation
 
 This was a transformative, UI-focused session where we completely overhauled the ProjectDetail page, converting it from a static document into a dynamic, user-customizable dashboard. We then built a full-featured "Edit Mode" with robust, database-backed persistence, and solved several critical bugs related to both the new functionality and existing backend architecture.
@@ -739,7 +771,7 @@ The application is now capable of managing the entire sales lifecycle: creating 
 
 SESSION 15 SUMMARY: Branding, Theming & UI Architecture
 
-In this session, we successfully transformed Joblogger from a generic, hardcoded application into a fully white-label-ready platform with a dynamic theming engine. We also performed significant architectural cleanup on the Settings page.
+In this session, we successfully transformed Subfloor from a generic, hardcoded application into a fully white-label-ready platform with a dynamic theming engine. We also performed significant architectural cleanup on the Settings page.
 1. Full-Stack Branding Engine
 
 We built the infrastructure to allow admins to customize the application's identity without touching code.
@@ -850,6 +882,80 @@ You now have a dual-environment setup. You can code in Dev with hot-reloading, a
 
 
 
+Two sessions missing.
+
+
+
+SESSION 19: Intelligence & Collaboration
+
+This session focused on three pillars: Data Ingestion (getting data in), Business Intelligence (getting insights out), and Team Communication (connecting users).
+1. The Universal Import Tool (Major Feature)
+
+We solved the "Messy Vendor Data" problem by building a robust, wizard-based Import System.
+
+    Staging & Cleaning: Integrated SheetJS to parse Excel/CSV files client-side. Users can strip "junk rows" (headers/logos) before processing.
+
+    Smart Mapping: Created a ColumnMapper that learns. Users can save "Profiles" (e.g., "Shaw Update") to reuse column mappings. We added "Global Defaults" to fill in missing data (e.g., assigning "Carpet" to all rows).
+
+    Diff Engine: The backend compares incoming data against the live database and generates a "Preview Report" (Green=Update, Blue=New). Users can toggle specific rows to "Skip" or edit names inline before committing the transaction.
+
+2. Business Intelligence Reporting
+
+We transitioned from raw lists to actionable insights.
+
+    Aggregation Engine: Built a raw SQL backend (server/lib/reportGenerator.js) to perform complex financial sums across Projects, Quotes, and Installers.
+
+    Visualizations: Integrated recharts to automatically generate Bar Charts for Revenue Trends and Inventory Counts.
+
+    Interactive Data: Reports aren't just static text; users can click rows to drill down into specific projects or export the entire dataset to CSV.
+
+3. Central Messaging & Notifications (New Subsystem)
+
+We turned the application into a communication hub, reducing the need for external tools like Email or Slack.
+
+    Notification Engine:
+
+        Created a notifications table and a polling system (10s interval).
+
+        Logic: When a Job Note is posted, the Project Manager and all thread participants receive an alert.
+
+        UI: Added a "Red Dot" badge to the User Avatar and a dropdown list of unread events.
+
+        Smart Clearing: Visiting a Project page or a Chat conversation automatically marks relevant notifications as "Read".
+
+    Direct Messaging:
+
+        Built a full-page Chat Interface (/messages) for private user-to-user conversations.
+
+        Includes a sidebar with unread counts and last-active timestamps.
+
+4. "Smart Text" System (ERP Workflow)
+
+We implemented a GitHub-style "Mention" system to link data records within conversations.
+
+    The Input: A custom MentionInput component that triggers search dropdowns on specific keystrokes:
+
+        @ for Users
+
+        ! for Projects
+
+        # for Products
+
+        \ for Customers
+
+        + for Installers
+
+    The Renderer: A SmartMessage component that parses these tags (stored as @[type:id|label]) and renders them as clickable, color-coded links that navigate directly to the relevant record.
+
+5. Architectural Improvements
+
+    Project Assignment: Added manager_id to Projects, allowing users to assign a "Project Lead".
+
+    Inventory 2.0 Polish: Restored Packaging Data (carton_size, uom) to the edit forms and import logic.
+
+    React Portals: Solved a critical UI bug where modals were trapped inside dashboard widgets by rendering them at the document root.
+
+    Sample Selection: Added a "Design Board" workflow where checked-out samples can be flagged as "Selected" and immediately converted into a Material Order.
 GOALS
 • Inter-employee messaging.
 • Order Management: email suppliers using predefined, supplier-specific templates.

@@ -58,6 +58,7 @@ CREATE TABLE product_variants (
     uom VARCHAR(20),
     carton_size NUMERIC(10, 4),
     image_url TEXT,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     is_master BOOLEAN DEFAULT FALSE,
     has_sample BOOLEAN DEFAULT TRUE -- Tracks if we physically carry this specific variant sample
 );
@@ -77,6 +78,7 @@ CREATE TABLE projects (
     project_type VARCHAR(100),
     status VARCHAR(100),
     final_choice VARCHAR(255),
+    manager_id VARCHAR(255), -- User ID of the project owner
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -88,7 +90,8 @@ CREATE TABLE sample_checkouts (
     quantity INT DEFAULT 1,
     checkout_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     expected_return_date TIMESTAMPTZ,
-    actual_return_date TIMESTAMPTZ
+    actual_return_date TIMESTAMPTZ,
+    is_selected BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE quotes (
@@ -283,3 +286,42 @@ CREATE TABLE IF NOT EXISTS job_notes (
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- =================================================================
+-- IMPORT PROFILES (Data Import Tool)
+-- =================================================================
+CREATE TABLE IF NOT EXISTS import_profiles (
+    id SERIAL PRIMARY KEY,
+    profile_name VARCHAR(100) NOT NULL UNIQUE,
+    mapping_rules JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =================================================================
+-- NOTIFICATIONS
+-- =================================================================
+CREATE TABLE notifications (
+    id SERIAL PRIMARY KEY,
+    recipient_id VARCHAR(255) NOT NULL,
+    sender_id VARCHAR(255),
+    type VARCHAR(50) NOT NULL, -- 'JOB_NOTE', 'ASSIGNMENT', 'SYSTEM'
+    reference_id VARCHAR(255), -- ProjectID or JobID
+    message TEXT,
+    link_url TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_notifications_recipient ON notifications(recipient_id);
+
+-- =================================================================
+-- DIRECT MESSAGING
+-- =================================================================
+CREATE TABLE direct_messages (
+    id SERIAL PRIMARY KEY,
+    sender_id VARCHAR(255) NOT NULL,
+    recipient_id VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_dm_combo ON direct_messages(sender_id, recipient_id);

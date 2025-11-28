@@ -28,11 +28,13 @@ router.get('/', verifySession(), async (req, res) => {
                 v.notes,
                 v.default_markup,
                 v.pricing_method,
-                COUNT(p.id) AS sample_count
+                COUNT(pv.id) AS sample_count
             FROM 
                 vendors v
             LEFT JOIN 
                 products p ON v.id = p.manufacturer_id
+            LEFT JOIN
+                product_variants pv ON p.id = pv.product_id AND pv.has_sample = TRUE
             GROUP BY
                 v.id
             ORDER BY 

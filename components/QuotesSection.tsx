@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useData } from '../context/DataContext';
 import { Project, Quote, Installer, QuoteStatus, Job, InstallationType, INSTALLATION_TYPES } from '../types';
 import { Edit, Check, X, History, FileText, Move } from 'lucide-react';
-import { useData } from '../context/DataContext';
 import ActivityHistory from './ActivityHistory';
+import ModalPortal from './ModalPortal'; // NEW
 
 interface QuotesSectionProps {
     project: Project;
@@ -200,90 +201,92 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
             </div>
             
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-                    <div className="bg-surface p-8 rounded-lg w-full max-w-lg border border-border">
-                        <h3 className="text-xl font-bold mb-4 text-text-primary">{editingQuote ? 'Edit Quote' : 'Add New Quote'}</h3>
-                        {!isAddingNewInstaller ? (
-                            <form onSubmit={handleSaveQuote}>
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-text-secondary mb-2">Installation Type</label>
-                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                        {INSTALLATION_TYPES.map(type => (
-                                            <label key={type} className="flex items-center space-x-2 cursor-pointer">
-                                                <input
-                                                    type="radio" name="installationType" value={type}
-                                                    checked={newQuote.installationType === type}
-                                                    onChange={e => setNewQuote({ ...newQuote, installationType: e.target.value as InstallationType })}
-                                                    className="form-radio h-4 w-4 text-primary bg-background border-border focus:ring-primary"
-                                                />
-                                                <span className="text-text-primary">{type}</span>
-                                            </label>
-                                        ))}
+                <ModalPortal>
+                    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                        <div className="bg-surface p-8 rounded-lg w-full max-w-lg border border-border">
+                            <h3 className="text-xl font-bold mb-4 text-text-primary">{editingQuote ? 'Edit Quote' : 'Add New Quote'}</h3>
+                            {!isAddingNewInstaller ? (
+                                <form onSubmit={handleSaveQuote}>
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-text-secondary mb-2">Installation Type</label>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                            {INSTALLATION_TYPES.map(type => (
+                                                <label key={type} className="flex items-center space-x-2 cursor-pointer">
+                                                    <input
+                                                        type="radio" name="installationType" value={type}
+                                                        checked={newQuote.installationType === type}
+                                                        onChange={e => setNewQuote({ ...newQuote, installationType: e.target.value as InstallationType })}
+                                                        className="form-radio h-4 w-4 text-primary bg-background border-border focus:ring-primary"
+                                                    />
+                                                    <span className="text-text-primary">{type}</span>
+                                                </label>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                                {(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && (
-                                    <div className="relative mb-4">
-                                        <label className="block text-sm font-medium text-text-secondary mb-1">Installer</label>
-                                        <input type="text" placeholder="Search for an installer..." value={installerSearchTerm} onChange={e => { setInstallerSearchTerm(e.target.value); setSelectedInstaller(null); }} className="w-full p-2 bg-background border-border rounded text-text-primary" />
-                                        {installerSearchTerm && !selectedInstaller && (
-                                            <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
-                                                {installerSearchResults.map(inst => (
-                                                    <div key={inst.id} onClick={() => handleSelectInstaller(inst)} className="p-2 hover:bg-background cursor-pointer text-text-primary">{inst.installerName}</div>
-                                                ))}
-                                                {installerSearchResults.length === 0 && (
-                                                    <div className="p-2 text-center text-text-secondary">No results. <button type="button" onClick={handleShowAddNewInstaller} className="ml-2 text-accent font-semibold hover:underline">Add it?</button></div>
-                                                )}
+                                    {(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && (
+                                        <div className="relative mb-4">
+                                            <label className="block text-sm font-medium text-text-secondary mb-1">Installer</label>
+                                            <input type="text" placeholder="Search for an installer..." value={installerSearchTerm} onChange={e => { setInstallerSearchTerm(e.target.value); setSelectedInstaller(null); }} className="w-full p-2 bg-background border-border rounded text-text-primary" />
+                                            {installerSearchTerm && !selectedInstaller && (
+                                                <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
+                                                    {installerSearchResults.map(inst => (
+                                                        <div key={inst.id} onClick={() => handleSelectInstaller(inst)} className="p-2 hover:bg-background cursor-pointer text-text-primary">{inst.installerName}</div>
+                                                    ))}
+                                                    {installerSearchResults.length === 0 && (
+                                                        <div className="p-2 text-center text-text-secondary">No results. <button type="button" onClick={handleShowAddNewInstaller} className="ml-2 text-accent font-semibold hover:underline">Add it?</button></div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-secondary mb-1">Materials Cost</label>
+                                            <input type="number" step="0.01" placeholder="0.00" value={newQuote.materialsAmount} onChange={e => setNewQuote({ ...newQuote, materialsAmount: e.target.value })} className="w-full p-2 bg-background border-border rounded text-text-primary" required />
+                                        </div>
+                                        {newQuote.installationType === 'Managed Installation' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-text-secondary mb-1">Labor Cost</label>
+                                                <input type="number" step="0.01" placeholder="0.00" value={newQuote.laborAmount} onChange={e => setNewQuote({ ...newQuote, laborAmount: e.target.value })} className="w-full p-2 bg-background border-border rounded text-text-primary" required />
                                             </div>
                                         )}
                                     </div>
-                                )}
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-text-secondary mb-1">Materials Cost</label>
-                                        <input type="number" step="0.01" placeholder="0.00" value={newQuote.materialsAmount} onChange={e => setNewQuote({ ...newQuote, materialsAmount: e.target.value })} className="w-full p-2 bg-background border-border rounded text-text-primary" required />
-                                    </div>
-                                    {newQuote.installationType === 'Managed Installation' && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-text-secondary mb-1">Labor Cost</label>
-                                            <input type="number" step="0.01" placeholder="0.00" value={newQuote.laborAmount} onChange={e => setNewQuote({ ...newQuote, laborAmount: e.target.value })} className="w-full p-2 bg-background border-border rounded text-text-primary" required />
+                                    <div className="grid grid-cols-2 gap-4 mb-4 items-center">
+                                        {newQuote.installationType === 'Managed Installation' && (
+                                            <div className="relative">
+                                                <label className="block text-sm font-medium text-text-secondary mb-1">Installer Deposit %</label>
+                                                <input type="number" value={newQuote.laborDepositPercentage} onChange={e => setNewQuote({ ...newQuote, laborDepositPercentage: e.target.value })} className="w-full p-2 bg-background border-border rounded text-text-primary" />
+                                                <span className="absolute right-3 top-1/2 mt-3 -translate-y-1/2 text-text-secondary">%</span>
+                                            </div>
+                                        )}
+                                        <div className="bg-background p-2 rounded text-center self-end">
+                                            <span className="text-sm text-text-secondary">Required Deposit: </span>
+                                            <span className="font-bold text-text-primary">${calculatedDeposit.toFixed(2)}</span>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="grid grid-cols-2 gap-4 mb-4 items-center">
-                                    {newQuote.installationType === 'Managed Installation' && (
-                                        <div className="relative">
-                                            <label className="block text-sm font-medium text-text-secondary mb-1">Installer Deposit %</label>
-                                            <input type="number" value={newQuote.laborDepositPercentage} onChange={e => setNewQuote({ ...newQuote, laborDepositPercentage: e.target.value })} className="w-full p-2 bg-background border-border rounded text-text-primary" />
-                                            <span className="absolute right-3 top-1/2 mt-3 -translate-y-1/2 text-text-secondary">%</span>
-                                        </div>
-                                    )}
-                                    <div className="bg-background p-2 rounded text-center self-end">
-                                        <span className="text-sm text-text-secondary">Required Deposit: </span>
-                                        <span className="font-bold text-text-primary">${calculatedDeposit.toFixed(2)}</span>
                                     </div>
-                                </div>
-                                <textarea placeholder="Quote details..." value={newQuote.quoteDetails} onChange={e => setNewQuote({ ...newQuote, quoteDetails: e.target.value })} className="w-full p-2 mb-4 bg-background border-border rounded text-text-primary" rows={3}></textarea>
-                                <div className="flex justify-end space-x-2">
-                                    <button type="button" onClick={onCloseModal} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button>
-                                    <button type="submit" disabled={(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && !selectedInstaller} className="py-2 px-4 bg-primary hover:bg-primary-hover text-on-primary rounded disabled:opacity-50 disabled:cursor-not-allowed">{editingQuote ? 'Save Changes' : 'Add Quote'}</button>
-                                </div>
+                                    <textarea placeholder="Quote details..." value={newQuote.quoteDetails} onChange={e => setNewQuote({ ...newQuote, quoteDetails: e.target.value })} className="w-full p-2 mb-4 bg-background border-border rounded text-text-primary" rows={3}></textarea>
+                                    <div className="flex justify-end space-x-2">
+                                        <button type="button" onClick={onCloseModal} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button>
+                                        <button type="submit" disabled={(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && !selectedInstaller} className="py-2 px-4 bg-primary hover:bg-primary-hover text-on-primary rounded disabled:opacity-50 disabled:cursor-not-allowed">{editingQuote ? 'Save Changes' : 'Add Quote'}</button>
+                                    </div>
+                                </form>
+                            ) : (
+                            <form onSubmit={handleSaveNewInstaller}>
+                                    <h4 className="text-lg font-semibold mb-2 text-text-primary">Add New Installer</h4>
+                                    <div className="space-y-3">
+                                        <input type="text" placeholder="Installer Name" value={newInstallerForm.installerName} onChange={e => setNewInstallerForm({...newInstallerForm, installerName: e.target.value})} className="w-full p-2 bg-background border-border rounded text-text-primary" required />
+                                        <input type="email" placeholder="Contact Email" value={newInstallerForm.contactEmail} onChange={e => setNewInstallerForm({...newInstallerForm, contactEmail: e.target.value})} className="w-full p-2 bg-background border-border rounded text-text-primary" />
+                                        <input type="tel" placeholder="Contact Phone" value={newInstallerForm.contactPhone} onChange={e => setNewInstallerForm({...newInstallerForm, contactPhone: e.target.value})} className="w-full p-2 bg-background border-border rounded text-text-primary" />
+                                    </div>
+                                    <div className="flex justify-end space-x-2 mt-4">
+                                        <button type="button" onClick={() => setIsAddingNewInstaller(false)} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Back</button>
+                                        <button type="submit" className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary">Save Installer</button>
+                                    </div>
                             </form>
-                        ) : (
-                           <form onSubmit={handleSaveNewInstaller}>
-                                <h4 className="text-lg font-semibold mb-2 text-text-primary">Add New Installer</h4>
-                                <div className="space-y-3">
-                                    <input type="text" placeholder="Installer Name" value={newInstallerForm.installerName} onChange={e => setNewInstallerForm({...newInstallerForm, installerName: e.target.value})} className="w-full p-2 bg-background border-border rounded text-text-primary" required />
-                                    <input type="email" placeholder="Contact Email" value={newInstallerForm.contactEmail} onChange={e => setNewInstallerForm({...newInstallerForm, contactEmail: e.target.value})} className="w-full p-2 bg-background border-border rounded text-text-primary" />
-                                    <input type="tel" placeholder="Contact Phone" value={newInstallerForm.contactPhone} onChange={e => setNewInstallerForm({...newInstallerForm, contactPhone: e.target.value})} className="w-full p-2 bg-background border-border rounded text-text-primary" />
-                                </div>
-                                <div className="flex justify-end space-x-2 mt-4">
-                                    <button type="button" onClick={() => setIsAddingNewInstaller(false)} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Back</button>
-                                    <button type="submit" className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary">Save Installer</button>
-                                </div>
-                           </form>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
+                </ModalPortal>
             )}
         </div>
     );

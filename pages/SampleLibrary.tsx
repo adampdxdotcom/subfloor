@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useData } from '../context/DataContext';
-import { PlusCircle, Search, Download, Clock, Undo2, Archive, LayoutGrid, ChevronRight } from 'lucide-react';
+import { PlusCircle, Search, Download, Clock, Undo2, Archive, LayoutGrid, ChevronRight, ExternalLink } from 'lucide-react';
 import { Product, Vendor, PricingSettings } from '../types';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom'; // Added useSearchParams
 import { toast } from 'react-hot-toast';
 import AddEditVendorModal from '../components/AddEditVendorModal';
 import ProductForm from '../components/ProductForm'; 
@@ -10,6 +10,7 @@ import * as preferenceService from '../services/preferenceService';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
 import ProductDetailModal from '../components/ProductDetailModal'; // Import New Modal
 import SampleCarousel from '../components/SampleCarousel'; // Import Carousel
+import ProductCard from '../components/ProductCard'; // NEW COMPONENT
 
 const SampleLibrary: React.FC = () => {
   const {
@@ -17,9 +18,20 @@ const SampleLibrary: React.FC = () => {
     sampleCheckouts, updateSampleCheckout, extendSampleCheckout
   } = useData();
 
-  const [searchTerm, setSearchTerm] = useState('');
+  // --- NEW: Handle URL Search Params ---
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
+  
+  // Sync URL when search changes
+  useEffect(() => {
+      const params = new URLSearchParams();
+      if (searchTerm) params.set('search', searchTerm);
+      setSearchParams(params, { replace: true });
+  }, [searchTerm, setSearchParams]);
   
   // --- NEW: Tab State ---
   const [viewMode, setViewMode] = useState<'active' | 'discontinued'>('active');
@@ -97,28 +109,6 @@ const SampleLibrary: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
-  // Helper to calculate display price for cards
-  const getDisplayPriceRange = (product: Product) => {
-      if (!product.variants || product.variants.length === 0 || !pricingSettings) return null;
-      
-      // Get active vendor
-      const vendorId = product.supplierId || product.manufacturerId;
-      const vendor = vendors.find(v => v.id === vendorId);
-      const rules = getActivePricingRules(vendor, pricingSettings, 'Customer');
-
-      const prices = product.variants
-        .filter(v => v.unitCost)
-        .map(v => calculatePrice(Number(v.unitCost), rules.percentage, rules.method));
-      
-      if (prices.length === 0) return null;
-      
-      const min = Math.min(...prices);
-      const max = Math.max(...prices);
-      
-      if (min === max) return `$${min.toFixed(2)}`;
-      return `$${min.toFixed(2)} - $${max.toFixed(2)}`;
-  };
-
   if (isLoading) { return <div>Loading library...</div>; }
 
   return (
@@ -175,56 +165,14 @@ const SampleLibrary: React.FC = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
         {filteredProducts.map(product => {
-          // DEBUG: Check console to see exactly what URL is coming from backend
-          // console.log("Rendering Product:", product.id, product.defaultImageUrl);
-          return (
-          <div key={product.id} className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleProductClick(product)}>
-            
-            {/* Image Area */}
-            <div className="w-full h-48 bg-background flex items-center justify-center relative">
-                {product.defaultImageUrl ? (
-                    <img src={product.defaultImageUrl} alt={product.name} className="w-full h-full object-cover" />
-                ) : (
-                    <div className="text-center p-4">
-                        <span className="text-4xl opacity-20 font-bold text-text-tertiary block mb-2">
-                            {product.name.substring(0, 2).toUpperCase()}
-                        </span>
-                        <span className="text-xs text-text-secondary">No Image</span>
-                    </div>
-                )}
-                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
-                    {product.variants.length} Variants
-                </div>
-            </div>
-
-            <div className="p-4 flex flex-col flex-grow">
-              <h3 className="font-bold text-lg text-text-primary truncate" title={product.name}>{product.name}</h3>
-              <p className="text-sm text-text-secondary truncate">{product.manufacturerName || 'Unknown Vendor'}</p>
-              
-              {/* Price Range */}
-              <div className="mt-2">
-                  {getDisplayPriceRange(product) ? (
-                      <p className="text-sm font-semibold text-green-400">
-                          {getDisplayPriceRange(product)} <span className="text-text-secondary font-normal text-xs">/ Unit</span>
-                      </p>
-                  ) : (
-                      <p className="text-xs text-text-tertiary italic">No pricing set</p>
-                  )}
-              </div>
-
-              <div className="flex-grow" />
-              
-              {viewMode === 'discontinued' && (
-                  <div className="mb-2 text-center bg-red-900/30 text-red-400 text-xs font-bold py-1 rounded border border-red-900/50 uppercase tracking-wider">Discontinued</div>
-              )}
-              
-              <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
-                <span className="text-xs font-semibold bg-background text-text-secondary px-2 py-1 rounded">{product.productType}</span>
-                <ChevronRight size={16} className="text-text-tertiary" />
-              </div>
-            </div>
-          </div>
-        )})}
+          return <ProductCard 
+              key={product.id} 
+              product={product} 
+              pricingSettings={pricingSettings} 
+              onClick={handleProductClick} 
+              showDiscontinuedStyle={viewMode === 'discontinued'} 
+          />;
+        })}
         {filteredProducts.length === 0 && (<p className="text-text-secondary col-span-full text-center py-10">No products found.</p>)}
       </div>
 

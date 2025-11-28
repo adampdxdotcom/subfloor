@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CurrentUser, Project, ProjectStatus } from '../types';
 import { Edit, Trash2, Save, X, RotateCcw } from 'lucide-react'; // <-- Import new icons
+import { useData } from '../context/DataContext'; // Need users list
+import { createGravatarHash } from '../utils/cryptoUtils';
 
 const getStatusColor = (status: ProjectStatus): string => {
     switch (status) {
@@ -37,7 +39,10 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
     onDeleteProject, isDeleting,
     isLayoutEditMode, onSaveLayout, onCancelLayout, onResetLayout 
 }) => {
+    const { users } = useData(); // Get all users for assignment dropdown
+    
     const [isEditingStatus, setIsEditingStatus] = useState(false);
+    const [isEditingManager, setIsEditingManager] = useState(false);
     
     const handleStatusChange = (newStatus: ProjectStatus) => {
         updateProject({ id: project.id, status: newStatus });
@@ -48,6 +53,15 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
     // by the explicit Delete button (onDeleteProject) or status dropdown (if cancelling status).
     
     const statusOptions = [ ProjectStatus.NEW, ProjectStatus.SAMPLE_CHECKOUT, ProjectStatus.AWAITING_DECISION, ProjectStatus.QUOTING, ProjectStatus.ACCEPTED, ProjectStatus.SCHEDULED, ProjectStatus.COMPLETED, ProjectStatus.CANCELLED, ProjectStatus.CLOSED ];
+    
+    // Find Manager
+    const manager = users.find(u => u.userId === project.managerId);
+    const managerName = manager ? (manager.firstName ? `${manager.firstName} ${manager.lastName || ''}` : manager.email) : 'Unassigned';
+    const managerAvatar = manager?.avatarUrl 
+        ? manager.avatarUrl 
+        : manager?.email 
+            ? `https://www.gravatar.com/avatar/${createGravatarHash(manager.email)}?s=40&d=mp` 
+            : null;
     
     return (
         <div className="bg-surface p-6 rounded-lg shadow-lg">
@@ -108,9 +122,45 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
                             </div>
                         </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-border text-text-secondary">
-                        <p><strong className="text-text-primary">Type:</strong> {project.projectType}</p>
-                        <p><strong className="text-text-primary">Created:</strong> {new Date(project.createdAt).toLocaleDateString()}</p>
+                    
+                    {/* METADATA BAR */}
+                    <div className="mt-4 pt-4 border-t border-border text-text-secondary flex flex-wrap gap-8">
+                        <div>
+                            <span className="block text-xs font-bold text-text-secondary uppercase">Type</span>
+                            <span className="text-text-primary">{project.projectType}</span>
+                        </div>
+                        <div>
+                            <span className="block text-xs font-bold text-text-secondary uppercase">Created</span>
+                            <span className="text-text-primary">{new Date(project.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        
+                        {/* PROJECT MANAGER ASSIGNMENT */}
+                        <div className="relative group">
+                            <span className="block text-xs font-bold text-text-secondary uppercase mb-1">Project Lead</span>
+                            
+                            {isEditingManager ? (
+                                <select 
+                                    className="bg-background border border-border text-text-primary text-sm rounded p-1"
+                                    value={project.managerId || ''}
+                                    onChange={(e) => {
+                                        updateProject({ id: project.id, managerId: e.target.value });
+                                        setIsEditingManager(false);
+                                    }}
+                                    onBlur={() => setIsEditingManager(false)}
+                                    autoFocus
+                                >
+                                    <option value="">-- Unassigned --</option>
+                                    {users.map(u => (
+                                        <option key={u.userId} value={u.userId}>{u.firstName ? `${u.firstName} ${u.lastName}` : u.email}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div className="flex items-center gap-2 cursor-pointer hover:bg-background rounded p-1 -ml-1 transition-colors" onClick={() => setIsEditingManager(true)}>
+                                    {managerAvatar && <img src={managerAvatar} alt={managerName} className="w-6 h-6 rounded-full border border-border" />}
+                                    <span className="text-text-primary text-sm font-medium">{managerName}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </>
             )}
