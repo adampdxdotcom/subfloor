@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { useData } from '../context/DataContext';
+import { useCustomers } from '../hooks/useCustomers';
+import { useProjects } from '../hooks/useProjects';
+import { useSampleCheckouts } from '../hooks/useSampleCheckouts';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Search, User, Mail, Phone, MapPin, Briefcase } from 'lucide-react';
 import EditCustomerModal from '../components/EditCustomerModal';
@@ -26,7 +28,9 @@ const formatDateRange = (startDateStr: string | null | undefined, endDateStr: st
 };
 
 const CustomerList: React.FC = () => {
-  const { customers, projects, sampleCheckouts } = useData();
+  const { data: customers = [] } = useCustomers();
+  const { data: projects = [] } = useProjects();
+  const { data: sampleCheckouts = [] } = useSampleCheckouts();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -42,7 +46,7 @@ const CustomerList: React.FC = () => {
         .filter(p => projectsWithActiveCheckouts.has(p.id))
         .sort((a, b) => {
             const earliestA = Math.min(...sampleCheckouts.filter(sc => sc.projectId === a.id && !sc.actualReturnDate).map(sc => new Date(sc.expectedReturnDate).getTime()));
-            const earliestB = Math.min(...sampleCheckouts.filter(sc => sc.projectId === b.id && !sc.actualReturnDate).map(sc => new Date(sc.expectedReturnDate).getTime()));
+            const earliestB = Math.min(...sampleCheckouts.filter(sc => sc.projectId === b.id && !sc.actualReturnDate).map(sc => new Date(b.expectedReturnDate).getTime()));
             return earliestA - earliestB;
         });
   }, [projects, sampleCheckouts]);

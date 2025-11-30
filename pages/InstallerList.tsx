@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'; // Added useMemo
 import { Link } from 'react-router-dom';
-import { useData } from '../context/DataContext';
+import { useInstallers } from '../hooks/useInstallers';
 import { Installer } from '../types';
 // --- MODIFIED: Imported the Search icon ---
 import { PlusCircle, User, Mail, Phone, Edit, Briefcase, Search } from 'lucide-react';
@@ -19,7 +19,7 @@ const formatDateRange = (startDateStr: string, endDateStr: string): string => {
 };
 
 const InstallerList: React.FC = () => {
-  const { installers, isLoading } = useData();
+  const { data: installers = [], isLoading } = useInstallers();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInstaller, setEditingInstaller] = useState<Installer | null>(null);

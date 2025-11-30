@@ -59,4 +59,3 @@ export const patchSampleCheckout = async (checkoutId: number, data: { expectedRe
     }
     return response.json();
 };
-// --- END NEW FUNCTION ---

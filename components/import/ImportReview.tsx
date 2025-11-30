@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowRight, AlertTriangle, CheckCircle2, PlusCircle, AlertCircle, XCircle } from 'lucide-react';
 
 interface ImportReviewProps {
@@ -50,6 +51,16 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
         errors: rows.filter(r => r.status === 'error').length
     };
 
+    // --- VIRTUALIZATION SETUP ---
+    const parentRef = useRef<HTMLDivElement>(null);
+    
+    const rowVirtualizer = useVirtualizer({
+        count: rows.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 56, // Estimate row height (56px is roughly accurate for this table)
+        overscan: 10, // Buffer items to render outside view
+    });
+
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[600px]">
             
@@ -70,7 +81,7 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
             </div>
 
             {/* SCROLLABLE TABLE */}
-            <div className="flex-1 overflow-auto bg-white">
+            <div ref={parentRef} className="flex-1 overflow-auto bg-white relative">
                 <table className="w-full text-left text-sm border-collapse">
                     <thead className="bg-gray-50 text-gray-500 uppercase text-xs sticky top-0 z-10 border-b border-gray-200 shadow-sm">
                         <tr>
@@ -83,10 +94,22 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {rows.map((row, idx) => (
-                            <React.Fragment key={idx}>
+                        {/* Top Spacer to push content down to correct scroll position */}
+                        {rowVirtualizer.getVirtualItems().length > 0 && (
+                            <tr><td style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} colSpan={6}></td></tr>
+                        )}
+
+                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                            const row = rows[virtualRow.index];
+                            const idx = virtualRow.index;
+                            return (
+                            <React.Fragment key={virtualRow.key}>
                                 {/* MAIN ROW */}
-                                <tr className={`hover:bg-gray-50 transition-colors ${row.isSkipped ? 'opacity-50 bg-gray-50 grayscale' : ''}`}>
+                                <tr 
+                                    data-index={virtualRow.index} 
+                                    ref={rowVirtualizer.measureElement} // Dynamic height measurement
+                                    className={`hover:bg-gray-50 transition-colors ${row.isSkipped ? 'opacity-50 bg-gray-50 grayscale' : ''}`}
+                                >
                                     <td className="p-3">
                                         <button 
                                             onClick={() => handleToggleSkip(idx)}
@@ -149,7 +172,13 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                                     )}
                                 </tr>
                             </React.Fragment>
-                        ))}
+                            );
+                        })}
+                        
+                        {/* Bottom Spacer */}
+                        {rowVirtualizer.getVirtualItems().length > 0 && (
+                            <tr><td style={{ height: `${rowVirtualizer.getTotalSize() - rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1].end}px` }} colSpan={6}></td></tr>
+                        )}
                     </tbody>
                 </table>
             </div>

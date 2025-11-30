@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.11",
+    "@tanstack/react-virtual": "^3.13.12",
     "axios": "^1.7.2",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "0.395.0",

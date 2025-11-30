@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { CurrentUser, Project, ProjectStatus } from '../types';
-import { Edit, Trash2, Save, X, RotateCcw } from 'lucide-react'; // <-- Import new icons
-import { useData } from '../context/DataContext'; // Need users list
+import { CurrentUser, Project, ProjectStatus, Customer, Installer, User } from '../types';
+import { Edit2, Trash2, Save, X, RotateCcw, Calendar, Tag, MapPin, Phone, User as UserIcon, Hammer, Briefcase } from 'lucide-react'; 
+import { useData } from '../context/DataContext'; 
 import { createGravatarHash } from '../utils/cryptoUtils';
 
 const getStatusColor = (status: ProjectStatus): string => {
     switch (status) {
         case ProjectStatus.SCHEDULED: return 'bg-green-500 text-white';
         case ProjectStatus.ACCEPTED: return 'bg-teal-500 text-white';
-        case ProjectStatus.QUOTING: return 'bg-accent text-on-accent'; // Updated to use theme accent
+        case ProjectStatus.QUOTING: return 'bg-accent text-on-accent';
         case ProjectStatus.SAMPLE_CHECKOUT: return 'bg-yellow-500 text-gray-800';
         case ProjectStatus.AWAITING_DECISION: return 'bg-secondary text-on-secondary';
         case ProjectStatus.NEW: return 'bg-gray-500 text-white';
@@ -19,15 +19,16 @@ const getStatusColor = (status: ProjectStatus): string => {
     }
 };
 
-// --- MODIFIED: Add new props for Layout Edit Mode ---
 interface ProjectInfoHeaderProps {
     project: Project;
-    customerName: string;
-    currentUser: CurrentUser | null; // <-- NEW
+    customer: Customer | undefined;
+    activeInstaller?: Installer;
+    projectLead?: User;
+    currentUser: CurrentUser | null;
     updateProject: (p: Partial<Project> & { id: number }) => void;
     onEdit: () => void;
-    onDeleteProject: () => void; // <-- NEW
-    isDeleting: boolean; // <-- NEW
+    onDeleteProject: () => void;
+    isDeleting: boolean;
     isLayoutEditMode: boolean;
     onSaveLayout: () => void;
     onCancelLayout: () => void;
@@ -35,135 +36,221 @@ interface ProjectInfoHeaderProps {
 }
 
 const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({ 
-    project, customerName, currentUser, updateProject, onEdit,
+    project, customer, activeInstaller, projectLead, currentUser, updateProject, onEdit,
     onDeleteProject, isDeleting,
     isLayoutEditMode, onSaveLayout, onCancelLayout, onResetLayout 
 }) => {
-    const { users } = useData(); // Get all users for assignment dropdown
+    const { users } = useData(); 
     
-    const [isEditingStatus, setIsEditingStatus] = useState(false);
-    const [isEditingManager, setIsEditingManager] = useState(false);
+    const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsStatusDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
     
     const handleStatusChange = (newStatus: ProjectStatus) => {
         updateProject({ id: project.id, status: newStatus });
-        setIsEditingStatus(false);
+        setIsStatusDropdownOpen(false);
     };
-
-    // NOTE: handleCancelProject function removed as its functionality is superseded
-    // by the explicit Delete button (onDeleteProject) or status dropdown (if cancelling status).
     
     const statusOptions = [ ProjectStatus.NEW, ProjectStatus.SAMPLE_CHECKOUT, ProjectStatus.AWAITING_DECISION, ProjectStatus.QUOTING, ProjectStatus.ACCEPTED, ProjectStatus.SCHEDULED, ProjectStatus.COMPLETED, ProjectStatus.CANCELLED, ProjectStatus.CLOSED ];
     
-    // Find Manager
-    const manager = users.find(u => u.userId === project.managerId);
-    const managerName = manager ? (manager.firstName ? `${manager.firstName} ${manager.lastName || ''}` : manager.email) : 'Unassigned';
-    const managerAvatar = manager?.avatarUrl 
-        ? manager.avatarUrl 
-        : manager?.email 
-            ? `https://www.gravatar.com/avatar/${createGravatarHash(manager.email)}?s=40&d=mp` 
-            : null;
+    // Map Address Link
+    const googleMapsUrl = customer?.address 
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`
+        : '#';
+        
+    // Format Date
+    const formattedDate = new Date(project.createdAt).toLocaleDateString();
     
     return (
-        <div className="bg-surface p-6 rounded-lg shadow-lg">
-            {/* --- MODIFIED: Conditional Rendering for the entire header content --- */}
-            {isLayoutEditMode ? (
-                // --- VIEW WHEN IN EDIT MODE ---
-                <div className="flex justify-between items-center animate-pulse">
-                    <div>
-                        <h2 className="text-2xl font-bold text-accent">Editing Page Layout...</h2>
-                        <p className="text-text-secondary">Drag and resize the panels below.</p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <button onClick={onResetLayout} className="flex items-center text-yellow-400 hover:text-white hover:bg-yellow-600 font-semibold py-2 px-3 rounded-lg transition-colors text-sm">
-                            <RotateCcw className="w-4 h-4 mr-2"/> Reset
-                        </button>
-                        <button onClick={onCancelLayout} className="flex items-center text-red-400 hover:text-white hover:bg-red-600 font-semibold py-2 px-3 rounded-lg transition-colors text-sm">
-                            <X className="w-4 h-4 mr-2"/> Cancel
-                        </button>
-                        <button onClick={onSaveLayout} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg text-sm">
-                            <Save className="w-4 h-4 mr-2"/> Save Layout
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                // --- NORMAL VIEW ---
-                <>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <div className="flex items-center gap-3 mb-1">
-                                <h1 className="text-3xl font-bold text-text-primary">{project.projectName}</h1>
-                                <button onClick={onEdit} className="p-1 text-text-secondary hover:text-text-primary rounded-full hover:bg-background" title="Edit Project Details">
-                                    <Edit size={20}/>
-                                </button>
-                            </div>
-                            <Link to={`/customers/${project.customerId}`} className="text-lg text-accent hover:underline">{customerName}</Link>
-                        </div>
-                        <div className="flex items-center space-x-4 text-sm">
-                            {currentUser?.roles?.includes('Admin') && (
-                                <button onClick={onDeleteProject} disabled={isDeleting} className="flex items-center text-red-400 hover:text-white hover:bg-red-600 font-semibold py-2 px-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <Trash2 className="w-4 h-4 mr-2"/>
-                                    {isDeleting ? 'Deleting...' : 'Delete Project'}
-                                </button>
-                            )}
-
-                            <div className="relative flex items-center space-x-2">
-                                {isEditingStatus ? (
-                                    <select value={project.status} onChange={(e) => handleStatusChange(e.target.value as ProjectStatus)} onBlur={() => setIsEditingStatus(false)} className="bg-background border border-border text-text-primary text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" autoFocus>
-                                        {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                    </select>
-                                ) : (
-                                    <span className={`text-sm font-semibold px-3 py-1 rounded-full ${getStatusColor(project.status)}`}>
-                                        {project.status}
-                                    </span>
-                                )}
-                                <button onClick={() => setIsEditingStatus(!isEditingStatus)} className="text-text-secondary hover:text-text-primary p-1 rounded-full hover:bg-background" title="Change Status">
-                                    <Edit className="w-4 h-4"/>
-                                </button>
-                            </div>
-                        </div>
+        <div className="bg-surface rounded-lg shadow-md p-6 border border-border">
+            <div className="flex flex-col lg:flex-row justify-between items-start gap-4 mb-6">
+                
+                {/* LEFT: Title & Meta */}
+                <div>
+                    <div className="flex items-center gap-3 mb-2">
+                        <h1 className="text-3xl font-bold text-text-primary">{project.projectName}</h1>
+                        
+                        {/* ONLY SHOW EDIT BUTTON IF IN LAYOUT EDIT MODE */}
+                        {isLayoutEditMode && (
+                            <button 
+                                onClick={onEdit} 
+                                className="p-1.5 text-text-secondary hover:text-text-primary rounded-md bg-background border border-border hover:border-primary transition-all" 
+                                title="Edit Project Details"
+                            >
+                                <Edit2 size={16} />
+                            </button>
+                        )}
                     </div>
                     
-                    {/* METADATA BAR */}
-                    <div className="mt-4 pt-4 border-t border-border text-text-secondary flex flex-wrap gap-8">
-                        <div>
-                            <span className="block text-xs font-bold text-text-secondary uppercase">Type</span>
-                            <span className="text-text-primary">{project.projectType}</span>
-                        </div>
-                        <div>
-                            <span className="block text-xs font-bold text-text-secondary uppercase">Created</span>
-                            <span className="text-text-primary">{new Date(project.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        
-                        {/* PROJECT MANAGER ASSIGNMENT */}
-                        <div className="relative group">
-                            <span className="block text-xs font-bold text-text-secondary uppercase mb-1">Project Lead</span>
-                            
-                            {isEditingManager ? (
-                                <select 
-                                    className="bg-background border border-border text-text-primary text-sm rounded p-1"
-                                    value={project.managerId || ''}
-                                    onChange={(e) => {
-                                        updateProject({ id: project.id, managerId: e.target.value });
-                                        setIsEditingManager(false);
-                                    }}
-                                    onBlur={() => setIsEditingManager(false)}
-                                    autoFocus
-                                >
-                                    <option value="">-- Unassigned --</option>
-                                    {users.map(u => (
-                                        <option key={u.userId} value={u.userId}>{u.firstName ? `${u.firstName} ${u.lastName}` : u.email}</option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <div className="flex items-center gap-2 cursor-pointer hover:bg-background rounded p-1 -ml-1 transition-colors" onClick={() => setIsEditingManager(true)}>
-                                    {managerAvatar && <img src={managerAvatar} alt={managerName} className="w-6 h-6 rounded-full border border-border" />}
-                                    <span className="text-text-primary text-sm font-medium">{managerName}</span>
-                                </div>
+                    {/* Meta Badges */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded bg-background border border-border text-text-secondary">
+                            <Tag size={12} /> {project.projectType}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded bg-background border border-border text-text-secondary">
+                            <Calendar size={12} /> Created: {formattedDate}
+                        </span>
+                    </div>
+                </div>
+                
+                {/* RIGHT: Actions & Status */}
+                <div className="flex items-center gap-3 w-full lg:w-auto">
+                    {isLayoutEditMode ? (
+                        // --- EDIT MODE CONTROLS ---
+                        <>
+                            <button onClick={onResetLayout} className="flex items-center px-3 py-2 text-sm font-medium text-yellow-600 bg-yellow-50 hover:bg-yellow-100 rounded-md transition-colors" title="Reset Default Layout">
+                                <RotateCcw size={16} className="mr-1" /> Reset
+                            </button>
+                            <button onClick={onCancelLayout} className="flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors" title="Cancel Changes">
+                                <X size={16} className="mr-1" /> Cancel
+                            </button>
+                            <button onClick={onSaveLayout} className="flex items-center px-3 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-md shadow-sm transition-colors" title="Save Layout Changes">
+                                <Save size={16} className="mr-1" /> Save
+                            </button>
+                        </>
+                    ) : (
+                        // --- VIEW MODE ACTIONS ---
+                        <>
+                            {currentUser?.roles?.includes('Admin') && (
+                                <button onClick={onDeleteProject} disabled={isDeleting} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-red-600 hover:bg-red-50 rounded-md transition-colors border border-transparent hover:border-red-100">
+                                    <Trash2 size={16}/>
+                                    {isDeleting ? 'Deleting...' : 'Delete'}
+                                </button>
                             )}
+                        </>
+                    )}
+
+                    {/* Status Dropdown */}
+                    <div className="relative" ref={dropdownRef}>
+                        <button
+                            // ONLY ALLOW CLICK IF IN EDIT MODE
+                            onClick={() => isLayoutEditMode && setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide transition-all shadow-sm 
+                                ${getStatusColor(project.status)}
+                                ${isLayoutEditMode ? 'cursor-pointer hover:ring-2 ring-primary ring-offset-1' : 'cursor-default'}
+                            `}
+                        >
+                            {project.status.replace(/_/g, ' ')}
+                            {/* ONLY SHOW PENCIL IN EDIT MODE */}
+                            {isLayoutEditMode && <Edit2 size={14} className="opacity-70" />}
+                        </button>
+
+                        {isStatusDropdownOpen && (
+                            <div className="absolute right-0 mt-2 w-56 bg-surface border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+                                {Object.values(ProjectStatus).map((status) => (
+                                    <button
+                                        key={status}
+                                        onClick={() => handleStatusChange(status)}
+                                        className={`w-full text-left px-4 py-3 text-sm hover:bg-background transition-colors ${project.status === status ? 'font-bold text-primary bg-primary/5' : 'text-text-primary'}`}
+                                    >
+                                        {status}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            
+            <div className="h-px bg-border my-4" />
+
+            {/* ROW 2: Information Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* 1. Customer Info */}
+                <div className="space-y-1">
+                    <h3 className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <UserIcon size={12} /> Customer
+                    </h3>
+                    <div className="flex items-start gap-2">
+                        <Link to={`/customers/${customer?.id}`} className="font-semibold text-text-primary text-lg hover:text-primary transition-colors">
+                            {customer?.fullName || 'Unknown Customer'}
+                        </Link>
+                        {customer?.phoneNumber && (
+                            <div className="flex items-center text-text-secondary text-sm pt-1">
+                                <span className="mx-2 text-text-tertiary">•</span>
+                                <Phone size={14} className="mr-1 text-text-tertiary" />
+                                <a href={`tel:${customer.phoneNumber}`} className="hover:underline hover:text-primary">
+                                    {customer.phoneNumber}
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                    {customer?.address ? (
+                        <a 
+                            href={googleMapsUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="flex items-center gap-1.5 text-text-secondary hover:text-primary transition-colors text-sm group"
+                        >
+                            <MapPin size={14} className="text-text-tertiary group-hover:text-primary shrink-0" />
+                            {customer.address}
+                        </a>
+                    ) : (
+                        <span className="text-text-tertiary text-sm italic pl-5">No address on file</span>
+                    )}
+                </div>
+
+                {/* 2. Installer Info */}
+                {activeInstaller && (
+                    <div className="space-y-1">
+                        <h3 className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <Hammer size={12} /> Installer
+                        </h3>
+                        <div className="flex items-center gap-3">
+                            <div 
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm"
+                                style={{ backgroundColor: activeInstaller.color || '#6b7280' }}
+                            >
+                                {activeInstaller.installerName.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                                <div className="font-semibold text-text-primary">
+                                    {activeInstaller.installerName}
+                                </div>
+                                <div className="text-xs text-text-secondary">
+                                    {activeInstaller.contactPhone || activeInstaller.contactEmail || 'No contact info'}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </>
-            )}
+                )}
+                
+                {/* 3. Project Lead */}
+                {projectLead && (
+                    <div className="space-y-1">
+                        <h3 className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <Briefcase size={12} /> Project Lead
+                        </h3>
+                        <div className="flex items-center gap-3">
+                            {projectLead.avatarUrl ? (
+                                <img src={projectLead.avatarUrl} alt="Lead" className="w-8 h-8 rounded-full object-cover shadow-sm" />
+                            ) : (
+                                <div className="w-8 h-8 rounded-full bg-accent text-on-accent flex items-center justify-center font-bold text-xs">
+                                    {projectLead.firstName?.[0]}{projectLead.lastName?.[0]}
+                                </div>
+                            )}
+                            <div>
+                                <div className="font-semibold text-text-primary">
+                                    {projectLead.firstName} {projectLead.lastName}
+                                </div>
+                                <div className="text-xs text-text-secondary">
+                                    {projectLead.email}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

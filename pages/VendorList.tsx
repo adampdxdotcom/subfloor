@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useData } from '../context/DataContext';
+import { useVendors, useVendorMutations } from '../hooks/useVendors';
 import { Vendor } from '../types';
 import AddEditVendorModal from '../components/AddEditVendorModal';
 import { toast } from 'react-hot-toast';
@@ -8,7 +8,9 @@ import { Link } from 'react-router-dom';
 import { PlusCircle, Building, Truck, Search, Layers } from 'lucide-react';
 
 const VendorList: React.FC = () => {
-    const { vendors, addVendor, updateVendor } = useData(); // Removed deleteVendor as it's not called here
+    const { data: vendors = [] } = useVendors();
+    const vendorMutations = useVendorMutations();
+    
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [vendorToEdit, setVendorToEdit] = useState<Vendor | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -35,10 +37,12 @@ const VendorList: React.FC = () => {
     const handleSaveVendor = async (vendorData: Omit<Vendor, 'id'> | Vendor) => {
         try {
             if ('id' in vendorData) {
-                await updateVendor(vendorData);
+                const { id, ...data } = vendorData;
+                await vendorMutations.updateVendor.mutateAsync({ id, data });
                 toast.success('Vendor updated successfully!');
             } else {
-                await addVendor(vendorData);
+                // Cast is safe here because if 'id' is missing, it matches the add signature
+                await vendorMutations.addVendor.mutateAsync(vendorData as Omit<Vendor, 'id'>);
                 toast.success('Vendor added successfully!');
             }
             handleCloseModal();
@@ -55,7 +59,7 @@ const VendorList: React.FC = () => {
                     <h1 className="text-3xl font-bold text-text-primary">Vendor Directory</h1>
                     <button
                         onClick={() => handleOpenModal()}
-                        className="flex items-center gap-2 bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md"
+                        className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors shadow-md"
                     >
                         <PlusCircle size={20} />
                         Add Vendor

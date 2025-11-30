@@ -45,8 +45,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
         >
             {/* Image Area */}
             <div className="w-full h-48 bg-background flex items-center justify-center relative">
-                {product.defaultImageUrl ? (
-                    <img src={product.defaultImageUrl} alt={product.name} className="w-full h-full object-cover" />
+                {product.defaultThumbnailUrl || product.defaultImageUrl ? (
+                    <img src={product.defaultThumbnailUrl || product.defaultImageUrl || ''} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
                     <div className="text-center p-4">
                         <span className="text-4xl opacity-20 font-bold text-text-tertiary block mb-2">

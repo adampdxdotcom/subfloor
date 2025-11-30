@@ -1,5 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useData } from '../context/DataContext';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useProducts, useProductMutations } from '../hooks/useProducts';
+import { useGridColumns } from '../hooks/useWindowSize';
+import { useSampleCheckouts, useSampleCheckoutMutations } from '../hooks/useSampleCheckouts';
+import { useVendors } from '../hooks/useVendors';
 import { PlusCircle, Search, Download, Clock, Undo2, Archive, LayoutGrid, ChevronRight, ExternalLink } from 'lucide-react';
 import { Product, Vendor, PricingSettings } from '../types';
 import { Link, useSearchParams } from 'react-router-dom'; // Added useSearchParams
@@ -13,10 +17,14 @@ import SampleCarousel from '../components/SampleCarousel'; // Import Carousel
 import ProductCard from '../components/ProductCard'; // NEW COMPONENT
 
 const SampleLibrary: React.FC = () => {
-  const {
-    products, addProduct, isLoading, vendors, 
-    sampleCheckouts, updateSampleCheckout, extendSampleCheckout
-  } = useData();
+  // --- HOOKS REPLACEMENT ---
+  const { data: products = [], isLoading: productsLoading } = useProducts();
+  const { data: sampleCheckouts = [] } = useSampleCheckouts();
+  const { data: vendors = [] } = useVendors(); // Kept if needed for future logic, though mostly used in modals
+  
+  const productMutations = useProductMutations();
+  // Note: updateSampleCheckout/extendSampleCheckout logic is inside ProductDetailModal/Carousel usually, 
+  // so we don't strictly need those mutation functions here in the parent unless passing them down.
 
   // --- NEW: Handle URL Search Params ---
   const [searchParams, setSearchParams] = useSearchParams();
@@ -89,11 +97,39 @@ const SampleLibrary: React.FC = () => {
     });
   }, [products, searchTerm, viewMode]);
 
+  // --- VIRTUALIZATION SETUP ---
+  const parentRef = useRef<HTMLDivElement>(null);
+  const columns = useGridColumns(); // Get 1, 2, 3, or 4 columns based on screen width
+  const [gridHeight, setGridHeight] = useState(600); // Default height
+
+  // Calculate available height for the grid dynamically
+  useEffect(() => {
+      const updateHeight = () => {
+          // Window height - Topbar (64px) - Page Header/Padding (~220px)
+          const calculated = window.innerHeight - 280; 
+          setGridHeight(calculated < 400 ? 400 : calculated); // Minimum 400px
+      };
+      
+      updateHeight();
+      window.addEventListener('resize', updateHeight);
+      return () => window.removeEventListener('resize', updateHeight);
+  }, []);
+  
+  // --- VIRTUALIZATION LOGIC ---
+  const rowCount = Math.ceil(filteredProducts.length / columns);
+  
+  const rowVirtualizer = useVirtualizer({
+      count: rowCount,
+      getScrollElement: () => parentRef.current,
+      estimateSize: () => 320, // Estimate card height + gap (~300px card + 20px gap)
+      overscan: 5,
+  });
+
   // --- MODIFIED: Add Product Handler ---
   const handleAddProduct = async (formData: FormData) => {
     setIsSaving(true);
     try {
-      await addProduct(formData); // NEW
+      await productMutations.addProduct.mutateAsync(formData);
       toast.success('Product added successfully!');
       resetAddModal();
     } catch (error) {
@@ -109,10 +145,11 @@ const SampleLibrary: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
-  if (isLoading) { return <div>Loading library...</div>; }
+  if (productsLoading) { return <div>Loading library...</div>; }
 
   return (
     <div className="container mx-auto p-4">
+      
       <div className="bg-surface p-6 rounded-lg shadow-md mb-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-text-primary">Sample Library</h1>
@@ -163,16 +200,50 @@ const SampleLibrary: React.FC = () => {
         </>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
-        {filteredProducts.map(product => {
-          return <ProductCard 
-              key={product.id} 
-              product={product} 
-              pricingSettings={pricingSettings} 
-              onClick={handleProductClick} 
-              showDiscontinuedStyle={viewMode === 'discontinued'} 
-          />;
+      {/* VIRTUALIZED GRID CONTAINER */}
+      <div 
+        ref={parentRef} 
+        className="overflow-y-auto w-full relative border border-border/50 rounded-lg"
+        style={{ height: gridHeight }}
+      >
+        <div 
+           style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}
+        >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const startIndex = virtualRow.index * columns;
+            // Get the chunk of items for this specific row
+            const rowItems = filteredProducts.slice(startIndex, startIndex + columns);
+
+            return (
+                <div
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    className="absolute top-0 left-0 w-full flex gap-6 p-4"
+                    style={{
+                        transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                >
+                    {rowItems.map((product) => (
+                        <div key={product.id} className="flex-1 min-w-0"> 
+                            {/* min-w-0 prevents flex items from overflowing */}
+                            <ProductCard 
+                                product={product} 
+                                pricingSettings={pricingSettings} 
+                                onClick={handleProductClick} 
+                                showDiscontinuedStyle={viewMode === 'discontinued'} 
+                            />
+                        </div>
+                    ))}
+                    {/* Spacer divs to fill empty slots in the last row so items align left */}
+                    {rowItems.length < columns && Array.from({ length: columns - rowItems.length }).map((_, i) => (
+                        <div key={`spacer-${i}`} className="flex-1" />
+                    ))}
+                </div>
+            );
         })}
+        </div>
+
         {filteredProducts.length === 0 && (<p className="text-text-secondary col-span-full text-center py-10">No products found.</p>)}
       </div>
 

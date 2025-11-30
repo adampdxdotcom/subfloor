@@ -42,6 +42,7 @@ CREATE TABLE products (
     description TEXT,
     product_line_url TEXT,
     default_image_url TEXT,
+    default_thumbnail_url TEXT,
     is_discontinued BOOLEAN DEFAULT FALSE
 );
 
@@ -58,6 +59,7 @@ CREATE TABLE product_variants (
     uom VARCHAR(20),
     carton_size NUMERIC(10, 4),
     image_url TEXT,
+    thumbnail_url TEXT,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     is_master BOOLEAN DEFAULT FALSE,
     has_sample BOOLEAN DEFAULT TRUE -- Tracks if we physically carry this specific variant sample
@@ -160,6 +162,7 @@ CREATE TABLE order_line_items (
 CREATE TABLE photos (
     id SERIAL PRIMARY KEY,
     url VARCHAR(255) NOT NULL,
+    thumbnail_url VARCHAR(255),
     entity_type VARCHAR(50) NOT NULL,
     entity_id VARCHAR(255) NOT NULL, -- Changed to VARCHAR to support UUIDs
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP

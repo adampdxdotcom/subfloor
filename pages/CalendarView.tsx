@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { useInstallers } from '../hooks/useInstallers';
 import CalendarFilter from '../components/CalendarFilter';
 import Select, { MultiValue } from 'react-select';
 import { toast } from 'react-hot-toast';
@@ -52,7 +53,9 @@ const getContrastingTextColor = (hexColor: string | null): string => {
 };
 
 const CalendarView: React.FC = () => {
-    const { installers, users, currentUser } = useData();
+    const { users, currentUser } = useData(); // Keep users/currentUser from Context
+    const { data: installers = [] } = useInstallers(); // Fetch installers directly
+    
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -316,7 +319,9 @@ interface AddEditEventModalProps {
 }
 
 const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, event, selectedDate, onSaveSuccess }) => {
-    const { users, installers, currentUser } = useData();
+    const { users, currentUser } = useData();
+    const { data: installers = [] } = useInstallers();
+    
     const [title, setTitle] = useState('');
     const [notes, setNotes] = useState('');
     const [startDate, setStartDate] = useState('');

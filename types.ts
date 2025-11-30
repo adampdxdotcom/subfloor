@@ -148,6 +148,7 @@ export interface ProductVariant {
   uom?: Unit | null;
   cartonSize?: number | null;
   imageUrl?: string | null;
+  thumbnailUrl?: string | null; // NEW: Optimized image path
   activeCheckouts?: number; // New field from SQL aggregation
   isMaster?: boolean; // New field for "Line Board" logic
   hasSample?: boolean; // New field for Physical Inventory tracking
@@ -162,6 +163,7 @@ export interface Product {
   description?: string | null;
   productLineUrl?: string | null;
   defaultImageUrl?: string | null;
+  defaultThumbnailUrl?: string | null; // NEW: Optimized image path
   isDiscontinued: boolean;
   
   // Joined Fields

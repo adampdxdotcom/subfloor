@@ -47,7 +47,7 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ project, onClose, o
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md">
+      <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-2xl font-bold mb-6 text-text-primary">Edit Project Details</h2>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
@@ -61,7 +61,7 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ project, onClose, o
                 name="projectName"
                 value={formData.projectName}
                 onChange={handleChange}
-                className="w-full p-2 bg-gray-800 border border-border rounded"
+                className="w-full p-2 bg-background border border-border rounded text-text-primary focus:ring-2 focus:ring-primary outline-none"
                 required
               />
             </div>
@@ -74,7 +74,7 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ project, onClose, o
                 name="projectType"
                 value={formData.projectType}
                 onChange={handleChange}
-                className="w-full p-2 bg-gray-800 border border-border rounded"
+                className="w-full p-2 bg-background border border-border rounded text-text-primary focus:ring-2 focus:ring-primary outline-none"
               >
                 {PROJECT_TYPES.map(type => (
                   <option key={type} value={type}>{type}</option>
@@ -86,13 +86,13 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ project, onClose, o
             <button
               type="button"
               onClick={onClose}
-              className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-white"
+              className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-semibold transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-white"
+              className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary font-semibold transition-colors"
             >
               Save Changes
             </button>

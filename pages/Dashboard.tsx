@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { useData } from '../context/DataContext';
+import { useProjects } from '../hooks/useProjects';
+import { useSampleCheckouts } from '../hooks/useSampleCheckouts';
+import { useMaterialOrders } from '../hooks/useMaterialOrders';
 import { Link } from 'react-router-dom';
 import { Project, ProjectStatus } from '../types';
 import { Filter, PackagePlus } from 'lucide-react';
@@ -8,7 +10,10 @@ import ProjectCarousel from '../components/ProjectCarousel';
 import OrderCarousel from '../components/OrderCarousel';
 
 const Dashboard: React.FC = () => {
-  const { projects, sampleCheckouts, materialOrders } = useData(); 
+  const { data: projects = [] } = useProjects();
+  const { data: sampleCheckouts = [] } = useSampleCheckouts();
+  const { data: materialOrders = [] } = useMaterialOrders();
+  
   const [filter, setFilter] = useState<ProjectStatus | 'All' | 'Recap'>('Recap');
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -32,7 +37,7 @@ const Dashboard: React.FC = () => {
         .filter(p => projectsWithActiveCheckouts.has(p.id))
         .sort((a, b) => {
             const earliestA = Math.min(...sampleCheckouts.filter(sc => sc.projectId === a.id && !sc.actualReturnDate).map(sc => new Date(sc.expectedReturnDate).getTime()));
-            const earliestB = Math.min(...sampleCheckouts.filter(sc => sc.projectId === b.id && !sc.actualReturnDate).map(sc => new Date(sc.expectedReturnDate).getTime()));
+            const earliestB = Math.min(...sampleCheckouts.filter(sc => sc.projectId === b.id && !sc.actualReturnDate).map(sc => new Date(b.expectedReturnDate).getTime()));
             return earliestA - earliestB;
         });
   }, [projects, sampleCheckouts]);
@@ -61,8 +66,8 @@ const Dashboard: React.FC = () => {
           })
           .sort((a, b) => {
               // Robust Sort
-              const dateStrA = a.etaDate!.includes('T') ? a.etaDate!.split('T')[0] : a.etaDate!;
-              const dateStrB = b.etaDate!.includes('T') ? b.etaDate!.split('T')[0] : b.etaDate!;
+              const dateStrA = a.etaDate! && a.etaDate.includes('T') ? a.etaDate.split('T')[0] : a.etaDate!;
+              const dateStrB = b.etaDate! && b.etaDate.includes('T') ? b.etaDate.split('T')[0] : b.etaDate!;
               return new Date(dateStrA).getTime() - new Date(dateStrB).getTime();
           });
   }, [materialOrders]);
@@ -175,7 +180,9 @@ const Dashboard: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {projectListGrid.length > 0 ? (
                         projectListGrid.map(project => (
-                            <ProjectCarousel key={project.id} title="" projects={[project]} />
+                            <Link to={`/projects/${project.id}`} key={project.id}>
+                                <ProjectCarousel title="" projects={[project]} />
+                            </Link>
                         ))
                     ) : (
                         <p className="text-text-secondary col-span-full text-center py-8">No projects match the filter "{filter}".</p>

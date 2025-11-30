@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useData } from '../context/DataContext';
+import { useProjects } from '../hooks/useProjects';
+import { useMaterialOrders, useMaterialOrderMutations } from '../hooks/useMaterialOrders';
 import { Project, MaterialOrder } from '../types';
 import { Package, AlertTriangle, CheckCircle, Clock, Search, Plus, Truck } from 'lucide-react';
 import ReceiveOrderModal from '../components/ReceiveOrderModal';
@@ -12,7 +13,10 @@ interface ProjectOrders {
 }
 
 const OrderDashboard: React.FC = () => {
-    const { projects, materialOrders, receiveMaterialOrder, reportMaterialOrderDamage } = useData();
+    const { data: projects = [] } = useProjects();
+    const { data: materialOrders = [] } = useMaterialOrders();
+    const materialOrderMutations = useMaterialOrderMutations();
+
     const [searchTerm, setSearchTerm] = useState('');
 
     // State for "Receive" Modal
@@ -76,6 +80,15 @@ const OrderDashboard: React.FC = () => {
     const handleGlobalAddOrder = () => {
         setActiveProjectForAdd(null); // User will select project in modal
         setIsAddOrderModalOpen(true);
+    };
+
+    // --- MUTATION WRAPPERS ---
+    // Adapts React Query's single-object argument to the Modal's (id, data) signature
+    const handleReceiveWrapper = async (orderId: number, data: any) => {
+        await materialOrderMutations.receiveMaterialOrder.mutateAsync({ id: orderId, data });
+    };
+    const handleDamageWrapper = async (orderId: number, data: any) => {
+        await materialOrderMutations.reportMaterialOrderDamage.mutateAsync({ id: orderId, data });
     };
 
     return (
@@ -198,8 +211,8 @@ const OrderDashboard: React.FC = () => {
                     isOpen={!!receivingOrder}
                     onClose={() => setReceivingOrder(null)}
                     order={receivingOrder}
-                    onReceive={receiveMaterialOrder}
-                    onReportDamage={reportMaterialOrderDamage}
+                    onReceive={handleReceiveWrapper}
+                    onReportDamage={handleDamageWrapper}
                 />
             )}
 
