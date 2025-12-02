@@ -13,6 +13,7 @@ import { middleware, errorHandler } from 'supertokens-node/framework/express/ind
 // --- SERVICE IMPORTS ---
 import { initializeEmailService } from './lib/emailService.js';
 import { initializeScheduler } from './lib/scheduler.js';
+import { initDatabase } from './lib/dbInit.js'; // NEW IMPORT
 
 // --- ROUTE IMPORTS ---
 import customerRoutes from './routes/customers.js';
@@ -128,10 +129,24 @@ const exposedHeaders = new Set([
     ...supertokens.getAllCORSHeaders()
 ]);
 
+// Parse the allowed domains from .env (remove spaces just in case)
+const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAINS || "")
+    .split(",")
+    .map(d => d.trim());
+
+// Always allow the main APP_DOMAIN
+if (!ALLOWED_DOMAINS.includes(APP_DOMAIN)) {
+    ALLOWED_DOMAINS.push(APP_DOMAIN);
+}
+
 app.use(cors({
-    // Allow the request origin dynamically.
-    // This is safe because your Reverse Proxy (Caddy/Nginx) handles the public filtering.
-    origin: (origin, callback) => callback(null, origin || APP_DOMAIN),
+    origin: (origin, callback) => {
+        if (!origin || ALLOWED_DOMAINS.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     allowedHeaders: ["content-type", ...supertokens.getAllCORSHeaders()],
     exposedHeaders: [...exposedHeaders],
     credentials: true,
@@ -202,4 +217,7 @@ app.use(errorHandler());
 // --- START SERVER ---
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server is running on http://localhost:${PORT}`);
+  
+  // Check DB status and Initialize if needed
+  initDatabase();
 });

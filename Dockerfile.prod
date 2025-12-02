@@ -29,6 +29,9 @@ RUN npm install --only=production
 # Copy the backend code into a subdirectory
 COPY server/ ./server/
 
+# --- NEW: Copy the schema file so the app can self-initialize ---
+COPY schema.sql ./server/schema.sql
+
 # Copy the built frontend from Stage 1 into the server's public folder
 COPY --from=frontend-builder /app/dist ./server/public
 
