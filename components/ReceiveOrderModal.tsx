@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { MaterialOrder, OrderLineItem } from '../types';
-import { X, Truck, AlertTriangle, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { X, Truck, AlertTriangle, Mail, ArrowLeft, CheckCircle, Upload } from 'lucide-react';
 
 interface ReceiveOrderModalProps {
     isOpen: boolean;
     onClose: () => void;
     order: MaterialOrder | null;
-    onReceive: (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean }) => Promise<void>;
-    onReportDamage: (orderId: number, data: { items: { sampleId: number; quantity: number; unit: string }[]; replacementEta: string; notes: string; sendEmailNotification: boolean }) => Promise<void>;
+    onReceive: (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean; files: FileList | null }) => Promise<void>;
+    onReportDamage: (orderId: number, data: { items: { sampleId: number; quantity: number; unit: string }[]; replacementEta: string; notes: string; sendEmailNotification: boolean; files: FileList | null }) => Promise<void>;
 }
 
 const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, order, onReceive, onReportDamage }) => {
@@ -18,6 +18,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
     const [dateReceived, setDateReceived] = useState('');
     const [notes, setNotes] = useState('');
     const [sendEmail, setSendEmail] = useState(true);
+    const [files, setFiles] = useState<FileList | null>(null); // NEW: File State
 
     // Damage State
     const [damageItems, setDamageItems] = useState<Set<number>>(new Set()); // ID of line items
@@ -33,6 +34,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
             setDamageItems(new Set());
             setReplacementEta('');
             setDamageNotes('');
+            setFiles(null);
             setIsSubmitting(false);
         }
     }, [isOpen, order]);
@@ -57,7 +59,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            await onReceive(order.id, { dateReceived, notes, sendEmailNotification: hasEmail && sendEmail });
+            await onReceive(order.id, { dateReceived, notes, sendEmailNotification: hasEmail && sendEmail, files });
             onClose();
         } catch (err) {
             console.error(err);
@@ -85,7 +87,8 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                 items: itemsToReorder,
                 replacementEta,
                 notes: damageNotes,
-                sendEmailNotification: hasEmail && sendEmail
+                sendEmailNotification: hasEmail && sendEmail,
+                files // Pass the files
             });
             onClose();
         } catch (err) {
@@ -144,6 +147,21 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                     placeholder="e.g. Left in garage, Box 2 looks slightly crushed..."
                                     className="w-full p-2 bg-background border border-border rounded text-text-primary h-24 resize-none"
                                 />
+                            </div>
+
+                            {/* PAPERWORK UPLOAD */}
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-1">Paperwork (Packing Slip / BOL)</label>
+                                <div className="border-2 border-dashed border-border rounded-lg p-4 hover:bg-background transition-colors text-center cursor-pointer relative">
+                                    <input 
+                                        type="file" 
+                                        multiple 
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        onChange={(e) => setFiles(e.target.files)}
+                                    />
+                                    <Upload className="w-6 h-6 text-text-tertiary mx-auto mb-1" />
+                                    <span className="text-sm text-text-secondary">{files && files.length > 0 ? `${files.length} file(s) selected` : 'Click to upload documents'}</span>
+                                </div>
                             </div>
 
                             {hasEmail && (
@@ -233,6 +251,21 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                     placeholder="Describe the damage..."
                                     className="w-full p-2 bg-background border border-border rounded text-text-primary h-20 resize-none"
                                 />
+                            </div>
+
+                            {/* DAMAGE PHOTOS UPLOAD */}
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-1">Damage Photos / Evidence</label>
+                                <div className="border-2 border-dashed border-red-200 bg-red-50 hover:bg-red-100 rounded-lg p-4 transition-colors text-center cursor-pointer relative">
+                                    <input 
+                                        type="file" 
+                                        multiple 
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        onChange={(e) => setFiles(e.target.files)}
+                                    />
+                                    <Upload className="w-6 h-6 text-red-400 mx-auto mb-1" />
+                                    <span className="text-sm text-red-600">{files && files.length > 0 ? `${files.length} file(s) selected` : 'Upload photos of damage'}</span>
+                                </div>
                             </div>
 
                             {hasEmail && (

@@ -8,18 +8,18 @@ const __dirname = path.dirname(__filename);
 const uploadRoot = path.join(__dirname, '../uploads');
 
 /**
- * Processes an uploaded image:
+ * Processes an uploaded image/file:
  * 1. Creates 'originals' and 'thumbnails' folders in the target directory if needed.
  * 2. Moves the uploaded temp file to 'originals'.
- * 3. Generates a 300px thumbnail in 'thumbnails'.
+ * 3. Generates a 300px thumbnail in 'thumbnails' IF it's an image.
  * 
  * @param {Object} file - The file object from Multer.
  * @param {string} category - The subfolder name (e.g., 'products', 'jobs').
  * @param {string} prefix - Optional prefix for the filename (default: 'img').
- * @returns {Promise<{imageUrl: string, thumbnailUrl: string}>}
+ * @returns {Promise<{imageUrl: string, thumbnailUrl: string | null, fileName: string | null, mimeType: string | null}>}
  */
 export const processImage = async (file, category, prefix = 'img') => {
-    if (!file) return { imageUrl: null, thumbnailUrl: null };
+    if (!file) return { imageUrl: null, thumbnailUrl: null, fileName: null, mimeType: null };
 
     const categoryRoot = path.join(uploadRoot, category);
     
@@ -28,28 +28,42 @@ export const processImage = async (file, category, prefix = 'img') => {
     await fs.ensureDir(path.join(categoryRoot, 'thumbnails'));
 
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    const originalExt = path.extname(file.originalname);
+    const originalExt = path.extname(file.originalname).toLowerCase();
     
-    const originalName = `${prefix}-${uniqueSuffix}${originalExt}`;
-    const thumbnailName = `${prefix}-${uniqueSuffix}-thumb.jpg`; // Force JPG for thumbs
+    // Use original name for documents to keep them readable, but sanitized
+    const sanitizedOriginalName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const finalFilename = `${prefix}-${uniqueSuffix}-${sanitizedOriginalName}`;
 
     const tempPath = file.path;
-    const originalPath = path.join(categoryRoot, 'originals', originalName);
-    const thumbnailPath = path.join(categoryRoot, 'thumbnails', thumbnailName);
+    const originalPath = path.join(categoryRoot, 'originals', finalFilename);
+    
+    // Determine if it's an image we can resize
+    const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.avif'].includes(originalExt);
 
     try {
         // 1. Move Original
         await fs.move(tempPath, originalPath);
 
-        // 2. Generate Thumbnail
-        await sharp(originalPath)
-            .resize(300)
-            .jpeg({ quality: 80 })
-            .toFile(thumbnailPath);
+        let thumbnailUrl = null;
+
+        // 2. Generate Thumbnail ONLY if it's an image
+        if (isImage) {
+            const thumbnailName = `${prefix}-${uniqueSuffix}-thumb.jpg`;
+            const thumbnailPath = path.join(categoryRoot, 'thumbnails', thumbnailName);
+            
+            await sharp(originalPath)
+                .resize(300)
+                .jpeg({ quality: 80 })
+                .toFile(thumbnailPath);
+            
+            thumbnailUrl = `/uploads/${category}/thumbnails/${thumbnailName}`;
+        }
 
         return {
-            imageUrl: `/uploads/${category}/originals/${originalName}`,
-            thumbnailUrl: `/uploads/${category}/thumbnails/${thumbnailName}`
+            imageUrl: `/uploads/${category}/originals/${finalFilename}`,
+            thumbnailUrl: thumbnailUrl,
+            fileName: sanitizedOriginalName,
+            mimeType: file.mimetype || 'application/octet-stream'
         };
     } catch (error) {
         console.error(`Image processing failed for ${category}:`, error);
@@ -62,7 +76,7 @@ export const processImage = async (file, category, prefix = 'img') => {
 /**
  * Helper to download an external image URL and process it.
  */
-export const downloadAndProcessImage = async (url, category, prefix = 'import') => {
+export const downloadAndProcessImage = async (url, category, prefix = 'import', options = {}) => {
     try {
         const res = await fetch(url, {
             headers: {
@@ -83,9 +97,33 @@ export const downloadAndProcessImage = async (url, category, prefix = 'import') 
 
         const mockFile = {
             path: tempPath,
-            originalname: 'external.jpg'
+            originalname: 'external.jpg',
+            mimetype: 'image/jpeg'
         };
 
+        // If we skip the original, we manually run the thumbnail process and clean up the original.
+        if (options.skipOriginal) {
+             const categoryRoot = path.join(uploadRoot, category);
+             await fs.ensureDir(path.join(categoryRoot, 'thumbnails'));
+
+             const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+             const thumbnailName = `${prefix}-${uniqueSuffix}-thumb.jpg`; 
+             const thumbnailPath = path.join(categoryRoot, 'thumbnails', thumbnailName);
+
+             await sharp(tempPath)
+                 .resize(300)
+                 .jpeg({ quality: 80 })
+                 .toFile(thumbnailPath);
+
+             await fs.remove(tempPath); // Clean up temp original
+
+             return {
+                 imageUrl: null, // Only thumbnail generated
+                 thumbnailUrl: `/uploads/${category}/thumbnails/${thumbnailName}`
+             };
+        }
+
+        // If not skipping, process normally (this will handle moving the temp file)
         return await processImage(mockFile, category, prefix);
     } catch (error) {
         console.error("Failed to download external image:", error);

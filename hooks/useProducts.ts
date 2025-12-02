@@ -43,6 +43,11 @@ export const useProductMutations = () => {
                 productService.updateVariant(variantId, formData),
             onSuccess: invalidate,
         }),
+        batchUpdateVariants: useMutation({
+            mutationFn: ({ ids, updates }: { ids: string[], updates: any }) => 
+                productService.batchUpdateVariants(ids, updates),
+            onSuccess: invalidate,
+        }),
         deleteVariant: useMutation({
             mutationFn: productService.deleteVariant,
             onSuccess: invalidate,

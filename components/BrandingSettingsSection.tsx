@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Brush, Save, Palette, Trash2 } from 'lucide-react';
+import { Brush, Save, Palette, Trash2, Building } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../context/DataContext';
 import * as preferenceService from '../services/preferenceService';
 
 const BrandingSettingsSection: React.FC = () => {
     const { systemBranding, refreshBranding } = useData();
+    const [companyName, setCompanyName] = useState('Subfloor'); // Default fallback
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [faviconFile, setFaviconFile] = useState<File | null>(null);
     const [primaryColor, setPrimaryColor] = useState('#2563eb');
@@ -31,6 +32,7 @@ const BrandingSettingsSection: React.FC = () => {
 
     useEffect(() => {
         if (systemBranding) {
+            if (systemBranding.companyName) setCompanyName(systemBranding.companyName);
             if (systemBranding.primaryColor) setPrimaryColor(systemBranding.primaryColor);
             if (systemBranding.secondaryColor) setSecondaryColor(systemBranding.secondaryColor);
             if (systemBranding.accentColor) setAccentColor(systemBranding.accentColor);
@@ -87,6 +89,7 @@ const BrandingSettingsSection: React.FC = () => {
         if (logoFile) formData.append('logo', logoFile);
         if (faviconFile) formData.append('favicon', faviconFile);
         
+        formData.append('companyName', companyName);
         formData.append('primaryColor', primaryColor);
         formData.append('secondaryColor', secondaryColor);
         formData.append('accentColor', accentColor);
@@ -121,6 +124,21 @@ const BrandingSettingsSection: React.FC = () => {
                 System Branding
             </h2>
             
+            {/* Company Name Input */}
+            <div className="bg-background p-6 rounded-lg border border-border mb-8">
+                <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                    <Building className="w-5 h-5 text-secondary" /> Company Name
+                </h3>
+                <p className="text-sm text-text-secondary mb-4">This name will appear in email footers and browser titles if no logo is available.</p>
+                <input 
+                    type="text" 
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="w-full p-3 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all"
+                    placeholder="e.g. Acme Flooring Co."
+                />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Logo Upload */}
                 <div className="bg-background p-6 rounded-lg border border-border">

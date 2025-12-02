@@ -92,13 +92,28 @@ export const getMaterialOrderHistory = async (orderId: number): Promise<Activity
 
 export const receiveMaterialOrder = async (
   orderId: number, 
-  data: { dateReceived: string; notes: string; sendEmailNotification: boolean }
+  data: { dateReceived: string; notes: string; sendEmailNotification: boolean; files?: FileList | null }
 ): Promise<MaterialOrder> => {
+  
+  // Convert to FormData to handle files
+  const formData = new FormData();
+  formData.append('dateReceived', data.dateReceived);
+  formData.append('notes', data.notes);
+  formData.append('sendEmailNotification', String(data.sendEmailNotification));
+  
+  if (data.files && data.files.length > 0) {
+      Array.from(data.files).forEach(file => {
+          formData.append('paperwork', file);
+      });
+  }
+
   const response = await fetch(`${API_BASE_URL}/${orderId}/receive`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    // NO 'Content-Type': 'application/json' header! 
+    // Browser sets multipart/form-data boundary automatically when body is FormData
+    body: formData,
   });
+
   if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}));
       throw new Error(errorBody.error || 'Failed to receive material order');
@@ -108,13 +123,32 @@ export const receiveMaterialOrder = async (
 
 export const reportMaterialOrderDamage = async (
   orderId: number, 
-  data: { items: any[]; replacementEta: string; notes: string; sendEmailNotification: boolean }
+  data: { items: any[]; replacementEta: string; notes: string; sendEmailNotification: boolean; files?: FileList | null }
 ): Promise<{ originalOrder: MaterialOrder; replacementOrder: MaterialOrder }> => {
+  
+  // Convert to FormData
+  const formData = new FormData();
+  // Complex arrays/objects like 'items' must be stringified when appending to FormData
+  formData.append('items', JSON.stringify(data.items));
+  formData.append('replacementEta', data.replacementEta);
+  formData.append('notes', data.notes);
+  formData.append('sendEmailNotification', String(data.sendEmailNotification));
+
+  if (data.files && data.files.length > 0) {
+      Array.from(data.files).forEach(file => {
+          formData.append('damagePhotos', file);
+      });
+  }
+
   const response = await fetch(`${API_BASE_URL}/${orderId}/damage`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    // No Content-Type header (browser sets boundary)
+    body: formData,
   });
-  if (!response.ok) throw new Error('Failed to report damage');
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.error || 'Failed to report damage');
+  }
   return response.json();
 };

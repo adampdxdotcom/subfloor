@@ -245,6 +245,9 @@ router.post('/system/branding', verifySession(), verifyRole('Admin'), upload.fie
         if (req.body.secondaryColor) updates.secondaryColor = req.body.secondaryColor;
         if (req.body.accentColor) updates.accentColor = req.body.accentColor;
         
+        // Handle Company Name
+        if (req.body.companyName) updates.companyName = req.body.companyName;
+
         if (req.body.backgroundColor) updates.backgroundColor = req.body.backgroundColor;
         if (req.body.surfaceColor) updates.surfaceColor = req.body.surfaceColor;
         if (req.body.textPrimaryColor) updates.textPrimaryColor = req.body.textPrimaryColor;

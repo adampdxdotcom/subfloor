@@ -1,81 +1,59 @@
 services:
-  server:
-    build:
-      context: .
-      dockerfile: Dockerfile.server
-    container_name: joblogger_server
-    volumes:
-      - ./server/uploads:/app/uploads
-      - ./server/temp-uploads:/app/temp-uploads
-      - ./server:/app
-      - /app/node_modules
-    ports:
-      - "192.168.1.10:3001:3001"
-    env_file:
-      - ./.env 
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/supertokens
-      - SUPERTOKENS_CONNECTION_URI=http://supertokens:3567
-      - SUPERTOKENS_API_KEY=some-long-and-secure-key
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      supertokens:
-        condition: service_started
-
   app:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: joblogger_app
+      dockerfile: Dockerfile.prod
+    restart: always
+    # Map Host Port (defined in .env or default 3000) -> Container 3001
     ports:
-      - "192.168.1.10:5173:5173"
-    volumes:
-      # Mount entire frontend project
-      - .:/app
-
-      # Keep node_modules internal so Tailwind and Vite plugins install correctly
-      - /app/node_modules
-    restart: unless-stopped
-    depends_on:
-      - server
-      - supertokens
-    command: npm run dev
-
-  supertokens:
-    image: supertokens/supertokens-postgresql:11.2
-    container_name: joblogger_supertokens
-    ports:
-      - "3567:3567"
+      - "${PORT:-3000}:3001"
+    env_file:
+      - .env
     environment:
-      - POSTGRESQL_USER=postgres
-      - POSTGRESQL_PASSWORD=password
-      - POSTGRESQL_HOST=db
-      - POSTGRESQL_PORT=5432
-      - POSTGRESQL_DATABASE=supertokens
-      - SUPERTOKENS_API_KEY=some-long-and-secure-key
-    restart: unless-stopped
+      - NODE_ENV=production
+      - APP_DOMAIN=${APP_DOMAIN}
+      - API_DOMAIN=${API_DOMAIN}
+      - ALLOWED_DOMAINS=${ALLOWED_DOMAINS}
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    volumes:
+      - ./server/uploads:/app/server/uploads
     depends_on:
-      db:
-        condition: service_healthy
+      - db
+    networks:
+      - app-network
 
   db:
     image: postgres:15-alpine
-    container_name: joblogger_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=supertokens
-    restart: unless-stopped
+    networks:
+      - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -h localhost"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  supertokens:
+    image: registry.supertokens.io/supertokens/supertokens-postgresql
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRESQL_CONNECTION_URI: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}"
+      API_KEY: ${SUPERTOKENS_API_KEY}
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   postgres_data:

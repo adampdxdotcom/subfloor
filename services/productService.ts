@@ -112,7 +112,7 @@ export const createVariantsBatch = async (productId: string, variants: any[]): P
         body: JSON.stringify({ variants }),
     });
     if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: 'Failed to batch create variants.' }));
         throw new Error(errorData.error || 'Failed to batch create variants.');
     }
     return response.json();
@@ -131,6 +131,21 @@ export const updateVariant = async (variantId: string, formData: FormData): Prom
         throw new Error(error.error || 'Failed to update variant');
     }
     return response.json();
+};
+
+// --- NEW: Batch Update Variants ---
+export const batchUpdateVariants = async (ids: string[], updates: Partial<ProductVariant>): Promise<void> => {
+    const response = await fetch(`${API_URL}/variants/batch-update`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ids, updates }),
+    });
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to batch update variants' }));
+        throw new Error(error.error || 'Failed to batch update variants');
+    }
 };
 
 /**

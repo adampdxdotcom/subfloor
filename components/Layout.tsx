@@ -108,6 +108,8 @@ const Layout: React.FC = () => {
                         <Menu className="w-6 h-6" />
                     </button>
                     
+                    {/* Logo removed from header to prevent duplication with sidebar */}
+        
                     <div className="flex-1 flex justify-center md:justify-start md:ml-4">
                         <UniversalSearch />
                     </div>

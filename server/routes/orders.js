@@ -1,10 +1,26 @@
 import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { toCamelCase, logActivity, verifyRole } from '../utils.js';
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
 import { sendEmail } from '../lib/emailService.js';
+import { processImage } from '../lib/imageProcessor.js'; // NEW IMPORT
 
 const router = express.Router();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadRoot = path.join(__dirname, '../uploads');
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadRoot),
+    filename: (req, file, cb) => {
+        cb(null, `temp-${Date.now()}-${path.extname(file.originalname)}`);
+    }
+});
+const upload = multer({ storage });
 
 // Helper to get full order details including line items and joined entities
 const getFullOrderById = async (orderId, client = pool) => {
@@ -205,7 +221,7 @@ router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => 
 // --- NEW: RECEIVE ORDER & REPORT DAMAGE ---
 
 // 1. RECEIVE ORDER
-router.post('/:id/receive', verifySession(), async (req, res) => {
+router.post('/:id/receive', verifySession(), upload.array('paperwork', 5), async (req, res) => {
     const { id: orderId } = req.params;
     const userId = req.session.getUserId();
     const { dateReceived, notes, sendEmailNotification } = req.body;
@@ -231,6 +247,23 @@ router.post('/:id/receive', verifySession(), async (req, res) => {
             before: beforeData, 
             after: updatedOrder 
         });
+
+        // --- NEW: Process & Save Uploaded Paperwork ---
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                // Save as DOCUMENT type linked to the PROJECT
+                const { imageUrl, thumbnailUrl, fileName, mimeType } = await processImage(file, 'jobs', 'doc');
+                
+                if (imageUrl) {
+                    await client.query(
+                        `INSERT INTO photos (url, thumbnail_url, file_name, mime_type, category, entity_type, entity_id) 
+                         VALUES ($1, $2, $3, $4, 'DOCUMENT', 'PROJECT', $5)`,
+                        [imageUrl, thumbnailUrl, fileName, mimeType, updatedOrder.projectId]
+                    );
+                }
+            }
+        }
+        // ----------------------------------------------
 
         await client.query('COMMIT');
 
@@ -274,10 +307,12 @@ router.post('/:id/receive', verifySession(), async (req, res) => {
 });
 
 // 2. REPORT DAMAGE (Creates Replacement Order)
-router.post('/:id/damage', verifySession(), async (req, res) => {
+router.post('/:id/damage', verifySession(), upload.array('damagePhotos', 10), async (req, res) => {
     const { id: originalOrderId } = req.params;
     const userId = req.session.getUserId();
-    const { items, replacementEta, notes, sendEmailNotification } = req.body;
+    // Parse 'items' because FormData sends it as a string
+    let { items, replacementEta, notes, sendEmailNotification } = req.body;
+    if (typeof items === 'string') items = JSON.parse(items);
 
     if (!items || items.length === 0) return res.status(400).json({ error: 'No damage items specified.' });
 
@@ -329,6 +364,24 @@ router.post('/:id/damage', verifySession(), async (req, res) => {
             originalOrderId: originalOrderId,
             createdData: newOrder 
         });
+
+        // --- NEW: Process Damage Photos ---
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                // Add "DAMAGE" prefix to filename for clarity in the document list
+                file.originalname = `DAMAGE - ${file.originalname}`;
+                const { imageUrl, thumbnailUrl, fileName, mimeType } = await processImage(file, 'jobs', 'doc');
+                
+                if (imageUrl) {
+                    await client.query(
+                        `INSERT INTO photos (url, thumbnail_url, file_name, mime_type, category, entity_type, entity_id) 
+                         VALUES ($1, $2, $3, $4, 'DOCUMENT', 'PROJECT', $5)`,
+                        [imageUrl, thumbnailUrl, fileName, mimeType, originalOrder.projectId]
+                    );
+                }
+            }
+        }
+        // ----------------------------------
 
         // --- NEW: Send Damage Email ---
         if (sendEmailNotification) {

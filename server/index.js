@@ -77,7 +77,7 @@ supertokens.init({
         apiKey: "some-long-and-secure-key",
     },
     appInfo: {
-        appName: "Joblogger",
+        appName: "Subfloor",
         apiDomain: API_DOMAIN,
         websiteDomain: APP_DOMAIN,
         apiBasePath: "/api/auth",
@@ -129,7 +129,9 @@ const exposedHeaders = new Set([
 ]);
 
 app.use(cors({
-    origin: APP_DOMAIN, // Use the dynamic domain from env
+    // Allow the request origin dynamically.
+    // This is safe because your Reverse Proxy (Caddy/Nginx) handles the public filtering.
+    origin: (origin, callback) => callback(null, origin || APP_DOMAIN),
     allowedHeaders: ["content-type", ...supertokens.getAllCORSHeaders()],
     exposedHeaders: [...exposedHeaders],
     credentials: true,

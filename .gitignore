@@ -25,5 +25,10 @@ pnpm-debug.log*
 *.sln
 *.sw?
 
-# Uploaded media
-server/uploads/
+# Uploaded media (Ignore files, but keep the folders)
+server/uploads/*
+!server/uploads/.gitkeep
+!server/uploads/branding/.gitkeep
+!server/uploads/avatars/.gitkeep
+!server/uploads/products/.gitkeep
+!server/uploads/jobs/.gitkeep

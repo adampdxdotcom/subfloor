@@ -163,6 +163,9 @@ CREATE TABLE photos (
     id SERIAL PRIMARY KEY,
     url VARCHAR(255) NOT NULL,
     thumbnail_url VARCHAR(255),
+    file_name VARCHAR(255),
+    mime_type VARCHAR(100),
+    category VARCHAR(50) DEFAULT 'SITE', -- 'SITE', 'DOCUMENT', 'INVOICE'
     entity_type VARCHAR(50) NOT NULL,
     entity_id VARCHAR(255) NOT NULL, -- Changed to VARCHAR to support UUIDs
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP

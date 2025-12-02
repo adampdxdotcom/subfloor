@@ -40,7 +40,7 @@ router.get('/:entityType/:entityId', verifySession(), async (req, res) => {
 
 // POST /api/photos - Upload one or more photos
 router.post('/', verifySession(), upload.array('photos', 10), async (req, res) => {
-    const { entityType, entityId } = req.body;
+    const { entityType, entityId, category } = req.body;
     
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ error: 'No files uploaded.' });
@@ -57,15 +57,18 @@ router.post('/', verifySession(), upload.array('photos', 10), async (req, res) =
         
         // Loop through all uploaded files
         for (const file of req.files) {
-            // Process: Resize & Move to /uploads/jobs/ (or whatever category)
+            // Process: Resize & Move
             // We use 'jobs' as the default folder for general project photos
-            const category = entityType === 'PROJECT' ? 'jobs' : 'misc';
-            const { imageUrl, thumbnailUrl } = await processImage(file, category, 'photo');
+            const folder = entityType === 'PROJECT' ? 'jobs' : 'misc';
+            // Use the provided category (e.g. 'DOCUMENT') or default to 'SITE'
+            const fileCategory = category || 'SITE';
+            
+            const { imageUrl, thumbnailUrl, fileName, mimeType } = await processImage(file, folder, 'file');
 
             if (imageUrl) {
                 const result = await client.query(
-                    'INSERT INTO photos (url, thumbnail_url, entity_type, entity_id) VALUES ($1, $2, $3, $4) RETURNING *',
-                    [imageUrl, thumbnailUrl, entityType, entityId]
+                    'INSERT INTO photos (url, thumbnail_url, file_name, mime_type, category, entity_type, entity_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+                    [imageUrl, thumbnailUrl, fileName, mimeType, fileCategory, entityType, entityId]
                 );
                 savedPhotos.push(toCamelCase(result.rows[0]));
             }

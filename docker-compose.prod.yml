@@ -1,21 +1,24 @@
 services:
-  joblogger-app:
+  subfloor-app: # Renamed service
     build:
       context: .
       dockerfile: Dockerfile.prod
-    container_name: joblogger_prod
+    container_name: subfloor_prod # Renamed container
     restart: always
     ports:
-      - "5173:3001"
+      - "5173:3001" # Host Port : Container Port (Node runs on 3001 in prod)
     env_file:
       - .env
     # ---------------------------------------
     environment:
       - NODE_ENV=production
+      # Pass through variables from .env
       - APP_DOMAIN=${APP_DOMAIN}
       - API_DOMAIN=${API_DOMAIN}
       - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      - ALLOWED_DOMAINS=${ALLOWED_DOMAINS} # Ensure CORS works
     volumes:
+      # Map host uploads to container uploads
       - ./server/uploads:/app/server/uploads
     depends_on:
       - db
@@ -24,14 +27,12 @@ services:
 
   db:
     image: postgres:15-alpine
-    container_name: joblogger_db_prod
+    container_name: subfloor_db_prod # Renamed container
     restart: always
-    # We have to hardcode these here because variable substitution 
-    # was failing on your machine.
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: joblogger
+      POSTGRES_DB: joblogger # KEEP THIS: Matching existing DB name inside volume
     volumes:
       - postgres_data_prod:/var/lib/postgresql/data
     networks:
@@ -39,11 +40,12 @@ services:
 
   supertokens:
     image: registry.supertokens.io/supertokens/supertokens-postgresql
-    container_name: joblogger_supertokens_prod
+    container_name: subfloor_supertokens_prod # Renamed container
     restart: always
     depends_on:
       - db
     environment:
+      # KEEP 'joblogger' DB name here to match the DB service above
       POSTGRESQL_CONNECTION_URI: "postgresql://postgres:password@db:5432/joblogger"
     networks:
       - app-network
@@ -54,3 +56,5 @@ networks:
 
 volumes:
   postgres_data_prod:
+    external: true
+    name: joblogger_postgres_data_prod # CRITICAL: Connects to your existing data

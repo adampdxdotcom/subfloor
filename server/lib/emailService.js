@@ -15,13 +15,11 @@ const getTransporterConfig = async () => {
     let emailUser, emailPass;
 
     try {
-        // 1. Check Database
         const res = await pool.query("SELECT settings FROM system_preferences WHERE key = 'email_settings'");
         if (res.rows.length > 0 && res.rows[0].settings) {
             const s = res.rows[0].settings;
             if (s.emailUser && s.emailPass) {
                 emailUser = s.emailUser;
-                // decrypt function handles corrupted/null data gracefully
                 emailPass = decrypt(s.emailPass); 
             }
         }
@@ -29,7 +27,6 @@ const getTransporterConfig = async () => {
         console.warn("Failed to fetch email settings from DB, falling back to ENV", e.message);
     }
 
-    // 2. Fallback to ENV
     if (!emailUser || !emailPass) {
         emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER;
         emailPass = process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD;
@@ -42,7 +39,20 @@ const getTransporterConfig = async () => {
     return { user: emailUser, pass: emailPass };
 };
 
-// Kept for backward compatibility, but effectively empty now
+// Helper to get Branding Info
+const getBrandingConfig = async () => {
+    try {
+        const res = await pool.query("SELECT settings FROM system_preferences WHERE key = 'branding'");
+        if (res.rows.length > 0 && res.rows[0].settings) {
+            return res.rows[0].settings;
+        }
+    } catch (e) {
+        console.error("Failed to fetch branding for email:", e.message);
+    }
+    return { companyName: 'Subfloor' }; // Default
+};
+
+// Kept for backward compatibility
 const initializeEmailService = () => {
     console.log("📧 Email Service initialized (Lazy loading credentials enabled).");
 };
@@ -66,7 +76,6 @@ const loadTemplate = (templateName, data) => {
         // General Replacement
         Object.keys(data).forEach(key => {
             const regex = new RegExp(`{{${key}}}`, 'g');
-            // If the data is an object/array (like lineItems), don't print [object Object]
             const val = (typeof data[key] === 'object') ? '' : data[key];
             html = html.replace(regex, val || '');
         });
@@ -79,15 +88,15 @@ const loadTemplate = (templateName, data) => {
 };
 
 const sendEmail = async (arg1, arg2, arg3, arg4) => {
-    // 1. Get Credentials
+    // 1. Get Credentials & Branding
     const config = await getTransporterConfig();
+    const branding = await getBrandingConfig();
     
     if (!config) {
-        console.error('🔥 Email credentials missing (Check Settings or ENV). Cannot send email.');
+        console.error('🔥 Email credentials missing. Cannot send email.');
         return false;
     }
 
-    // 2. Create Transporter (On demand)
     const transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 465,
@@ -96,30 +105,44 @@ const sendEmail = async (arg1, arg2, arg3, arg4) => {
         connectionTimeout: 10000, 
     });
 
-    // Handle Overloading:
-    // 1. Legacy: ({ to, subject, html })
-    // 2. New: (to, subject, templateName, data)
+    // Parse Arguments
     let to, subject, html;
-    
+    let templateData = {};
+
     if (typeof arg1 === 'object' && arg1.to) {
         to = arg1.to;
         subject = arg1.subject;
-        // Fix: If html is missing but templateName exists, load the template
-        html = arg1.html || (arg1.templateName ? loadTemplate(arg1.templateName, arg1.data) : '');
+        templateData = arg1.data || {};
+        
+        // Inject Branding into Data
+        templateData.companyName = branding.companyName || 'Subfloor';
+        // Handle Logo URL (ensure absolute path if relative)
+        if (branding.logoUrl) {
+            // Assume APP_DOMAIN env is set, or hardcode your domain for emails
+            const baseUrl = process.env.APP_DOMAIN || 'https://flooring.dumbleigh.com';
+            templateData.logoUrl = branding.logoUrl.startsWith('http') ? branding.logoUrl : `${baseUrl}${branding.logoUrl}`;
+        } else {
+            templateData.logoUrl = ''; // Or a default hosted image
+        }
+
+        html = arg1.html || (arg1.templateName ? loadTemplate(arg1.templateName, templateData) : '');
     } else {
+        // Legacy Support
         to = arg1;
         subject = arg2;
         const templateName = arg3;
-        const data = arg4 || {};
-        html = loadTemplate(templateName, data);
+        templateData = arg4 || {};
+        templateData.companyName = branding.companyName || 'Subfloor';
+        html = loadTemplate(templateName, templateData);
     }
 
-    // Determine the sender address based on what variables are available
-    const mailOptions = { from: `"Joblogger" <${config.user}>`, to, subject, html };
+    // Dynamic Sender Name
+    const senderName = branding.companyName || "Subfloor Notifications";
+    const mailOptions = { from: `"${senderName}" <${config.user}>`, to, subject, html };
 
     try {
         await transporter.sendMail(mailOptions);
-        console.log(`✉️  Email sent successfully to ${to} with subject "${subject}"`);
+        console.log(`✉️  Email sent successfully to ${to}`);
         return true;
     } catch (error) {
         console.error(`🔥 Error sending email to ${to}:`, error);

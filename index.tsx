@@ -1,3 +1,4 @@
+// src/index.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -8,15 +9,15 @@ import EmailPassword from 'supertokens-auth-react/recipe/emailpassword';
 import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// --- DYNAMIC DOMAIN CONFIGURATION ---
-// Reads from .env (VITE_APP_DOMAIN) or defaults to Localhost for Dev
-const appDomain = import.meta.env.VITE_APP_DOMAIN || 'http://localhost:5173';
+// --- DYNAMIC DOMAIN CONFIGURATION (BROWSER BASED) ---
+// Ignore .env. Use whatever domain the user is currently visiting.
+const currentDomain = window.location.origin;
 
 SuperTokens.init({
   appInfo: {
-    appName: "Joblogger",
-    apiDomain: appDomain,
-    websiteDomain: appDomain,
+    appName: "Subfloor",
+    apiDomain: currentDomain,
+    websiteDomain: currentDomain,
     apiBasePath: "/api/auth",
     websiteBasePath: "/auth",
   },

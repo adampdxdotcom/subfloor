@@ -402,6 +402,83 @@ router.patch('/:id', verifySession(), verifyRole(['Admin', 'User']), upload.sing
     }
 });
 
+// PATCH /api/products/variants/batch-update - Batch Update Multiple Variants
+router.patch('/variants/batch-update', verifySession(), verifyRole(['Admin', 'User']), async (req, res) => {
+    const { ids, updates } = req.body;
+    const userId = req.session.getUserId();
+
+    // --- DEBUG LOGGING ---
+    console.log("BATCH UPDATE RECEIVED:");
+    console.log("IDs:", ids);
+    console.log("Updates:", updates);
+    // ---------------------
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: 'No IDs provided for batch update.' });
+    }
+    if (!updates || Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: 'No updates provided.' });
+    }
+
+    // Safe list of fields that can be batch updated
+    const allowedFields = {
+        unitCost: 'unit_cost',
+        retailPrice: 'retail_price',
+        cartonSize: 'carton_size',
+        uom: 'uom',
+        size: 'size',
+        style: 'style',
+        finish: 'finish',
+        sku: 'sku', // Usually unique, but technically updateable in batch if needed (e.g. clearing it)
+        hasSample: 'has_sample'
+    };
+
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+        const dbCol = allowedFields[key];
+        if (dbCol) {
+            let safeValue = value === 'null' ? null : value;
+            if (dbCol === 'carton_size' && safeValue === '') safeValue = null;
+            
+            fields.push(`${dbCol} = $${idx}`);
+            values.push(safeValue);
+            idx++;
+        }
+    }
+
+    if (fields.length === 0) {
+        console.error("Batch Update Failed: Fields array is empty.");
+        console.error("Updates keys:", Object.keys(updates));
+        return res.status(400).json({ error: 'No valid fields to update.' });
+    }
+
+    // Add the array of IDs as the last parameter
+    values.push(ids);
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Execute single efficient query: UPDATE ... WHERE id = ANY($N)
+        const query = `UPDATE product_variants SET ${fields.join(', ')} WHERE id = ANY($${idx})`;
+        await client.query(query, values);
+
+        await logActivity(userId, 'UPDATE', 'VARIANT_BATCH', ids[0], { count: ids.length, fields: Object.keys(updates) });
+        
+        await client.query('COMMIT');
+        res.json({ message: 'Batch update successful' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Batch update error:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
 // PATCH /api/products/variants/:id - Update Variant
 router.patch('/variants/:id', verifySession(), verifyRole(['Admin', 'User']), upload.single('image'), async (req, res) => {
     const { id } = req.params;
