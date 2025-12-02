@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 // --- SuperTokens Imports ---
@@ -26,6 +26,8 @@ import OrderDashboard from './pages/OrderDashboard';
 import Reports from './pages/Reports';
 import ImportData from './pages/ImportData'; // NEW IMPORT
 import Messages from './pages/Messages'; // NEW IMPORT
+import SetupWizard from './pages/SetupWizard'; // NEW IMPORT
+import { Loader2 } from 'lucide-react';
 
 // --- DYNAMIC URL CONFIGURATION ---
 // Reads from .env in Prod, or defaults to empty (relative path) in Dev
@@ -121,6 +123,28 @@ const BrandingListener = () => {
 };
 
 function App() {
+  const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/setup/status')
+      .then(res => res.json())
+      .then(data => setIsInitialized(data.initialized))
+      .catch(err => {
+        console.error("Failed to check setup status", err);
+        setIsInitialized(true); // Fallback to app if check fails
+      });
+  }, []);
+
+  if (isInitialized === null) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-950">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isInitialized === false) return <SetupWizard />;
+
   return (
     <DataProvider>
       <BrandingListener />

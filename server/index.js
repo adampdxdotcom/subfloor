@@ -14,6 +14,7 @@ import { middleware, errorHandler } from 'supertokens-node/framework/express/ind
 import { initializeEmailService } from './lib/emailService.js';
 import { initializeScheduler } from './lib/scheduler.js';
 import { initDatabase } from './lib/dbInit.js'; // NEW IMPORT
+import { loadSystemConfig, getSystemConfig } from './lib/setupService.js';
 
 // --- ROUTE IMPORTS ---
 import customerRoutes from './routes/customers.js';
@@ -42,14 +43,21 @@ import importRoutes from './routes/import.js'; // NEW: Import Tool
 import notificationRoutes from './routes/notifications.js'; // NEW: Notifications
 import jobNotesRoutes from './routes/jobNotes.js'; 
 import messageRoutes from './routes/messages.js'; // NEW: Direct Messages
+import setupRoutes from './routes/setup.js'; // NEW: Setup Wizard
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// --- DYNAMIC DOMAIN CONFIGURATION ---
-// If running in Prod Docker without a specific domain set, default to localhost:3001
-const APP_DOMAIN = process.env.APP_DOMAIN || "http://localhost:3001";
-const API_DOMAIN = process.env.API_DOMAIN || "http://localhost:3001";
+// --- BOOTSTRAP: DB & CONFIG ---
+// We need to await these before setting up SuperTokens or Express
+await initDatabase(); // Ensure tables exist first
+await loadSystemConfig(); // Load core_config from DB
+
+const sysConfig = getSystemConfig();
+
+// Logic: If initialized, use stored URL. If not, use Env or default to Localhost for setup.
+const APP_DOMAIN = sysConfig.publicUrl || process.env.APP_DOMAIN || "http://localhost:3001";
+const API_DOMAIN = sysConfig.publicUrl || process.env.API_DOMAIN || "http://localhost:3001";
 
 // --- HELPER: Extract Cookie Domain ---
 // Converts "https://flooring.example.com" -> ".example.com" for cookie sharing
@@ -75,7 +83,7 @@ supertokens.init({
     framework: "express",
     supertokens: {
         connectionURI: "http://supertokens:3567",
-        apiKey: "some-long-and-secure-key",
+        apiKey: process.env.SUPERTOKENS_API_KEY || "some-long-and-secure-key",
     },
     appInfo: {
         appName: "Subfloor",
@@ -85,7 +93,31 @@ supertokens.init({
         websiteBasePath: "/auth"
     },
     recipeList: [
-        EmailPassword.init(),
+        EmailPassword.init({
+            override: {
+                apis: (originalImplementation) => {
+                    return {
+                        ...originalImplementation,
+                        // INTERCEPT SIGNUPS
+                        signUpPOST: async function (input) {
+                            const config = getSystemConfig();
+                            
+                            // If system is already initialized, BLOCK signups
+                            if (config.isInitialized) {
+                                return {
+                                    status: "GENERAL_ERROR",
+                                    message: "Setup is complete. New user registration is disabled."
+                                };
+                            }
+
+                            // If not initialized, allow signup (Setup Wizard creating Admin)
+                            // Note: Role assignment happens in the Setup API, not here
+                            return await originalImplementation.signUpPOST(input);
+                        }
+                    };
+                }
+            }
+        }),
         Session.init({
             // --- DYNAMIC COOKIE CONFIG ---
             cookieDomain: getCookieDomain(APP_DOMAIN),
@@ -129,19 +161,28 @@ const exposedHeaders = new Set([
     ...supertokens.getAllCORSHeaders()
 ]);
 
-// Parse the allowed domains from .env (remove spaces just in case)
-const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAINS || "")
-    .split(",")
-    .map(d => d.trim());
-
-// Always allow the main APP_DOMAIN
-if (!ALLOWED_DOMAINS.includes(APP_DOMAIN)) {
-    ALLOWED_DOMAINS.push(APP_DOMAIN);
-}
-
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || ALLOWED_DOMAINS.includes(origin)) {
+        const config = getSystemConfig();
+
+        // 1. SETUP MODE: Allow Everything (or be permissive)
+        if (!config.isInitialized) {
+            return callback(null, true);
+        }
+
+        // 2. LOCKED MODE: Strict Check
+        // Calculate allowed list dynamically
+        const allowed = [
+             APP_DOMAIN, 
+             ...(config.allowedDomains || [])
+        ];
+
+        // Also include standard env vars if present (fallback)
+        if (process.env.ALLOWED_DOMAINS) {
+             allowed.push(...process.env.ALLOWED_DOMAINS.split(",").map(d => d.trim()));
+        }
+
+        if (!origin || allowed.includes(origin)) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -189,6 +230,7 @@ app.use('/api/reminders', reminderRoutes);
 app.use('/api/notifications', notificationRoutes); // NEW: Notifications
 app.use('/api/jobs', jobNotesRoutes); // Mount under /api/jobs to match the :id/notes structure
 app.use('/api/messages', messageRoutes); // NEW: Direct Messages
+app.use('/api/setup', setupRoutes); // NEW: Setup Wizard
 
 // --- SERVE FRONTEND (DYNAMIC) ---
 const publicPath = path.join(__dirname, 'public');
@@ -216,8 +258,5 @@ app.use(errorHandler());
 
 // --- START SERVER ---
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Backend server is running on http://localhost:${PORT}`);
-  
-  // Check DB status and Initialize if needed
-  initDatabase();
+  console.log(`Backend server is running on http://localhost:${PORT}`);  
 });

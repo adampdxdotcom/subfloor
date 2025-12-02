@@ -956,6 +956,65 @@ We implemented a GitHub-style "Mention" system to link data records within conve
     React Portals: Solved a critical UI bug where modals were trapped inside dashboard widgets by rendering them at the document root.
 
     Sample Selection: Added a "Design Board" workflow where checked-out samples can be flagged as "Selected" and immediately converted into a Material Order.
+
+Here is the summary of Session 20 (Performance & Architecture Overhaul).
+
+Primary Goal: To modernize the data layer and optimize the application for scale.
+1. React Query Migration (The "Engine Swap")
+
+    The Change: We moved away from the monolithic DataContext state management to TanStack Query.
+
+    The Benefit:
+
+        Isolation: Updating "Projects" no longer forces "Customers" to re-render.
+
+        Caching: Data persists between page navigations (instant loads).
+
+        Stability: Removed complex useEffect chains and manual polling logic.
+
+    Execution: Created 10+ custom hooks (useProducts, useProjects, useMaterialOrders, etc.) and refactored every major page (Dashboard, SampleLibrary, ProjectDetail) to use them.
+
+2. High-Performance Virtualization (The "DOM Killer")
+
+    The Change: Implemented @tanstack/react-virtual for the Sample Library and Import Preview.
+
+    The Benefit: The browser now renders only ~20 items at a time, even if the list has 5,000 items. Scrolling is buttery smooth and memory usage is minimal.
+
+    Grid Logic: Built a custom useGridColumns hook to handle responsive virtualization (calculating rows vs columns dynamically).
+
+3. Image Optimization Pipeline (The "Bandwidth Saver")
+
+    The Change: Installed sharp (native image processor) on the backend.
+
+    The Logic: When an image is uploaded:
+
+        Save Original (High Res).
+
+        Generate Thumbnail (300px JPEG).
+
+        Save both paths to DB.
+
+    Migration: Wrote and ran a script to process 29 existing products, moving files into a clean uploads/products/ folder structure.
+
+    Result: The Sample Library now loads ~95% less data.
+
+4. The "Job Binder" (Project Files)
+
+    The Feature: Built a dual-mode Files Widget for projects.
+
+        Photos Tab: Visual grid for site photos.
+
+        Documents Tab: List view for PDFs/Contracts.
+
+    Integration: Updated the Receive Order modal to allow uploading Packing Slips directly into this binder.
+
+5. Rebranding ("Project Subfloor")
+
+    Identity: Renamed the app from "Joblogger" to "Subfloor" in configuration and UI.
+
+    White-Labeling: Added a Company Name setting in the DB. Updated all email templates to dynamically inject this name and the company logo.
+
+
 GOALS
 • Inter-employee messaging.
 • Order Management: email suppliers using predefined, supplier-specific templates.
