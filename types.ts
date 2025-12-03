@@ -430,7 +430,8 @@ export interface PricingSettings {
 export interface SystemBranding {
   logoUrl: string | null;
   faviconUrl: string | null;
-  companyName?: string; // NEW FIELD
+  companyName?: string;
+  systemTimezone?: string;
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;

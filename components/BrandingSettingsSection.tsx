@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Brush, Save, Palette, Trash2, Building } from 'lucide-react';
+import { Brush, Save, Palette, Trash2, Building, Globe } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../context/DataContext';
 import * as preferenceService from '../services/preferenceService';
@@ -7,6 +7,7 @@ import * as preferenceService from '../services/preferenceService';
 const BrandingSettingsSection: React.FC = () => {
     const { systemBranding, refreshBranding } = useData();
     const [companyName, setCompanyName] = useState('Subfloor'); // Default fallback
+    const [systemTimezone, setSystemTimezone] = useState('America/Los_Angeles');
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [faviconFile, setFaviconFile] = useState<File | null>(null);
     const [primaryColor, setPrimaryColor] = useState('#2563eb');
@@ -33,6 +34,7 @@ const BrandingSettingsSection: React.FC = () => {
     useEffect(() => {
         if (systemBranding) {
             if (systemBranding.companyName) setCompanyName(systemBranding.companyName);
+            if (systemBranding.systemTimezone) setSystemTimezone(systemBranding.systemTimezone);
             if (systemBranding.primaryColor) setPrimaryColor(systemBranding.primaryColor);
             if (systemBranding.secondaryColor) setSecondaryColor(systemBranding.secondaryColor);
             if (systemBranding.accentColor) setAccentColor(systemBranding.accentColor);
@@ -90,6 +92,7 @@ const BrandingSettingsSection: React.FC = () => {
         if (faviconFile) formData.append('favicon', faviconFile);
         
         formData.append('companyName', companyName);
+        formData.append('systemTimezone', systemTimezone);
         formData.append('primaryColor', primaryColor);
         formData.append('secondaryColor', secondaryColor);
         formData.append('accentColor', accentColor);
@@ -124,19 +127,41 @@ const BrandingSettingsSection: React.FC = () => {
                 System Branding
             </h2>
             
-            {/* Company Name Input */}
-            <div className="bg-background p-6 rounded-lg border border-border mb-8">
-                <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
-                    <Building className="w-5 h-5 text-secondary" /> Company Name
-                </h3>
-                <p className="text-sm text-text-secondary mb-4">This name will appear in email footers and browser titles if no logo is available.</p>
-                <input 
-                    type="text" 
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    className="w-full p-3 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all"
-                    placeholder="e.g. Acme Flooring Co."
-                />
+            {/* Company Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                {/* Company Name Input */}
+                <div className="bg-background p-6 rounded-lg border border-border">
+                    <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                        <Building className="w-5 h-5 text-secondary" /> Company Name
+                    </h3>
+                    <p className="text-sm text-text-secondary mb-4">Appears in email footers and titles.</p>
+                    <input 
+                        type="text" 
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        className="w-full p-3 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all"
+                        placeholder="e.g. Acme Flooring Co."
+                    />
+                </div>
+
+                {/* System Timezone Input */}
+                <div className="bg-background p-6 rounded-lg border border-border">
+                    <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                        <Globe className="w-5 h-5 text-secondary" /> System Timezone
+                    </h3>
+                    <p className="text-sm text-text-secondary mb-4">Used for all dates and scheduling.</p>
+                    <select
+                        value={systemTimezone}
+                        onChange={(e) => setSystemTimezone(e.target.value)}
+                        className="w-full p-3 bg-surface border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all"
+                    >
+                        <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
+                        <option value="America/Denver">Mountain Time (US & Canada)</option>
+                        <option value="America/Chicago">Central Time (US & Canada)</option>
+                        <option value="America/New_York">Eastern Time (US & Canada)</option>
+                        <option value="UTC">UTC (Universal)</option>
+                    </select>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

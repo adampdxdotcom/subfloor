@@ -1014,14 +1014,8 @@ Primary Goal: To modernize the data layer and optimize the application for scale
 
     White-Labeling: Added a Company Name setting in the DB. Updated all email templates to dynamically inject this name and the company logo.
 
+Session 20 missing
 
-GOALS
-• Inter-employee messaging.
-• Order Management: email suppliers using predefined, supplier-specific templates.
-• Project Designer: organize projects by room, attach sample photos, generate per-room surface PDF.
-• Refactor API for proper REST structure.
-• Centralize change histories in one admin-only location.
+Session 21
 
-FIXES
-• Daily emails not sending; define and use a master copy-recipient address.
-• QR code printer: improve formatting and layout.
+Now have the ability to deploy via Git Hub.

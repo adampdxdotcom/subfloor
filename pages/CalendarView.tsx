@@ -8,6 +8,8 @@ import Select, { MultiValue } from 'react-select';
 import { toast } from 'react-hot-toast';
 import * as eventService from '../services/eventService';
 import { Event as ApiEvent, Installer, User } from '../types';
+import { formatDate } from '../utils/dateUtils';
+import { fromZonedTime } from 'date-fns-tz'; // UPDATED for v3
 
 interface CalendarEvent {
     id: number;
@@ -53,7 +55,8 @@ const getContrastingTextColor = (hexColor: string | null): string => {
 };
 
 const CalendarView: React.FC = () => {
-    const { users, currentUser } = useData(); // Keep users/currentUser from Context
+    // UPDATED: Destructure systemBranding
+    const { users, currentUser, systemBranding } = useData(); 
     const { data: installers = [] } = useInstallers(); // Fetch installers directly
     
     const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -232,18 +235,18 @@ const CalendarView: React.FC = () => {
                                             else if (singleAttendee.attendeeType === 'user') {
                                                 if (currentUser && currentUser.userId === singleAttendee.attendeeId) {
                                                     // FIX: Access color from preferences, not the root user object
-                                                    eventColor = currentUser.preferences?.calendarColor || '#3B82F6';
+                                                    eventColor = currentUser.preferences?.calendarColor || '#3B82FF';
                                                 } else {
                                                     const user = (users || []).find(u => u.userId === singleAttendee.attendeeId);
                                                     // Note: The User object now contains a 'color' property fetched from the DB for other users.
-                                                    eventColor = user?.color || '#3B82F6';
+                                                    eventColor = user?.color || '#3B82FF';
                                                 }
                                             } else {
                                                 const installer = (installers || []).find(i => String(i.id) === singleAttendee.attendeeId);
-                                                eventColor = installer?.color || '#3B82F6';
+                                                eventColor = installer?.color || '#3B82FF';
                                             }
                                         } else {
-                                            eventColor = '#3B82F6'; 
+                                            eventColor = '#3B82FF'; 
                                         }
                                     }
                                     
@@ -319,9 +322,13 @@ interface AddEditEventModalProps {
 }
 
 const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, event, selectedDate, onSaveSuccess }) => {
-    const { users, currentUser } = useData();
+    // UPDATED: Destructure systemBranding
+    const { users, currentUser, systemBranding } = useData();
     const { data: installers = [] } = useInstallers();
     
+    // Derived value for use in handleSave
+    const systemTimezone = systemBranding?.systemTimezone;
+
     const [title, setTitle] = useState('');
     const [notes, setNotes] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -387,7 +394,15 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
         }
         setIsSaving(true);
         try {
-            const startDateTime = new Date(`${startDate}T${startTime}`);
+            
+            // Create date string "YYYY-MM-DDTHH:mm:00"
+            const localDateTimeString = `${startDate}T${startTime}:00`;
+            
+            // CRITICAL FIX: Use the library to say "This string is in LA Time, give me the UTC"
+            // This ignores the user's laptop timezone completely.
+            const timeZone = systemTimezone || 'America/Los_Angeles';
+            const startDateTime = fromZonedTime(localDateTimeString, timeZone);
+            
             // --- THIS IS THE CRITICAL FIX ---
             const eventData = {
                 title,

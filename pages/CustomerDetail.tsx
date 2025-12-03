@@ -6,11 +6,12 @@ import { User, Mail, Phone, MapPin, PlusCircle, Edit, Briefcase, ChevronRight, H
 import EditCustomerModal from '../components/EditCustomerModal';
 import CollapsibleSection from '../components/CollapsibleSection'; // <-- NEW IMPORT
 import ActivityHistory from '../components/ActivityHistory';     // <-- NEW IMPORT
+import { formatDate } from '../utils/dateUtils';
 
 const CustomerDetail: React.FC = () => {
   const { customerId } = useParams<{ customerId: string }>();
   // vvvvvvvvvvvv ADD NEW ITEMS FROM CONTEXT vvvvvvvvvvvv
-  const { customers, projects, addProject, installers, addInstaller, customerHistory, fetchCustomerHistory } = useData();
+  const { customers, projects, addProject, installers, addInstaller, customerHistory, fetchCustomerHistory, systemBranding } = useData();
   // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   const navigate = useNavigate();
   
@@ -115,7 +116,7 @@ const CustomerDetail: React.FC = () => {
               </div>
             <div>
               <h1 className="text-3xl font-bold text-text-primary">{customer.fullName}</h1>
-              <p className="text-text-secondary">Customer since {new Date(customer.createdAt).toLocaleDateString()}</p>
+              <p className="text-text-secondary">Customer since {formatDate(customer.createdAt, systemBranding?.systemTimezone)}</p>
             </div>
           </div>
           <button 
