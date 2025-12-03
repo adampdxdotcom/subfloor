@@ -16,6 +16,11 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 
+Dockerfile.prod
+tree.txt
+project_1old.txt
+project.txt
+
 # IDE and OS files
 .DS_Store
 .idea/

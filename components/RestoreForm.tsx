@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UploadCloud } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { signOut } from "supertokens-auth-react/recipe/session";
 
 interface RestoreFormProps {
   title: string;
@@ -51,10 +52,14 @@ const RestoreForm: React.FC<RestoreFormProps> = ({ title, endpoint, warningMessa
         duration: 4000,
       });
       
-      // Force a hard reload to reflect the restored state
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      if (title === 'Database') {
+        await signOut();
+        window.location.href = "/auth";
+      } else {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
 
     } catch (error) {
       console.error(`Restore error for ${title}:`, error);

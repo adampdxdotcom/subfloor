@@ -6,6 +6,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import unzipper from 'unzipper';
 import { verifySession } from 'supertokens-node/recipe/session/framework/express/index.js';
+import pool from '../db.js';
+import { loadSystemConfig } from '../lib/setupService.js';
 
 const router = express.Router();
 
@@ -45,6 +47,24 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
                 .on('error', reject);
         });
 
+        // --- STEP 1: NUCLEAR WIPE (DROP SCHEMA CASCADE) ---
+        // We must manually wipe the DB because pg_restore --clean fails on complex foreign keys
+        console.log('💥 Initiating Nuclear Wipe (DROP SCHEMA public CASCADE)...');
+        const client = await pool.connect();
+        try {
+            // Drop everything and recreate the public schema
+            await client.query('DROP SCHEMA public CASCADE;');
+            await client.query('CREATE SCHEMA public;');
+            await client.query('GRANT ALL ON SCHEMA public TO postgres;');
+            await client.query('GRANT ALL ON SCHEMA public TO public;');
+            console.log('✅ Database wiped clean.');
+        } catch (wipeError) {
+            console.error('❌ Wipe failed:', wipeError);
+            throw new Error('Failed to wipe database before restore.');
+        } finally {
+            client.release();
+        }
+
         // --- UPDATED: Parse DATABASE_URL from environment ---
         // In Prod, we use DATABASE_URL. In Dev, we might have individual vars.
         let dbUser, dbPassword, dbHost, dbPort, dbName;
@@ -70,12 +90,12 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
         }
 
         // --- UPDATED: Robust pg_restore command ---
-        // Added --no-owner --no-privileges to avoid permission errors
-        const restoreCommand = `PGPASSWORD="${dbPassword}" pg_restore -U "${dbUser}" -h "${dbHost}" -p "${dbPort}" -d "${dbName}" --clean --if-exists --no-owner --no-privileges "${dumpFilePath}"`;
+        // Removed --clean --if-exists because we wiped manually. Added --no-acl.
+        const restoreCommand = `PGPASSWORD="${dbPassword}" pg_restore -U "${dbUser}" -h "${dbHost}" -p "${dbPort}" -d "${dbName}" --no-owner --no-privileges --no-acl "${dumpFilePath}"`;
         
         console.log('Executing pg_restore command...');
         
-        exec(restoreCommand, (error, stdout, stderr) => {
+        exec(restoreCommand, async (error, stdout, stderr) => {
             // Clean up temp files
             if (fs.existsSync(dumpFilePath)) fs.unlinkSync(dumpFilePath);
             if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
@@ -86,6 +106,46 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
             }
 
             console.log('Database restore successful:', stdout);
+
+            // --- STEP 3: PATCH SYSTEM CONFIGURATION ---
+            try {
+                console.log("🔧 Patching system configuration...");
+                const patchClient = await pool.connect();
+
+                // 1. Ensure table exists (for very old backups)
+                await patchClient.query(`
+                    CREATE TABLE IF NOT EXISTS system_preferences (
+                        key VARCHAR(100) PRIMARY KEY NOT NULL,
+                        settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                `);
+
+                // 2. Force Initialized = true
+                const defaultUrl = process.env.APP_DOMAIN || "http://localhost:3001";
+                
+                await patchClient.query(`
+                    INSERT INTO system_preferences (key, settings)
+                    VALUES ('core_config', $1)
+                    ON CONFLICT (key) DO UPDATE 
+                    SET settings = system_preferences.settings || jsonb_build_object('isInitialized', true);
+                `, [JSON.stringify({ 
+                    isInitialized: true, 
+                    publicUrl: defaultUrl,
+                    companyName: "Restored System"
+                })]);
+
+                patchClient.release();
+                
+                // --- NEW: Force the server to reload config from DB ---
+                await loadSystemConfig(); 
+                
+                console.log("✅ System configuration patched and reloaded.");
+
+            } catch (patchErr) {
+                console.error("⚠️ Warning: Failed to patch system config:", patchErr);
+            }
+
             res.status(200).json({ message: 'Database restored successfully.' });
         });
 
@@ -108,7 +168,10 @@ router.post('/images', verifySession(), upload.single('backupFile'), async (req,
 
     try {
         console.log('--- Starting Image Restore (Content Swap Method) ---');
-        await fs.promises.mkdir(liveUploadsDir, { recursive: true });
+        // Ensure parent uploads dir exists
+        if (!fs.existsSync(liveUploadsDir)) {
+            await fs.promises.mkdir(liveUploadsDir, { recursive: true });
+        }
 
         console.log('Step 1: Cleaning up any old temp directories...');
         if (fs.existsSync(newUploadsDir)) await fs.promises.rm(newUploadsDir, { recursive: true, force: true });
@@ -133,9 +196,12 @@ router.post('/images', verifySession(), upload.single('backupFile'), async (req,
         }
         
         console.log('Step 4: Clearing contents of live uploads directory...');
-        const oldFiles = await fs.promises.readdir(liveUploadsDir);
-        for (const file of oldFiles) {
-            await fs.promises.rm(path.join(liveUploadsDir, file), { recursive: true, force: true });
+        // Only clear if live dir exists
+        if (fs.existsSync(liveUploadsDir)) {
+             const oldFiles = await fs.promises.readdir(liveUploadsDir);
+             for (const file of oldFiles) {
+                 await fs.promises.rm(path.join(liveUploadsDir, file), { recursive: true, force: true });
+             }
         }
         
         console.log('Step 5: Moving new files into live uploads directory...');
@@ -143,7 +209,8 @@ router.post('/images', verifySession(), upload.single('backupFile'), async (req,
         for (const file of newFiles) {
             const sourcePath = path.join(newUploadsDir, file);
             const destPath = path.join(liveUploadsDir, file);
-            await fs.promises.copyFile(sourcePath, destPath);
+            // Use cp with recursive: true to handle folders (like 'branding', 'avatars', and 'OLD')
+            await fs.promises.cp(sourcePath, destPath, { recursive: true });
         }
 
         console.log('--- Image Restore Successful ---');

@@ -1,22 +1,47 @@
-# Dockerfile
+# --- STAGE 1: BUILD THE FRONTEND ---
+FROM node:20-alpine AS frontend-builder
 
-# Use a modern, lightweight version of Node.js as our base image
-FROM node:20-alpine
-
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json first to leverage layer caching
+# Copy ROOT package files (Frontend deps)
 COPY package*.json ./
+RUN npm ci
 
-# Install project dependencies
-RUN npm install
-
-# Copy the rest of your application's source code
+# Copy source code and build
 COPY . .
+RUN npm run build
 
-# Vite's default port is 5173. We expose it from the container.
-EXPOSE 5173
 
-# The command to run the Vite dev server
-CMD ["npm", "run", "dev"]
+# --- STAGE 2: SETUP THE PRODUCTION SERVER ---
+FROM node:20-alpine AS production-runner
+
+WORKDIR /app
+
+# --- FIX: Install PostgreSQL Client Tools (Required for Backup/Restore) ---
+RUN apk add --no-cache postgresql-client
+
+# Copy SERVER package files
+COPY server/package*.json ./
+
+# Install production dependencies for the BACKEND
+RUN npm install --only=production
+
+# Copy the backend code into a subdirectory
+COPY server/ ./server/
+
+# --- NEW: Copy the schema file so the app can self-initialize ---
+COPY schema.sql ./server/schema.sql
+
+# Copy the built frontend from Stage 1 into the server's public folder
+COPY --from=frontend-builder /app/dist ./server/public
+
+# Create uploads directories
+RUN mkdir -p server/uploads/branding && \
+    mkdir -p server/uploads/avatars && \
+    mkdir -p server/temp-uploads
+
+# Expose the API port
+EXPOSE 3001
+
+# Start the backend server
+CMD ["node", "server/index.js"]
