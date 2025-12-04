@@ -10,8 +10,7 @@ const Layout: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { systemBranding } = useData();
     
-    // Ensure this matches your production domain or use relative path for local dev proxy
-    const API_URL = import.meta.env.PROD ? "https://flooring.dumbleigh.com" : "";
+    const API_URL = "";
 
     const SidebarContent = () => (
         <>
