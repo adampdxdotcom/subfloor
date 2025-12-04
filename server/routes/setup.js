@@ -8,12 +8,15 @@ const router = express.Router();
 
 /**
  * GET /api/setup/status
- * Returns { initialized: boolean }
- * Used by the frontend to decide whether to show the Wizard or the App.
+ * Returns { initialized: boolean, isSupertokensSecure: boolean }
+ * Used by the frontend to decide whether to show the Wizard or the App, and to display security warnings.
  */
 router.get('/status', (req, res) => {
     const initialized = isSystemInitialized();
-    res.json({ initialized });
+    res.json({ 
+        initialized,
+        isSupertokensSecure: !!process.env.SUPERTOKENS_API_KEY
+    });
 });
 
 /**

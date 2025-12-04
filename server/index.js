@@ -83,7 +83,7 @@ supertokens.init({
     framework: "express",
     supertokens: {
         connectionURI: "http://supertokens:3567",
-        apiKey: process.env.SUPERTOKENS_API_KEY || "some-long-and-secure-key",
+        apiKey: process.env.SUPERTOKENS_API_KEY,
     },
     appInfo: {
         appName: "Subfloor",

@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { decrypt } from '../utils.js';
+import { getSystemConfig } from './setupService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -118,8 +119,9 @@ const sendEmail = async (arg1, arg2, arg3, arg4) => {
         templateData.companyName = branding.companyName || 'Subfloor';
         // Handle Logo URL (ensure absolute path if relative)
         if (branding.logoUrl) {
-            // Assume APP_DOMAIN env is set, or hardcode your domain for emails
-            const baseUrl = process.env.APP_DOMAIN || 'https://flooring.dumbleigh.com';
+            // FIX: Get URL from Wizard Config -> Env -> Localhost Fallback
+            const sysConfig = getSystemConfig();
+            const baseUrl = sysConfig.publicUrl || process.env.APP_DOMAIN || 'http://localhost:3001';
             templateData.logoUrl = branding.logoUrl.startsWith('http') ? branding.logoUrl : `${baseUrl}${branding.logoUrl}`;
         } else {
             templateData.logoUrl = ''; // Or a default hosted image

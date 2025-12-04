@@ -12,10 +12,7 @@ services:
     env_file:
       - .env
     environment:
-      - NODE_ENV=production
-      - APP_DOMAIN=${APP_DOMAIN}
-      - API_DOMAIN=${API_DOMAIN}
-      - ALLOWED_DOMAINS=${ALLOWED_DOMAINS}
+      - NODE_ENV=development
       - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
     volumes:
       - ./server/uploads:/app/server/uploads

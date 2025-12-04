@@ -11,7 +11,7 @@ import ProductForm from './ProductForm';
 import VariantGeneratorModal from './VariantGeneratorModal';
 import VariantImageModal from './VariantImageModal';
 
-const API_URL = "https://flooring.dumbleigh.com";
+const API_URL = "";
 
 interface ProductDetailModalProps {
     isOpen: boolean;
@@ -454,6 +454,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                         </td>
                                                         <td className="p-3 text-center text-xs text-text-tertiary">{v.hasSample ? 'Available' : 'Order Only'}</td>
                                                         <td className="p-3 flex justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+                                                            <button onClick={() => handlePrintQr(v.id, 'variant', activeProduct.name, v.name, v.sku || undefined)} disabled={isBatchMode} className="text-text-secondary hover:text-primary disabled:opacity-30"><QrCode size={16} /></button>
                                                             <button onClick={() => handleEditVariant(v)} disabled={isBatchMode} className="text-text-secondary hover:text-primary disabled:opacity-30"><Edit2 size={16} /></button>
                                                             <button onClick={() => handleDeleteVariant(v.id)} disabled={isBatchMode} className="text-text-secondary hover:text-red-500 disabled:opacity-30"><Trash2 size={16} /></button>
                                                         </td>

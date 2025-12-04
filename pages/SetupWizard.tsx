@@ -1,11 +1,12 @@
 // src/pages/SetupWizard.tsx
-import React, { useState } from 'react';
-import { CheckCircle2, Server, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2, Server, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
 
 export default function SetupWizard() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSecure, setIsSecure] = useState(true);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -17,6 +18,17 @@ export default function SetupWizard() {
     companyName: '',
     publicUrl: window.location.origin // Auto-detect current URL
   });
+
+  // NEW: Check security status on mount
+  useEffect(() => {
+      fetch('/api/setup/status')
+          .then(res => res.json())
+          .then(data => {
+              // If the backend says it's not secure (missing key), update state
+              if (data.isSupertokensSecure === false) setIsSecure(false);
+          })
+          .catch(console.error);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -84,6 +96,17 @@ export default function SetupWizard() {
           <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome to Subfloor</h1>
           <p className="text-slate-400">Let's get your system ready for business.</p>
         </div>
+
+        {/* SECURITY WARNING BANNER */}
+        {!isSecure && (
+            <div className="mb-6 bg-yellow-500/10 border border-yellow-500/50 rounded-lg p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-yellow-200">
+                    <strong className="block text-yellow-500 mb-1">Security Warning: No API Key Detected</strong>
+                    Your authentication service is running in insecure mode. Please add <code>SUPERTOKENS_API_KEY</code> to your environment variables and restart the server.
+                </div>
+            </div>
+        )}
 
         {/* Card Container */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden">

@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { sendEmail } from './emailService.js';
 import { getDashboardReportData } from './reports.js';
+import { getSystemConfig } from './setupService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,8 +26,9 @@ const getBranding = async () => {
         
         let logoHtml = '';
         if (s.logoUrl) {
-            // Assume APP_DOMAIN env or hardcode for now
-            const baseUrl = process.env.APP_DOMAIN || 'https://flooring.dumbleigh.com';
+            // FIX: Get URL from Wizard Config -> Env -> Localhost Fallback
+            const sysConfig = getSystemConfig();
+            const baseUrl = sysConfig.publicUrl || process.env.APP_DOMAIN || 'http://localhost:3001';
             const logoUrl = s.logoUrl.startsWith('http') ? s.logoUrl : `${baseUrl}${s.logoUrl}`;
             logoHtml = `<img src="${logoUrl}" alt="${companyName}" style="display:block; margin:0 auto 10px; max-height:50px;" />`;
         }
@@ -220,31 +222,6 @@ export const initializeScheduler = async () => {
                 const sampleListHtml = checkout.samples.map(name => `<li>${name}</li>`).join('');
                 const dueDate = new Date(checkout.expected_return_date).toLocaleDateString();
 
-                // Note: The template now has {{logoHtml}} which sendEmail will fill, but we do manual replacement for body vars here
-                let emailHtml = template
-                    .replace('{{customerName}}', checkout.customer_name)
-                    .replace('{{projectName}}', checkout.project_name)
-                    .replace('{{dueDate}}', dueDate)
-                    .replace('{{sampleList}}', sampleListHtml);
-
-                await sendEmail({
-                    to: checkout.customer_email,
-                    subject: `Friendly Reminder: Your Samples are Due Tomorrow`,
-                    html: emailHtml, // sendEmail will inject companyName/logoHtml automatically if missing?
-                    // Actually, sendEmail's auto-injection works best when using 'templateName'.
-                    // Since we loaded the template manually here, we rely on sendEmail to inject branding into the final HTML string? 
-                    // No, sendEmail only injects if using the template object syntax.
-                    // FIX: We should pass templateName to sendEmail or inject branding manually here.
-                    // For safety, let's let sendEmail handle it by passing data object instead of raw HTML string if possible,
-                    // or just pass the raw HTML and rely on the fact that sendEmail injects 'from' name correctly.
-                    // The HTML body won't get the logo unless we do it here.
-                });
-                
-                // Correction: The best way to use the new system is to pass the data object to sendEmail
-                // But since we are looping, let's just stick to the manual replace for now, 
-                // but we need to ensure the template uses {{logoHtml}} and we pass it.
-                // Actually, sendEmail DOES NOT parse raw 'html' string for {{}}. 
-                // So we should construct the data object and let sendEmail do the work.
                 
                 await sendEmail({
                     to: checkout.customer_email,

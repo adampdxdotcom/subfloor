@@ -21,7 +21,7 @@ const BrandingSettingsSection: React.FC = () => {
     const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     
-    const API_URL = "https://flooring.dumbleigh.com";
+    const API_URL = "";
 
     // Cleanup object URLs
     useEffect(() => {
