@@ -47,14 +47,22 @@ const RestoreForm: React.FC<RestoreFormProps> = ({ title, endpoint, warningMessa
         throw new Error(errorData.error || `Failed to restore ${title.toLowerCase()}.`);
       }
 
-      toast.success(`${title} restored successfully! The application will now reload.`, {
+      toast.success(`${title} restored successfully! System reloading...`, {
         id: toastId,
         duration: 4000,
       });
       
       if (title === 'Database') {
-        await signOut();
-        window.location.href = "/auth";
+        // CRITICAL FIX: The session usually becomes invalid after a DB restore (User ID mismatch).
+        // We attempt a clean signout, but even if it fails (401), we MUST redirect.
+        try {
+            await signOut();
+        } catch (err) {
+            console.warn("Clean signout failed (expected after DB restore), forcing navigation.");
+        } finally {
+            // Force reload to login page to clear client state
+            window.location.href = "/auth";
+        }
       } else {
         setTimeout(() => {
           window.location.reload();
