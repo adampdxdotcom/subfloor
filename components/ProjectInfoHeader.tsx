@@ -4,6 +4,7 @@ import { CurrentUser, Project, ProjectStatus, Customer, Installer, User } from '
 import { Edit2, Trash2, Save, X, RotateCcw, Calendar, Tag, MapPin, Phone, User as UserIcon, Hammer, Briefcase } from 'lucide-react'; 
 import { useData } from '../context/DataContext'; 
 import { createGravatarHash } from '../utils/cryptoUtils';
+import { formatDate } from '../utils/dateUtils';
 
 const getStatusColor = (status: ProjectStatus): string => {
     switch (status) {
@@ -40,7 +41,7 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
     onDeleteProject, isDeleting,
     isLayoutEditMode, onSaveLayout, onCancelLayout, onResetLayout 
 }) => {
-    const { users } = useData(); 
+    const { users, systemBranding } = useData(); 
     
     const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -69,7 +70,7 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
         : '#';
         
     // Format Date
-    const formattedDate = new Date(project.createdAt).toLocaleDateString();
+    const formattedDate = formatDate(project.createdAt, systemBranding?.systemTimezone);
     
     return (
         <div className="bg-surface rounded-lg shadow-md p-6 border border-border">

@@ -147,7 +147,12 @@ initializeScheduler();
 
 
 // --- MIDDLEWARE & CONFIG ---
-const uploadsDir = path.join(__dirname, 'uploads');
+// FIX: In production Docker, use explicit absolute path to match the Volume mount.
+// In Dev, use relative path.
+const uploadsDir = process.env.NODE_ENV === 'production' 
+    ? '/app/server/uploads' 
+    : path.join(__dirname, 'uploads');
+
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
@@ -199,7 +204,7 @@ app.options('*', (req, res) => {
 
 app.use(express.json()); 
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(uploadsDir));
 app.use(middleware());   
 
 // --- API ENDPOINTS ---

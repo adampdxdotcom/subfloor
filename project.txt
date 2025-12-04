@@ -1018,4 +1018,18 @@ Session 20 missing
 
 Session 21
 
-Now have the ability to deploy via Git Hub.
+Session 21: Zero-Config Setup & Self-Healing Infrastructure
+
+    Zero-Config Wizard: Created a seamless "Splash Screen" setup flow that initializes the Admin user and System Configuration via the UI, removing the need for manual .env editing or database seeding.
+
+    Dynamic Configuration: Refactored the backend (server/index.js, setupService.js) to load critical settings (Public URL, Company Name) from the database instead of hardcoded environment variables.
+
+    Self-Initializing Database: Created dbInit.js to automatically apply the schema on a fresh container startup.
+
+    Hardened Restore Logic: Rewrote restore.js to:
+
+        Perform a "Nuclear Wipe" (DROP SCHEMA CASCADE) before restoring to prevent foreign key conflicts.
+
+        Support recursive file copying for image restores.
+
+        Self-Heal: Automatically patch the system configuration after a restore to ensure the "Initialized" flag persists, preventing lockout loops.

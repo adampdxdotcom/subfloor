@@ -4,6 +4,7 @@ import { Project, Quote, Installer, QuoteStatus, Job, InstallationType, INSTALLA
 import { Edit, Check, X, History, FileText, Move } from 'lucide-react';
 import ActivityHistory from './ActivityHistory';
 import ModalPortal from './ModalPortal'; // NEW
+import { formatDate } from '../utils/dateUtils';
 
 interface QuotesSectionProps {
     project: Project;
@@ -25,7 +26,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     addInstaller, isModalOpen, onCloseModal, onOpenEditModal, 
     editingQuoteForModal 
 }) => {
-    const { acceptQuote, quotesHistory, fetchQuotesHistory } = useData();
+    const { acceptQuote, quotesHistory, fetchQuotesHistory, systemBranding } = useData();
     
     const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
     const [newQuote, setNewQuote] = useState({
@@ -183,6 +184,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                                         </div>
                                         <div className="text-right">
                                             <p className="font-semibold text-sm text-text-primary">{quote.status}</p>
+                                            <p className="text-xs text-text-secondary mt-1">{formatDate(quote.dateSent, systemBranding?.systemTimezone)}</p>
                                             {quote.status === QuoteStatus.SENT && (
                                                 <div className="flex space-x-2 mt-2 items-center">
                                                     <button onClick={() => onOpenEditModal(quote)} className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface rounded-full" title="Edit Quote"><Edit className="w-4 h-4" /></button>

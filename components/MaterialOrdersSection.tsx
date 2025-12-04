@@ -5,6 +5,7 @@ import { Edit, Trash2, Package as PackageIcon, Move } from 'lucide-react';
 import { formatCurrency } from '../utils/pricingUtils';
 import AddEditMaterialOrderModal from './AddEditMaterialOrderModal';
 import ModalPortal from './ModalPortal'; // NEW
+import { formatDate } from '../utils/dateUtils';
 
 interface MaterialOrdersSectionProps {
     project: Project;
@@ -17,7 +18,7 @@ interface MaterialOrdersSectionProps {
 
 const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, orders, isModalOpen, onCloseModal, editingOrder, onEditOrder }) => {
     
-    const { currentUser, deleteMaterialOrder } = useData();
+    const { currentUser, deleteMaterialOrder, systemBranding } = useData();
     
     const handleDeleteOrder = async (orderId: number) => {
         if (window.confirm('Are you sure you want to delete this material order? This action cannot be undone.')) {
@@ -49,12 +50,12 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                                 <div className="flex justify-between items-start mb-3">
                                     <div>
                                         <p className="font-bold text-text-primary">{order.supplierName || 'N/A'}</p>
-                                        <p className="text-xs text-text-secondary">Order Date: {new Date(order.orderDate).toLocaleDateString()}</p>
+                                        <p className="text-xs text-text-secondary">Order Date: {formatDate(order.orderDate, systemBranding?.systemTimezone)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="text-right">
                                             <p className="text-sm font-semibold text-accent">{order.status}</p>
-                                            <p className="text-xs text-text-secondary">ETA: {order.etaDate ? new Date(order.etaDate).toLocaleDateString() : 'N/A'}</p>
+                                            <p className="text-xs text-text-secondary">ETA: {order.etaDate ? formatDate(order.etaDate, systemBranding?.systemTimezone) : 'N/A'}</p>
                                         </div>
                                         <button onClick={() => onEditOrder(order)} className="p-1 text-text-secondary hover:text-text-primary"><Edit size={16}/></button>
                                         {currentUser?.roles?.includes('Admin') && (
