@@ -107,6 +107,17 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
 
             console.log('Database restore successful:', stdout);
 
+            // --- DETECT CURRENT ORIGIN ---
+            // We grab the protocol and host from the request headers to ensure 
+            // the system config matches the environment we are restoring INTO,
+            // not the environment the backup came FROM.
+            let detectedUrl = process.env.APP_DOMAIN;
+            if (!detectedUrl && req.headers.origin) {
+                detectedUrl = req.headers.origin;
+            } else if (!detectedUrl) {
+                detectedUrl = "http://localhost:3001"; // Fallback
+            }
+
             // --- STEP 3: PATCH SYSTEM CONFIGURATION ---
             try {
                 console.log("🔧 Patching system configuration...");
@@ -121,19 +132,21 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
                     );
                 `);
 
-                // 2. Force Initialized = true
-                const defaultUrl = process.env.APP_DOMAIN || "http://localhost:3001";
-                
+                // 2. Force Initialized = true AND Correct Public URL
+                // We explicitly set 'publicUrl' to override whatever old value came in from the backup.
                 await patchClient.query(`
                     INSERT INTO system_preferences (key, settings)
                     VALUES ('core_config', $1)
                     ON CONFLICT (key) DO UPDATE 
-                    SET settings = system_preferences.settings || jsonb_build_object('isInitialized', true);
+                    SET settings = system_preferences.settings || jsonb_build_object(
+                        'isInitialized', true, 
+                        'publicUrl', $2::text
+                    );
                 `, [JSON.stringify({ 
                     isInitialized: true, 
-                    publicUrl: defaultUrl,
+                    publicUrl: detectedUrl,
                     companyName: "Restored System"
-                })]);
+                }), detectedUrl]);
 
                 patchClient.release();
                 
