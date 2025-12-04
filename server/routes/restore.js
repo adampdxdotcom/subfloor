@@ -47,26 +47,8 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
                 .on('error', reject);
         });
 
-        // --- STEP 1: NUCLEAR WIPE (DROP SCHEMA CASCADE) ---
-        // We must manually wipe the DB because pg_restore --clean fails on complex foreign keys
-        console.log('💥 Initiating Nuclear Wipe (DROP SCHEMA public CASCADE)...');
-        const client = await pool.connect();
-        try {
-            // Drop everything and recreate the public schema
-            await client.query('DROP SCHEMA public CASCADE;');
-            await client.query('CREATE SCHEMA public;');
-            await client.query('GRANT ALL ON SCHEMA public TO postgres;');
-            await client.query('GRANT ALL ON SCHEMA public TO public;');
-            console.log('✅ Database wiped clean.');
-        } catch (wipeError) {
-            console.error('❌ Wipe failed:', wipeError);
-            throw new Error('Failed to wipe database before restore.');
-        } finally {
-            client.release();
-        }
-
-        // --- UPDATED: Parse DATABASE_URL from environment ---
-        // In Prod, we use DATABASE_URL. In Dev, we might have individual vars.
+        // --- STEP 0: PARSE DB CREDENTIALS (Moved Up) ---
+        // We need the user name for the Wipe step permissions
         let dbUser, dbPassword, dbHost, dbPort, dbName;
 
         if (process.env.DATABASE_URL) {
@@ -77,7 +59,6 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
             dbPort = dbUrl.port || '5432';
             dbName = dbUrl.pathname.slice(1); // Remove leading '/'
         } else {
-            // Fallback for Dev if DATABASE_URL isn't set
             dbUser = process.env.DB_USER;
             dbPassword = process.env.DB_PASSWORD;
             dbHost = process.env.DB_HOST;
@@ -87,6 +68,25 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
 
         if (!dbUser || !dbPassword || !dbHost || !dbName) {
              throw new Error('Missing database configuration variables.');
+        }
+
+        // --- STEP 1: NUCLEAR WIPE (DROP SCHEMA CASCADE) ---
+        // We must manually wipe the DB because pg_restore --clean fails on complex foreign keys
+        console.log('💥 Initiating Nuclear Wipe (DROP SCHEMA public CASCADE)...');
+        const client = await pool.connect();
+        try {
+            // Drop everything and recreate the public schema
+            await client.query('DROP SCHEMA public CASCADE;');
+            await client.query('CREATE SCHEMA public;');
+            // FIX: Grant permissions to the ACTUAL database user, not hardcoded 'postgres'
+            await client.query(`GRANT ALL ON SCHEMA public TO "${dbUser}";`);
+            await client.query('GRANT ALL ON SCHEMA public TO public;');
+            console.log('✅ Database wiped clean.');
+        } catch (wipeError) {
+            console.error('❌ Wipe failed:', wipeError);
+            throw new Error('Failed to wipe database before restore.');
+        } finally {
+            client.release();
         }
 
         // --- UPDATED: Robust pg_restore command ---
