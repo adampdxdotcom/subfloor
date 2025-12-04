@@ -177,8 +177,11 @@ app.use(cors({
 
         // 2. LOCKED MODE: Strict Check
         // Calculate allowed list dynamically
+        // FIX: Use the latest publicUrl from config, falling back to startup constant
+        const runtimeUrl = config.publicUrl || APP_DOMAIN;
+
         const allowed = [
-             APP_DOMAIN, 
+             runtimeUrl, 
              ...(config.allowedDomains || [])
         ];
 
