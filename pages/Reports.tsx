@@ -11,24 +11,17 @@ import {
     getProductReport, 
     getJobReport, 
     getInstallerReport,
-    ProductReportFilters,
-    JobReportFilters,
-    InstallerReportFilters
 } from '../services/reportService';
 import { PRODUCT_TYPES } from '../types'; // Import the constant
-import { formatCurrency } from '../utils/pricingUtils'; // Assuming you have this, or I'll use a local helper
 import { 
     FileText, 
     Users, 
     Briefcase, 
     Printer, 
     Eye, 
-    EyeOff,
     Play,
     Download,
     BarChart3, // New Icon
-    ChevronUp,
-    ChevronDown,
     Settings2
 } from 'lucide-react';
 
@@ -39,10 +32,10 @@ const formatDate = (dateStr: string) => {
 };
 
 // --- PRINT HEADER COMPONENT ---
-// Only visible when printing
 const PrintHeader = ({ title, dateRange }: { title: string, dateRange?: string }) => {
     const { systemBranding } = useData();
-    const logoUrl = systemBranding?.logoUrl || '/logo.png'; // Fallback
+    // Fix: Remove hardcoded fallback if possible, or keep simple relative path
+    const logoUrl = systemBranding?.logoUrl || '/logo.png'; 
 
     return (
         <div className="hidden print:flex flex-col mb-8 border-b-2 border-gray-800 pb-4">
@@ -71,7 +64,7 @@ const NUMERIC_FIELDS = [
 ];
 
 export default function Reports() {
-    const { installers, systemBranding, vendors } = useData(); // Get vendors from context
+    const { systemBranding, vendors, products, fetchProducts } = useData(); // Get vendors from context
     
     // --- STATE ---
     const [activeTab, setActiveTab] = useState<'products' | 'jobs' | 'installers'>('products');
@@ -84,14 +77,12 @@ export default function Reports() {
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     
     const navigate = useNavigate();
-    const { fetchProducts, products } = useData(); // Needed to hydrate the modal
     
     // View Options
     const [showCost, setShowCost] = useState(false);
     const [showChart, setShowChart] = useState(true); // Default to showing chart
     
     // Filters
-    // Default to First day of current month -> Today
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
     
@@ -228,18 +219,19 @@ export default function Reports() {
 
     // --- MAIN LAYOUT ---
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
+        // Container: Matches Messages.tsx layout (Card style, fixed height within parent)
+        <div className="flex h-full bg-surface rounded-lg shadow-md border border-border overflow-hidden">
             
             {/* SIDEBAR - HIDDEN ON PRINT */}
-            <div className="w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col print:hidden">
-                <div className="p-4 border-b border-gray-200">
-                    <h2 className="text-lg font-bold text-gray-900">Reports</h2>
+            <div className="w-64 bg-surface border-r border-border flex-shrink-0 flex flex-col print:hidden">
+                <div className="p-4 border-b border-border">
+                    <h2 className="text-lg font-bold text-text-primary">Reports</h2>
                 </div>
                 <nav className="flex-1 p-4 space-y-1">
                     <button
                         onClick={() => setActiveTab('products')}
-                        className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                            activeTab === 'products' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+                        className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                            activeTab === 'products' ? 'bg-primary/10 text-primary border-r-2 border-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'
                         }`}
                     >
                         <FileText className="mr-3 h-5 w-5" />
@@ -247,8 +239,8 @@ export default function Reports() {
                     </button>
                     <button
                         onClick={() => setActiveTab('jobs')}
-                        className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                            activeTab === 'jobs' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+                        className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                            activeTab === 'jobs' ? 'bg-primary/10 text-primary border-r-2 border-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'
                         }`}
                     >
                         <Briefcase className="mr-3 h-5 w-5" />
@@ -256,8 +248,8 @@ export default function Reports() {
                     </button>
                     <button
                         onClick={() => setActiveTab('installers')}
-                        className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                            activeTab === 'installers' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+                        className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                            activeTab === 'installers' ? 'bg-primary/10 text-primary border-r-2 border-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'
                         }`}
                     >
                         <Users className="mr-3 h-5 w-5" />
@@ -267,10 +259,10 @@ export default function Reports() {
             </div>
 
             {/* MAIN CONTENT */}
-            <div className="flex-1 flex flex-col overflow-hidden bg-white print:block print:h-auto print:overflow-visible">
+            <div className="flex-1 flex flex-col overflow-hidden bg-background print:block print:h-auto print:overflow-visible">
                 
                 {/* TOOLBAR - HIDDEN ON PRINT */}
-                <div className="px-6 py-4 border-b border-gray-200 bg-white flex flex-wrap items-end justify-between gap-4 print:hidden">
+                <div className="px-6 py-4 border-b border-border bg-surface flex flex-wrap items-end justify-between gap-4 print:hidden">
                     
                     {/* LEFT: Filters & Run Action */}
                     <div className="flex items-end gap-3">
@@ -278,9 +270,9 @@ export default function Reports() {
                             /* PRODUCT FILTERS */
                             <>
                                 <div className="flex flex-col">
-                                    <label className="text-xs text-gray-500 font-bold uppercase mb-1">Manufacturer</label>
+                                    <label className="text-xs text-text-secondary font-bold uppercase mb-1">Manufacturer</label>
                                     <select
-                                        className="h-9 border border-gray-300 rounded-md shadow-sm px-3 text-sm bg-white min-w-[160px]"
+                                        className="h-9 border border-border rounded-md shadow-sm px-3 text-sm bg-background text-text-primary min-w-[160px]"
                                         value={manufacturerFilter}
                                         onChange={(e) => setManufacturerFilter(e.target.value)}
                                     >
@@ -294,9 +286,9 @@ export default function Reports() {
                                     </select>
                                 </div>
                                 <div className="flex flex-col">
-                                    <label className="text-xs text-gray-500 font-bold uppercase mb-1">Product Type</label>
+                                    <label className="text-xs text-text-secondary font-bold uppercase mb-1">Product Type</label>
                                     <select
-                                        className="h-9 border border-gray-300 rounded-md shadow-sm px-3 text-sm bg-white min-w-[140px]"
+                                        className="h-9 border border-border rounded-md shadow-sm px-3 text-sm bg-background text-text-primary min-w-[140px]"
                                         value={typeFilter}
                                         onChange={(e) => setTypeFilter(e.target.value)}
                                     >
@@ -311,22 +303,22 @@ export default function Reports() {
                             /* DATE FILTERS (Jobs & Installers) */
                             <>
                                 <div className="flex flex-col">
-                                    <label className="text-xs text-gray-500 font-bold uppercase mb-1">From</label>
-                                <input 
-                                    type="date" 
-                                    className="h-9 border border-gray-300 rounded-md shadow-sm px-3 text-sm" 
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                />
+                                    <label className="text-xs text-text-secondary font-bold uppercase mb-1">From</label>
+                                    <input 
+                                        type="date" 
+                                        className="h-9 border border-border rounded-md shadow-sm px-3 text-sm bg-background text-text-primary" 
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                    />
                                 </div>
                                 <div className="flex flex-col">
-                                    <label className="text-xs text-gray-500 font-bold uppercase mb-1">To</label>
-                                <input 
-                                    type="date" 
-                                    className="h-9 border border-gray-300 rounded-md shadow-sm px-3 text-sm" 
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                />
+                                    <label className="text-xs text-text-secondary font-bold uppercase mb-1">To</label>
+                                    <input 
+                                        type="date" 
+                                        className="h-9 border border-border rounded-md shadow-sm px-3 text-sm bg-background text-text-primary" 
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                    />
                                 </div>
                             </>
                         )}
@@ -334,7 +326,7 @@ export default function Reports() {
                         {/* Unified RUN Button */}
                         <button 
                             onClick={handleApplyFilters}
-                            className="h-9 flex items-center gap-2 px-4 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700 shadow-sm active:scale-95 transition-all"
+                            className="h-9 flex items-center gap-2 px-4 bg-primary text-on-primary text-sm font-bold rounded-md hover:bg-primary-hover shadow-sm active:scale-95 transition-all"
                             title="Run or Refresh Report"
                         >
                             <Play className="w-4 h-4" />
@@ -349,25 +341,25 @@ export default function Reports() {
                         <div className="relative">
                             <button 
                                 onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)}
-                                className="h-9 flex items-center gap-2 px-3 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm text-sm font-medium"
+                                className="h-9 flex items-center gap-2 px-3 bg-surface text-text-secondary border border-border rounded-md hover:bg-background shadow-sm text-sm font-medium"
                             >
                                 <Settings2 className="h-4 w-4" />
                                 Columns
                             </button>
                             
                             {isColumnMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50 p-2">
-                                    <div className="text-xs font-bold text-gray-500 uppercase px-2 mb-2">Toggle Columns</div>
+                                <div className="absolute right-0 mt-2 w-48 bg-surface rounded-md shadow-lg border border-border z-50 p-2">
+                                    <div className="text-xs font-bold text-text-secondary uppercase px-2 mb-2">Toggle Columns</div>
                                     <div className="space-y-1">
                                         {activeTab === 'products' && (
                                             <>
                                                 {['Manufacturer', 'Product', 'Style_Size', 'SKU', 'Carton', 'Retail'].map(col => (
-                                                    <label key={col} className="flex items-center px-2 py-1.5 hover:bg-gray-100 rounded cursor-pointer">
+                                                    <label key={col} className="flex items-center px-2 py-1.5 hover:bg-background rounded cursor-pointer text-text-primary">
                                                         <input 
                                                             type="checkbox" 
                                                             checked={isVisible(col.toLowerCase())}
                                                             onChange={() => toggleColumn(col.toLowerCase())}
-                                                            className="rounded border-gray-300 text-indigo-600 mr-2"
+                                                            className="rounded border-border text-primary mr-2"
                                                         />
                                                         <span className="text-sm">{col.replace('_', ' / ')}</span>
                                                     </label>
@@ -377,12 +369,12 @@ export default function Reports() {
                                         {activeTab === 'jobs' && (
                                             <>
                                                 {['Date', 'Customer', 'Project', 'Status', 'Total'].map(col => (
-                                                    <label key={col} className="flex items-center px-2 py-1.5 hover:bg-gray-100 rounded cursor-pointer">
+                                                    <label key={col} className="flex items-center px-2 py-1.5 hover:bg-background rounded cursor-pointer text-text-primary">
                                                         <input 
                                                             type="checkbox" 
                                                             checked={isVisible(col.toLowerCase())}
                                                             onChange={() => toggleColumn(col.toLowerCase())}
-                                                            className="rounded border-gray-300 text-indigo-600 mr-2"
+                                                            className="rounded border-border text-primary mr-2"
                                                         />
                                                         <span className="text-sm">{col}</span>
                                                     </label>
@@ -392,12 +384,12 @@ export default function Reports() {
                                         {activeTab === 'installers' && (
                                             <>
                                                 {['Installer', 'Jobs', 'Labor'].map(col => (
-                                                    <label key={col} className="flex items-center px-2 py-1.5 hover:bg-gray-100 rounded cursor-pointer">
+                                                    <label key={col} className="flex items-center px-2 py-1.5 hover:bg-background rounded cursor-pointer text-text-primary">
                                                         <input 
                                                             type="checkbox" 
                                                             checked={isVisible(col.toLowerCase())}
                                                             onChange={() => toggleColumn(col.toLowerCase())}
-                                                            className="rounded border-gray-300 text-indigo-600 mr-2"
+                                                            className="rounded border-border text-primary mr-2"
                                                         />
                                                         <span className="text-sm">{col}</span>
                                                     </label>
@@ -412,11 +404,11 @@ export default function Reports() {
                         </div>
 
                         {/* VIEW OPTIONS GROUP (Chart & Cost) */}
-                        <div className="flex items-center border border-gray-300 rounded-md bg-white shadow-sm overflow-hidden h-9">
+                        <div className="flex items-center border border-border rounded-md bg-surface shadow-sm overflow-hidden h-9">
                             {reportData.length > 0 && (
                                 <button 
                                     onClick={() => setShowChart(!showChart)}
-                                    className={`p-2.5 border-r border-gray-300 hover:bg-gray-50 transition-colors ${showChart ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500'}`}
+                                    className={`p-2.5 border-r border-border hover:bg-background transition-colors ${showChart ? 'text-primary bg-primary/10' : 'text-text-secondary'}`}
                                     title={showChart ? "Hide Chart" : "Show Chart"}
                                 >
                                     <BarChart3 className="h-4 w-4" />
@@ -424,7 +416,7 @@ export default function Reports() {
                             )}
                             <button 
                                 onClick={() => setShowCost(!showCost)}
-                                className={`p-2.5 hover:bg-gray-50 transition-colors ${showCost ? 'text-red-600 bg-red-50' : 'text-gray-500'}`}
+                                className={`p-2.5 hover:bg-background transition-colors ${showCost ? 'text-red-500 bg-red-500/10' : 'text-text-secondary'}`}
                                 title={showCost ? "Hide Costs" : "Show Costs"}
                             >
                                 <Eye className="h-4 w-4" />
@@ -435,7 +427,7 @@ export default function Reports() {
                         {reportData.length > 0 && (
                             <button 
                                 onClick={handleExport}
-                                className="h-9 flex items-center gap-2 px-3 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 shadow-sm text-sm font-medium"
+                                className="h-9 flex items-center gap-2 px-3 bg-surface text-text-secondary border border-border rounded-md hover:bg-background shadow-sm text-sm font-medium"
                             >
                                 <Download className="h-4 w-4" />
                                 Export CSV
@@ -444,7 +436,7 @@ export default function Reports() {
                         
                         <button 
                             onClick={handlePrint}
-                            className="h-9 flex items-center gap-2 px-3 bg-gray-800 text-white rounded-md hover:bg-gray-900 shadow-sm text-sm font-medium ml-2"
+                            className="h-9 flex items-center gap-2 px-3 bg-secondary text-on-secondary rounded-md hover:bg-secondary-hover shadow-sm text-sm font-medium ml-2"
                         >
                             <Printer className="h-4 w-4" />
                             Print
@@ -467,7 +459,7 @@ export default function Reports() {
 
                     {/* ERROR MESSAGE */}
                     {error && (
-                        <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700">
+                        <div className="mb-4 p-4 bg-red-500/10 border-l-4 border-red-500 text-red-500">
                             <p className="font-bold">Error</p>
                             <p>{error}</p>
                         </div>
@@ -475,7 +467,7 @@ export default function Reports() {
 
                     {loading ? (
                         <div className="flex justify-center items-center h-64">
-                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
                         </div>
                     ) : (
                         <div className="min-w-full">
@@ -515,7 +507,7 @@ export default function Reports() {
                            )}
                            
                            {reportData.length === 0 && !error && (
-                               <div className="text-center py-12 text-gray-500 italic border-2 border-dashed border-gray-200 rounded-lg">
+                               <div className="text-center py-12 text-text-tertiary italic border-2 border-dashed border-border rounded-lg">
                                    No data generated. Adjust filters and click "Run Report".
                                </div>
                            )}
@@ -534,4 +526,4 @@ export default function Reports() {
             )}
         </div>
     );
-}
+};

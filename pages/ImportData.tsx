@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { useData } from '../context/DataContext';
 import FileUploader from '../components/import/FileUploader';
-import ColumnMapper from '../components/import/ColumnMapper'; // New Component
-import ImportReview from '../components/import/ImportReview'; // New Component
-import { Database, ArrowRight, CheckCircle2 } from 'lucide-react';
+import ColumnMapper from '../components/import/ColumnMapper';
+import ImportReview from '../components/import/ImportReview';
+import { CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 
@@ -19,7 +18,7 @@ const ImportData: React.FC = () => {
     const [previewResults, setPreviewResults] = useState<any[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [importStrategy, setImportStrategy] = useState<string>('variant_match');
-    const [importDefaults, setImportDefaults] = useState<any>({}); // New State
+    const [importDefaults, setImportDefaults] = useState<any>({}); 
 
     // --- HANDLERS ---
     const handleDataLoaded = (data: any[][], name: string) => {
@@ -31,15 +30,12 @@ const ImportData: React.FC = () => {
     const handleMappingComplete = async (mappedData: any[], strategy: string) => {
         setIsProcessing(true);
         setImportStrategy(strategy);
-        // Note: defaults are set via onDefaultsChange before this function is called if we wire it up right,
-        // OR we can pass it as a 3rd arg if we modify ColumnMapper signature again.
-        // Let's use the state update approach via the prop we added.
         
         try {
             const res = await axios.post('/api/import/preview', {
                 mappedRows: mappedData,
                 strategy,
-                defaults: importDefaults // Send defaults to backend
+                defaults: importDefaults 
             });
             setPreviewResults(res.data);
             setStep(3);
@@ -57,9 +53,9 @@ const ImportData: React.FC = () => {
         setIsProcessing(true);
         try {
             const res = await axios.post('/api/import/execute', {
-                previewResults: finalRows, // Send the edited/filtered rows
+                previewResults: finalRows, 
                 strategy: importStrategy,
-                defaults: importDefaults // Send defaults again for execution
+                defaults: importDefaults 
             });
             
             toast.success(`Import complete! ${res.data.updates} updated, ${res.data.created} created.`);
@@ -75,47 +71,52 @@ const ImportData: React.FC = () => {
     };
 
     return (
-        <div className="max-w-6xl mx-auto p-6 space-y-8">
+        // Removed max-w-6xl mx-auto to allow full width like CustomerList
+        <div>
             
-            {/* HEADER */}
-            <div className="flex justify-between items-center">
+            {/* SECTION 1: HEADER BOX */}
+            <div className="bg-surface p-6 rounded-lg shadow-md mb-8 border border-border">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Import Inventory</h1>
-                    <p className="text-gray-500 mt-1">Upload vendor price lists to update products in bulk.</p>
+                    <h1 className="text-3xl font-bold text-text-primary">Import Inventory</h1>
+                    <p className="text-text-secondary mt-1">Upload vendor price lists to update products in bulk.</p>
                 </div>
             </div>
 
-            {/* PROGRESS STEPS */}
-            <div className="flex items-center justify-between max-w-2xl mx-auto">
+            {/* SECTION 2: WORKSPACE (Steps + Content) */}
+            <div className="bg-surface rounded-lg shadow-md border border-border overflow-hidden">
+                {/* Progress Bar (Integrated into top of card) */}
+                <div className="bg-background border-b border-border p-6">
+                    <div className="flex items-center justify-between max-w-3xl mx-auto">
                 {/* Step 1 */}
-                <div className={`flex flex-col items-center ${step >= 1 ? 'text-indigo-600' : 'text-gray-400'}`}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 ${step >= 1 ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                <div className={`flex flex-col items-center transition-colors ${step >= 1 ? 'text-primary' : 'text-text-secondary'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step >= 1 ? 'bg-primary/10' : 'bg-surface border border-border'}`}>
                         {step > 1 ? <CheckCircle2 size={24} /> : '1'}
                     </div>
                     <span className="text-sm font-medium">Upload & Clean</span>
                 </div>
-                <div className={`flex-1 h-0.5 mx-4 ${step > 1 ? 'bg-indigo-600' : 'bg-gray-200'}`}></div>
+                <div className={`flex-1 h-0.5 mx-4 transition-colors ${step > 1 ? 'bg-primary' : 'bg-border'}`}></div>
                 
                 {/* Step 2 */}
-                <div className={`flex flex-col items-center ${step >= 2 ? 'text-indigo-600' : 'text-gray-400'}`}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 ${step >= 2 ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                <div className={`flex flex-col items-center transition-colors ${step >= 2 ? 'text-primary' : 'text-text-secondary'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step >= 2 ? 'bg-primary/10' : 'bg-surface border border-border'}`}>
                         {step > 2 ? <CheckCircle2 size={24} /> : '2'}
                     </div>
                     <span className="text-sm font-medium">Map Columns</span>
                 </div>
-                <div className={`flex-1 h-0.5 mx-4 ${step > 2 ? 'bg-indigo-600' : 'bg-gray-200'}`}></div>
+                <div className={`flex-1 h-0.5 mx-4 transition-colors ${step > 2 ? 'bg-primary' : 'bg-border'}`}></div>
 
                 {/* Step 3 */}
-                <div className={`flex flex-col items-center ${step >= 3 ? 'text-indigo-600' : 'text-gray-400'}`}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 ${step >= 3 ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                <div className={`flex flex-col items-center transition-colors ${step >= 3 ? 'text-primary' : 'text-text-secondary'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step >= 3 ? 'bg-primary/10' : 'bg-surface border border-border'}`}>
                         3
                     </div>
                     <span className="text-sm font-medium">Review & Import</span>
                 </div>
             </div>
+                </div>
 
             {/* CONTENT AREA */}
-            <div className="mt-8">
+            <div className="p-6">
                 {step === 1 && (
                     <FileUploader onDataLoaded={handleDataLoaded} />
                 )}
@@ -127,7 +128,7 @@ const ImportData: React.FC = () => {
                         onBack={() => setStep(1)}
                         onComplete={handleMappingComplete}
                         isGeneratingPreview={isProcessing}
-                        onDefaultsChange={setImportDefaults} // Wire up the setter
+                        onDefaultsChange={setImportDefaults} 
                     />
                 )}
 
@@ -139,6 +140,7 @@ const ImportData: React.FC = () => {
                         onBack={() => setStep(2)}
                     />
                 )}
+            </div>
             </div>
         </div>
     );

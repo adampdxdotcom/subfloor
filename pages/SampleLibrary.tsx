@@ -148,9 +148,9 @@ const SampleLibrary: React.FC = () => {
   if (productsLoading) { return <div>Loading library...</div>; }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="space-y-6">
       
-      <div className="bg-surface p-6 rounded-lg shadow-md mb-6">
+      <div className="bg-surface p-6 rounded-lg shadow-md border border-border">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-text-primary">Sample Library</h1>
           <div className="flex items-center gap-4">
@@ -203,7 +203,7 @@ const SampleLibrary: React.FC = () => {
       {/* VIRTUALIZED GRID CONTAINER */}
       <div 
         ref={parentRef} 
-        className="overflow-y-auto w-full relative border border-border/50 rounded-lg"
+        className="overflow-y-auto w-full relative bg-surface border border-border rounded-lg shadow-md"
         style={{ height: gridHeight }}
       >
         <div 
@@ -248,7 +248,7 @@ const SampleLibrary: React.FC = () => {
       </div>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-2xl font-bold mb-6 text-text-primary">Create New Product Line</h2>
             

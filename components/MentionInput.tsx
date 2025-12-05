@@ -10,9 +10,10 @@ interface MentionInputProps {
     onKeyDown?: (e: any) => void;
     minHeight?: number;
     maxHeight?: number;
+    rightElement?: React.ReactNode; // NEW PROP: Allows injecting a button next to the input
 }
 
-const MentionInput: React.FC<MentionInputProps> = ({ value, onChange, placeholder, onKeyDown, minHeight = 40, maxHeight = 120 }) => {
+const MentionInput: React.FC<MentionInputProps> = ({ value, onChange, placeholder, onKeyDown, minHeight = 40, maxHeight = 120, rightElement }) => {
     const { users, projects, products, customers, installers } = useData();
 
     // Transform data for react-mentions
@@ -84,16 +85,19 @@ const MentionInput: React.FC<MentionInputProps> = ({ value, onChange, placeholde
     };
 
     return (
-        <div className="mention-input-wrapper w-full flex flex-col gap-1">
-            <MentionsInput
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={placeholder}
-                style={style}
-                onKeyDown={onKeyDown}
-                allowSpaceInQuery
-                className="flex-1"
-            >
+        <div className="mention-input-wrapper w-full flex flex-col gap-2">
+            
+            <div className="flex items-end gap-2">
+                <div className="flex-1 min-w-0 relative">
+                    <MentionsInput
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        placeholder={placeholder}
+                        style={style}
+                        onKeyDown={onKeyDown}
+                        allowSpaceInQuery
+                        className="flex-1"
+                    >
                 {/* @ USER */}
                 <Mention
                     trigger="@"
@@ -143,7 +147,12 @@ const MentionInput: React.FC<MentionInputProps> = ({ value, onChange, placeholde
                     renderSuggestion={renderSuggestion}
                     displayTransform={(id, display) => `👷 ${display}`}
                 />
-            </MentionsInput>
+                    </MentionsInput>
+                </div>
+                
+                {/* INJECTED BUTTON (e.g. Send) */}
+                {rightElement && <div className="shrink-0 pb-1">{rightElement}</div>}
+            </div>
 
             {/* LEGEND */}
             <div className="flex flex-wrap gap-3 text-[10px] text-text-secondary px-1">

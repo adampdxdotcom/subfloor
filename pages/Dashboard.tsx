@@ -133,9 +133,7 @@ const Dashboard: React.FC = () => {
                   <PackagePlus size={18} />
                   New Checkout
               </button>
-              <Link to="/customers" className="bg-secondary hover:bg-secondary-hover text-on-secondary font-bold py-2 px-4 rounded-lg transition-colors shadow-md">
-                  Add New Project
-              </Link>
+
           </div>
         </div>
         
