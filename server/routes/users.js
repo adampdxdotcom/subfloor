@@ -10,6 +10,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { getSystemConfig } from '../lib/setupService.js';
 
 const router = express.Router();
 
@@ -329,12 +330,16 @@ router.post('/', verifySession(), verifyRole('Admin'), async (req, res, next) =>
         // 5. Generate Invite Link
         const tokenResponse = await EmailPassword.createResetPasswordToken(tenantId, newUserId, email);
         if (tokenResponse.status === 'OK') {
-            const inviteLink = `${process.env.APP_DOMAIN || 'http://localhost:5173'}/auth/reset-password?token=${tokenResponse.token}`;
+            // FIX: Use Wizard URL -> Env -> Localhost Fallback
+            const sysConfig = getSystemConfig();
+            const baseUrl = sysConfig.publicUrl || process.env.APP_DOMAIN || 'http://localhost:5173';
+            const inviteLink = `${baseUrl}/auth/reset-password?token=${tokenResponse.token}`;
+            const companyName = sysConfig.companyName || 'Subfloor';
             
             // 6. Send Email
             const emailSuccess = await sendEmail({
                 to: email,
-                subject: 'You have been invited to Joblogger',
+                subject: `You have been invited to ${companyName}`,
                 templateName: 'userInvite', // Use the new template
                 data: {
                     firstName: firstName || 'there',

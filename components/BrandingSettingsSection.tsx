@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Brush, Save, Palette, Trash2, Building, Globe } from 'lucide-react';
+import { Brush, Save, Palette, Trash2, Building, Globe, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../context/DataContext';
 import * as preferenceService from '../services/preferenceService';
+import LiveThemePreview from './LiveThemePreview'; // NEW IMPORT
 
 const BrandingSettingsSection: React.FC = () => {
     const { systemBranding, refreshBranding } = useData();
@@ -21,6 +22,9 @@ const BrandingSettingsSection: React.FC = () => {
     const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     
+    // NEW: Store initial state for "Reset" functionality
+    const [initialState, setInitialState] = useState<any>(null);
+    
     const API_URL = "";
 
     // Cleanup object URLs
@@ -33,6 +37,18 @@ const BrandingSettingsSection: React.FC = () => {
 
     useEffect(() => {
         if (systemBranding) {
+            // Capture initial state for Reset
+            setInitialState({
+                companyName: systemBranding.companyName,
+                systemTimezone: systemBranding.systemTimezone,
+                primaryColor: systemBranding.primaryColor,
+                secondaryColor: systemBranding.secondaryColor,
+                accentColor: systemBranding.accentColor,
+                backgroundColor: systemBranding.backgroundColor,
+                surfaceColor: systemBranding.surfaceColor,
+                textPrimaryColor: systemBranding.textPrimaryColor,
+                textSecondaryColor: systemBranding.textSecondaryColor
+            });
             if (systemBranding.companyName) setCompanyName(systemBranding.companyName);
             if (systemBranding.systemTimezone) setSystemTimezone(systemBranding.systemTimezone);
             if (systemBranding.primaryColor) setPrimaryColor(systemBranding.primaryColor);
@@ -44,6 +60,22 @@ const BrandingSettingsSection: React.FC = () => {
             if (systemBranding.textSecondaryColor) setTextSecondaryColor(systemBranding.textSecondaryColor);
         }
     }, [systemBranding]);
+    
+    const handleReset = () => {
+        if (!initialState) return;
+        if (!window.confirm("Discard unsaved changes and reset to last saved state?")) return;
+        
+        setCompanyName(initialState.companyName || 'Subfloor');
+        setSystemTimezone(initialState.systemTimezone || 'America/Los_Angeles');
+        setPrimaryColor(initialState.primaryColor || '#2563eb');
+        setSecondaryColor(initialState.secondaryColor || '#4b5563');
+        setAccentColor(initialState.accentColor || '#0d9488');
+        setBackgroundColor(initialState.backgroundColor || '#111827');
+        setSurfaceColor(initialState.surfaceColor || '#1f2937');
+        setTextPrimaryColor(initialState.textPrimaryColor || '#f9fafb');
+        setTextSecondaryColor(initialState.textSecondaryColor || '#d1d5db');
+        toast.success("Reset to last saved settings.");
+    };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'favicon') => {
         const file = e.target.files?.[0];
@@ -242,64 +274,69 @@ const BrandingSettingsSection: React.FC = () => {
                     <Palette className="w-5 h-5 text-accent" />
                     Theme Colors
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div className="bg-background p-4 rounded-lg border border-border flex items-center justify-between">
-                        <label className="text-sm font-medium text-text-primary">Primary Color</label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-text-secondary font-mono">{primaryColor}</span>
-                            <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="h-8 w-12 bg-transparent cursor-pointer rounded" />
-                        </div>
-                    </div>
-                    <div className="bg-background p-4 rounded-lg border border-border flex items-center justify-between">
-                        <label className="text-sm font-medium text-text-primary">Secondary Color</label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-text-secondary font-mono">{secondaryColor}</span>
-                            <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="h-8 w-12 bg-transparent cursor-pointer rounded" />
-                        </div>
-                    </div>
-                    <div className="bg-background p-4 rounded-lg border border-border flex items-center justify-between">
-                        <label className="text-sm font-medium text-text-primary">Accent Color</label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-text-secondary font-mono">{accentColor}</span>
-                            <input type="color" value={accentColor} onChange={(e) => setAccentColor(e.target.value)} className="h-8 w-12 bg-transparent cursor-pointer rounded" />
-                        </div>
-                    </div>
-                </div>
                 
-                <h4 className="text-sm font-medium text-text-primary mb-3">Base Theme (Advanced)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-background p-4 rounded-lg border border-border flex items-center justify-between">
-                        <label className="text-sm font-medium text-text-primary">Page Background</label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-text-secondary font-mono">{backgroundColor}</span>
-                            <input type="color" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} className="h-8 w-12 bg-transparent cursor-pointer rounded" />
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                    
+                    {/* LEFT COL: CONTROLS */}
+                    <div className="xl:col-span-5 space-y-6">
+                        
+                        {/* Group 1: Brand */}
+                        <div className="space-y-3">
+                            <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Brand Identity</h4>
+                            <ColorInput label="Primary Color" value={primaryColor} onChange={setPrimaryColor} />
+                            <ColorInput label="Secondary Color" value={secondaryColor} onChange={setSecondaryColor} />
+                            <ColorInput label="Accent Color" value={accentColor} onChange={setAccentColor} />
+                        </div>
+
+                        <div className="border-t border-border my-4"></div>
+
+                        {/* Group 2: Interface */}
+                        <div className="space-y-3">
+                            <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Interface Theme</h4>
+                            <ColorInput label="Page Background" value={backgroundColor} onChange={setBackgroundColor} />
+                            <ColorInput label="Card Surface" value={surfaceColor} onChange={setSurfaceColor} />
+                            <ColorInput label="Primary Text" value={textPrimaryColor} onChange={setTextPrimaryColor} />
+                            <ColorInput label="Secondary Text" value={textSecondaryColor} onChange={setTextSecondaryColor} />
                         </div>
                     </div>
-                    <div className="bg-background p-4 rounded-lg border border-border flex items-center justify-between">
-                        <label className="text-sm font-medium text-text-primary">Surface (Cards)</label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-text-secondary font-mono">{surfaceColor}</span>
-                            <input type="color" value={surfaceColor} onChange={(e) => setSurfaceColor(e.target.value)} className="h-8 w-12 bg-transparent cursor-pointer rounded" />
-                        </div>
-                    </div>
-                    <div className="bg-background p-4 rounded-lg border border-border flex items-center justify-between">
-                        <label className="text-sm font-medium text-text-primary">Primary Text</label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-text-secondary font-mono">{textPrimaryColor}</span>
-                            <input type="color" value={textPrimaryColor} onChange={(e) => setTextPrimaryColor(e.target.value)} className="h-8 w-12 bg-transparent cursor-pointer rounded" />
-                        </div>
-                    </div>
-                    <div className="bg-background p-4 rounded-lg border border-border flex items-center justify-between">
-                        <label className="text-sm font-medium text-text-primary">Secondary Text</label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-text-secondary font-mono">{textSecondaryColor}</span>
-                            <input type="color" value={textSecondaryColor} onChange={(e) => setTextSecondaryColor(e.target.value)} className="h-8 w-12 bg-transparent cursor-pointer rounded" />
+
+                    {/* RIGHT COL: PREVIEW */}
+                    <div className="xl:col-span-7">
+                        <div className="sticky top-6">
+                            <div className="flex justify-between items-end mb-2">
+                                <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Live Preview</h4>
+                                <span className="text-[10px] text-text-secondary bg-surface border border-border px-2 py-0.5 rounded">Changes applied on Save</span>
+                            </div>
+                            
+                            {/* Helper Legend */}
+                            <div className="mb-4 text-xs text-text-secondary space-y-1">
+                                <p>• <strong>Primary:</strong> Buttons, Active Tabs, Links</p>
+                                <p>• <strong>Secondary:</strong> Borders, Lines, Inactive Icons</p>
+                                <p>• <strong>Accent:</strong> Status Badges, Notification Dots</p>
+                            </div>
+
+                            <LiveThemePreview 
+                                primary={primaryColor}
+                                secondary={secondaryColor}
+                                accent={accentColor}
+                                background={backgroundColor}
+                                surface={surfaceColor}
+                                textPrimary={textPrimaryColor}
+                                textSecondary={textSecondaryColor}
+                            />
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="mt-8 flex justify-end border-t border-border pt-4">
+                <button 
+                    onClick={handleReset} 
+                    className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-medium py-2 px-6 rounded mr-auto transition-colors"
+                >
+                    <RotateCcw size={16} /> Reset Changes
+                </button>
+                
                 <button 
                     onClick={handleSave} 
                     disabled={isUploading}
@@ -312,5 +349,17 @@ const BrandingSettingsSection: React.FC = () => {
         </section>
     );
 };
+
+const ColorInput = ({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) => (
+    <div className="bg-background p-3 rounded-lg border border-border flex items-center justify-between group hover:border-primary/50 transition-colors">
+        <label className="text-sm font-medium text-text-primary">{label}</label>
+        <div className="flex items-center gap-3">
+            <span className="text-xs text-text-secondary font-mono opacity-50 group-hover:opacity-100 transition-opacity">{value}</span>
+            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-border shadow-sm ring-2 ring-transparent hover:ring-primary/20 transition-all">
+                <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="absolute -top-2 -left-2 w-12 h-12 p-0 border-0 cursor-pointer" />
+            </div>
+        </div>
+    </div>
+);
 
 export default BrandingSettingsSection;

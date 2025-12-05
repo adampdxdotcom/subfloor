@@ -170,6 +170,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  // --- THEME ENGINE: Apply Branding to CSS Variables ---
+  useEffect(() => {
+      if (systemBranding) {
+          const root = document.documentElement;
+          // Brand Colors
+          if (systemBranding.primaryColor) root.style.setProperty('--color-primary', systemBranding.primaryColor);
+          
+          if (systemBranding.secondaryColor) {
+              root.style.setProperty('--color-secondary', systemBranding.secondaryColor);
+              // FORCE the border variable to update immediately
+              root.style.setProperty('--color-border', systemBranding.secondaryColor);
+          }
+          
+          if (systemBranding.accentColor) root.style.setProperty('--color-accent', systemBranding.accentColor);
+          
+          // Theme Colors
+          if (systemBranding.backgroundColor) root.style.setProperty('--color-background', systemBranding.backgroundColor);
+          if (systemBranding.surfaceColor) root.style.setProperty('--color-surface', systemBranding.surfaceColor);
+          if (systemBranding.textPrimaryColor) root.style.setProperty('--color-text-primary', systemBranding.textPrimaryColor);
+          if (systemBranding.textSecondaryColor) root.style.setProperty('--color-text-secondary', systemBranding.textSecondaryColor);
+      }
+  }, [systemBranding]);
+
   const fetchAllUsers = useCallback(async () => {
     try {
       const allUsers = await userService.getUsers();

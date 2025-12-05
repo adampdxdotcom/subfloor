@@ -27,50 +27,50 @@ const Layout: React.FC = () => {
             </div>
             <nav className="flex flex-col space-y-2 flex-grow">
                 {/* When a link is clicked on mobile, close the sidebar */}
-                <NavLink to="/" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`} end>
+                <NavLink to="/" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`} end>
                     <Home className="w-6 h-6" />
                     <span>Dashboard</span>
                 </NavLink>
-                <NavLink to="/customers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/customers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <Users className="w-6 h-6" />
                     <span>Customers</span>
                 </NavLink>
-                <NavLink to="/installers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/installers" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <HardHat className="w-6 h-6" />
                     <span>Installers</span>
                 </NavLink>
-                <NavLink to="/samples" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/samples" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <Layers className="w-6 h-6" />
                     <span>Sample Library</span>
                 </NavLink>
-                <NavLink to="/vendors" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/vendors" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <Building className="w-6 h-6" />
                     <span>Vendor Directory</span>
                 </NavLink>
-                <NavLink to="/orders" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/orders" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <Truck className="w-6 h-6" />
                     <span>Orders</span>
                 </NavLink>                
-                <NavLink to="/import" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/import" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <Database className="w-6 h-6" />
                     <span>Import Data</span>
                 </NavLink>
-                <NavLink to="/calendar" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/calendar" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <Calendar className="w-6 h-6" />
                     <span>Calendar</span>
                 </NavLink>
-                <NavLink to="/reports" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/reports" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <ClipboardList className="w-6 h-6" />
                     <span>Reports</span>
                 </NavLink>
-                <NavLink to="/messages" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                <NavLink to="/messages" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <MessageCircle className="w-6 h-6" />
                     <span>Messages</span>
                 </NavLink>
             </nav>
 
             <div className="mt-auto">
-                 <NavLink to="/settings" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg ${isActive ? 'bg-primary text-white' : 'hover:bg-gray-700'}`}>
+                 <NavLink to="/settings" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <SettingsIcon className="w-6 h-6" />
                     <span>Settings</span>
                 </NavLink>
@@ -99,9 +99,10 @@ const Layout: React.FC = () => {
             )}
             
             <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 text-white">
+                {/* Header: Removed text-white, used text-text-primary to respect theme */}
+                <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 text-text-primary">
                     <button 
-                        className="p-2 rounded-md hover:bg-gray-700 md:hidden"
+                        className="p-2 rounded-md hover:bg-background md:hidden"
                         onClick={() => setIsSidebarOpen(true)}
                     >
                         <Menu className="w-6 h-6" />

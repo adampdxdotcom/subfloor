@@ -145,7 +145,7 @@ router.post('/database', verifySession(), upload.single('backupFile'), async (re
                 `, [JSON.stringify({ 
                     isInitialized: true, 
                     publicUrl: detectedUrl,
-                    companyName: "Restored System"
+                    companyName: "Subfloor"
                 }), detectedUrl]);
 
                 patchClient.release();

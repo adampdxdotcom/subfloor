@@ -129,6 +129,8 @@ const Settings: React.FC = () => {
                     {/* LEVEL 1: Main Categories */}
                     <div className="flex border-b border-border mb-6 overflow-x-auto">
                         {SETTINGS_STRUCTURE.map((cat) => {
+                            if (cat.tabs.every(t => t.adminOnly && !isAdmin)) return null;
+
                             const hasAccess = cat.tabs.some(t => !t.adminOnly || isAdmin);
                             if (!hasAccess) return null;
 
@@ -137,11 +139,11 @@ const Settings: React.FC = () => {
                             return (
                                 <button
                                     key={cat.id}
-                                    onClick={() => setActiveTab(cat.tabs[0].id)}
+                                    onClick={() => setActiveTab(cat.tabs.find(t => !t.adminOnly || isAdmin)?.id || cat.tabs[0].id)}
                                     className={`px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors whitespace-nowrap
                                         ${isCategoryActive 
-                                            ? 'text-accent border-b-2 border-accent' 
-                                            : 'text-text-primary opacity-60 hover:opacity-100 hover:text-accent'
+                                            ? 'text-primary border-b-2 border-primary' 
+                                            : 'text-text-secondary hover:text-text-primary hover:border-b-2 hover:border-border'
                                         }`}
                                 >
                                     {cat.label}
@@ -162,10 +164,10 @@ const Settings: React.FC = () => {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors
+                                    className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors border border-transparent
                                         ${isActive
-                                            ? 'bg-accent text-white shadow-md'
-                                            : 'bg-surface-subtle text-text-primary hover:bg-surface-hover'
+                                            ? 'bg-primary text-on-primary shadow-sm'
+                                            : 'bg-surface text-text-secondary border-border hover:border-primary hover:text-text-primary'
                                         }
                                     `}
                                 >
@@ -196,7 +198,7 @@ const Settings: React.FC = () => {
                                     <button
                                         onClick={() => toggleCategory(cat.id)}
                                         className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors 
-                                            ${isExpanded ? 'bg-surface-light text-accent' : 'bg-surface hover:bg-surface-light'}`
+                                            ${isExpanded ? 'text-primary bg-background' : 'text-text-primary bg-surface hover:bg-background'}`
                                         }
                                     >
                                         {cat.label}
@@ -205,7 +207,7 @@ const Settings: React.FC = () => {
 
                                     {/* Level 2: Sub-Tabs (Accordion Content) */}
                                     {isExpanded && (
-                                        <nav className="border-t border-border bg-surface-light dark:bg-gray-800">
+                                        <nav className="border-t border-border bg-background">
                                             {visibleTabs.map((tab) => {
                                                 const isActive = activeTab === tab.id;
                                                 const Icon = tab.icon;
@@ -220,8 +222,8 @@ const Settings: React.FC = () => {
                                                         }}
                                                         className={`w-full flex items-center px-6 py-3 text-sm transition-colors border-l-4 
                                                             ${isActive
-                                                                ? 'text-accent border-accent font-medium bg-accent/10 dark:bg-accent/20'
-                                                                : 'text-text-primary border-transparent hover:bg-surface-hover'
+                                                                ? 'text-primary border-primary font-medium bg-primary/10'
+                                                                : 'text-text-secondary border-transparent hover:text-text-primary'
                                                             }`}
                                                     >
                                                         {Icon && <Icon className="w-4 h-4 mr-3 opacity-80" />}

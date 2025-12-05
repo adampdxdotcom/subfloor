@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UploadCloud } from 'lucide-react';
+import { UploadCloud, LucideIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { signOut } from "supertokens-auth-react/recipe/session";
 
@@ -7,9 +7,10 @@ interface RestoreFormProps {
   title: string;
   endpoint: string;
   warningMessage: string;
+  icon?: LucideIcon;
 }
 
-const RestoreForm: React.FC<RestoreFormProps> = ({ title, endpoint, warningMessage }) => {
+const RestoreForm: React.FC<RestoreFormProps> = ({ title, endpoint, warningMessage, icon: Icon }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -21,56 +22,33 @@ const RestoreForm: React.FC<RestoreFormProps> = ({ title, endpoint, warningMessa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      toast.error('Please select a backup file to restore.');
-      return;
-    }
-
-    if (!window.confirm(warningMessage)) {
-      return;
-    }
+    if (!file) return toast.error('Please select a file.');
+    if (!window.confirm(warningMessage)) return;
 
     setIsRestoring(true);
-    const toastId = toast.loading(`Restoring ${title.toLowerCase()}...`);
+    const toastId = toast.loading(`Restoring ${title}...`);
 
     const formData = new FormData();
     formData.append('backupFile', file);
 
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch(endpoint, { method: 'POST', body: formData });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to restore ${title.toLowerCase()}.`);
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Restore failed');
       }
 
-      toast.success(`${title} restored successfully! System reloading...`, {
-        id: toastId,
-        duration: 4000,
-      });
+      toast.success('Restore successful!', { id: toastId });
       
-      if (title === 'Database') {
-        // CRITICAL FIX: The session usually becomes invalid after a DB restore (User ID mismatch).
-        // We attempt a clean signout, but even if it fails (401), we MUST redirect.
-        try {
-            await signOut();
-        } catch (err) {
-            console.warn("Clean signout failed (expected after DB restore), forcing navigation.");
-        } finally {
-            // Force reload to login page to clear client state
-            window.location.href = "/auth";
-        }
+      if (endpoint.includes('database')) {
+        try { await signOut(); } catch (e) {}
+        window.location.href = "/auth";
       } else {
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        setTimeout(() => window.location.reload(), 1500);
       }
 
     } catch (error) {
-      console.error(`Restore error for ${title}:`, error);
+      console.error(error);
       toast.error((error as Error).message, { id: toastId });
     } finally {
       setIsRestoring(false);
@@ -78,25 +56,29 @@ const RestoreForm: React.FC<RestoreFormProps> = ({ title, endpoint, warningMessa
   };
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-border mt-6 pt-6">
-      <h3 className="font-semibold text-lg text-text-primary mb-2">{title}</h3>
-      <div className="flex flex-col sm:flex-row items-center gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col h-full">
+      <div className="flex items-center gap-2 mb-4">
+        {Icon && <Icon className="w-5 h-5 text-text-secondary" />}
+        <h3 className="font-semibold text-text-primary">{title}</h3>
+      </div>
+      
+      <div className="flex-1 bg-background rounded border border-border border-dashed p-4 flex flex-col justify-center items-center gap-2 hover:border-primary transition-colors">
         <input
           type="file"
           accept=".zip"
           onChange={handleFileChange}
-          className="flex-grow file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-text-primary hover:file:bg-gray-600 w-full sm:w-auto"
+          className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-surface file:text-text-primary hover:file:bg-primary hover:file:text-on-primary"
         />
-        <button
-          type="submit"
-          disabled={!file || isRestoring}
-          className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed"
-        >
-          <UploadCloud size={18} />
-          {isRestoring ? 'Restoring...' : `Restore ${title}`}
-        </button>
       </div>
-      {file && <p className="text-sm text-text-secondary mt-2">Selected file: {file.name}</p>}
+      
+      <button
+        type="submit"
+        disabled={!file || isRestoring}
+        className="mt-4 w-full bg-secondary hover:bg-secondary-hover text-on-secondary font-bold py-2 px-4 rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <UploadCloud size={16} />
+        {isRestoring ? 'Restoring...' : 'Start Restore'}
+      </button>
     </form>
   );
 };

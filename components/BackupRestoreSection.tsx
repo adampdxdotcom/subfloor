@@ -1,27 +1,75 @@
 import React from 'react';
-import { DownloadCloud, Database, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { DownloadCloud, Database, Image as ImageIcon, RotateCcw } from 'lucide-react';
 import RestoreForm from './RestoreForm';
+import CombinedRestoreForm from './CombinedRestoreForm'; // New Component
 
 const BackupRestoreSection: React.FC = () => {
     return (
-        <>
+        <div className="space-y-8">
+            {/* SECTION 1: DOWNLOADS */}
             <section className="bg-surface p-6 rounded-lg shadow-md border border-border">
-                <h2 className="text-2xl font-semibold text-text-primary mb-4 flex items-center gap-3"><DownloadCloud className="w-7 h-7 text-accent" />Application Backup</h2>
-                <p className="text-text-secondary mb-6 max-w-2xl">Download ZIP archives of your critical application data. It is recommended to perform backups regularly and store the files in a safe, separate location.</p>
-                <div className="flex flex-col md:flex-row gap-4">
-                    <a href="/api/backup/database" download className="flex-1 bg-primary hover:bg-primary-hover text-on-primary font-bold py-3 px-5 rounded-lg transition-colors flex items-center justify-center gap-3"><Database className="w-6 h-6" />Download Database Backup</a>
-                    <a href="/api/backup/images" download className="flex-1 bg-accent hover:bg-accent-hover text-on-accent font-bold py-3 px-5 rounded-lg transition-colors flex items-center justify-center gap-3"><ImageIcon className="w-6 h-6" />Download Images Backup</a>
+                <h2 className="text-xl font-semibold text-text-primary mb-4 flex items-center gap-3">
+                    <DownloadCloud className="w-6 h-6 text-primary" />
+                    Create Backups
+                </h2>
+                <p className="text-text-secondary mb-6 text-sm">
+                    Download ZIP archives of your critical data. Store these in a safe location.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <a href="/api/backup/database" download className="flex flex-col items-center justify-center p-6 bg-background border border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all group">
+                        <Database className="w-8 h-8 text-secondary group-hover:text-primary mb-3" />
+                        <span className="font-bold text-text-primary">Database Backup</span>
+                        <span className="text-xs text-text-secondary">Customers, Projects, Settings</span>
+                    </a>
+                    <a href="/api/backup/images" download className="flex flex-col items-center justify-center p-6 bg-background border border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all group">
+                        <ImageIcon className="w-8 h-8 text-secondary group-hover:text-primary mb-3" />
+                        <span className="font-bold text-text-primary">Image Library Backup</span>
+                        <span className="text-xs text-text-secondary">Photos, Logos, Uploads</span>
+                    </a>
                 </div>
             </section>
-            <section className="mt-8 bg-surface p-6 rounded-lg shadow-md border-2 border-red-500/50">
-                <h2 className="text-2xl font-semibold text-red-400 mb-4 flex items-center gap-3"><AlertTriangle className="w-7 h-7" />Danger Zone: Restore from Backup</h2>
-                <p className="text-text-secondary mb-6 max-w-2xl">Restoring from a backup will permanently overwrite existing data. This action cannot be undone. Proceed with extreme caution.</p>
-                <div className="space-y-6">
-                    <RestoreForm title="Database" endpoint="/api/restore/database" warningMessage="Are you ABSOLUTELY SURE you want to restore the database? This will completely ERASE the current database. All data entered since this backup was created will be lost forever. This action cannot be undone." />
-                    <RestoreForm title="Images" endpoint="/api/restore/images" warningMessage="Are you sure you want to restore the images? This will overwrite any new images that have been uploaded since this backup was created." />
+
+            {/* SECTION 2: RESTORE TOOLS */}
+            <section className="bg-surface p-6 rounded-lg shadow-md border border-border">
+                <h2 className="text-xl font-semibold text-text-primary mb-4 flex items-center gap-3">
+                    <RotateCcw className="w-6 h-6 text-accent" />
+                    System Recovery
+                </h2>
+                
+                <div className="bg-background border border-border rounded p-4 mb-8 text-sm text-text-secondary">
+                    <strong className="text-text-primary">Warning:</strong> Restoring will permanently overwrite existing data. Ensure you have a recent backup before proceeding.
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Left Column: Database */}
+                    <div>
+                        <RestoreForm 
+                            title="Database Only" 
+                            icon={Database}
+                            endpoint="/api/restore/database" 
+                            warningMessage="Overwrite current database? Current data will be lost." 
+                        />
+                    </div>
+
+                    {/* Right Column: Images */}
+                    <div className="lg:border-l lg:border-border lg:pl-8">
+                        <RestoreForm 
+                            title="Images Only" 
+                            icon={ImageIcon}
+                            endpoint="/api/restore/images" 
+                            warningMessage="Overwrite image library? New images may be lost." 
+                        />
+                    </div>
+                </div>
+
+                <div className="border-t border-border my-8"></div>
+
+                {/* Combined Restore */}
+                <div className="max-w-2xl mx-auto">
+                    <CombinedRestoreForm />
                 </div>
             </section>
-        </>
+        </div>
     );
 };
 

@@ -123,8 +123,11 @@ const sendEmail = async (arg1, arg2, arg3, arg4) => {
             const sysConfig = getSystemConfig();
             const baseUrl = sysConfig.publicUrl || process.env.APP_DOMAIN || 'http://localhost:3001';
             templateData.logoUrl = branding.logoUrl.startsWith('http') ? branding.logoUrl : `${baseUrl}${branding.logoUrl}`;
+            // FIX: Create the full HTML tag expected by templates
+            templateData.logoHtml = `<img src="${templateData.logoUrl}" alt="${templateData.companyName}" style="max-height: 50px; display: block; margin: 0 auto 10px;" />`;
         } else {
             templateData.logoUrl = ''; // Or a default hosted image
+            templateData.logoHtml = '';
         }
 
         html = arg1.html || (arg1.templateName ? loadTemplate(arg1.templateName, templateData) : '');

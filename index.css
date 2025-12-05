@@ -6,67 +6,80 @@
 
 /* === GLOBAL THEME VARIABLES === */
 :root {
-  /* Default Theme (Blue/Teal mix based on current look) */
-  /* Primary: Used for main buttons (currently blue-600/700) */
+  /* --- Brand Identity --- */
+  /* Primary: Actions, Buttons, Active Links */
   --color-primary: #2563eb; 
-  --color-primary-hover: #1d4ed8;
-  --color-on-primary: #ffffff;
+  --color-primary-hover: #1d4ed8; /* Usually computed, but settable */
+  --color-on-primary: #ffffff;    /* Text on primary buttons */
 
-  /* Secondary: Used for secondary actions (currently gray-600) */
+  /* Secondary: Borders, Icons, Outlines */
   --color-secondary: #4b5563;
   --color-secondary-hover: #374151;
   --color-on-secondary: #ffffff;
 
-  /* Accent: Used for highlights/active states (currently teal-500/600) */
+  /* Accent: Status, Pills, Notifications */
   --color-accent: #0d9488; 
   --color-accent-hover: #0f766e;
   --color-on-accent: #ffffff;
 
-  /* Base Theme Colors */
-  --color-background: #111827; /* gray-900 */
-  --color-surface: #1f2937;    /* gray-800 */
-  --color-text-primary: #f9fafb; /* gray-50 */
-  --color-text-secondary: #d1d5db; /* gray-300 */
-  --color-border: #374151; /* gray-700 */
-}
-
-/* Utility Classes for Smart Text Colors */
-.text-on-primary { color: var(--color-on-primary); }
-.text-on-secondary { color: var(--color-on-secondary); }
-.text-on-accent { color: var(--color-on-accent); }
-
-/* === NEW & CORRECT PRINT STYLES === */
-/* This class hides elements on the screen */
-@media screen {
-  .print-only {
-    display: none;
-  }
-}
-
-/* These styles apply ONLY when printing */
-@media print {
-  /* Hide everything on the page by default */
-  body * {
-    visibility: hidden;
-  }
-
-  /* Make ONLY our printable summary and its contents visible */
-  #printable-summary, #printable-summary * {
-    visibility: visible;
-  }
+  /* --- Interface Theme --- */
+  --color-background: #111827; /* Page Canvas */
+  --color-surface: #1f2937;    /* Cards / Sidebar */
   
-  /* Position the printable summary at the top-left of the paper */
+  /* --- Typography --- */
+  --color-text-primary: #f9fafb; /* Headings */
+  --color-text-secondary: #d1d5db; /* Labels / Metadata */
+  
+  /* --- Derived Variables (The Magic) --- */
+  /* Borders now obey the Secondary color */
+  --color-border: var(--color-secondary); 
+}
+
+/* === UTILITY CLASSES (Connecting CSS Vars to Tailwind) === */
+@layer utilities {
+  .bg-primary { background-color: var(--color-primary); }
+  .bg-primary-hover:hover { background-color: var(--color-primary-hover); }
+  .text-primary { color: var(--color-primary); } /* For primary colored text links */
+  
+  .bg-secondary { background-color: var(--color-secondary); }
+  .text-secondary { color: var(--color-text-secondary); } /* Note: Text uses text-secondary var */
+  
+  .bg-accent { background-color: var(--color-accent); }
+  .text-accent { color: var(--color-accent); }
+  
+  .bg-surface { background-color: var(--color-surface); }
+  .bg-background { background-color: var(--color-background); }
+  
+  .text-text-primary { color: var(--color-text-primary); }
+  .text-text-secondary { color: var(--color-text-secondary); }
+  
+  .border-border { border-color: var(--color-border); }
+  
+  /* Contrast Text Utilities */
+  .text-on-primary { color: var(--color-on-primary); }
+  .text-on-secondary { color: var(--color-on-secondary); }
+  .text-on-accent { color: var(--color-on-accent); }
+}
+
+/* === PRINT STYLES === */
+@media screen {
+  .print-only { display: none; }
+}
+
+@media print {
+  body * { visibility: hidden; }
+  #printable-summary, #printable-summary * { visibility: visible; }
   #printable-summary {
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+    left: 0; top: 0; width: 100%;
   }
 }
-/* Add to the end of index.css */
 
+/* === COMPONENT OVERRIDES === */
+
+/* On Hold Event Pattern */
 .on-hold-event {
-  background-color: #404040; /* A dark gray background */
+  background-color: #404040;
   background-image: repeating-linear-gradient(
     45deg,
     rgba(255, 255, 255, 0.05),
@@ -74,11 +87,9 @@
     transparent 10px,
     transparent 20px
   );
-  color: #a0a0a0; /* A lighter gray text for contrast */
-  border: 1px dashed #666666;
+  color: #a0a0a0;
+  border: 1px dashed var(--color-border);
 }
-
-/* In index.css */
 
 /* React-Select Dark Theme Customizations */
 .react-select-container .react-select__control {
@@ -108,57 +119,40 @@
   background-color: var(--color-primary);
 }
 
-/* --- Custom styles for react-grid-layout --- */
+/* React-Grid-Layout Customizations */
 .react-grid-item .react-resizable-handle::after {
   content: '';
   position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 20px;
-  height: 20px;
-  background: radial-gradient(circle at 100% 100%, transparent 4px, #4a5568 4px, #4a5568 6px, transparent 6px),
-              radial-gradient(circle at 100% 100%, transparent 9px, #4a5568 9px, #4a5568 11px, transparent 11px);
+  right: 3px; bottom: 3px; width: 20px; height: 20px;
+  background: radial-gradient(circle at 100% 100%, transparent 4px, var(--color-secondary) 4px, var(--color-secondary) 6px, transparent 6px),
+              radial-gradient(circle at 100% 100%, transparent 9px, var(--color-secondary) 9px, var(--color-secondary) 11px, transparent 11px);
   transform: rotate(180deg);
   opacity: 0.7;
 }
-
-.react-grid-item:hover .react-resizable-handle::after {
-  opacity: 1;
-}
+.react-grid-item:hover .react-resizable-handle::after { opacity: 1; }
 
 .layout .drag-handle {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease-in-out;
 }
-.layout .react-resizable-handle {
-    display: none;
-}
+.layout .react-resizable-handle { display: none; }
 
-/* --- NEW: Show handles ONLY when in edit mode --- */
 .layout.edit-mode .drag-handle {
-    opacity: 0.5; /* Show with some transparency */
+    opacity: 0.5;
     pointer-events: all;
 }
-.layout.edit-mode .drag-handle:hover {
-    opacity: 1;
-}
-/* --- FIX: Show resize handle in edit mode --- */
-.layout.edit-mode .react-resizable-handle {
-    display: block; /* Un-hide it */
-}
+.layout.edit-mode .drag-handle:hover { opacity: 1; }
+.layout.edit-mode .react-resizable-handle { display: block; }
 .layout.edit-mode .react-grid-item {
-    box-shadow: 0 0 0 2px #5a67d8; /* An indigo outline */
+    box-shadow: 0 0 0 2px var(--color-primary); /* Use Primary color for edit focus */
 }
 
-/*for email settings */
-
+/* Email Settings Toggle */
 .toggle-checkbox:checked {
-    @apply: right-0 border-blue-600;
     right: 0;
-    border-color: #2563eb; /* blue-600 */
+    border-color: var(--color-primary);
 }
 .toggle-checkbox:checked + .toggle-label {
-    @apply: bg-blue-600;
-    background-color: #2563eb; /* blue-600 */
+    background-color: var(--color-primary);
 }
