@@ -1,15 +1,17 @@
-// components/ProductDetailModal.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Product, ProductVariant, PricingSettings, UNITS } from '../types';
-import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Star, Calculator, ExternalLink, Copy, CheckSquare, Square } from 'lucide-react';
+import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import { useProductMutations } from '../hooks/useProducts'; // Need new hook for batch
+import { useProductMutations } from '../hooks/useProducts'; 
 import { getPricingSettings } from '../services/preferenceService';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
 import { toast } from 'react-hot-toast';
 import ProductForm from './ProductForm'; 
 import VariantGeneratorModal from './VariantGeneratorModal';
 import VariantImageModal from './VariantImageModal';
+import { PrintableLabel } from './PrintableLabel';
+import { useReactToPrint } from 'react-to-print';
+import PrintQueueModal from './PrintQueueModal';
 
 const API_URL = "";
 
@@ -21,7 +23,7 @@ interface ProductDetailModalProps {
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose, product }) => {
     const { products, vendors, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant } = useData();
-    const { batchUpdateVariants } = useProductMutations(); // NEW HOOK
+    const { batchUpdateVariants } = useProductMutations();
 
     const activeProduct = products.find(p => p.id === product.id) || product;
 
@@ -33,10 +35,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
     const [newVariant, setNewVariant] = useState<Partial<ProductVariant>>({});
     
-    // --- BATCH MODE STATE ---
-    const [isBatchMode, setIsBatchMode] = useState(false);
+    // --- BATCH & SELECTION STATE ---
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
-    const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(['unitCost', 'retailPrice'])); // Default to pricing
+    // For batch editing logic
+    const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(['unitCost', 'retailPrice'])); 
+    
+    // --- BATCH PRINT STATE ---
+    const [showBatchPrint, setShowBatchPrint] = useState(false);
+    const [productsToPrint, setProductsToPrint] = useState<Product[]>([]);
 
     // --- Image Modal State ---
     const [showImageModal, setShowImageModal] = useState(false);
@@ -44,11 +51,32 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
 
     const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
 
+    // --- SINGLE PRINTING STATE ---
+    const printRef = useRef<HTMLDivElement>(null);
+    const [printData, setPrintData] = useState<{ data: any, qrUrl: string } | null>(null);
+
+    const triggerPrint = useReactToPrint({
+        contentRef: printRef, 
+        documentTitle: `Label_${activeProduct.name}`,
+        onAfterPrint: () => setPrintData(null)
+    });
+
     useEffect(() => {
         if (isOpen) {
             getPricingSettings().then(setPricingSettings).catch(console.error);
         }
     }, [isOpen]);
+
+    // Trigger print when data is ready
+    useEffect(() => {
+        if (printData && printRef.current) {
+            // FIX: Add delay to allow Image to load and DOM to paint before capturing
+            const timer = setTimeout(() => {
+                triggerPrint();
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [printData, triggerPrint]);
 
     if (!isOpen) return null;
     
@@ -72,19 +100,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         }
     };
 
-    // --- BATCH HELPERS ---
-    const toggleBatchMode = () => {
-        if (isBatchMode) {
-            // Cancel Batch
-            setIsBatchMode(false);
-            setSelectedRowIds(new Set());
-        } else {
-            // Start Batch - Select All by default logic or none? Let's do none for safety.
-            setIsBatchMode(true);
-            setSelectedRowIds(new Set()); 
-        }
-    };
-
+    // --- SELECTION HELPERS ---
     const toggleRowSelection = (id: string) => {
         setSelectedRowIds(prev => {
             const next = new Set(prev);
@@ -95,15 +111,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     };
 
     const toggleAllRows = () => {
-        // If all selected (minus the one being edited), deselect all. Otherwise select all.
         const selectableIds = activeProduct.variants.filter(v => v.id !== editingVariantId).map(v => v.id);
         const allSelected = selectableIds.every(id => selectedRowIds.has(id));
-        
-        if (allSelected) {
-            setSelectedRowIds(new Set());
-        } else {
-            setSelectedRowIds(new Set(selectableIds));
-        }
+        if (allSelected) setSelectedRowIds(new Set());
+        else setSelectedRowIds(new Set(selectableIds));
     };
 
     const toggleColumnSelection = (col: string) => {
@@ -115,13 +126,46 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         });
     };
 
+    // --- PRINT HANDLERS ---
+    const handlePrintQr = (id: string, type: 'product' | 'variant', name: string, variantData?: ProductVariant) => {
+        const data = {
+            id,
+            name,
+            subName: variantData?.name,
+            sku: variantData?.sku,
+            size: variantData?.size,
+            manufacturer: activeProduct.manufacturerName,
+            retailPrice: variantData?.retailPrice,
+            uom: variantData?.uom,
+            pricingUnit: variantData?.pricingUnit, // PASSED for correct labeling
+            cartonSize: variantData?.cartonSize,
+            isVariant: type === 'variant'
+        };
+        const qrUrl = `/api/products/${type === 'product' ? '' : 'variants/'}${id}/qr`;
+        setPrintData({ data, qrUrl });
+    };
+
+    const handleBatchPrint = () => {
+        const filteredProduct = {
+            ...activeProduct,
+            variants: activeProduct.variants.filter(v => selectedRowIds.has(v.id))
+        };
+        setProductsToPrint([filteredProduct]);
+        setShowBatchPrint(true);
+    };
+
     // --- VARIANT HANDLERS ---
-    
     const handleAddRow = () => {
         const tempId = 'NEW_' + Date.now();
         setEditingVariantId(tempId);
-        setIsBatchMode(false); // Can't batch from a new unsaved row easily
-        setNewVariant({ name: '', size: '', sku: '', unitCost: 0, retailPrice: 0, hasSample: false, cartonSize: 0, uom: 'SF' });
+        setIsSelectionMode(false); 
+        // Default UOM to SF, pricingUnit to SF
+        setNewVariant({ 
+            name: '', size: '', sku: '', 
+            unitCost: 0, retailPrice: 0, 
+            hasSample: false, cartonSize: 0, 
+            uom: 'SF', pricingUnit: 'SF' 
+        });
         setPendingImage({ file: null, url: null, preview: null });
     };
 
@@ -129,22 +173,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         setNewVariant({
             name: variant.name, size: variant.size, sku: variant.sku,
             unitCost: variant.unitCost, retailPrice: variant.retailPrice,
-            hasSample: variant.hasSample, cartonSize: variant.cartonSize, uom: variant.uom
+            hasSample: variant.hasSample, cartonSize: variant.cartonSize, 
+            uom: variant.uom, pricingUnit: variant.pricingUnit
         });
         setEditingVariantId(variant.id);
         const initialPreview = resolveImageUrl(variant.imageUrl);
         setPendingImage({ file: null, url: null, preview: initialPreview || null });
-        
-        // Reset Batch Mode when entering edit
-        setIsBatchMode(false);
-        setSelectedRowIds(new Set());
+        setIsSelectionMode(false); 
     };
 
     const handleCancelEdit = () => {
         setEditingVariantId(null);
         setNewVariant({});
         setPendingImage({ file: null, url: null, preview: null });
-        setIsBatchMode(false);
     };
     
     const handleDeleteVariant = async (variantId: string) => {
@@ -164,22 +205,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         setNewVariant(prev => ({ ...prev, unitCost: cost, retailPrice: newRetail }));
     };
 
-    const handleSetHeroImage = async (imageUrl: string) => {
-        if (!confirm("Use this image as main product photo?")) return;
-        const formData = new FormData();
-        formData.append('defaultImageUrl', imageUrl);
-        try { await updateProduct(activeProduct.id, formData); toast.success("Main image updated!"); } 
-        catch (e) { toast.error("Failed to update."); }
-    };
-
-    const handleToggleSampleInventory = async (variant: ProductVariant) => {
-        try {
-            const formData = new FormData();
-            formData.append('hasSample', String(!variant.hasSample));
-            await updateVariant(variant.id, formData);
-        } catch (e) { console.error(e); }
-    };
-
     const handleImageUpdate = (file: File | null, url: string | null) => {
         let preview = null;
         if (file) preview = URL.createObjectURL(file);
@@ -189,8 +214,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
 
     const handleSaveVariant = async () => {
         if (!newVariant.name) return toast.error("Name is required.");
-        
-        // 1. Single Update (Current Row)
         const formData = new FormData();
         formData.append('name', newVariant.name);
         if (newVariant.size) formData.append('size', newVariant.size);
@@ -200,6 +223,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         if (newVariant.hasSample !== undefined) formData.append('hasSample', String(newVariant.hasSample));
         if (newVariant.cartonSize !== undefined) formData.append('cartonSize', String(newVariant.cartonSize));
         if (newVariant.uom) formData.append('uom', newVariant.uom);
+        if (newVariant.pricingUnit) formData.append('pricingUnit', newVariant.pricingUnit); 
         
         if (pendingImage.file) formData.append('image', pendingImage.file);
         else if (pendingImage.url) formData.append('imageUrl', pendingImage.url);
@@ -208,45 +232,29 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
             if (editingVariantId && !editingVariantId.startsWith('NEW_')) {
                 await updateVariant(editingVariantId, formData);
                 
-                // 2. BATCH UPDATE (If enabled)
-                if (isBatchMode && selectedRowIds.size > 0) {
+                // Reuse selection for Batch Update if editing
+                if (isSelectionMode && selectedRowIds.size > 0) {
                     const updates: any = {};
-                    
-                    // Helper to safely set value or null (never undefined)
                     const safeVal = (val: any) => (val === undefined ? null : val);
-
                     if (selectedColumns.has('size')) updates.size = safeVal(newVariant.size);
                     if (selectedColumns.has('sku')) updates.sku = safeVal(newVariant.sku);
                     if (selectedColumns.has('unitCost')) updates.unitCost = safeVal(newVariant.unitCost);
                     if (selectedColumns.has('retailPrice')) updates.retailPrice = safeVal(newVariant.retailPrice);
                     if (selectedColumns.has('cartonSize')) updates.cartonSize = safeVal(newVariant.cartonSize);
                     if (selectedColumns.has('uom')) updates.uom = safeVal(newVariant.uom);
+                    if (selectedColumns.has('pricingUnit')) updates.pricingUnit = safeVal(newVariant.pricingUnit);
                     
-                    // Ensure we actually have fields to send
                     if (Object.keys(updates).length > 0) {
-                        await batchUpdateVariants.mutateAsync({
-                            ids: Array.from(selectedRowIds),
-                            updates
-                        });
+                        await batchUpdateVariants.mutateAsync({ ids: Array.from(selectedRowIds), updates });
                         toast.success(`Updated source + ${selectedRowIds.size} other variants!`);
-                    } else {
-                        // This handles the case where columns are unchecked
-                        console.warn("Batch active but no columns selected.");
-                        toast.success("Updated source row only.");
                     }
-                } else {
-                    toast.success("Variant updated.");
-                }
+                } else { toast.success("Variant updated."); }
             } else {
                 await addVariant(activeProduct.id, formData);
                 toast.success("Variant created.");
             }
             handleCancelEdit();
-        } catch (e: any) { 
-            console.error(e); 
-            // Show the actual error message from the server if available
-            toast.error(e.message || "Failed to save."); 
-        }
+        } catch (e: any) { console.error(e); toast.error(e.message || "Failed to save."); }
     };
 
     const handleGeneratorSuccess = (newVariants: any[]) => {
@@ -254,20 +262,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         setShowGenerator(false);
     };
 
-    const handlePrintQr = async (id: string, type: 'product' | 'variant', name: string, subName?: string, sku?: string) => {
-        try {
-            const endpoint = type === 'product' ? `/api/products/${id}/qr` : `/api/products/variants/${id}/qr`;
-            const response = await fetch(endpoint);
-            if (!response.ok) throw new Error("Failed");
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank', 'width=400,height=400');
-        } catch (e) { toast.error("Failed to generate QR."); }
-    };
-
-    // --- RENDER HELPERS ---
     const renderColumnHeader = (label: string, fieldKey: string, widthClass?: string) => {
-        if (!isBatchMode) return <th className={`p-3 ${widthClass || ''}`}>{label}</th>;
+        // Only show copy checkbox if editing AND in selection mode
+        if (!editingVariantId || !isSelectionMode) return <th className={`p-3 ${widthClass || ''}`}>{label}</th>;
         
         const isChecked = selectedColumns.has(fieldKey);
         return (
@@ -275,13 +272,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 <div className="flex flex-col gap-1">
                     <span>{label}</span>
                     <label className="flex items-center gap-1 text-[10px] font-normal cursor-pointer bg-black/5 px-1 rounded hover:bg-black/10 w-fit">
-                        <input 
-                            type="checkbox" 
-                            className="w-3 h-3 accent-primary"
-                            checked={isChecked}
-                            onChange={() => toggleColumnSelection(fieldKey)}
-                        />
-                        Copy
+                        <input type="checkbox" className="w-3 h-3 accent-primary" checked={isChecked} onChange={() => toggleColumnSelection(fieldKey)} /> Copy
                     </label>
                 </div>
             </th>
@@ -290,8 +281,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
 
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            
+            {/* HIDDEN PRINT CONTAINER (Robust Hide) */}
+            <div style={{ position: 'absolute', top: -10000, left: -10000 }}>
+                <div ref={printRef} className="p-4 w-[3.5in] h-[2in]"> 
+                    {printData && <PrintableLabel data={printData.data} qrUrl={printData.qrUrl} />}
+                </div>
+            </div>
+
             <div className="bg-surface w-full max-w-5xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
-                
                 {/* HEADER */}
                 <div className="p-4 border-b border-border flex justify-between items-center bg-background">
                     <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
@@ -323,7 +321,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                             <span className="font-medium text-text-primary">{activeProduct.manufacturerName}</span>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button onClick={() => handlePrintQr(activeProduct.id, 'product', activeProduct.name)} className="p-2 bg-surface hover:bg-background border border-border rounded text-text-secondary"><QrCode size={16} /></button>
+                                            {/* PARENT PRINT BUTTON */}
+                                            <button onClick={() => handlePrintQr(activeProduct.id, 'product', activeProduct.name)} className="p-2 bg-surface hover:bg-background border border-border rounded text-text-secondary" title="Print Line Label"><QrCode size={16} /></button>
                                             <button onClick={() => setIsEditingParent(true)} className="p-2 bg-surface hover:bg-background border border-border rounded text-text-secondary"><Edit2 size={16} /></button>
                                         </div>
                                     </div>
@@ -337,6 +336,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                     <h3 className="text-lg font-bold text-text-primary">Product Variants</h3>
                                     {!editingVariantId && (
                                       <div className="flex gap-2">
+                                        {/* BATCH PRINT BUTTON - Visible if items selected */}
+                                        {selectedRowIds.size > 0 && (
+                                            <button 
+                                                onClick={handleBatchPrint}
+                                                className="text-sm flex items-center gap-2 bg-primary text-on-primary px-3 py-1.5 rounded font-bold animate-in fade-in"
+                                            >
+                                                <Printer size={16} /> Print Labels ({selectedRowIds.size})
+                                            </button>
+                                        )}
+                                        
+                                        <div className="w-px h-6 bg-border mx-2"></div>
+
                                         <button onClick={() => setShowGenerator(true)} className="text-sm flex items-center gap-2 bg-surface border border-primary text-primary px-3 py-1.5 rounded"><Calculator size={16} /> Batch Generator</button>
                                         <button onClick={handleAddRow} className="text-sm flex items-center gap-2 bg-secondary text-on-secondary px-3 py-1.5 rounded"><Plus size={16} /> Add Variant</button>
                                       </div>
@@ -347,120 +358,157 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-surface text-text-secondary border-b border-border">
                                             <tr>
-                                                {/* Header Logic: Show 'Select All' if batch mode */}
-                                                <th className="p-3 w-16 text-center">
-                                                    {isBatchMode ? (
-                                                        <button onClick={toggleAllRows} title="Select All" className="text-primary hover:text-primary-hover">
-                                                            {selectedRowIds.size > 0 && selectedRowIds.size === (activeProduct.variants.length - 1) 
-                                                                ? <CheckSquare size={18} /> 
-                                                                : <Square size={18} />}
-                                                        </button>
-                                                    ) : "Img"}
-                                                </th>
+                                                <th className="p-3 w-12 text-center">Img</th>
                                                 <th className="p-3">Variant / Color</th>
                                                 {renderColumnHeader("Size", "size")}
                                                 {renderColumnHeader("SKU", "sku")}
                                                 {renderColumnHeader("Packaging", "cartonSize")}
                                                 {renderColumnHeader("Cost", "unitCost", "text-right")}
+                                                {/* Reordered: Pricing Unit after Cost */}
+                                                {renderColumnHeader("Pricing Unit", "pricingUnit", "text-center w-24")}
                                                 {renderColumnHeader("Retail", "retailPrice", "text-right")}
                                                 <th className="p-3 text-center">Sample?</th>
                                                 <th className="p-3 text-center">Status</th>
-                                                <th className="p-3 w-24 text-center">Actions</th>
+                                                
+                                                {/* TOGGLE COLUMN: QR vs Checkbox */}
+                                                <th className="p-3 w-16 text-center">
+                                                    <button 
+                                                        onClick={() => {
+                                                            setIsSelectionMode(!isSelectionMode);
+                                                            if (isSelectionMode) setSelectedRowIds(new Set()); // Clear on exit
+                                                        }}
+                                                        className={`p-1 rounded transition-colors ${isSelectionMode ? 'text-primary bg-primary/10' : 'text-text-secondary hover:text-primary'}`}
+                                                        title={isSelectionMode ? "Cancel Selection" : "Select Multiple"}
+                                                    >
+                                                        {isSelectionMode ? <CheckSquare size={18} /> : <ListChecks size={18} />}
+                                                    </button>
+                                                </th>
+                                                
+                                                <th className="p-3 w-20 text-center">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border">
-                                            {/* NEW ROW INPUT */}
-                                            {editingVariantId?.startsWith('NEW_') && (
-                                                <tr className="bg-primary/5 animate-in fade-in">
-                                                    <td className="p-2"><button onClick={() => setShowImageModal(true)} className="w-10 h-10 border rounded flex items-center justify-center"><ImageIcon size={14} /></button></td>
-                                                    <td className="p-2"><input autoFocus type="text" className="w-full p-1 border rounded" placeholder="Name" value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
-                                                    <td colSpan={7} className="p-2 text-center text-xs text-text-tertiary">Basic Info Only (Edit after create for details)</td>
-                                                    <td className="p-2 flex justify-center gap-1">
-                                                        <button onClick={handleSaveVariant} className="p-1 text-green-500"><Save size={18} /></button>
-                                                        <button onClick={handleCancelEdit} className="p-1 text-red-500"><X size={18} /></button>
-                                                    </td>
-                                                </tr>
-                                            )}
-
-                                            {/* EXISTING ROWS */}
+                                            {/* ROWS */}
                                             {activeProduct.variants.map(v => (
                                                 editingVariantId === v.id ? (
-                                                    // --- EDIT MODE ROW ---
+                                                    // EDIT MODE
                                                     <tr key={v.id} className="bg-primary/5 border-l-4 border-primary">
-                                                        <td className="p-2 text-center">
-                                                            <button onClick={() => setShowImageModal(true)} className="w-10 h-10 border border-primary/30 rounded flex items-center justify-center bg-white"><ImageIcon size={14} className="text-primary" /></button>
-                                                        </td>
+                                                        <td className="p-2 text-center"><button onClick={() => setShowImageModal(true)} className="w-8 h-8 rounded border bg-white flex items-center justify-center"><ImageIcon size={14}/></button></td>
                                                         <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded font-bold" value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
                                                         <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
                                                         <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
-                                                        <td className="p-2">
-                                                            <div className="flex gap-1">
-                                                                <input type="number" className="w-16 p-1 border border-primary rounded" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} />
-                                                                <span className="text-xs self-center">{newVariant.uom}</span>
-                                                            </div>
+                                                        
+                                                        {/* PACKAGING */}
+                                                        <td className="p-2 flex gap-1">
+                                                            <input type="number" className="w-16 p-1 border border-primary rounded" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
+                                                            <select className="p-1 border border-primary rounded text-xs bg-white" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
+                                                                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
                                                         </td>
+
                                                         <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded text-right" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
+
+                                                        {/* PRICING UNIT (Reordered) */}
+                                                        <td className="p-2">
+                                                            <select className="w-full p-1 border border-primary rounded text-xs bg-white" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
+                                                                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
+                                                        </td>
+
                                                         <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded text-right" value={newVariant.retailPrice || ''} onChange={e => setNewVariant({...newVariant, retailPrice: Number(e.target.value)})} /></td>
                                                         <td className="p-2 text-center"><input type="checkbox" checked={newVariant.hasSample ?? v.hasSample} onChange={e => setNewVariant({...newVariant, hasSample: e.target.checked})} /></td>
                                                         <td className="p-2 text-center text-xs font-bold text-primary">EDITING</td>
-                                                        <td className="p-2 flex justify-center items-center gap-2">
-                                                            
-                                                            {/* BATCH TOGGLE */}
+                                                        
+                                                        {/* EDITING - BATCH TOGGLE */}
+                                                        <td className="p-2 text-center">
                                                             <button 
-                                                                onClick={toggleBatchMode} 
-                                                                className={`p-1.5 rounded transition-colors ${isBatchMode ? 'bg-purple-100 text-purple-600' : 'text-text-tertiary hover:text-purple-600'}`}
-                                                                title="Copy values to other rows"
+                                                                onClick={() => {
+                                                                    setIsSelectionMode(!isSelectionMode);
+                                                                    // Don't clear selection in Edit Mode so we can copy
+                                                                }} 
+                                                                className={`p-1.5 rounded ${isSelectionMode ? 'bg-purple-100 text-purple-600' : 'text-text-tertiary'}`} 
+                                                                title="Copy to selected"
                                                             >
                                                                 <Copy size={16} />
                                                             </button>
+                                                        </td>
 
-                                                            {/* SAVE BUTTON */}
-                                                            <button 
-                                                                onClick={handleSaveVariant} 
-                                                                className={`p-1.5 rounded text-white shadow-sm transition-all ${isBatchMode && selectedRowIds.size > 0 ? 'bg-purple-600 hover:bg-purple-700 w-full' : 'bg-green-600 hover:bg-green-700'}`}
-                                                                title={isBatchMode ? `Save & Copy to ${selectedRowIds.size} rows` : "Save Changes"}
-                                                            >
-                                                                {isBatchMode && selectedRowIds.size > 0 ? <span className="text-[10px] font-bold px-1">APPLY ({selectedRowIds.size})</span> : <Save size={16} />}
-                                                            </button>
-                                                            
-                                                            <button onClick={handleCancelEdit} className="p-1 text-red-500 hover:bg-red-50 rounded"><X size={16} /></button>
+                                                        <td className="p-2 flex justify-center items-center gap-2">
+                                                            <button onClick={handleSaveVariant} className="p-1.5 rounded bg-green-600 text-white"><Save size={16} /></button>
+                                                            <button onClick={handleCancelEdit} className="p-1 text-red-500"><X size={16} /></button>
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    // --- READ MODE ROW ---
-                                                    <tr key={v.id} className={`hover:bg-surface/50 transition-colors ${isBatchMode && selectedRowIds.has(v.id) ? 'bg-purple-50' : ''}`}>
+                                                    <tr key={v.id} className={`hover:bg-surface/50 transition-colors ${selectedRowIds.has(v.id) ? 'bg-primary/5' : ''}`}>
+                                                        {/* IMAGE */}
                                                         <td className="p-2 text-center">
-                                                            {isBatchMode ? (
-                                                                <input 
-                                                                    type="checkbox" 
-                                                                    className="w-4 h-4 accent-purple-600 cursor-pointer"
-                                                                    checked={selectedRowIds.has(v.id)}
-                                                                    onChange={() => toggleRowSelection(v.id)}
-                                                                />
-                                                            ) : (
-                                                                <div className="w-10 h-10 bg-black/20 rounded overflow-hidden mx-auto">
-                                                                    {v.imageUrl ? <img src={resolveImageUrl(v.imageUrl)!} className="w-full h-full object-cover"/> : null}
-                                                                </div>
-                                                            )}
+                                                            <div className="w-10 h-10 bg-black/20 rounded overflow-hidden mx-auto border border-border">
+                                                                {v.imageUrl ? <img src={resolveImageUrl(v.imageUrl)!} className="w-full h-full object-cover"/> : null}
+                                                            </div>
                                                         </td>
+                                                        
                                                         <td className="p-3 font-medium text-text-primary">{v.name}</td>
                                                         <td className="p-3 text-text-secondary">{v.size || '-'}</td>
                                                         <td className="p-3 text-text-secondary">{v.sku || '-'}</td>
                                                         <td className="p-3 text-text-secondary text-xs font-mono">{v.cartonSize ? `${v.cartonSize} ${v.uom}` : '-'}</td>
                                                         <td className="p-3 text-right text-text-secondary">{v.unitCost ? `$${Number(v.unitCost).toFixed(2)}` : '-'}</td>
-                                                        <td className="p-3 text-right text-green-400 font-medium">{v.retailPrice ? `$${Number(v.retailPrice).toFixed(2)}` : '-'}</td>
-                                                        <td className="p-3 text-center">
-                                                            <div className={`w-3 h-3 rounded-full mx-auto ${v.hasSample ? 'bg-green-500' : 'bg-gray-300'}`} />
-                                                        </td>
+                                                        <td className="p-3 text-center text-text-secondary text-xs font-mono bg-black/5 rounded mx-1">/{v.pricingUnit || v.uom || 'Unit'}</td>
+                                                        <td className="p-3 text-right text-text-secondary font-medium">{v.retailPrice ? `$${Number(v.retailPrice).toFixed(2)}` : '-'}</td>
+                                                        <td className="p-3 text-center"><div className={`w-3 h-3 rounded-full mx-auto ${v.hasSample ? 'bg-green-500' : 'bg-gray-300'}`} /></td>
                                                         <td className="p-3 text-center text-xs text-text-tertiary">{v.hasSample ? 'Available' : 'Order Only'}</td>
+                                                        
+                                                        {/* QR / SELECT TOGGLE COLUMN */}
+                                                        <td className="p-3 text-center">
+                                                            {isSelectionMode ? (
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    className="w-5 h-5 accent-primary cursor-pointer"
+                                                                    checked={selectedRowIds.has(v.id)}
+                                                                    onChange={() => toggleRowSelection(v.id)}
+                                                                />
+                                                            ) : (
+                                                                <button onClick={() => handlePrintQr(v.id, 'variant', activeProduct.name, v)} className="text-text-secondary hover:text-primary"><QrCode size={18} /></button>
+                                                            )}
+                                                        </td>
+
                                                         <td className="p-3 flex justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
-                                                            <button onClick={() => handlePrintQr(v.id, 'variant', activeProduct.name, v.name, v.sku || undefined)} disabled={isBatchMode} className="text-text-secondary hover:text-primary disabled:opacity-30"><QrCode size={16} /></button>
-                                                            <button onClick={() => handleEditVariant(v)} disabled={isBatchMode} className="text-text-secondary hover:text-primary disabled:opacity-30"><Edit2 size={16} /></button>
-                                                            <button onClick={() => handleDeleteVariant(v.id)} disabled={isBatchMode} className="text-text-secondary hover:text-red-500 disabled:opacity-30"><Trash2 size={16} /></button>
+                                                            <button onClick={() => handleEditVariant(v)} className="text-text-secondary hover:text-primary"><Edit2 size={16} /></button>
+                                                            <button onClick={() => handleDeleteVariant(v.id)} className="text-text-secondary hover:text-red-500"><Trash2 size={16} /></button>
                                                         </td>
                                                     </tr>
                                                 )
                                             ))}
+                                            {/* NEW ROW INPUT */}
+                                            {editingVariantId?.startsWith('NEW_') && (
+                                                <tr className="bg-primary/5 animate-in fade-in">
+                                                    <td className="p-2"><button onClick={() => setShowImageModal(true)} className="w-10 h-10 border rounded flex items-center justify-center bg-white"><ImageIcon size={14} /></button></td>
+                                                    <td className="p-2"><input autoFocus type="text" className="w-full p-1 border rounded" placeholder="Name" value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
+                                                    <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
+                                                    <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
+                                                    
+                                                    {/* PACKAGING */}
+                                                    <td className="p-2 flex gap-1">
+                                                        <input type="number" className="w-16 p-1 border rounded" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
+                                                        <select className="p-1 border rounded text-xs bg-white" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
+                                                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                        </select>
+                                                    </td>
+
+                                                    <td className="p-2"><input type="number" className="w-full p-1 border rounded text-right" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
+
+                                                    {/* PRICING UNIT (Reordered) */}
+                                                    <td className="p-2">
+                                                        <select className="w-full p-1 border rounded text-xs bg-white" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
+                                                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                        </select>
+                                                    </td>
+
+                                                    <td className="p-2"><input type="number" className="w-full p-1 border rounded text-right" value={newVariant.retailPrice || ''} onChange={e => setNewVariant({...newVariant, retailPrice: Number(e.target.value)})} /></td>
+                                                    <td className="p-2 text-center"><input type="checkbox" checked={newVariant.hasSample ?? true} onChange={e => setNewVariant({...newVariant, hasSample: e.target.checked})} /></td>
+                                                    <td className="p-2 text-center text-xs font-bold text-green-600">NEW</td>
+                                                    <td colSpan={2} className="p-2 flex justify-center gap-1"><button onClick={handleSaveVariant} className="p-1 text-green-500"><Save size={18} /></button><button onClick={handleCancelEdit} className="p-1 text-red-500"><X size={18} /></button></td>
+                                                </tr>
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -472,6 +520,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 {/* MODALS */}
                 {showGenerator && <VariantGeneratorModal productId={activeProduct.id} manufacturerId={activeProduct.manufacturerId} pricingSettings={pricingSettings} onClose={() => setShowGenerator(false)} onSuccess={handleGeneratorSuccess} />}
                 {showImageModal && <VariantImageModal currentPreview={pendingImage.preview} onClose={() => setShowImageModal(false)} onSave={handleImageUpdate} />}
+                {showBatchPrint && <PrintQueueModal isOpen={true} onClose={() => setShowBatchPrint(false)} selectedProducts={productsToPrint} />}
             </div>
         </div>
     );

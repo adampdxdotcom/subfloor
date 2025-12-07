@@ -1,21 +1,23 @@
 import React from 'react';
 import { Product, PricingSettings } from '../types';
 import { useData } from '../context/DataContext';
-import { ExternalLink, ChevronRight } from 'lucide-react';
+import { ExternalLink, ChevronRight, CheckCircle2, Circle } from 'lucide-react';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
 
 interface ProductCardProps {
     product: Product;
     pricingSettings: PricingSettings | null;
     onClick: (product: Product) => void;
-    showDiscontinuedStyle?: boolean; // If true, shows the red "Discontinued" banner
+    showDiscontinuedStyle?: boolean; 
+    isSelected?: boolean; 
+    isSelectionMode?: boolean; 
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onClick, showDiscontinuedStyle }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onClick, showDiscontinuedStyle, isSelected, isSelectionMode }) => {
     const { vendors } = useData();
 
     // Helper to calculate display price
-    const getDisplayPriceRange = () => {
+    const getDisplayInfo = () => {
         if (!product.variants || product.variants.length === 0 || !pricingSettings) return null;
         
         // Get active vendor
@@ -23,26 +25,39 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
         const vendor = vendors.find(v => v.id === vendorId);
         const rules = getActivePricingRules(vendor, pricingSettings, 'Customer');
 
-        const prices = product.variants
-            .filter(v => v.unitCost)
-            .map(v => calculatePrice(Number(v.unitCost), rules.percentage, rules.method));
+        const validVariants = product.variants.filter(v => v.unitCost);
+        const prices = validVariants.map(v => calculatePrice(Number(v.unitCost), rules.percentage, rules.method));
         
         if (prices.length === 0) return null;
         
         const min = Math.min(...prices);
         const max = Math.max(...prices);
         
-        if (min === max) return `$${min.toFixed(2)}`;
-        return `$${min.toFixed(2)} - $${max.toFixed(2)}`;
+        const priceStr = min === max ? `$${min.toFixed(2)}` : `$${min.toFixed(2)} - $${max.toFixed(2)}`;
+
+        // Determine Unit (Prefer pricingUnit, then uom, then 'Unit')
+        const representativeVariant = validVariants.find(v => v.pricingUnit) || validVariants[0];
+        const unitLabel = representativeVariant?.pricingUnit || representativeVariant?.uom || 'Unit';
+
+        return { priceStr, unitLabel };
     };
 
-    const priceDisplay = getDisplayPriceRange();
+    const displayInfo = getDisplayInfo();
 
     return (
         <div 
-            className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer hover:shadow-lg transition-shadow h-full" 
+            className={`bg-surface rounded-lg shadow-md border overflow-hidden group flex flex-col cursor-pointer hover:shadow-lg transition-all h-full relative
+                ${isSelected ? 'border-primary ring-2 ring-primary bg-primary/5' : 'border-border'}
+            `} 
             onClick={() => onClick(product)}
         >
+            {/* Selection Overlay Checkbox */}
+            {(isSelectionMode || isSelected) && (
+                <div className="absolute top-2 left-2 z-10 text-primary">
+                    {isSelected ? <CheckCircle2 size={24} className="fill-surface" /> : <Circle size={24} className="text-white drop-shadow-md" />}
+                </div>
+            )}
+
             {/* Image Area */}
             <div className="w-full h-48 bg-background flex items-center justify-center relative">
                 {product.defaultThumbnailUrl || product.defaultImageUrl ? (
@@ -66,9 +81,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
                 
                 {/* Price Range */}
                 <div className="mt-2">
-                    {priceDisplay ? (
+                    {displayInfo ? (
                         <p className="text-sm font-semibold text-green-400">
-                            {priceDisplay} <span className="text-text-secondary font-normal text-xs">/ Unit</span>
+                            {displayInfo.priceStr} <span className="text-text-secondary font-normal text-xs">/ {displayInfo.unitLabel}</span>
                         </p>
                     ) : (
                         <p className="text-xs text-text-tertiary italic">No pricing set</p>

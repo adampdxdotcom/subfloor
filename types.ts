@@ -30,7 +30,10 @@ export const UNITS = [
   'LF',
   'Carton',
   'Sheet',
-  'Roll'
+  'Roll',
+  'Piece',
+  'Box',
+  'Each'
 ] as const;
 
 export type Unit = typeof UNITS[number];
@@ -145,7 +148,8 @@ export interface ProductVariant {
   sku?: string | null;
   unitCost?: number | null;
   retailPrice?: number | null;
-  uom?: Unit | null;
+  pricingUnit?: Unit | null; // NEW: The unit the price is based on (e.g., /SF)
+  uom?: Unit | null; // The physical inventory unit (e.g., Carton)
   cartonSize?: number | null;
   imageUrl?: string | null;
   thumbnailUrl?: string | null; // NEW: Optimized image path

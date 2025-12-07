@@ -4,7 +4,7 @@ import { Project, MaterialOrder } from '../types';
 import { Edit, Trash2, Package as PackageIcon, Move } from 'lucide-react';
 import { formatCurrency } from '../utils/pricingUtils';
 import AddEditMaterialOrderModal from './AddEditMaterialOrderModal';
-import ModalPortal from './ModalPortal'; // NEW
+import ModalPortal from './ModalPortal'; 
 import { formatDate } from '../utils/dateUtils';
 
 interface MaterialOrdersSectionProps {
@@ -18,12 +18,19 @@ interface MaterialOrdersSectionProps {
 
 const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, orders, isModalOpen, onCloseModal, editingOrder, onEditOrder }) => {
     
-    const { currentUser, deleteMaterialOrder, systemBranding } = useData();
+    const { currentUser, deleteMaterialOrder, systemBranding, products } = useData();
     
     const handleDeleteOrder = async (orderId: number) => {
         if (window.confirm('Are you sure you want to delete this material order? This action cannot be undone.')) {
             try { await deleteMaterialOrder(orderId); } catch (error) { console.error("Failed to delete order:", error); }
         }
+    };
+
+    // Helper to find pricing unit from variant ID
+    const getPricingUnit = (sampleId: number | string, fallbackUnit: string | null) => {
+        if (!products) return fallbackUnit;
+        const variant = products.flatMap(p => p.variants).find(v => v.id === String(sampleId));
+        return variant?.pricingUnit || fallbackUnit || '';
     };
     
     return (
@@ -63,7 +70,16 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                                         )}
                                     </div>
                                 </div>
-                                <ul className="space-y-2 text-sm border-t border-border pt-3">{order.lineItems.map(item => (<li key={item.id} className="flex justify-between items-center text-text-secondary"><span>{item.quantity} {item.unit || ''} x {`${item.style}${item.color ? ` - ${item.color}` : ''}`}</span>{item.totalCost != null && <span>{formatCurrency(Number(item.totalCost))}</span>}</li>))}</ul>
+                                <ul className="space-y-2 text-sm border-t border-border pt-3">
+                                    {order.lineItems.map(item => (
+                                        <li key={item.id} className="flex justify-between items-center text-text-secondary">
+                                            <span>
+                                                {item.quantity} {getPricingUnit(item.sampleId, item.unit)} x {`${item.style}${item.color ? ` - ${item.color}` : ''}`}
+                                            </span>
+                                            {item.totalCost != null && <span>{formatCurrency(Number(item.totalCost))}</span>}
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         ))}
                     </div>

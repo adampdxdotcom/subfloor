@@ -191,6 +191,15 @@ export default function KnowledgeBase() {
         } catch (e) { console.error(e); }
     };
 
+    const handleCreateCategory = async (name: string) => {
+        try {
+            await axios.post('/api/kb/categories', { name });
+            toast.success("Category created");
+            fetchCategories();
+            setIsCatModalOpen(false);
+        } catch (e) { toast.error("Failed to create category"); }
+    };
+
     // Updated to accept an optional initial title from search
     const handleCreateArticle = (initialTitle = '') => {
         setEditTitle(initialTitle);
@@ -607,7 +616,7 @@ export default function KnowledgeBase() {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-hidden p-6 md:p-8 w-full flex flex-col">
+                        <div className="flex-1 overflow-hidden p-0 md:p-8 w-full flex flex-col">
                             <RichTextEditor content={editContent} onChange={setEditContent} />
                         </div>
                     </div>

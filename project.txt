@@ -1036,6 +1036,57 @@ Session 21: Zero-Config Setup & Self-Healing Infrastructure
 
 Session 22 and 23 missing
 
-Session 24 Knowledge Based
+SESSION 24 SUMMARY: The Knowledge Base (Wiki) System
 
-Created a system with categories and articles. Tags link to headers in other files.
+In this session, we transformed a basic text input prototype into a full-featured, mobile-responsive Content Management System (CMS) tailored for your contracting business.
+1. The "App-Like" Editor Architecture
+
+We moved away from a standard scrolling web page layout to a "Fixed Window" application layout.
+
+    Sticky Toolbar: We re-architected the CSS to lock the toolbar to the top of the screen while the content scrolls beneath it.
+
+    Node Views: We injected React components directly into the TipTap editor. This allowed us to build custom Image Resizing Handles (with specific Touch support for mobile) and Alignment Controls (Left/Center/Right).
+
+    Smart Captions: We implemented a "Hydration Script" that dynamically wraps images in <figure> tags during Read Mode, allowing for professional captions without messing up your database schema.
+
+2. Universal Asset Management
+
+We turned the editor into a powerful media hub without adding new database tables.
+
+    Polymorphic Storage: We reused your existing photos table (using entity_type: 'KB') to store Wiki assets.
+
+    Media Library: We built a modal that allows you to upload new images/files OR pull in existing photos from Jobs/Projects ("Stretch Goal" achieved).
+
+    Smart Attachments: The editor automatically detects file types. Images render as photos; PDFs and Spreadsheets render as clickable "File Cards."
+
+3. Wiki Superpowers
+
+We added features to organize knowledge, not just text.
+
+    Internal Linking: Implemented a "Smart Suggestion" system. Typing [[ instantly searches your library and creates deep links to other articles.
+
+    Discovery: Added a real-time Search bar and a Tagging system.
+
+    "Search or Create": Built an "On-the-fly" workflow where searching for a missing term (e.g., "Sanding") instantly offers to create that article.
+
+4. Mobile-First Experience
+
+We spent significant time refining the UX for phone screens.
+
+    Slide-Over Sidebar: The library navigation is now a full-screen overlay on mobile that stays out of the way while writing.
+
+    Edge-to-Edge Editing: We reclaimed screen real estate by removing padding on mobile.
+
+    Wrapping Toolbar: Instead of an awkward horizontal scroll, the toolbar icons wrap intelligently to multiple lines on small screens.
+
+5. "Time Machine" Version History
+
+We built a safety net for your content.
+
+    Audit Logging: Every time an article is saved, the previous version is logged in the database.
+
+    Visual History: Created a "Split View" interface to browse past versions and preview them.
+
+    Restore: Users can instantly revert an article to any previous state.
+
+    Style Sharing: We refactored the CSS into kbStyles.ts to ensure formatting looks identical in the Editor, the Read View, and the History Preview.

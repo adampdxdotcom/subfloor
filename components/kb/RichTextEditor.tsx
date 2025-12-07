@@ -211,7 +211,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, edit
                         label: { default: null, parseHTML: element => element.getAttribute('data-label'), renderHTML: attributes => ({ 'data-label': attributes.label }) },
                     }
                 },
-                renderLabel({ node }) {
+                renderText({ node }) {
                     return `${node.attrs.label ?? node.attrs.id}`; 
                 },
             }),

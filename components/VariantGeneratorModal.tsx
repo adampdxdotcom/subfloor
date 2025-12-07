@@ -5,7 +5,7 @@ import CreatableSelect from 'react-select/creatable';
 import * as sampleService from '../services/sampleService';
 import { useData } from '../context/DataContext';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
-import { PricingSettings } from '../types';
+import { PricingSettings, UNITS } from '../types';
 
 interface VariantGeneratorModalProps {
     productId: string;
@@ -30,6 +30,7 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
         retailPrice: '',
         cartonSize: '',
         uom: 'SF',
+        pricingUnit: 'SF', // NEW: Defaults to SF
         sku: '', // New Field
         style: '',
         finish: '',
@@ -192,18 +193,21 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                                     <label className="block text-xs font-medium text-text-secondary mb-1">Retail Price</label>
                                     <input type="number" step="0.01" value={commonData.retailPrice} onChange={e => setCommonData({...commonData, retailPrice: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary" />
                                 </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-medium text-text-secondary mb-1">Pricing Unit</label>
+                                    <select value={commonData.pricingUnit} onChange={e => setCommonData({...commonData, pricingUnit: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary">
+                                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                    </select>
+                                </div>
+                                <div className="col-span-2 border-t border-border my-1"></div>
                                 <div>
                                     <label className="block text-xs font-medium text-text-secondary mb-1">Carton Size</label>
                                     <input type="number" step="0.01" value={commonData.cartonSize} onChange={e => setCommonData({...commonData, cartonSize: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-text-secondary mb-1">UOM</label>
+                                    <label className="block text-xs font-medium text-text-secondary mb-1">Packaging UOM</label>
                                     <select value={commonData.uom} onChange={e => setCommonData({...commonData, uom: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary">
-                                        <option value="SF">SF</option>
-                                        <option value="SY">SY</option>
-                                        <option value="EA">EA</option>
-                                        <option value="LF">LF</option>
-                                        <option value="Box">Box</option>
+                                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                     </select>
                                 </div>
                                 <div className="col-span-2">
@@ -279,8 +283,8 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                                                     <td className="p-3 text-sm text-text-primary font-medium">{item.name || <span className="italic text-text-secondary">--</span>}</td>
                                                     <td className="p-3 text-sm text-text-secondary">{item.sku || <span className="italic text-text-secondary">--</span>}</td>
                                                     <td className="p-3 text-sm text-text-primary">{item.size || <span className="italic text-text-secondary">--</span>}</td>
-                                                    <td className="p-3 text-sm text-text-primary text-right">${item.unitCost.toFixed(2)}</td>
-                                                    <td className="p-3 text-sm text-text-primary text-right">${item.retailPrice.toFixed(2)}</td>
+                                                    <td className="p-3 text-sm text-text-primary text-right">${item.unitCost.toFixed(2)} / {item.pricingUnit}</td>
+                                                    <td className="p-3 text-sm text-text-primary text-right">${item.retailPrice.toFixed(2)} / {item.pricingUnit}</td>
                                                     <td className="p-3 text-sm text-text-primary">{item.cartonSize} {item.uom}</td>
                                                 </tr>
                                             ))}

@@ -131,11 +131,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                 
                 // Search all products
                 for (const p of products) {
-                     // Try to find variant that matches this item's sampleId (if sampleId == variantId concept)
-                     // OR if sampleId maps to legacy ID. 
-                     // This part depends on how clean the DB migration was.
-                     
-                     // Simplified: Try to find ANY variant that matches
+                     // Try to find ANY variant that matches
                      const v = p.variants.find(v => Number(v.id) === item.sampleId || String(v.id) === String(item.sampleId));
                      if (v) {
                          foundProduct = p;
@@ -154,7 +150,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                     product: foundProduct,
                     variant: foundVariant,
                     quantity: String(item.quantity),
-                    unit: item.unit as Unit || 'SF',
+                    unit: item.unit as Unit || foundVariant.pricingUnit || foundVariant.uom || 'SF',
                     totalCost: item.totalCost != null ? String(item.totalCost) : '',
                     unitSellPrice: calculatedSellPrice,
                 };
@@ -194,7 +190,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                 product: prefillData.product,
                 variant: prefillData.variant,
                 quantity: '1',
-                unit: prefillData.variant.uom || 'SF',
+                unit: prefillData.variant.pricingUnit || prefillData.variant.uom || 'SF',
                 totalCost: initialSellPrice,
                 unitSellPrice: initialSellPrice
             }]);
@@ -238,7 +234,8 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
         if (selectedSearchItem && !lineItems.some(item => item.variant.id === selectedSearchItem.variant.id)) {
             
             let initialSellPrice = '';
-            let initialUnit: Unit = selectedSearchItem.variant.uom || 'SF';
+            // FIX: Use Pricing Unit first, fall back to UOM
+            let initialUnit: Unit = selectedSearchItem.variant.pricingUnit || selectedSearchItem.variant.uom || 'SF';
             
             // Calculate Price
             if (pricingSettings && selectedSearchItem.variant.unitCost) {

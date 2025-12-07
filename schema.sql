@@ -56,6 +56,7 @@ CREATE TABLE product_variants (
     sku TEXT,
     unit_cost NUMERIC(10, 2),
     retail_price NUMERIC(10, 2),
+    pricing_unit VARCHAR(50), -- NEW FIELD
     uom VARCHAR(20),
     carton_size NUMERIC(10, 4),
     image_url TEXT,
