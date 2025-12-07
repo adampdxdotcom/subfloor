@@ -12,6 +12,13 @@
   "dependencies": {
     "@tanstack/react-query": "^5.90.11",
     "@tanstack/react-virtual": "^3.13.12",
+    "@tiptap/extension-heading": "^3.13.0",
+    "@tiptap/extension-image": "^3.13.0",
+    "@tiptap/extension-link": "^3.13.0",
+    "@tiptap/extension-mention": "^3.13.0",
+    "@tiptap/extension-text-align": "^3.13.0",
+    "@tiptap/react": "^3.13.0",
+    "@tiptap/starter-kit": "^3.13.0",
     "axios": "^1.7.2",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
@@ -30,6 +37,7 @@
     "react-to-print": "^3.2.0",
     "recharts": "^3.5.0",
     "supertokens-auth-react": "^0.51.0",
+    "tippy.js": "^6.3.7",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

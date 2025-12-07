@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom'; 
-import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon, Building, Truck, ClipboardList, Database, MessageCircle } from 'lucide-react'; // Added MessageCircle
+import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIcon, Building, Truck, ClipboardList, Database, MessageCircle, BookOpen } from 'lucide-react'; // Added BookOpen
 import UniversalSearch from './UniversalSearch';
 import UserStatus from './UserStatus';
 import NavigationListener from './NavigationListener'; // <-- NEW: Import the listener
@@ -54,6 +54,10 @@ const Layout: React.FC = () => {
                 <NavLink to="/import" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <Database className="w-6 h-6" />
                     <span>Import Data</span>
+                </NavLink>
+                <NavLink to="/kb" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
+                    <BookOpen className="w-6 h-6" />
+                    <span>Knowledge Base</span>
                 </NavLink>
                 <NavLink to="/calendar" onClick={() => setIsSidebarOpen(false)} className={({ isActive }) => `flex items-center space-x-3 p-2 rounded-lg transition-colors ${isActive ? 'bg-primary text-on-primary' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}>
                     <Calendar className="w-6 h-6" />

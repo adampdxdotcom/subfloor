@@ -44,6 +44,7 @@ import notificationRoutes from './routes/notifications.js'; // NEW: Notification
 import jobNotesRoutes from './routes/jobNotes.js'; 
 import messageRoutes from './routes/messages.js'; // NEW: Direct Messages
 import setupRoutes from './routes/setup.js'; // NEW: Setup Wizard
+import kbRoutes from './routes/kb.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -239,6 +240,7 @@ app.use('/api/notifications', notificationRoutes); // NEW: Notifications
 app.use('/api/jobs', jobNotesRoutes); // Mount under /api/jobs to match the :id/notes structure
 app.use('/api/messages', messageRoutes); // NEW: Direct Messages
 app.use('/api/setup', setupRoutes); // NEW: Setup Wizard
+app.use('/api/kb', kbRoutes);
 
 // --- SERVE FRONTEND (DYNAMIC) ---
 const publicPath = path.join(__dirname, 'public');

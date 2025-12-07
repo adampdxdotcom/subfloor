@@ -27,6 +27,7 @@ import Reports from './pages/Reports';
 import ImportData from './pages/ImportData'; // NEW IMPORT
 import Messages from './pages/Messages'; // NEW IMPORT
 import SetupWizard from './pages/SetupWizard'; // NEW IMPORT
+import KnowledgeBase from './pages/KnowledgeBase'; // NEW IMPORT
 import { Loader2 } from 'lucide-react';
 
 // --- DYNAMIC URL CONFIGURATION ---
@@ -171,6 +172,7 @@ function App() {
             <Route path="import" element={<ImportData />} />
             <Route path="messages" element={<Messages />} />
             <Route path="messages/:partnerId" element={<Messages />} />
+            <Route path="kb" element={<KnowledgeBase />} /> {/* NEW KB ROUTE */}
             <Route path="vendors" element={<VendorList />} />
             {/* --- 2. ADD THIS NEW NESTED ROUTE --- */}
             <Route path="vendors/:vendorId" element={<VendorDetail />} />

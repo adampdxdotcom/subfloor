@@ -1033,3 +1033,9 @@ Session 21: Zero-Config Setup & Self-Healing Infrastructure
         Support recursive file copying for image restores.
 
         Self-Heal: Automatically patch the system configuration after a restore to ensure the "Initialized" flag persists, preventing lockout loops.
+
+Session 22 and 23 missing
+
+Session 24 Knowledge Based
+
+Created a system with categories and articles. Tags link to headers in other files.

@@ -331,3 +331,52 @@ CREATE TABLE direct_messages (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_dm_combo ON direct_messages(sender_id, recipient_id);
+
+
+-- =================================================================
+-- KNOWLEDGE BASE
+-- =================================================================
+
+CREATE TABLE kb_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    parent_id INTEGER REFERENCES kb_categories(id) ON DELETE SET NULL, -- Allows nesting
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE kb_articles (
+    id SERIAL PRIMARY KEY,
+    category_id INTEGER REFERENCES kb_categories(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT, -- Will store HTML or Markdown from the rich text editor
+    author_id VARCHAR(255) NOT NULL, -- User ID
+    tags TEXT[], -- Array of strings for easy searching
+    is_published BOOLEAN DEFAULT FALSE,
+    view_count INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE kb_history (
+    id SERIAL PRIMARY KEY,
+    article_id INTEGER REFERENCES kb_articles(id) ON DELETE CASCADE,
+    user_id VARCHAR(255) NOT NULL,
+    change_summary VARCHAR(255), -- "Updated title", "Changed category"
+    previous_content TEXT, -- Snapshot for rollback
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Full text search index
+CREATE INDEX IF NOT EXISTS idx_kb_search ON kb_articles USING GIN(to_tsvector('english', title || ' ' || COALESCE(content, '')));
+
+-- Indexing Article Headers for Deep Linking
+CREATE TABLE IF NOT EXISTS kb_article_sections (
+    id SERIAL PRIMARY KEY,
+    article_id INTEGER REFERENCES kb_articles(id) ON DELETE CASCADE,
+    header_text VARCHAR(255) NOT NULL,
+    anchor_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_kb_sections_search ON kb_article_sections(header_text);
