@@ -17,34 +17,37 @@ FROM node:20-alpine AS production-runner
 
 WORKDIR /app
 
-# --- FIX: Install PostgreSQL Client Tools (Required for Backup/Restore) ---
+# Install PostgreSQL Client Tools (Required for Backup/Restore/Healthchecks)
 RUN apk add --no-cache postgresql-client
 
-# Copy SERVER package files
+# 1. Copy SERVER package files to ROOT (Flattening structure)
 COPY server/package*.json ./
 
-# Install production dependencies for the BACKEND
+# 2. Install production dependencies
 RUN npm install --only=production
 
-# Copy the backend code into a subdirectory
-COPY server/ ./server/
+# 3. Copy server source code to ROOT
+# (This puts index.js at /app/index.js, right next to package.json)
+COPY server/ .
 
-# --- ADDED: Copy Migrations ---
+# 4. Copy Migrations from project root to container root
 COPY migrations/ ./migrations/
 
-# --- NEW: Copy the schema file so the app can self-initialize ---
-COPY schema.sql ./server/schema.sql
+# 5. Copy Schema from project root (Required for dbInit.js)
+COPY schema.sql ./schema.sql
 
-# Copy the built frontend from Stage 1 into the server's public folder
-COPY --from=frontend-builder /app/dist ./server/public
+# 6. Copy Frontend Build from Stage 1
+# (We put it in 'public' because index.js usually serves static files from there)
+COPY --from=frontend-builder /app/dist ./public
 
-# Create uploads directories
-RUN mkdir -p server/uploads/branding && \
-    mkdir -p server/uploads/avatars && \
-    mkdir -p server/temp-uploads
+# 7. Create uploads directories
+RUN mkdir -p uploads/branding && \
+    mkdir -p uploads/avatars && \
+    mkdir -p temp-uploads
 
 # Expose the API port
 EXPOSE 3001
 
-# Start the backend server via npm start (to run migrations)
+# Start the server
+# This runs: "node-pg-migrate up && node index.js"
 CMD ["npm", "start"]
