@@ -34,6 +34,7 @@ COPY server/ .
 COPY migrations/ ./migrations/
 
 # 5. Copy Schema from project root (Required for dbInit.js)
+COPY schema.sql /schema.sql
 COPY schema.sql ./schema.sql
 
 # 6. Copy Frontend Build from Stage 1
