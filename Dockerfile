@@ -29,6 +29,9 @@ RUN npm install --only=production
 # Copy the backend code into a subdirectory
 COPY server/ ./server/
 
+# --- ADDED: Copy Migrations ---
+COPY migrations/ ./migrations/
+
 # --- NEW: Copy the schema file so the app can self-initialize ---
 COPY schema.sql ./server/schema.sql
 
@@ -43,5 +46,5 @@ RUN mkdir -p server/uploads/branding && \
 # Expose the API port
 EXPOSE 3001
 
-# Start the backend server
-CMD ["node", "server/index.js"]
+# Start the backend server via npm start (to run migrations)
+CMD ["npm", "start"]
