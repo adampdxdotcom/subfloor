@@ -2,12 +2,17 @@
 |____index.css
 |____context
 | |____DataContext.tsx
+|____Dockerfile.dev
 |____server
 | |____lib
 | | |____emailService.js
+| | |____imageProcessor.js
 | | |____reportGenerator.js
+| | |____setupService.js
 | | |____reports.js
 | | |____scheduler.js
+| | |____dbInit.js
+| |____package-lock.json
 | |____temp-uploads
 | |____email-templates
 | | |____orderReceived.html
@@ -28,6 +33,7 @@
 | | |____products.js
 | | |____reports.js
 | | |____calendar.js
+| | |____setup.js
 | | |____search.js
 | | |____restore.js
 | | |____jobNotes.js
@@ -40,30 +46,17 @@
 | | |____backup.js
 | | |____jobs.js
 | | |____sampleCheckouts.js
+| | |____kb.js
 | | |____change-orders.js
 | | |____quotes.js
 | |____index.js
 | |____uploads
-| | |____photo-1762749727265-184370968.jpeg etc
-| | |____branding
-| | | |____logo-1763654366165.png
-| | | |____logo-1763829676299.png
-| | | |____logo-1763825160367.png
-| | | |____logo-1763653815340.png
-| | | |____favicon-1763653827118.png
-| | | |____logo-1763825080181.png
-| | |____avatars
-| | | |____avatar-51117396-0980-49c3-a5e2-64624d80bd84-1763561455785-832882225.png
-| | |____photo-1763157168801-385337320.jpg
-| | |____photo-1763002097382-4328641.jpeg
 | |____db.js
 | |____package.json
+| |____migrate-images.js
 | |____utils.js
-| |____node_modules
 | |____migrate-profiles.js
-| |____tree.txt
 | |____make-admin.js
-|____backup.bak
 |____package-lock.json
 |____vite.config.ts
 |____userauditplan.txt
@@ -73,6 +66,7 @@
 |____services
 | |____quoteService.ts
 | |____jobNotesService.ts
+| |____useSampleCheckouts.ts
 | |____userService.ts
 | |____jobService.ts
 | |____customerService.ts
@@ -90,8 +84,7 @@
 | |____productService.ts
 |____docker-compose.yml
 |____Dockerfile
-|____caddyfile.old
-|____index.js.bak
+|____.env.example
 |____.env
 |____temp-uploads
 |____.dockerignore
@@ -104,6 +97,7 @@
 | |____VariantGeneratorModal.tsx
 | |____AddSampleInlineModal.tsx
 | |____PricingConfigurationSection.tsx
+| |____CombinedRestoreForm.tsx
 | |____UserNotificationSettings.tsx
 | |____BackupRestoreSection.tsx
 | |____FinalizeJobSection.tsx
@@ -136,6 +130,7 @@
 | | |____ProductReportTable.tsx
 | |____ModalPortal.tsx
 | |____EditInstallerModal.tsx
+| |____LiveThemePreview.tsx
 | |____ChangeOrderSection.tsx
 | |____PrintableCheckout.tsx
 | |____SampleForm.tsx
@@ -144,7 +139,16 @@
 | |____CollapsibleSection.tsx
 | |____SampleDetailModal.tsx
 | |____MaterialOrdersSection.tsx
+| |____ProjectPhotosSection.tsx
 | |____UserStatus.tsx
+| |____kb
+| | |____ArticleList.tsx
+| | |____suggestion.ts
+| | |____ArticleHistoryView.tsx
+| | |____MediaLibraryModal.tsx
+| | |____RichTextEditor.tsx
+| | |____ResizableImageNode.tsx
+| | |____kbStyles.ts
 | |____EditChangeOrderModal.tsx
 | |____EditProjectModal.tsx
 | |____AddEditMaterialOrderModal.tsx
@@ -154,26 +158,44 @@
 | |____AddEditVendorModal.tsx
 | |____GlobalProjectSelector.tsx
 | |____EditCustomerModal.tsx
+| |____PrintableLabel.tsx
 | |____QuotesSection.tsx
 | |____CustomerCarousel.tsx
 | |____CalendarFilter.tsx
 | |____SizeManagement.tsx
 | |____ProjectCarousel.tsx
+| |____PrintQueueModal.tsx
 | |____ProjectSelector.tsx
 | |____CustomerSelector.tsx
+|____hooks
+| |____useVendors.ts
+| |____useSampleCheckouts.ts
+| |____useProjects.ts
+| |____useNotifications.ts
+| |____useJobs.ts
+| |____useCustomers.ts
+| |____usePhotos.ts
+| |____useWindowSize.ts
+| |____useQuotes.ts
+| |____useInstallers.ts
+| |____useProducts.ts
+| |____useChangeOrders.ts
+| |____useMaterialOrders.ts
 |____metadata.json
-|____database-backup-2025-11-21T15-07-42-773Z.dump
+|____migrations
+| |____1765151700000_add_mute_to_participants.cjs
+| |____1765151641142_init-schema.cjs
+| |____1765151641815_transform_messages_to_conversations.cjs
 |____utils
+| |____dateUtils.ts
 | |____pricingUtils.ts
 | |____cryptoUtils.ts
 | |____csvUtils.ts
 | |____changeFormatter.ts
 |____todo.txt
 |____package.json
-|____Dockerfile.prod
 |____schema.sql
 |____types.ts
-|____Dockerfile.server
 |____index.html
 |____tree.txt
 |____README.md
@@ -189,13 +211,13 @@
 | |____VendorList.tsx
 | |____Reports.tsx
 | |____Messages.tsx
+| |____KnowledgeBase.tsx
+| |____SetupWizard.tsx
 | |____InstallerList.tsx
 | |____Dashboard.tsx
 | |____VendorDetail.tsx
 | |____ImportData.tsx
 | |____ProjectDetail.tsx
 | |____QuoteDetail.tsx
-|____data
-| |____mockData.ts
 |____project.txt
-|____docker-compose.prod.yml
+|____docker-compose.dev.yml

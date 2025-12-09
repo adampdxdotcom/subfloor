@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, ProductVariant, PricingSettings, UNITS } from '../types';
-import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks } from 'lucide-react';
+import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks, Star } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useProductMutations } from '../hooks/useProducts'; 
 import { getPricingSettings } from '../services/preferenceService';
@@ -152,6 +152,20 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         };
         setProductsToPrint([filteredProduct]);
         setShowBatchPrint(true);
+    };
+
+    const handleSetPrimaryImage = async (variantImageUrl: string | null) => {
+        if (!variantImageUrl) return;
+        
+        try {
+            const formData = new FormData();
+            formData.append('defaultImageUrl', variantImageUrl);
+            await updateProduct(activeProduct.id, formData);
+            toast.success("Main product image updated!");
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to update main image.");
+        }
     };
 
     // --- VARIANT HANDLERS ---
@@ -472,6 +486,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                         </td>
 
                                                         <td className="p-3 flex justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+                                                            {v.imageUrl && (
+                                                                <button 
+                                                                    onClick={() => handleSetPrimaryImage(v.imageUrl)} 
+                                                                    className="text-text-secondary hover:text-yellow-500" 
+                                                                    title="Set as Main Image"
+                                                                >
+                                                                    <Star size={16} />
+                                                                </button>
+                                                            )}
                                                             <button onClick={() => handleEditVariant(v)} className="text-text-secondary hover:text-primary"><Edit2 size={16} /></button>
                                                             <button onClick={() => handleDeleteVariant(v.id)} className="text-text-secondary hover:text-red-500"><Trash2 size={16} /></button>
                                                         </td>

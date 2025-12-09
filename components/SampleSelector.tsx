@@ -19,9 +19,11 @@ export interface CheckoutItem {
 
 interface SampleSelectorProps {
   onItemsChange: (items: CheckoutItem[]) => void;
+  onRequestNewSample?: (searchTerm: string) => void;
+  externalSelectedProduct?: Product | null;
 }
 
-const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange }) => {
+const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onRequestNewSample, externalSelectedProduct }) => {
   const { products } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<CheckoutItem[]>([]);
@@ -58,6 +60,20 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange }) => {
   useEffect(() => {
     onItemsChange(selectedItems);
   }, [selectedItems, onItemsChange]);
+
+  // Handle external selection (e.g. after creating a new sample)
+  useEffect(() => {
+      if (externalSelectedProduct) {
+          setPendingProduct(externalSelectedProduct);
+          // Try to select master or first variant
+          if (externalSelectedProduct.variants.length > 0) {
+             const master = externalSelectedProduct.variants.find(v => v.isMaster);
+             setSelectedVariantId(master ? master.id : externalSelectedProduct.variants[0].id);
+          } else {
+             setSelectedVariantId(''); 
+          }
+      }
+  }, [externalSelectedProduct]);
 
   const handleProductClick = (product: Product) => {
       setPendingProduct(product);
@@ -192,6 +208,22 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange }) => {
                     </div>
                     
                     <div className="flex-1 overflow-y-auto space-y-2">
+                        {searchTerm.length > 1 && onRequestNewSample && (
+                             <div 
+                                onClick={() => onRequestNewSample(searchTerm)}
+                                className="p-3 mb-2 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-lg cursor-pointer flex justify-between items-center group animate-in fade-in"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <PlusCircle size={20} className="text-primary" />
+                                    <div>
+                                        <p className="font-bold text-primary">Create "{searchTerm}"</p>
+                                        <p className="text-xs text-text-secondary">Add this product to library</p>
+                                    </div>
+                                </div>
+                                <ChevronRight size={16} className="text-primary" />
+                            </div>
+                        )}
+
                         {searchTerm.length < 2 && (
                             <div className="text-center py-8 text-text-tertiary">
                                 <p>Type to search for products...</p>

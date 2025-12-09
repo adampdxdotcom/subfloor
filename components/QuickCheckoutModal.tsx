@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useData } from '../context/DataContext';
-import { Customer, Project } from '../types';
+import { Customer, Project, Product } from '../types';
 import { X, User, Briefcase, CheckCircle, Calendar, Printer } from 'lucide-react';
 import CustomerSelector from './CustomerSelector';
 import ProjectSelector from './ProjectSelector';
@@ -8,6 +8,7 @@ import SampleSelector, { CheckoutItem } from './SampleSelector'; // Updated
 import { toast } from 'react-hot-toast';
 import { PrintableCheckout } from './PrintableCheckout';
 import EditCustomerModal from './EditCustomerModal';
+import AddSampleInlineModal from './AddSampleInlineModal';
 
 const getTwoWeeksFromNowISO = () => {
     const date = new Date();
@@ -33,6 +34,11 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
   const [customerNameToCreate, setCustomerNameToCreate] = useState('');
 
+  // New Sample Creation State
+  const [isAddSampleModalOpen, setIsAddSampleModalOpen] = useState(false);
+  const [sampleSearchTerm, setSampleSearchTerm] = useState('');
+  const [autoSelectProduct, setAutoSelectProduct] = useState<Product | null>(null);
+
   const handleItemsChange = useCallback((newItems: CheckoutItem[]) => {
     setCheckoutItems(newItems);
   }, []);
@@ -46,6 +52,9 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
     setIsSubmitting(false);
     setIsAddCustomerModalOpen(false);
     setCustomerNameToCreate('');
+    setIsAddSampleModalOpen(false);
+    setSampleSearchTerm('');
+    setAutoSelectProduct(null);
     onClose();
   };
   
@@ -58,6 +67,16 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   const handleRequestNewCustomer = (name: string) => {
     setCustomerNameToCreate(name);
     setIsAddCustomerModalOpen(true);
+  };
+
+  const handleRequestNewSample = (term: string) => {
+    setSampleSearchTerm(term);
+    setIsAddSampleModalOpen(true);
+  };
+
+  const handleSampleCreated = (newSample: any) => {
+     setAutoSelectProduct(newSample); // Auto-select the new product in the picker
+     setIsAddSampleModalOpen(false);
   };
 
   const handleFinishCheckout = async () => {
@@ -196,7 +215,11 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                   </div>
                 </div>
                 <p className="text-text-secondary mb-4">Search or scan samples to add to the checkout list.</p>
-                <SampleSelector onItemsChange={handleItemsChange} />
+                <SampleSelector 
+                    onItemsChange={handleItemsChange} 
+                    onRequestNewSample={handleRequestNewSample}
+                    externalSelectedProduct={autoSelectProduct}
+                />
               </section>
             )}
           </fieldset>
@@ -240,6 +263,13 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
         onClose={() => setIsAddCustomerModalOpen(false)}
         customer={null}
         initialData={{ fullName: customerNameToCreate }}
+      />
+
+      <AddSampleInlineModal
+        isOpen={isAddSampleModalOpen}
+        onClose={() => setIsAddSampleModalOpen(false)}
+        onSampleCreated={handleSampleCreated}
+        initialSearchTerm={sampleSearchTerm}
       />
     </>
   );

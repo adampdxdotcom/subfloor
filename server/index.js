@@ -191,9 +191,17 @@ app.use(cors({
              allowed.push(...process.env.ALLOWED_DOMAINS.split(",").map(d => d.trim()));
         }
 
-        if (!origin || allowed.includes(origin)) {
+        // Normalize (remove trailing slashes) for comparison
+        const normalize = (url) => url ? url.replace(/\/$/, '') : '';
+        const incoming = normalize(origin);
+        const allowedNormalized = allowed.map(normalize);
+
+        if (!origin || allowedNormalized.includes(incoming)) {
             callback(null, true);
         } else {
+            // Log the blockage to help diagnose remote access issues
+            console.warn(`⚠️ CORS BLOCKED: Origin '${origin}' is not in the allowed list:`, allowedNormalized);
+            console.warn(`   -> Check 'System Settings' > 'Public URL' or add to ALLOWED_DOMAINS env var.`);
             callback(new Error('Not allowed by CORS'));
         }
     },
