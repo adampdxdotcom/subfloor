@@ -80,6 +80,11 @@ const BrandingListener = () => {
           
       document.getElementsByTagName('head')[0].appendChild(link);
     }
+    
+    // 1.5 Handle Page Title
+    if (systemBranding?.companyName) {
+        document.title = `Subfloor for ${systemBranding.companyName}`;
+    }
 
     // 2. Handle Colors
     const root = document.documentElement;
