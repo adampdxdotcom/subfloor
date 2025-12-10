@@ -217,7 +217,11 @@ const __dirname = path.dirname(__filename);
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '../uploads/branding');
+        // FIX: Enforce absolute path in production, use relative path in development
+        const dir = process.env.NODE_ENV === 'production' 
+            ? '/app/server/uploads/branding'
+            : path.join(__dirname, '../uploads/branding');
+            
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         cb(null, dir);
     },
@@ -251,7 +255,8 @@ router.post('/system/branding', verifySession(), verifyRole('Admin'), upload.fie
         if (req.body.backgroundColor) updates.backgroundColor = req.body.backgroundColor;
         if (req.body.surfaceColor) updates.surfaceColor = req.body.surfaceColor;
         if (req.body.textPrimaryColor) updates.textPrimaryColor = req.body.textPrimaryColor;
-        // THIS IS THE MISSING LINE:
+        
+        // FIX: Add missing textSecondaryColor
         if (req.body.textSecondaryColor) updates.textSecondaryColor = req.body.textSecondaryColor;
 
         console.log("Saving Branding Updates:", updates);
