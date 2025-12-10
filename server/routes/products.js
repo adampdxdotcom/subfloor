@@ -42,7 +42,7 @@ const upload = multer({ storage });
 //  PUBLIC / SHARED ROUTES
 // =================================================================
 
-// GET /api/products - Fetch all products
+// GET /api/products - Fetch all ACTIVE products
 router.get('/', verifySession(), async (req, res) => {
     try {
         const query = `
@@ -80,7 +80,6 @@ router.get('/', verifySession(), async (req, res) => {
             FROM products p
             LEFT JOIN vendors v ON p.manufacturer_id = v.id
             LEFT JOIN product_variants pv ON p.id = pv.product_id
-            WHERE p.is_discontinued = FALSE
             GROUP BY p.id, v.name
             ORDER BY p.name ASC;
         `;
@@ -99,15 +98,52 @@ router.get('/', verifySession(), async (req, res) => {
 // GET /api/products/discontinued
 router.get('/discontinued', verifySession(), async (req, res) => {
     try {
+        // This endpoint should return FULL variant data for the ProductDetailModal when viewing an archived product
         const query = `
-            SELECT p.id, p.name, p.product_type, v.name as manufacturer_name
+            SELECT 
+                p.id, p.manufacturer_id, p.supplier_id, p.name, p.product_type, 
+                p.description, p.product_line_url, 
+                p.default_image_url as "defaultImageUrl",
+                p.default_thumbnail_url as "defaultThumbnailUrl",
+                p.is_discontinued as "isDiscontinued",
+                v.name as manufacturer_name,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', pv.id,
+                            'productId', pv.product_id,
+                            'name', pv.name,
+                            'size', pv.size,
+                            'finish', pv.finish,
+                            'style', pv.style,
+                            'sku', pv.sku,
+                            'unitCost', pv.unit_cost,
+                            'retailPrice', pv.retail_price,
+                            'pricingUnit', pv.pricing_unit,
+                            'uom', pv.uom,
+                            'cartonSize', pv.carton_size,
+                            'imageUrl', pv.image_url,
+                            'thumbnailUrl', pv.thumbnail_url,
+                            'activeCheckouts', (SELECT count(*) FROM sample_checkouts sc WHERE sc.variant_id = pv.id AND sc.actual_return_date IS NULL)::int,
+                            'isMaster', pv.is_master,
+                            'hasSample', pv.has_sample
+                        ) ORDER BY pv.name, pv.size
+                    ) FILTER (WHERE pv.id IS NOT NULL), 
+                    '[]'
+                ) as variants
             FROM products p
             LEFT JOIN vendors v ON p.manufacturer_id = v.id
+            LEFT JOIN product_variants pv ON p.id = pv.product_id
             WHERE p.is_discontinued = TRUE
+            GROUP BY p.id, v.name
             ORDER BY p.name ASC;
         `;
         const result = await pool.query(query);
-        res.json(toCamelCase(result.rows));
+        const products = result.rows.map(row => ({
+            ...toCamelCase(row),
+            variants: row.variants || [] 
+        }));
+        res.json(products);
     } catch (err) {
         console.error('Error fetching discontinued products:', err.message);
         res.status(500).json({ error: 'Internal server error' });
@@ -400,7 +436,7 @@ router.patch('/:id', verifySession(), verifyRole(['Admin', 'User']), upload.sing
         productLineUrl: 'product_line_url',
         defaultImageUrl: 'default_image_url',
         defaultThumbnailUrl: 'default_thumbnail_url', // NEW MAP
-        isDiscontinued: 'is_discontinued'
+        isDiscontinued: 'is_discontinued' // Added isDiscontinued
     };
 
     const fields = [];

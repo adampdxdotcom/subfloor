@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, ProductVariant, PricingSettings, UNITS } from '../types';
-import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks, Star } from 'lucide-react';
+import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks, Star, Archive, RotateCcw } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useProductMutations } from '../hooks/useProducts'; 
 import { getPricingSettings } from '../services/preferenceService';
@@ -97,6 +97,26 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     const handleDeleteParent = async () => {
         if (confirm(`Delete "${activeProduct.name}" and ALL its variants?`)) {
             try { await deleteProduct(activeProduct.id); onClose(); } catch (e) { console.error(e); }
+        }
+    };
+    
+    // --- NEW HANDLER FOR DISCONTINUE/RESTORE ---
+    const handleToggleDiscontinued = async () => {
+        const newStatus = !activeProduct.isDiscontinued;
+        const action = newStatus ? "Discontinue" : "Restore";
+        
+        if (confirm(`Are you sure you want to ${action} this product line?`)) {
+            try {
+                const formData = new FormData();
+                formData.append('isDiscontinued', String(newStatus));
+                await updateProduct(activeProduct.id, formData);
+                toast.success(`Product ${newStatus ? 'discontinued' : 'restored'}.`);
+                // If discontinuing, close the modal as it might disappear from the main list view
+                if (newStatus) onClose(); 
+            } catch (e) { 
+                console.error(e); 
+                toast.error(`Failed to ${action.toLowerCase()} product.`); 
+            }
         }
     };
 
@@ -308,9 +328,27 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 <div className="p-4 border-b border-border flex justify-between items-center bg-background">
                     <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
                         {isEditingParent ? 'Edit Product Line' : activeProduct.name}
-                        {!isEditingParent && activeProduct.isDiscontinued && <span className="text-xs bg-red-900/50 text-red-200 px-2 py-0.5 rounded">DISCONTINUED</span>}
+                        {/* APPLYING THE FIX: Changed from bg-red-900/50 to bg-secondary */}
+                        {!isEditingParent && activeProduct.isDiscontinued && <span className="text-xs font-bold bg-secondary text-on-secondary px-2 py-0.5 rounded">DISCONTINUED</span>}
                     </h2>
                     <div className="flex items-center gap-2">
+                        {/* Toggle Discontinued Status */}
+                        <button 
+                            onClick={handleToggleDiscontinued}
+                            className={`p-2 rounded border transition-colors ${
+                                activeProduct.isDiscontinued 
+                                ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-900/50' 
+                                : 'bg-surface hover:bg-red-900/20 text-text-secondary hover:text-red-400 border-border'
+                            }`}
+                            title={activeProduct.isDiscontinued ? "Restore to Active Library" : "Archive / Discontinue"}
+                        >
+                            {activeProduct.isDiscontinued ? <RotateCcw size={20} /> : <Archive size={20} />}
+                        </button>
+
+                        <button onClick={handleDeleteParent} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-red-500" title="Permanently Delete">
+                            <Trash2 size={24} />
+                        </button>
+                        
                         <button onClick={onClose} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-text-primary"><X size={24} /></button>
                     </div>
                 </div>
@@ -419,16 +457,16 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                                             </select>
                                                         </td>
-
+                                                        
                                                         <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded text-right" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
-
+                                                        
                                                         {/* PRICING UNIT (Reordered) */}
                                                         <td className="p-2">
                                                             <select className="w-full p-1 border border-primary rounded text-xs bg-white" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
                                                                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                                             </select>
                                                         </td>
-
+                                                        
                                                         <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded text-right" value={newVariant.retailPrice || ''} onChange={e => setNewVariant({...newVariant, retailPrice: Number(e.target.value)})} /></td>
                                                         <td className="p-2 text-center"><input type="checkbox" checked={newVariant.hasSample ?? v.hasSample} onChange={e => setNewVariant({...newVariant, hasSample: e.target.checked})} /></td>
                                                         <td className="p-2 text-center text-xs font-bold text-primary">EDITING</td>
@@ -446,7 +484,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                                 <Copy size={16} />
                                                             </button>
                                                         </td>
-
+                                                        
                                                         <td className="p-2 flex justify-center items-center gap-2">
                                                             <button onClick={handleSaveVariant} className="p-1.5 rounded bg-green-600 text-white"><Save size={16} /></button>
                                                             <button onClick={handleCancelEdit} className="p-1 text-red-500"><X size={16} /></button>
@@ -484,7 +522,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                                 <button onClick={() => handlePrintQr(v.id, 'variant', activeProduct.name, v)} className="text-text-secondary hover:text-primary"><QrCode size={18} /></button>
                                                             )}
                                                         </td>
-
+                                                        
                                                         <td className="p-3 flex justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
                                                             {v.imageUrl && (
                                                                 <button 

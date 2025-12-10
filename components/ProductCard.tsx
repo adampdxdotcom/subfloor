@@ -93,7 +93,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
                 <div className="flex-grow" />
                 
                 {showDiscontinuedStyle && (
-                    <div className="mb-2 text-center bg-red-900/30 text-red-400 text-xs font-bold py-1 rounded border border-red-900/50 uppercase tracking-wider">Discontinued</div>
+                    <div className="mb-2 text-center bg-secondary text-on-secondary text-xs font-bold py-1 rounded border border-border uppercase tracking-wider">Discontinued</div>
                 )}
                 
                 <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
