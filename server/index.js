@@ -216,6 +216,12 @@ app.options('*', (req, res) => {
 
 app.use(express.json()); 
 
+// --- DEBUG PATHS ---
+console.log("📂 STATIC CONFIG:");
+console.log("   -> Serving uploads from:", uploadsDir);
+console.log("   -> Directory exists?", fs.existsSync(uploadsDir));
+// -------------------
+
 app.use('/uploads', express.static(uploadsDir));
 app.use(middleware());   
 

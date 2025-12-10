@@ -14,7 +14,17 @@ const router = express.Router();
 // --- IMAGE UPLOAD CONFIG ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadRoot = path.join(__dirname, '../uploads');
+// FIX: In production, align with docker volume and index.js static path
+const uploadRoot = process.env.NODE_ENV === 'production' 
+    ? '/app/server/uploads' 
+    : path.join(__dirname, '../uploads');
+
+// --- DEBUG PATHS ---
+console.log("📂 UPLOAD CONFIG:");
+console.log("   -> Saving files to:", uploadRoot);
+console.log("   -> Directory exists?", fs.existsSync(uploadRoot));
+// -------------------
+
 // const productRoot = path.join(uploadRoot, 'products'); // No longer needed here
 
 // Multer saves to root 'uploads' temporarily. We process and move them later.
@@ -170,6 +180,10 @@ router.post('/', verifySession(), verifyRole(['Admin', 'User']), upload.single('
     const userId = req.session.getUserId();
     
     try {
+        console.log("📸 CREATE PRODUCT REQUEST");
+        console.log("   -> Has File?", !!req.file);
+        if (req.file) console.log("   -> Temp Path:", req.file.path);
+        
         await client.query('BEGIN');
 
         const { 
@@ -183,6 +197,7 @@ router.post('/', verifySession(), verifyRole(['Admin', 'User']), upload.single('
             imageResults = await processImage(req.file, 'products', 'prod');
         } else if (req.body.defaultImageUrl && req.body.defaultImageUrl.startsWith('http')) {
             imageResults = await downloadAndProcessImage(req.body.defaultImageUrl, 'products', 'prod');
+            if (!imageResults.imageUrl) throw new Error("Failed to download remote image (Blocked). Please upload file manually.");
         }
 
         const insertQuery = `
@@ -218,7 +233,7 @@ router.post('/', verifySession(), verifyRole(['Admin', 'User']), upload.single('
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error creating product:', err.message);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: err.message || 'Internal server error' });
     } finally {
         client.release();
     }
@@ -230,6 +245,10 @@ router.post('/:id/variants', verifySession(), verifyRole(['Admin', 'User']), upl
     const userId = req.session.getUserId();
 
     try {
+        console.log("📸 CREATE VARIANT REQUEST");
+        console.log("   -> Has File?", !!req.file);
+        if (req.file) console.log("   -> Temp Path:", req.file.path);
+
         const { 
             name, size, finish, style, sku, 
             unitCost, retailPrice, pricingUnit, uom, cartonSize, imageUrl: bodyImageUrl, hasSample 
@@ -246,6 +265,7 @@ router.post('/:id/variants', verifySession(), verifyRole(['Admin', 'User']), upl
             imageResults = await processImage(req.file, 'products', 'var');
         } else if (bodyImageUrl && bodyImageUrl.startsWith('http')) {
             imageResults = await downloadAndProcessImage(bodyImageUrl, 'products', 'var');
+            if (!imageResults.imageUrl) throw new Error("Failed to download remote image (Blocked). Please upload file manually.");
         }
 
         const safeCartonSize = (cartonSize === '' || cartonSize === 'null' || isNaN(Number(cartonSize))) ? null : cartonSize;
@@ -272,7 +292,7 @@ router.post('/:id/variants', verifySession(), verifyRole(['Admin', 'User']), upl
 
     } catch (err) {
         console.error('Error creating variant:', err.message);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: err.message || 'Internal server error' });
     }
 });
 
@@ -300,11 +320,13 @@ router.post('/:id/variants/batch', verifySession(), verifyRole(['Admin', 'User']
         for (const v of variants) {
             const safeCartonSize = (v.cartonSize === '' || isNaN(Number(v.cartonSize))) ? null : v.cartonSize;
             
-            // Note: Batch imports might not pass images, so we skip processing here.
             // If imageUrl is present, the frontend assumes we handle it later or it's a temp external URL.
-            // Since we don't have downloadAndProcessImage for batch, we use the raw URL if provided.
-            const thumbnailUrl = v.imageUrl ? await downloadAndProcessImage(v.imageUrl, 'products', 'var', { skipOriginal: true }) : null;
-
+            let thumbnailUrl = null;
+            if (v.imageUrl) {
+                 const processed = await downloadAndProcessImage(v.imageUrl, 'products', 'var');
+                 thumbnailUrl = processed.thumbnailUrl; // Fixes the [object Object] bug
+            }
+ 
 
             const result = await client.query(query, [
                 productId, v.name, v.size, v.finish, v.style, v.sku,
@@ -320,7 +342,7 @@ router.post('/:id/variants/batch', verifySession(), verifyRole(['Admin', 'User']
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Batch error:', err.message);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: err.message || 'Internal server error' });
     } finally {
         client.release();
     }
@@ -331,6 +353,10 @@ router.patch('/:id', verifySession(), verifyRole(['Admin', 'User']), upload.sing
     const { id } = req.params;
     const userId = req.session.getUserId();
     const updates = { ...req.body };
+
+    console.log("📸 UPDATE PRODUCT REQUEST:", id);
+    console.log("   -> Has File?", !!req.file);
+    if (req.file) console.log("   -> Temp Path:", req.file.path);
 
     // Handle Master Board
     if (updates.hasMasterBoard !== undefined) {
@@ -354,9 +380,10 @@ router.patch('/:id', verifySession(), verifyRole(['Admin', 'User']), upload.sing
         updates.default_thumbnail_url = thumbnailUrl;
     } else if (updates.defaultImageUrl) {
         if (updates.defaultImageUrl.startsWith('http') && !updates.defaultImageUrl.startsWith('/uploads')) {
-            const { imageUrl, thumbnailUrl } = await downloadAndProcessImage(updates.defaultImageUrl, 'products', 'prod');
-            updates.default_image_url = imageUrl;
-            updates.default_thumbnail_url = thumbnailUrl;
+            const processed = await downloadAndProcessImage(updates.defaultImageUrl, 'products', 'prod');
+            if (!processed.imageUrl) throw new Error("Failed to download remote image (Blocked). Please upload file manually.");
+            updates.default_image_url = processed.imageUrl;
+            updates.default_thumbnail_url = processed.thumbnailUrl;
         } else {
              // It's a local path or explicit set, do nothing special but mapping
              updates.default_image_url = updates.defaultImageUrl;
@@ -399,7 +426,7 @@ router.patch('/:id', verifySession(), verifyRole(['Admin', 'User']), upload.sing
         res.json(toCamelCase(result.rows[0]));
     } catch (err) {
         console.error('Error updating product:', err.message);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: err.message || 'Internal server error' });
     }
 });
 
@@ -475,7 +502,7 @@ router.patch('/variants/batch-update', verifySession(), verifyRole(['Admin', 'Us
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Batch update error:', err.message);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: err.message || 'Internal server error' });
     } finally {
         client.release();
     }
@@ -488,6 +515,10 @@ router.patch('/variants/:id', verifySession(), verifyRole(['Admin', 'User']), up
     const updates = { ...req.body };
     delete updates.image;
 
+    console.log("📸 UPDATE VARIANT REQUEST:", id);
+    console.log("   -> Has File?", !!req.file);
+    if (req.file) console.log("   -> Temp Path:", req.file.path);
+
     // Process New Image
     if (req.file) {
         const { imageUrl, thumbnailUrl } = await processImage(req.file, 'products', 'var');
@@ -495,9 +526,10 @@ router.patch('/variants/:id', verifySession(), verifyRole(['Admin', 'User']), up
         updates.thumbnail_url = thumbnailUrl;
     } else if (updates.imageUrl) {
         if (updates.imageUrl.startsWith('http') && !updates.imageUrl.startsWith('/uploads')) {
-            const { imageUrl, thumbnailUrl } = await downloadAndProcessImage(updates.imageUrl, 'products', 'var');
-            updates.image_url = imageUrl;
-            updates.thumbnail_url = thumbnailUrl;
+            const processed = await downloadAndProcessImage(updates.imageUrl, 'products', 'var');
+            if (!processed.imageUrl) throw new Error("Failed to download remote image (Blocked). Please upload file manually.");
+            updates.image_url = processed.imageUrl;
+            updates.thumbnail_url = processed.thumbnailUrl;
         } else {
             updates.image_url = updates.imageUrl;
         }
@@ -542,7 +574,7 @@ router.patch('/variants/:id', verifySession(), verifyRole(['Admin', 'User']), up
         res.json(toCamelCase(result.rows[0]));
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: err.message || 'Internal server error' });
     }
 });
 
