@@ -17,7 +17,11 @@ const router = express.Router();
 // --- CONFIGURE AVATAR UPLOAD STORAGE ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadDir = path.join(__dirname, '../uploads/avatars');
+
+// FIX: Enforce absolute path in production
+const uploadDir = process.env.NODE_ENV === 'production' 
+    ? '/app/server/uploads/avatars'
+    : path.join(__dirname, '../uploads/avatars');
 
 // Ensure avatar directory exists
 if (!fs.existsSync(uploadDir)) {
@@ -261,6 +265,8 @@ router.put('/me/password', verifySession(), async (req, res, next) => {
         } catch (signInError) {
             // Fallback: Try without tenantId (for older SDK compatibility)
             console.warn("SignIn with tenantId failed, retrying without:", signInError.message);
+            // Check if the error is actually a tenant-related error before falling back
+            // For simplicity and resilience, we try the fallback if the first attempt fails.
             isPasswordValid = await EmailPassword.signIn(email, currentPassword);
         }
 

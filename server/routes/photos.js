@@ -11,7 +11,11 @@ const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadRoot = path.join(__dirname, '../uploads');
+
+// FIX: Enforce absolute path in production
+const uploadRoot = process.env.NODE_ENV === 'production' 
+    ? '/app/server/uploads' 
+    : path.join(__dirname, '../uploads');
 
 // Multer Config (Temp Storage)
 const storage = multer.diskStorage({
