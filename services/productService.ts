@@ -73,6 +73,21 @@ export const updateProduct = async (id: string, formData: FormData): Promise<Pro
 };
 
 /**
+ * Duplicates a product line and its variants.
+ */
+export const duplicateProduct = async (id: string): Promise<Product> => {
+    const response = await fetch(`${API_URL}/${id}/duplicate`, {
+        method: 'POST',
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to duplicate product' }));
+        throw new Error(error.error || 'Failed to duplicate product');
+    }
+    return response.json();
+};
+
+/**
  * Deletes a Parent Product (and cascades to all variants).
  */
 export const deleteProduct = async (id: string): Promise<void> => {

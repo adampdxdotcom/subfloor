@@ -24,6 +24,10 @@ export const useProductMutations = () => {
                 productService.updateProduct(id, formData),
             onSuccess: invalidate,
         }),
+        duplicateProduct: useMutation({
+            mutationFn: productService.duplicateProduct,
+            onSuccess: invalidate,
+        }),
         deleteProduct: useMutation({
             mutationFn: productService.deleteProduct,
             onSuccess: invalidate,

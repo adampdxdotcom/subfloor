@@ -9,7 +9,7 @@ interface VariantImageModalProps {
 }
 
 const VariantImageModal: React.FC<VariantImageModalProps> = ({ onClose, onSave, currentPreview }) => {
-    const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
+    // Removed: const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
     const [file, setFile] = useState<File | null>(null);
     const [url, setUrl] = useState<string>('');
     const [preview, setPreview] = useState<string | null>(currentPreview || null);
@@ -52,21 +52,7 @@ const VariantImageModal: React.FC<VariantImageModalProps> = ({ onClose, onSave, 
                     </button>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex border-b border-border">
-                    <button 
-                        onClick={() => setActiveTab('upload')}
-                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 ${activeTab === 'upload' ? 'text-primary border-b-2 border-primary bg-primary/5' : 'text-text-secondary hover:bg-surface'}`}
-                    >
-                        <Upload size={16} /> Upload File
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('url')}
-                        className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 ${activeTab === 'url' ? 'text-primary border-b-2 border-primary bg-primary/5' : 'text-text-secondary hover:bg-surface'}`}
-                    >
-                        <Link size={16} /> Image URL
-                    </button>
-                </div>
+                {/* Tabs removed */}
 
                 {/* Body */}
                 <div className="p-6">
@@ -81,38 +67,42 @@ const VariantImageModal: React.FC<VariantImageModalProps> = ({ onClose, onSave, 
                         </div>
                     </div>
 
-                    {activeTab === 'upload' ? (
-                        <div className="space-y-4">
-                            <input 
-                                type="file" 
-                                ref={fileInputRef}
-                                accept="image/*" 
-                                onChange={handleFileChange} 
-                                className="hidden" 
-                            />
-                            <button 
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-full py-8 border-2 border-dashed border-border hover:border-primary rounded-lg flex flex-col items-center justify-center text-text-secondary hover:text-primary hover:bg-surface transition-colors"
-                            >
-                                <Upload size={32} className="mb-2 opacity-50" />
-                                <span className="text-sm font-medium">{file ? "Change File" : "Click to Upload Image"}</span>
-                                {file && <span className="text-xs mt-1 text-primary">{file.name}</span>}
-                            </button>
+                    <div className="space-y-4">
+                        {/* 1. Upload Section */}
+                        <input 
+                            type="file" 
+                            ref={fileInputRef}
+                            accept="image/*" 
+                            onChange={handleFileChange} 
+                            className="hidden" 
+                        />
+                        <button 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full py-4 border border-dashed border-border hover:border-primary rounded-lg flex items-center justify-center gap-3 text-text-secondary hover:text-primary hover:bg-surface transition-colors"
+                        >
+                            <Upload size={20} />
+                            <div className="text-left">
+                                <p className="text-sm font-medium">{file ? "Change Selected File" : "Click to Upload File"}</p>
+                                {file && <p className="text-xs text-primary">{file.name}</p>}
+                            </div>
+                        </button>
+
+                        {/* 2. Divider */}
+                        <div className="relative flex items-center py-2">
+                            <div className="flex-grow border-t border-border"></div>
+                            <span className="flex-shrink-0 mx-4 text-xs text-text-tertiary uppercase">OR Paste URL</span>
+                            <div className="flex-grow border-t border-border"></div>
                         </div>
-                    ) : (
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-secondary">Image Address (URL)</label>
-                            <input 
-                                type="text" 
-                                placeholder="https://example.com/image.jpg" 
-                                value={url}
-                                onChange={e => handleUrlChange(e.target.value)}
-                                className="w-full p-2 bg-background border border-border rounded focus:border-primary focus:outline-none text-text-primary"
-                                autoFocus
-                            />
-                            <p className="text-xs text-text-tertiary">Paste a direct link to an image file.</p>
-                        </div>
-                    )}
+
+                        {/* 3. URL Input */}
+                        <input 
+                            type="text" 
+                            placeholder="https://example.com/image.jpg" 
+                            value={url}
+                            onChange={e => handleUrlChange(e.target.value)}
+                            className="w-full p-2 bg-background border border-border rounded focus:border-primary focus:outline-none text-text-primary text-sm"
+                        />
+                    </div>
                 </div>
 
                 {/* Footer */}
@@ -123,7 +113,7 @@ const VariantImageModal: React.FC<VariantImageModalProps> = ({ onClose, onSave, 
                     <button 
                         onClick={handleSave} 
                         disabled={!file && !url}
-                        className="px-6 py-2 bg-primary text-text-on-primary rounded text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-6 py-2 bg-primary text-on-primary rounded text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         <Check size={16} /> Apply Image
                     </button>

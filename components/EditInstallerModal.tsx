@@ -8,6 +8,7 @@ interface EditInstallerModalProps {
   isOpen: boolean;
   onClose: () => void;
   installer: Installer | null;
+  initialData?: Partial<Installer>; // NEW PROP
 }
 
 const initialFormState = {
@@ -17,9 +18,8 @@ const initialFormState = {
   color: '#ffffff' // Default to white
 };
 
-const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose, installer }) => {
-  // deleteInstaller will be added to DataContext and types.ts shortly
-  const { updateInstaller, deleteInstaller } = useData();
+const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose, installer, initialData }) => {
+  const { addInstaller, updateInstaller, deleteInstaller } = useData();
   const [formData, setFormData] = useState(initialFormState);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -32,10 +32,13 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
         contactPhone: installer.contactPhone || '',
         color: installer.color || '#ffffff',
       });
-      setIsSaving(false);
-      setIsDeleting(false);
+    } else if (isOpen && !installer) {
+      // Reset for Add Mode
+      setFormData({ ...initialFormState, ...initialData }); // MERGE INITIAL DATA
     }
-  }, [isOpen, installer]);
+    setIsSaving(false);
+    setIsDeleting(false);
+  }, [isOpen, installer, initialData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -44,14 +47,20 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!installer) return;
 
     setIsSaving(true);
     try {
-      await updateInstaller({ ...installer, ...formData });
+      if (installer) {
+          await updateInstaller({ ...installer, ...formData });
+          toast.success("Installer updated.");
+      } else {
+          await addInstaller(formData);
+          toast.success("Installer created.");
+      }
       onClose();
     } catch (error) {
       console.error("Failed to submit installer update:", error);
+      toast.error("Failed to save installer.");
     } finally {
       setIsSaving(false);
     }
@@ -82,7 +91,7 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md border border-border">
-        <h2 className="text-2xl font-bold mb-6 text-text-primary">Edit Installer</h2>
+        <h2 className="text-2xl font-bold mb-6 text-text-primary">{installer ? 'Edit Installer' : 'Add Installer'}</h2>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <input 
@@ -122,15 +131,17 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
             </div>
           </div>
           <div className="flex items-center justify-end space-x-4 mt-6">
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mr-auto"
-              disabled={isSaving || isDeleting}
-            >
-              <Trash2 size={16} />
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </button>
+            {installer && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mr-auto"
+                  disabled={isSaving || isDeleting}
+                >
+                  <Trash2 size={16} />
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+            )}
             <button 
                 type="button" 
                 onClick={onClose} 

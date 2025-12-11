@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, ProductVariant, PricingSettings, UNITS } from '../types';
-import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks, Star, Archive, RotateCcw } from 'lucide-react';
+import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks, Star, Archive, RotateCcw, CopyPlus } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useProductMutations } from '../hooks/useProducts'; 
 import { getPricingSettings } from '../services/preferenceService';
@@ -23,7 +23,7 @@ interface ProductDetailModalProps {
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose, product }) => {
     const { products, vendors, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant } = useData();
-    const { batchUpdateVariants } = useProductMutations();
+    const { batchUpdateVariants, duplicateProduct } = useProductMutations();
 
     const activeProduct = products.find(p => p.id === product.id) || product;
 
@@ -119,6 +119,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
             }
         }
     };
+    
+    const handleDuplicate = async () => {
+        if (confirm(`Create a copy of "${activeProduct.name}"?`)) {
+            try {
+                await duplicateProduct.mutateAsync(activeProduct.id);
+                toast.success("Product line duplicated.");
+                onClose();
+            } catch (e) {
+                console.error(e);
+                toast.error("Failed to duplicate product.");
+            }
+        }
+    };
 
     // --- SELECTION HELPERS ---
     const toggleRowSelection = (id: string) => {
@@ -193,6 +206,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         const tempId = 'NEW_' + Date.now();
         setEditingVariantId(tempId);
         setIsSelectionMode(false); 
+        setSelectedRowIds(new Set()); // NEW: Clear selection on Add
         // Default UOM to SF, pricingUnit to SF
         setNewVariant({ 
             name: '', size: '', sku: '', 
@@ -214,12 +228,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         const initialPreview = resolveImageUrl(variant.imageUrl);
         setPendingImage({ file: null, url: null, preview: initialPreview || null });
         setIsSelectionMode(false); 
+        setSelectedRowIds(new Set()); // NEW: Clear selection on Edit
     };
 
     const handleCancelEdit = () => {
         setEditingVariantId(null);
         setNewVariant({});
         setPendingImage({ file: null, url: null, preview: null });
+        setSelectedRowIds(new Set()); // NEW: Clear selection on Cancel
     };
     
     const handleDeleteVariant = async (variantId: string) => {
@@ -288,6 +304,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 toast.success("Variant created.");
             }
             handleCancelEdit();
+            setSelectedRowIds(new Set()); // NEW: Double ensure clear on Save
         } catch (e: any) { console.error(e); toast.error(e.message || "Failed to save."); }
     };
 
@@ -332,22 +349,32 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                         {!isEditingParent && activeProduct.isDiscontinued && <span className="text-xs font-bold bg-secondary text-on-secondary px-2 py-0.5 rounded">DISCONTINUED</span>}
                     </h2>
                     <div className="flex items-center gap-2">
-                        {/* Toggle Discontinued Status */}
-                        <button 
-                            onClick={handleToggleDiscontinued}
-                            className={`p-2 rounded border transition-colors ${
-                                activeProduct.isDiscontinued 
-                                ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-900/50' 
-                                : 'bg-surface hover:bg-red-900/20 text-text-secondary hover:text-red-400 border-border'
-                            }`}
-                            title={activeProduct.isDiscontinued ? "Restore to Active Library" : "Archive / Discontinue"}
-                        >
-                            {activeProduct.isDiscontinued ? <RotateCcw size={20} /> : <Archive size={20} />}
-                        </button>
+                        {isEditingParent ? (
+                            <>
+                                {/* Toggle Discontinued Status */}
+                                <button 
+                                    onClick={handleToggleDiscontinued}
+                                    className={`p-2 rounded border transition-colors ${
+                                        activeProduct.isDiscontinued 
+                                        ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-900/50' 
+                                        : 'bg-surface hover:bg-red-900/20 text-text-secondary hover:text-red-400 border-border'
+                                    }`}
+                                    title={activeProduct.isDiscontinued ? "Restore to Active Library" : "Archive / Discontinue"}
+                                >
+                                    {activeProduct.isDiscontinued ? <RotateCcw size={20} /> : <Archive size={20} />}
+                                </button>
 
-                        <button onClick={handleDeleteParent} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-red-500" title="Permanently Delete">
-                            <Trash2 size={24} />
-                        </button>
+                                <button onClick={handleDuplicate} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-primary" title="Duplicate Product Line">
+                                    <CopyPlus size={20} />
+                                </button>
+
+                                <button onClick={handleDeleteParent} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-red-500" title="Permanently Delete">
+                                    <Trash2 size={24} />
+                                </button>
+                            </>
+                        ) : (
+                            <button onClick={() => setIsEditingParent(true)} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-primary"><Edit2 size={24} /></button>
+                        )}
                         
                         <button onClick={onClose} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-text-primary"><X size={24} /></button>
                     </div>
@@ -375,7 +402,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                         <div className="flex gap-2">
                                             {/* PARENT PRINT BUTTON */}
                                             <button onClick={() => handlePrintQr(activeProduct.id, 'product', activeProduct.name)} className="p-2 bg-surface hover:bg-background border border-border rounded text-text-secondary" title="Print Line Label"><QrCode size={16} /></button>
-                                            <button onClick={() => setIsEditingParent(true)} className="p-2 bg-surface hover:bg-background border border-border rounded text-text-secondary"><Edit2 size={16} /></button>
                                         </div>
                                     </div>
                                     <p className="text-text-primary mt-1 text-sm">{activeProduct.description || 'No description provided.'}</p>

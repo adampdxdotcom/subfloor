@@ -80,6 +80,7 @@ router.get('/', verifySession(), async (req, res) => {
             FROM products p
             LEFT JOIN vendors v ON p.manufacturer_id = v.id
             LEFT JOIN product_variants pv ON p.id = pv.product_id
+            WHERE p.is_discontinued = FALSE
             GROUP BY p.id, v.name
             ORDER BY p.name ASC;
         `;
@@ -611,6 +612,53 @@ router.patch('/variants/:id', verifySession(), verifyRole(['Admin', 'User']), up
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: err.message || 'Internal server error' });
+    }
+});
+
+// POST /api/products/:id/duplicate - Duplicate a product line
+router.post('/:id/duplicate', verifySession(), verifyRole(['Admin', 'User']), async (req, res) => {
+    const { id } = req.params;
+    const userId = req.session.getUserId();
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Fetch Original Product
+        const productRes = await client.query('SELECT * FROM products WHERE id = $1', [id]);
+        if (productRes.rows.length === 0) return res.status(404).json({ error: 'Product not found' });
+        const original = productRes.rows[0];
+
+        // 2. Insert New Product (Append ' (Copy)' to name)
+        const newName = `${original.name} (Copy)`;
+        const insertProduct = `
+            INSERT INTO products (manufacturer_id, supplier_id, name, product_type, description, product_line_url, default_image_url, default_thumbnail_url)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *;
+        `;
+        const newProductRes = await client.query(insertProduct, [
+            original.manufacturer_id, original.supplier_id, newName, original.product_type, 
+            original.description, original.product_line_url, original.default_image_url, original.default_thumbnail_url
+        ]);
+        const newProduct = newProductRes.rows[0];
+
+        // 3. Duplicate Variants
+        await client.query(`
+            INSERT INTO product_variants (product_id, name, size, finish, style, sku, unit_cost, retail_price, pricing_unit, uom, carton_size, image_url, thumbnail_url, has_sample, is_master)
+            SELECT $1, name, size, finish, style, sku, unit_cost, retail_price, pricing_unit, uom, carton_size, image_url, thumbnail_url, has_sample, is_master
+            FROM product_variants WHERE product_id = $2
+        `, [newProduct.id, id]);
+
+        await logActivity(userId, 'CREATE', 'PRODUCT', newProduct.id, { action: 'DUPLICATE', sourceId: id });
+        await client.query('COMMIT');
+        
+        res.status(201).json(toCamelCase(newProduct));
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Duplicate error:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
     }
 });
 

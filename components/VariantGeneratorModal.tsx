@@ -140,18 +140,18 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
 
     // React-Select Styles
     const selectStyles = {
-        control: (base: any) => ({ ...base, backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }),
-        menu: (base: any) => ({ ...base, backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)' }),
+        control: (base: any) => ({ ...base, backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }),
+        menu: (base: any) => ({ ...base, backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', zIndex: 9999 }),
         option: (base: any, state: any) => ({
             ...base,
-            backgroundColor: state.isFocused ? 'var(--bg-background)' : 'var(--bg-surface)',
-            color: 'var(--text-primary)',
+            backgroundColor: state.isFocused ? 'var(--color-background)' : 'var(--color-surface)',
+            color: 'var(--color-text-primary)',
             cursor: 'pointer'
         }),
-        multiValue: (base: any) => ({ ...base, backgroundColor: 'var(--primary-color)', color: '#fff' }),
-        multiValueLabel: (base: any) => ({ ...base, color: '#fff' }),
-        multiValueRemove: (base: any) => ({ ...base, color: '#fff', ':hover': { backgroundColor: 'rgba(0,0,0,0.2)', color: '#fff' } }),
-        input: (base: any) => ({ ...base, color: 'var(--text-primary)' }),
+        multiValue: (base: any) => ({ ...base, backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)' }),
+        multiValueLabel: (base: any) => ({ ...base, color: 'var(--color-on-primary)' }),
+        multiValueRemove: (base: any) => ({ ...base, color: 'var(--color-on-primary)', ':hover': { backgroundColor: 'var(--color-primary-hover)', color: 'var(--color-on-primary)' } }),
+        input: (base: any) => ({ ...base, color: 'var(--color-text-primary)' }),
     };
 
     return (
@@ -305,7 +305,7 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                     <button 
                         onClick={handleSave} 
                         disabled={preview.length === 0}
-                        className="px-6 py-2 bg-primary text-text-on-primary font-medium rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-6 py-2 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         <Plus size={18} />
                         Generate {preview.length} Variants

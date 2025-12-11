@@ -5,6 +5,7 @@ import { Edit, Check, X, History, FileText, Move } from 'lucide-react';
 import ActivityHistory from './ActivityHistory';
 import ModalPortal from './ModalPortal'; // NEW
 import { formatDate } from '../utils/dateUtils';
+import EditInstallerModal from './EditInstallerModal';
 
 interface QuotesSectionProps {
     project: Project;
@@ -38,8 +39,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     });
     const [installerSearchTerm, setInstallerSearchTerm] = useState('');
     const [selectedInstaller, setSelectedInstaller] = useState<Installer | null>(null);
-    const [isAddingNewInstaller, setIsAddingNewInstaller] = useState(false);
-    const [newInstallerForm, setNewInstallerForm] = useState({ installerName: '', contactEmail: '', contactPhone: '' });
+    const [isInstallerModalOpen, setIsInstallerModalOpen] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     
     const installerSearchResults = useMemo(() => { if (!installerSearchTerm) return []; return installers.filter(i => i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase())); }, [installers, installerSearchTerm]);
@@ -84,7 +84,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                 setSelectedInstaller(null);
                 setInstallerSearchTerm('');
             }
-            setIsAddingNewInstaller(false);
         }
     }, [isModalOpen, editingQuoteForModal, installers]);
     
@@ -116,18 +115,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     };
     
     const handleSelectInstaller = (installer: Installer) => { setSelectedInstaller(installer); setInstallerSearchTerm(installer.installerName); };
-    const handleShowAddNewInstaller = () => { setNewInstallerForm({ installerName: installerSearchTerm, contactEmail: '', contactPhone: '' }); setIsAddingNewInstaller(true); };
-    const handleSaveNewInstaller = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newInstallerForm.installerName) return;
-        try {
-            const newlyAddedInstaller = await addInstaller(newInstallerForm);
-            setIsAddingNewInstaller(false);
-            handleSelectInstaller(newlyAddedInstaller);
-        } catch (error) {
-            console.error("Failed to add new installer:", error);
-        }
-    };
+    const handleShowAddNewInstaller = () => { setIsInstallerModalOpen(true); };
     
     const handleQuoteStatusChange = async (e: React.MouseEvent, quote: Quote, status: QuoteStatus) => { 
         e.preventDefault(); 
@@ -207,7 +195,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
                         <div className="bg-surface p-8 rounded-lg w-full max-w-lg border border-border">
                             <h3 className="text-xl font-bold mb-4 text-text-primary">{editingQuote ? 'Edit Quote' : 'Add New Quote'}</h3>
-                            {!isAddingNewInstaller ? (
+                            
                                 <form onSubmit={handleSaveQuote}>
                                     <div className="mb-4">
                                         <label className="block text-sm font-medium text-text-secondary mb-2">Installation Type</label>
@@ -272,22 +260,23 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                                         <button type="submit" disabled={(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && !selectedInstaller} className="py-2 px-4 bg-primary hover:bg-primary-hover text-on-primary rounded disabled:opacity-50 disabled:cursor-not-allowed">{editingQuote ? 'Save Changes' : 'Add Quote'}</button>
                                     </div>
                                 </form>
-                            ) : (
-                            <form onSubmit={handleSaveNewInstaller}>
-                                    <h4 className="text-lg font-semibold mb-2 text-text-primary">Add New Installer</h4>
-                                    <div className="space-y-3">
-                                        <input type="text" placeholder="Installer Name" value={newInstallerForm.installerName} onChange={e => setNewInstallerForm({...newInstallerForm, installerName: e.target.value})} className="w-full p-2 bg-background border-border rounded text-text-primary" required />
-                                        <input type="email" placeholder="Contact Email" value={newInstallerForm.contactEmail} onChange={e => setNewInstallerForm({...newInstallerForm, contactEmail: e.target.value})} className="w-full p-2 bg-background border-border rounded text-text-primary" />
-                                        <input type="tel" placeholder="Contact Phone" value={newInstallerForm.contactPhone} onChange={e => setNewInstallerForm({...newInstallerForm, contactPhone: e.target.value})} className="w-full p-2 bg-background border-border rounded text-text-primary" />
-                                    </div>
-                                    <div className="flex justify-end space-x-2 mt-4">
-                                        <button type="button" onClick={() => setIsAddingNewInstaller(false)} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Back</button>
-                                        <button type="submit" className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary">Save Installer</button>
-                                    </div>
-                            </form>
-                            )}
                         </div>
                     </div>
+                </ModalPortal>
+            )}
+            {isInstallerModalOpen && (
+                <ModalPortal>
+                    <EditInstallerModal 
+                        isOpen={isInstallerModalOpen} 
+                        onClose={() => {
+                            setIsInstallerModalOpen(false);
+                            // After closing, clear the search term so the new installer appears 
+                            // in the main installer list/search results if they reopen the search.
+                            setInstallerSearchTerm(''); 
+                        }} 
+                        installer={null} 
+                        initialData={{ installerName: installerSearchTerm }} 
+                    />
                 </ModalPortal>
             )}
         </div>
