@@ -90,7 +90,7 @@ const CustomerList: React.FC = () => {
 
   return (
     <div>
-      <div className="bg-surface p-6 rounded-lg shadow-md mb-8">
+      <div className="bg-surface p-6 rounded-lg shadow-md mb-8 border border-border">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-text-primary">Customers</h1>
           <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors md:w-auto w-full shadow-md">

@@ -95,7 +95,7 @@ const OrderDashboard: React.FC = () => {
         <div className="space-y-6">
             
             {/* Header Card */}
-            <div className="bg-surface p-6 rounded-lg shadow-md">
+            <div className="bg-surface p-6 rounded-lg shadow-md border border-border">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                     <div>
                         <h1 className="text-3xl font-bold text-text-primary flex items-center gap-3">

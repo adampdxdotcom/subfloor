@@ -156,3 +156,87 @@
 .toggle-checkbox:checked + .toggle-label {
     background-color: var(--color-primary);
 }
+
+
+/* === SUPERTOKENS LOGIN OVERRIDES === */
+/* Relies on useShadowDom: false in index.tsx */
+
+/* 1. Main Container */
+[data-supertokens~="container"] {
+    background-color: var(--color-surface) !important;
+    border: 1px solid var(--color-border) !important;
+    font-family: inherit !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* 2. Text Colors */
+[data-supertokens~="headerTitle"],
+[data-supertokens~="text"] {
+    color: var(--color-text-primary) !important;
+}
+[data-supertokens~="label"] {
+    color: var(--color-text-secondary) !important;
+}
+[data-supertokens~="link"],
+[data-supertokens~="link"]:hover {
+    color: var(--color-accent) !important;
+}
+
+/* 3. Inputs */
+[data-supertokens~="input"] {
+    background-color: var(--color-background) !important;
+    border-color: var(--color-border) !important;
+    color: var(--color-text-primary) !important;
+}
+[data-supertokens~="input"]:focus {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 1px var(--color-primary) !important;
+}
+
+/* 4. Button */
+[data-supertokens~="button"] {
+    background-color: var(--color-primary) !important;
+    color: var(--color-on-primary) !important;
+    border-radius: 0.5rem !important;
+    text-transform: uppercase;
+    font-weight: 700 !important;
+    border: none !important;
+}
+[data-supertokens~="button"]:hover {
+    background-color: var(--color-primary-hover) !important;
+}
+
+/* 5. REMOVE SIGN UP LINK (Hide the entire subtitle row) */
+[data-supertokens~="headerSubtitle"] {
+    display: none !important;
+}
+
+/* 6. CHANGE TITLE TEXT (CSS Trick) */
+/* Hide original "Sign In" text */
+[data-supertokens~="headerTitle"] {
+    visibility: hidden;
+    position: relative;
+}
+/* Inject new "Welcome Back" text */
+[data-supertokens~="headerTitle"]::after {
+    content: 'Welcome Back';
+    visibility: visible;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: var(--color-text-primary);
+}
+
+/* 7. Hide "Powered by SuperTokens" */
+[data-supertokens~="superTokensBranding"] {
+    display: none !important;
+}
+
+/* 8. Force Page Background (Behind the modal) */
+body {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+}

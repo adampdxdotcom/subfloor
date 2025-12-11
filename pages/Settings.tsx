@@ -108,9 +108,9 @@ const Settings: React.FC = () => {
     };
 
     return (
-        <div className="container mx-auto p-4 md:p-8 max-w-7xl">
+        <div>
             {/* HEADER & NAVIGATION CARD */}
-            <div className="bg-surface p-6 rounded-lg shadow-md mb-8">
+            <div className="bg-surface p-6 rounded-lg shadow-md mb-8 border border-border">
                 <div className="flex items-center mb-6">
                     <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mr-6 flex-shrink-0">
                         <SettingsIcon className="w-8 h-8 text-white"/>
@@ -129,17 +129,16 @@ const Settings: React.FC = () => {
                     {/* LEVEL 1: Main Categories */}
                     <div className="flex border-b border-border mb-6 overflow-x-auto">
                         {SETTINGS_STRUCTURE.map((cat) => {
-                            if (cat.tabs.every(t => t.adminOnly && !isAdmin)) return null;
-
-                            const hasAccess = cat.tabs.some(t => !t.adminOnly || isAdmin);
-                            if (!hasAccess) return null;
+                            // Only render category if at least one tab is visible to current user
+                            const visibleTabs = cat.tabs.filter(t => !t.adminOnly || isAdmin);
+                            if (visibleTabs.length === 0) return null;
 
                             const isCategoryActive = activeCategory.id === cat.id;
                             
                             return (
                                 <button
                                     key={cat.id}
-                                    onClick={() => setActiveTab(cat.tabs.find(t => !t.adminOnly || isAdmin)?.id || cat.tabs[0].id)}
+                                    onClick={() => setActiveTab(visibleTabs[0].id)}
                                     className={`px-6 py-3 text-sm font-bold uppercase tracking-wider transition-colors whitespace-nowrap
                                         ${isCategoryActive 
                                             ? 'text-primary border-b-2 border-primary' 
@@ -241,7 +240,7 @@ const Settings: React.FC = () => {
             </div>
 
             {/* CONTENT AREA */}
-            <div className="bg-surface rounded-lg shadow-md p-6 overflow-hidden">
+            <div className="bg-surface rounded-lg shadow-md p-6 overflow-hidden border border-border">
                 <ActiveComponent />
             </div>
         </div>

@@ -122,7 +122,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div>
-      <div className="bg-surface p-6 rounded-lg shadow-md mb-6">
+      <div className="bg-surface p-6 rounded-lg shadow-md mb-6 border border-border">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
           <div className="flex flex-wrap items-center gap-4">
