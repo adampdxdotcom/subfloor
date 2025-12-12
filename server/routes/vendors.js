@@ -15,6 +15,7 @@ router.get('/', verifySession(), async (req, res) => {
                 v.id,
                 v.name,
                 v.vendor_type,
+                v.default_supplier_id,
                 v.default_product_type,
                 v.phone,
                 v.address,
@@ -52,7 +53,7 @@ router.get('/', verifySession(), async (req, res) => {
 router.post('/', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
     const { 
-        name, vendorType, defaultProductType, phone, address, orderingEmail, 
+        name, vendorType, defaultProductType, defaultSupplierId, phone, address, orderingEmail, 
         claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
         defaultMarkup, pricingMethod
     } = req.body;
@@ -64,14 +65,14 @@ router.post('/', verifySession(), async (req, res) => {
     try {
         const query = `
             INSERT INTO vendors (
-                name, vendor_type, default_product_type, phone, address, ordering_email, 
+                name, vendor_type, default_product_type, default_supplier_id, phone, address, ordering_email, 
                 claims_email, rep_name, rep_phone, rep_email, shipping_method, dedicated_shipping_day, notes,
                 default_markup, pricing_method
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING *;
         `;
         const values = [
-            name, vendorType, defaultProductType, phone, address, orderingEmail,
+            name, vendorType, defaultProductType, defaultSupplierId || null, phone, address, orderingEmail,
             claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
             defaultMarkup || null, pricingMethod || null
         ];
@@ -91,7 +92,7 @@ router.put('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const userId = req.session.getUserId();
     const { 
-        name, vendorType, defaultProductType, phone, address, orderingEmail, 
+        name, vendorType, defaultProductType, defaultSupplierId, phone, address, orderingEmail, 
         claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
         defaultMarkup, pricingMethod
     } = req.body;
@@ -108,15 +109,15 @@ router.put('/:id', verifySession(), async (req, res) => {
         const beforeData = toCamelCase(beforeResult.rows[0]);
         const query = `
             UPDATE vendors SET
-                name = $1, vendor_type = $2, default_product_type = $3, phone = $4, address = $5,
-                ordering_email = $6, claims_email = $7, rep_name = $8, rep_phone = $9,
-                rep_email = $10, shipping_method = $11, dedicated_shipping_day = $12, notes = $13,
-                default_markup = $14, pricing_method = $15
-            WHERE id = $16
+                name = $1, vendor_type = $2, default_product_type = $3, default_supplier_id = $4, phone = $5, address = $6,
+                ordering_email = $7, claims_email = $8, rep_name = $9, rep_phone = $10,
+                rep_email = $11, shipping_method = $12, dedicated_shipping_day = $13, notes = $14,
+                default_markup = $15, pricing_method = $16
+            WHERE id = $17
             RETURNING *;
         `;
         const values = [
-            name, vendorType, defaultProductType, phone, address, orderingEmail,
+            name, vendorType, defaultProductType, defaultSupplierId || null, phone, address, orderingEmail,
             claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
             defaultMarkup || null, pricingMethod || null,
             id

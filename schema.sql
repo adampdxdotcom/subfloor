@@ -1,4 +1,4 @@
--- SQL Schema for Joblogger
+-- SQL Schema for Subfloor
 
 -- Enable UUIDs for Inventory 2.0
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -16,6 +16,7 @@ CREATE TABLE vendors (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     vendor_type TEXT, -- Replaces is_manufacturer/is_supplier. Can be 'Manufacturer', 'Supplier', 'Both'.
+    default_supplier_id INT REFERENCES vendors(id) ON DELETE SET NULL,
     default_product_type TEXT,
     address TEXT,
     phone VARCHAR(50),

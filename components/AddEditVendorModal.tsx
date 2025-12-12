@@ -1,8 +1,7 @@
-// components/AddEditVendorModal.tsx
-
 import React, { useState, useEffect } from 'react';
 import { Vendor, PRODUCT_TYPES } from '../types'; // --- MODIFIED: Import PRODUCT_TYPES ---
 import { useData } from '../context/DataContext';
+import { useVendors } from '../hooks/useVendors';
 import { toast } from 'react-hot-toast';
 import { Trash2 } from 'lucide-react';
 
@@ -18,12 +17,14 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 
 const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose, onSave, vendorToEdit, initialVendorType }) => {
     const { currentUser, deleteVendor } = useData();
+    const { data: allVendors = [] } = useVendors();
     const [isDeleting, setIsDeleting] = useState(false);
 
     // --- MODIFIED: Updated formData state to match new Vendor type ---
     const [formData, setFormData] = useState({
         name: '',
         vendorType: 'Supplier' as 'Manufacturer' | 'Supplier' | 'Both' | null,
+        defaultSupplierId: null as number | null,
         defaultProductType: null as string | null,
         address: '', phone: '',
         orderingEmail: '', claimsEmail: '', repName: '', repPhone: '', repEmail: '',
@@ -36,6 +37,7 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
         const initialState = {
             name: '',
             vendorType: 'Supplier' as 'Manufacturer' | 'Supplier' | 'Both' | null,
+            defaultSupplierId: null as number | null,
             defaultProductType: null as string | null,
             address: '', phone: '',
             orderingEmail: '', claimsEmail: '', repName: '', repPhone: '', repEmail: '',
@@ -47,6 +49,7 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
             setFormData({
                 name: vendorToEdit.name || '',
                 vendorType: vendorToEdit.vendorType || null,
+                defaultSupplierId: vendorToEdit.defaultSupplierId || null,
                 defaultProductType: vendorToEdit.defaultProductType || null,
                 address: vendorToEdit.address || '',
                 phone: vendorToEdit.phone || '',
@@ -75,7 +78,7 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
             // This case is no longer used for vendor type but kept for safety
             const checked = (e.target as HTMLInputElement).checked;
             setFormData(prev => ({ ...prev, [name]: checked }));
-        } else if (name === 'dedicatedShippingDay' || name === 'defaultProductType' || name === 'vendorType') {
+        } else if (name === 'dedicatedShippingDay' || name === 'defaultProductType' || name === 'vendorType' /* Removed defaultSupplierId here */) {
             setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
         } else if (name === 'defaultMarkup') {
              setFormData(prev => ({ ...prev, [name]: value === '' ? null : parseFloat(value) }));
@@ -90,6 +93,8 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
         e.preventDefault();
         const dataToSave = {
             ...formData,
+            // Ensure defaultSupplierId is only sent if vendorType is Manufacturer (or Both, though schema implies Manufacturer)
+            defaultSupplierId: formData.vendorType === 'Manufacturer' ? formData.defaultSupplierId : null,
         };
 
         if (vendorToEdit) {
@@ -114,6 +119,31 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                 setIsDeleting(false);
             }
         }
+    };
+
+    // Filter for valid suppliers:
+    // 1. Must be 'Supplier' or 'Both'
+    // 2. Cannot be the vendor currently being edited (no circular ref to self)
+    const potentialSuppliers = allVendors.filter(v => 
+        (v.vendorType === 'Supplier' || v.vendorType === 'Both') && 
+        v.id !== vendorToEdit?.id
+    );
+
+    // Handle logic when a Default Supplier is selected to prefill shipping info
+    const handleSupplierChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        const newSupplierId = val === '' ? null : parseInt(val);
+        
+        // Find the supplier details to prefill
+        const supplier = allVendors.find(v => v.id === newSupplierId);
+        
+        setFormData(prev => ({
+            ...prev,
+            defaultSupplierId: newSupplierId,
+            // Only overwrite if the supplier actually has data
+            shippingMethod: supplier?.shippingMethod || prev.shippingMethod,
+            dedicatedShippingDay: supplier?.dedicatedShippingDay ?? prev.dedicatedShippingDay
+        }));
     };
 
     if (!isOpen) return null;
@@ -141,6 +171,19 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                                     <option value="Both">Both</option>
                                 </select>
                             </div>
+
+                            {formData.vendorType === 'Manufacturer' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary">Default Supplier / Distributor</label>
+                                    <select name="defaultSupplierId" value={formData.defaultSupplierId ?? ''} onChange={handleSupplierChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary">
+                                        <option value="">Select a Supplier...</option>
+                                        {potentialSuppliers.map(supplier => (
+                                            <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-text-tertiary mt-1">This supplier will be auto-selected when adding products for this brand.</p>
+                                </div>
+                            )}
                              
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary">Default Product Type</label>

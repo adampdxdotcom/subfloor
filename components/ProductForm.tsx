@@ -55,6 +55,21 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
         }
     }, [initialData?.defaultImageUrl]);
 
+    // --- NEW: Smart Defaults Logic ---
+    useEffect(() => {
+        if (manufacturerId && typeof manufacturerId === 'number') {
+            const selectedManufacturer = vendors.find(v => v.id === manufacturerId);
+            if (selectedManufacturer) {
+                if (selectedManufacturer.defaultSupplierId) {
+                    setSupplierId(selectedManufacturer.defaultSupplierId);
+                }
+                if (selectedManufacturer.defaultProductType) {
+                    setProductType(selectedManufacturer.defaultProductType);
+                }
+            }
+        }
+    }, [manufacturerId, vendors]);
+
 
     // Helper to format vendors for React-Select
     const vendorOptions = (type: 'Manufacturer' | 'Supplier') => 
@@ -246,12 +261,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
                 <AddEditVendorModal
                     isOpen={isVendorModalOpen}
                     onClose={() => setIsVendorModalOpen(false)}
-                    initialData={{ name: pendingVendorName, vendorType: targetVendorField === 'manufacturer' ? 'Manufacturer' : 'Supplier' } as Vendor}
+                    // FIX: Correct props for creating new vendor
+                    initialVendorType={targetVendorField === 'manufacturer' ? 'Manufacturer' : 'Supplier'}
                     onSave={handleSaveNewVendor}
                 />
             )}
-
-            {/* NOTE: Removed BATCH GENERATOR MODAL */}
         </form>
     );
 };

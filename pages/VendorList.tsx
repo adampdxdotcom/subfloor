@@ -6,9 +6,12 @@ import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 // --- MODIFIED: Removed Edit and Trash2 as they are no longer used here ---
 import { PlusCircle, Building, Truck, Search, Layers } from 'lucide-react';
+import { useData } from '../context/DataContext'; // Import useData to get the full vendor list for lookup
 
 const VendorList: React.FC = () => {
-    const { data: vendors = [] } = useVendors();
+    // We use useVendors for the list, and useData to get the list for the supplier lookup (which is always up-to-date)
+    const { data: vendors = [] } = useVendors(); 
+    const { vendors: allVendors } = useData();
     const vendorMutations = useVendorMutations();
     
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,6 +101,12 @@ const VendorList: React.FC = () => {
                                     </span>
                                 )}
                             </div>
+
+                            {vendor.defaultSupplierId && (
+                                <div className="mb-3 text-sm text-text-secondary">
+                                    Distributor: <span className="font-medium text-text-primary">{allVendors.find(v => v.id === vendor.defaultSupplierId)?.name}</span>
+                                </div>
+                            )}
                             
                             <p className="text-sm text-text-secondary mb-1">{vendor.address}</p>
                             <p className="text-sm text-text-secondary">{vendor.phone}</p>

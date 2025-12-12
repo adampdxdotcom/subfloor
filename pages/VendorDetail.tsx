@@ -144,6 +144,9 @@ const VendorDetail: React.FC = () => {
                     <h3 className="font-semibold text-xl mb-4 text-text-primary">Other Details</h3>
                     <div className="space-y-3 text-text-secondary">
                         <p><strong className="text-text-primary">Shipping:</strong> {vendor.shippingMethod || 'N/A'}</p>
+                        {vendor.defaultSupplierId && (
+                            <p><strong className="text-text-primary">Default Supplier:</strong> {vendors.find(v => v.id === vendor.defaultSupplierId)?.name || 'Unknown'}</p>
+                        )}
                         <p><strong className="text-text-primary">Notes:</strong> {vendor.notes || 'N/A'}</p>
                     </div>
                 </div>

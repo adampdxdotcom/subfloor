@@ -92,6 +92,7 @@ export interface Vendor {
   id: number;
   name: string;
   vendorType: 'Manufacturer' | 'Supplier' | 'Both' | null; // REPLACES isManufacturer/isSupplier
+  defaultSupplierId?: number | null;          // ADDED: Self-referencing FK
   defaultProductType: ProductType | string | null;            // ADDED for smart defaults
   address?: string | null;
   phone?: string | null;
@@ -552,7 +553,7 @@ export interface DataContextType extends AppData {
   deleteMaterialOrder: (orderId: number) => Promise<void>;
   receiveMaterialOrder: (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean }) => Promise<void>;
   reportMaterialOrderDamage: (orderId: number, data: { items: any[]; replacementEta: string; notes: string; sendEmailNotification: boolean }) => Promise<void>;
-  addVendor: (vendor: Omit<Vendor, 'id'>) => Promise<void>;
+  addVendor: (vendor: Omit<Vendor, 'id' | 'defaultSupplierId'>) => Promise<void>; // Modified to account for new FK
   updateVendor: (vendor: Vendor) => Promise<void>;
   deleteVendor: (vendorId: number) => Promise<void>;
   

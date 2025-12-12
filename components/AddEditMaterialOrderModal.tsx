@@ -218,6 +218,13 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             const today = new Date();
             let daysUntilDelivery = deliveryDay - today.getDay();
             if (daysUntilDelivery <= 0) daysUntilDelivery += 7;
+            
+            // Logic: Delivery must be at least 1 week out.
+            // If the next occurrence is less than 7 days away, skip to the following week.
+            if (daysUntilDelivery < 7) {
+                daysUntilDelivery += 7;
+            }
+            
             const nextDeliveryDate = new Date();
             nextDeliveryDate.setDate(today.getDate() + daysUntilDelivery);
             setEtaDate(formatDateForInput(nextDeliveryDate.toISOString()));
