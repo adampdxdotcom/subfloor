@@ -36,7 +36,9 @@ interface AddEditMaterialOrderModalProps {
     } | null;
 }
 
-const formatVariantName = (productName: string, variantName: string) => `${productName} - ${variantName}`;
+const formatVariantName = (productName: string, variantName: string, size?: string | null) => 
+    `${productName} - ${variantName}${size ? ` (${size})` : ''}`;
+
 const formatDateForInput = (dateString: string | undefined | null) => dateString ? new Date(dateString).toISOString().split('T')[0] : '';
 
 const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ isOpen, onClose, editingOrder = null, initialProjectId = null, prefillData = null }) => {
@@ -233,7 +235,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
     
     const handleSelectSearchItem = (product: Product, variant: ProductVariant) => {
         setSelectedSearchItem({ product, variant });
-        setSearchTerm(formatVariantName(product.name, variant.name));
+        setSearchTerm(formatVariantName(product.name, variant.name, variant.size));
     };
 
     // --- Add Line Item Logic ---
@@ -456,8 +458,8 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                                             {/* Product Name */}
                                             <div className="flex flex-col overflow-hidden">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">Product</label>
-                                                <span className="text-sm text-text-primary truncate font-medium" title={formatVariantName(item.product.name, item.variant.name)}>
-                                                    {formatVariantName(item.product.name, item.variant.name)}
+                                                <span className="text-sm text-text-primary truncate font-medium" title={formatVariantName(item.product.name, item.variant.name, item.variant.size)}>
+                                                    {formatVariantName(item.product.name, item.variant.name, item.variant.size)}
                                                 </span>
                                             </div>
 
@@ -525,7 +527,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                                     <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-60 overflow-y-auto shadow-xl">
                                         {searchResults.map(item => (
                                             <div key={item.variant.id} onClick={() => handleSelectSearchItem(item.product, item.variant)} className="p-2 hover:bg-background cursor-pointer text-text-primary border-b border-border last:border-0">
-                                                 <div className="font-medium">{item.product.name} - {item.variant.name}</div>
+                                                 <div className="font-medium">{formatVariantName(item.product.name, item.variant.name, item.variant.size)}</div>
                                                  <div className="text-xs text-text-secondary flex justify-between">
                                                      <span>{item.product.manufacturerName}</span>
                                                      <span>{item.variant.sku || 'No SKU'}</span>

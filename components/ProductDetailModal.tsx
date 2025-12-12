@@ -78,6 +78,23 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         }
     }, [printData, triggerPrint]);
 
+    // --- SMART LABELS HELPERS ---
+    const getVariantLabels = () => {
+        const type = activeProduct.productType;
+        if (type === 'Carpet' || type === 'Sheet Product') {
+            // Carpet usually doesn't have carton packing, and "Size" is usually Width
+            return { color: 'Color / Style', size: 'Width', showPackaging: false };
+        }
+        if (type === 'LVP' || type === 'LVT' || type === 'Laminate' || type === 'Hardwood') {
+            return { color: 'Color', size: 'Plank Size', showPackaging: true };
+        }
+        // Default (Tile, Quartz, etc)
+        return { color: 'Color', size: 'Size', showPackaging: true };
+    };
+
+    const labels = getVariantLabels();
+
+
     if (!isOpen) return null;
     
     const resolveImageUrl = (path?: string | null) => {
@@ -437,10 +454,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                         <thead className="bg-surface text-text-secondary border-b border-border">
                                             <tr>
                                                 <th className="p-3 w-12 text-center">Img</th>
-                                                <th className="p-3">Variant / Color</th>
-                                                {renderColumnHeader("Size", "size")}
+                                                <th className="p-3">{labels.color}</th>
+                                                {renderColumnHeader(labels.size, "size")}
                                                 {renderColumnHeader("SKU", "sku")}
-                                                {renderColumnHeader("Packaging", "cartonSize")}
+                                                {labels.showPackaging && renderColumnHeader("Packaging", "cartonSize")}
                                                 {renderColumnHeader("Cost", "unitCost", "text-right")}
                                                 {/* Reordered: Pricing Unit after Cost */}
                                                 {renderColumnHeader("Pricing Unit", "pricingUnit", "text-center w-24")}
@@ -472,17 +489,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                     // EDIT MODE
                                                     <tr key={v.id} className="bg-primary/5 border-l-4 border-primary">
                                                         <td className="p-2 text-center"><button onClick={() => setShowImageModal(true)} className="w-8 h-8 rounded border bg-white flex items-center justify-center"><ImageIcon size={14}/></button></td>
-                                                        <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded font-bold" value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
-                                                        <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
+                                                        <td className="p-2"><input type="text" placeholder={labels.color} className="w-full p-1 border border-primary rounded font-bold" value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
+                                                        <td className="p-2"><input type="text" placeholder={labels.size} className="w-full p-1 border border-primary rounded" value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
                                                         <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
                                                         
                                                         {/* PACKAGING */}
-                                                        <td className="p-2 flex gap-1">
-                                                            <input type="number" className="w-16 p-1 border border-primary rounded" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
-                                                            <select className="p-1 border border-primary rounded text-xs bg-white" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
-                                                                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                                            </select>
-                                                        </td>
+                                                        {labels.showPackaging && (
+                                                            <td className="p-2 flex gap-1">
+                                                                <input type="number" className="w-16 p-1 border border-primary rounded" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
+                                                                <select className="p-1 border border-primary rounded text-xs bg-white" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
+                                                                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                                </select>
+                                                            </td>
+                                                        )}
                                                         
                                                         <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded text-right" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
                                                         
@@ -528,7 +547,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                         <td className="p-3 font-medium text-text-primary">{v.name}</td>
                                                         <td className="p-3 text-text-secondary">{v.size || '-'}</td>
                                                         <td className="p-3 text-text-secondary">{v.sku || '-'}</td>
-                                                        <td className="p-3 text-text-secondary text-xs font-mono">{v.cartonSize ? `${v.cartonSize} ${v.uom}` : '-'}</td>
+                                                        {labels.showPackaging && <td className="p-3 text-text-secondary text-xs font-mono">{v.cartonSize ? `${v.cartonSize} ${v.uom}` : '-'}</td>}
                                                         <td className="p-3 text-right text-text-secondary">{v.unitCost ? `$${Number(v.unitCost).toFixed(2)}` : '-'}</td>
                                                         <td className="p-3 text-center text-text-secondary text-xs font-mono bg-black/5 rounded mx-1">/{v.pricingUnit || v.uom || 'Unit'}</td>
                                                         <td className="p-3 text-right text-text-secondary font-medium">{v.retailPrice ? `$${Number(v.retailPrice).toFixed(2)}` : '-'}</td>
@@ -569,17 +588,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                             {editingVariantId?.startsWith('NEW_') && (
                                                 <tr className="bg-primary/5 animate-in fade-in">
                                                     <td className="p-2"><button onClick={() => setShowImageModal(true)} className="w-10 h-10 border rounded flex items-center justify-center bg-white"><ImageIcon size={14} /></button></td>
-                                                    <td className="p-2"><input autoFocus type="text" className="w-full p-1 border rounded" placeholder="Name" value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
-                                                    <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
+                                                    <td className="p-2"><input autoFocus type="text" className="w-full p-1 border rounded" placeholder={labels.color} value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
+                                                    <td className="p-2"><input type="text" className="w-full p-1 border rounded" placeholder={labels.size} value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
                                                     <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
                                                     
                                                     {/* PACKAGING */}
-                                                    <td className="p-2 flex gap-1">
-                                                        <input type="number" className="w-16 p-1 border rounded" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
-                                                        <select className="p-1 border rounded text-xs bg-white" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
-                                                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                                        </select>
-                                                    </td>
+                                                    {labels.showPackaging && (
+                                                        <td className="p-2 flex gap-1">
+                                                            <input type="number" className="w-16 p-1 border rounded" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
+                                                            <select className="p-1 border rounded text-xs bg-white" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
+                                                                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
+                                                        </td>
+                                                    )}
 
                                                     <td className="p-2"><input type="number" className="w-full p-1 border rounded text-right" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
 
@@ -605,7 +626,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 </div>
 
                 {/* MODALS */}
-                {showGenerator && <VariantGeneratorModal productId={activeProduct.id} manufacturerId={activeProduct.manufacturerId} pricingSettings={pricingSettings} onClose={() => setShowGenerator(false)} onSuccess={handleGeneratorSuccess} />}
+                {showGenerator && <VariantGeneratorModal productId={activeProduct.id} productType={activeProduct.productType} manufacturerId={activeProduct.manufacturerId} pricingSettings={pricingSettings} onClose={() => setShowGenerator(false)} onSuccess={handleGeneratorSuccess} />}
                 {showImageModal && <VariantImageModal currentPreview={pendingImage.preview} onClose={() => setShowImageModal(false)} onSave={handleImageUpdate} />}
                 {showBatchPrint && <PrintQueueModal isOpen={true} onClose={() => setShowBatchPrint(false)} selectedProducts={productsToPrint} />}
             </div>

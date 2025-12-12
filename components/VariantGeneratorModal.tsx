@@ -5,10 +5,11 @@ import CreatableSelect from 'react-select/creatable';
 import * as sampleService from '../services/sampleService';
 import { useData } from '../context/DataContext';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
-import { PricingSettings, UNITS } from '../types';
+import { PricingSettings, UNITS, ProductType } from '../types';
 
 interface VariantGeneratorModalProps {
     productId: string;
+    productType: ProductType; // NEW PROP
     manufacturerId?: number | null; // Passed from parent to look up vendor rules
     pricingSettings: PricingSettings | null; // Passed from parent
     onClose: () => void;
@@ -21,7 +22,7 @@ interface Option {
     value: string;
 }
 
-const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId, manufacturerId, pricingSettings, onClose, onSuccess }) => {
+const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId, productType, manufacturerId, pricingSettings, onClose, onSuccess }) => {
     const { vendors, addVariantsBatch } = useData(); // Get the new function
 
     // --- 1. Common Data State (Applies to all) ---
@@ -50,6 +51,19 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
     useEffect(() => {
         loadSizeOptions();
     }, []);
+
+    // --- SMART LABELS HELPERS ---
+    const getLabels = () => {
+        if (productType === 'Carpet' || productType === 'Sheet Product') {
+            return { color: 'Colors / Styles', size: 'Roll Widths', showPackaging: false };
+        }
+        if (productType === 'LVP' || productType === 'LVT' || productType === 'Laminate' || productType === 'Hardwood') {
+            return { color: 'Colors', size: 'Plank Sizes', showPackaging: true };
+        }
+        return { color: 'Colors', size: 'Sizes', showPackaging: true };
+    };
+
+    const labels = getLabels();
 
     const loadSizeOptions = async () => {
         try {
@@ -199,17 +213,23 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                                         {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                     </select>
                                 </div>
-                                <div className="col-span-2 border-t border-border my-1"></div>
-                                <div>
-                                    <label className="block text-xs font-medium text-text-secondary mb-1">Carton Size</label>
-                                    <input type="number" step="0.01" value={commonData.cartonSize} onChange={e => setCommonData({...commonData, cartonSize: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-text-secondary mb-1">Packaging UOM</label>
-                                    <select value={commonData.uom} onChange={e => setCommonData({...commonData, uom: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary">
-                                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                    </select>
-                                </div>
+                                
+                                {labels.showPackaging && (
+                                    <>
+                                        <div className="col-span-2 border-t border-border my-1"></div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-text-secondary mb-1">Carton Size</label>
+                                            <input type="number" step="0.01" value={commonData.cartonSize} onChange={e => setCommonData({...commonData, cartonSize: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-text-secondary mb-1">Packaging UOM</label>
+                                            <select value={commonData.uom} onChange={e => setCommonData({...commonData, uom: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary">
+                                                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                            </select>
+                                        </div>
+                                    </>
+                                )}
+
                                 <div className="col-span-2">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input type="checkbox" checked={commonData.hasSample} onChange={e => setCommonData({...commonData, hasSample: e.target.checked})} className="rounded border-border bg-surface text-primary focus:ring-primary" />
@@ -224,11 +244,11 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                             <h3 className="font-semibold text-text-primary mb-4 text-sm uppercase tracking-wider">2. Define Lists</h3>
                             
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-text-secondary mb-1">Colors / Names</label>
+                                <label className="block text-sm font-medium text-text-secondary mb-1">{labels.color}</label>
                                 <p className="text-xs text-text-secondary mb-2">Type a name and press Enter</p>
                                 <CreatableSelect
                                     isMulti
-                                    placeholder="e.g. Oak, Maple..."
+                                    placeholder={`e.g. ${labels.color.includes('Style') ? 'Berber, Plush...' : 'Oak, Maple...'}`}
                                     styles={selectStyles}
                                     onChange={(newValue) => setNames(newValue)}
                                     value={names}
@@ -236,11 +256,11 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">Sizes</label>
+                                <label className="block text-sm font-medium text-text-secondary mb-1">{labels.size}</label>
                                 <p className="text-xs text-text-secondary mb-2">Select existing or type new</p>
                                 <CreatableSelect
                                     isMulti
-                                    placeholder="e.g. 12x24, Mosaic..."
+                                    placeholder={`e.g. ${labels.size.includes('Width') ? "12', 15'..." : '12x24, Mosaic...'}`}
                                     options={sizeOptions}
                                     styles={selectStyles}
                                     onChange={(newValue) => setSizes(newValue)}
@@ -269,12 +289,12 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                                     <table className="w-full text-left border-collapse">
                                         <thead className="bg-surface sticky top-0">
                                             <tr>
-                                                <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">Variant Name</th>
+                                                <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">{labels.color}</th>
                                                 <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">SKU</th>
-                                                <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">Size</th>
+                                                <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">{labels.size}</th>
                                                 <th className="p-3 text-xs font-medium text-text-secondary border-b border-border text-right">Cost</th>
                                                 <th className="p-3 text-xs font-medium text-text-secondary border-b border-border text-right">Retail</th>
-                                                <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">Carton</th>
+                                                {labels.showPackaging && <th className="p-3 text-xs font-medium text-text-secondary border-b border-border">Carton</th>}
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -285,7 +305,7 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                                                     <td className="p-3 text-sm text-text-primary">{item.size || <span className="italic text-text-secondary">--</span>}</td>
                                                     <td className="p-3 text-sm text-text-primary text-right">${item.unitCost.toFixed(2)} / {item.pricingUnit}</td>
                                                     <td className="p-3 text-sm text-text-primary text-right">${item.retailPrice.toFixed(2)} / {item.pricingUnit}</td>
-                                                    <td className="p-3 text-sm text-text-primary">{item.cartonSize} {item.uom}</td>
+                                                    {labels.showPackaging && <td className="p-3 text-sm text-text-primary">{item.cartonSize} {item.uom}</td>}
                                                 </tr>
                                             ))}
                                         </tbody>
