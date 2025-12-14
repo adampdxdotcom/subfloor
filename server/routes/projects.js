@@ -76,7 +76,7 @@ router.get('/:id', verifySession(), async (req, res) => {
   } catch (err) { console.error(err.message); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// POST /api/projects (Modified to include manager_id)
+// POST /api/projects (Modified to include manager_id and early job creation)
 router.post('/', verifySession(), async (req, res) => {
   const { customerId, projectName, projectType, status, finalChoice, installerId, managerId } = req.body;
   const userId = req.session.getUserId();
@@ -100,6 +100,15 @@ router.post('/', verifySession(), async (req, res) => {
         [newProject.id, installerId]
       );
     }
+
+    // --- NEW: Early Job Creation ---
+    // Create a "Draft" job immediately so we can attach Notes/Photos before Quote Acceptance
+    await client.query(
+        `INSERT INTO jobs (project_id, is_on_hold, deposit_received, contracts_received, final_payment_received) 
+         VALUES ($1, false, false, false, false)`,
+        [newProject.id]
+    );
+
     await logActivity(userId, 'CREATE', 'PROJECT', newProject.id, { createdData: toCamelCase(newProject) });
     await client.query('COMMIT');
     res.status(201).json(toCamelCase(newProject));

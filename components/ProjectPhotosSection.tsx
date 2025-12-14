@@ -100,34 +100,40 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
 
     return (
         <div className="bg-surface rounded-lg shadow-sm border border-border h-full flex flex-col overflow-hidden">
-            {/* Header */}
+            {/* Standard Widget Header */}
+            <div className="p-3 border-b border-border bg-background/50 flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-2">
+                    <Move size={16} className="drag-handle text-text-tertiary cursor-move hover:text-text-primary shrink-0" />
+                    <h3 className="font-bold text-text-primary flex items-center gap-2">
+                        <ImageIcon size={18} /> Project Files
+                    </h3>
+                </div>
+            </div>
+
+            {/* Toolbar (Tabs & Actions) */}
             <div className="border-b border-border bg-background shrink-0">
-                <div className="flex justify-between items-center p-3 pb-0">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                        <Move size={16} className="drag-handle text-text-tertiary cursor-move hover:text-text-primary shrink-0" />
-                        
-                        {/* Tabs */}
-                        <div className="flex space-x-4 ml-2">
+                <div className="flex justify-between items-center px-3 py-2">
+                    {/* Tabs */}
+                    <div className="flex space-x-4">
                             <button
                                 onClick={() => { setActiveTab('SITE'); setIsSelectMode(false); }}
-                                className={`pb-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
-                                    activeTab === 'SITE' ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'
+                                className={`text-sm font-bold transition-colors flex items-center gap-2 ${
+                                    activeTab === 'SITE' ? 'text-primary' : 'text-text-secondary hover:text-text-primary'
                                 }`}
                             >
                                 <Camera size={16} /> Site Photos
                             </button>
                             <button
                                 onClick={() => { setActiveTab('DOCUMENT'); setIsSelectMode(false); }}
-                                className={`pb-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
-                                    activeTab === 'DOCUMENT' ? 'border-primary text-primary' : 'border-transparent text-text-secondary hover:text-text-primary'
+                                className={`text-sm font-bold transition-colors flex items-center gap-2 ${
+                                    activeTab === 'DOCUMENT' ? 'text-primary' : 'text-text-secondary hover:text-text-primary'
                                 }`}
                             >
                                 <FileText size={16} /> Documents
                             </button>
-                        </div>
                     </div>
                     
-                    <div className="flex gap-2 pb-2">
+                    <div className="flex gap-2">
                         {isSelectMode ? (
                             <>
                                 <button onClick={handleDeleteSelected} disabled={selectedIds.size === 0} className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded disabled:opacity-50">Delete ({selectedIds.size})</button>

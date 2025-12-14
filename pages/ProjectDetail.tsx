@@ -28,6 +28,7 @@ import ActivityHistory from '../components/ActivityHistory';
 import JobNotesSection from '../components/JobNotesSection';
 import ProjectPhotosSection from '../components/ProjectPhotosSection'; // NEW IMPORT
 // import DeleteProjectSection from '../components/DeleteProjectSection'; // REMOVED
+import LockedWidget from '../components/LockedWidget'; // NEW IMPORT
 import { toast } from 'react-hot-toast';
 import * as jobService from '../services/jobService';
 import * as notificationService from '../services/notificationService'; // NEW
@@ -90,15 +91,18 @@ const ProjectDetail: React.FC = () => {
 
     const defaultLayouts = useMemo(() => ({
       lg: [
-        { i: 'quotes', x: 0, y: 0, w: 8, h: 7, minH: 5, minW: 4 },
-        { i: 'job-details', x: 0, y: 7, w: 8, h: 9, minH: 7, minW: 6 },
-        { i: 'notes', x: 8, y: 0, w: 4, h: 5, minH: 4, minW: 3 },
-        { i: 'sample-checkouts', x: 8, y: 5, w: 4, h: 5, minH: 4, minW: 3 },
-        { i: 'change-orders', x: 8, y: 10, w: 4, h: 6, minH: 5, minW: 3 },
-        { i: 'material-orders', x: 8, y: 16, w: 4, h: 5, minH: 4, minW: 3 },
-        { i: 'photos', x: 8, y: 21, w: 4, h: 5, minH: 4, minW: 3 }, // NEW WIDGET
-        { i: 'history', x: 0, y: 21, w: 12, h: 5, minH: 4, minW: 6 },
-        { i: 'danger-zone', x: 0, y: 26, w: 12, h: 3, minH: 3, minW: 4 }, // Re-added 'danger-zone' key for structure, even if visually handled differently
+        // ROW 1: Quotes, Samples, Notes (Three columns)
+        { i: 'quotes', x: 0, y: 0, w: 4, h: 7, minH: 5, minW: 3 },
+        { i: 'sample-checkouts', x: 4, y: 0, w: 4, h: 7, minH: 4, minW: 3 },
+        { i: 'notes', x: 8, y: 0, w: 4, h: 7, minH: 4, minW: 3 },
+        // ROW 2: Job Details (Full Width)
+        { i: 'job-details', x: 0, y: 7, w: 12, h: 9, minH: 7, minW: 6 },
+        // ROW 3: Material Orders & Change Orders (Split 50/50)
+        { i: 'material-orders', x: 0, y: 16, w: 6, h: 6, minH: 4, minW: 3 },
+        { i: 'change-orders', x: 6, y: 16, w: 6, h: 6, minH: 5, minW: 3 },
+        // ROW 4: Photos (1/3) & History (2/3)
+        { i: 'photos', x: 0, y: 22, w: 4, h: 5, minH: 4, minW: 3 },
+        { i: 'history', x: 4, y: 22, w: 8, h: 5, minH: 4, minW: 6 },
       ]
     }), []);
     
@@ -271,39 +275,55 @@ const ProjectDetail: React.FC = () => {
                     />
                 </div>
                 
-                {isQuoteAccepted && (
-                    <div key="job-details" className="h-full overflow-hidden">
+                <div key="job-details" className="h-full overflow-hidden">
+                    <LockedWidget isLocked={!isQuoteAccepted} title="Job Financials & Schedule">
+                        {isQuoteAccepted ? (
                         <FinalizeJobSection project={project} job={job} quotes={projectQuotes} changeOrders={projectChangeOrders} saveJobDetails={handleSaveJobDetails} updateProject={handleUpdateProject} />
-                    </div>
-                )}
+                        ) : (
+                            <div className="h-full w-full bg-surface/50" /> // Placeholder content
+                        )}
+                    </LockedWidget>
+                </div>
 
-                {isQuoteAccepted && job && (
-                    <div key="notes" className="h-full overflow-hidden">
+                <div key="notes" className="h-full overflow-hidden">
+                    {/* UNLOCKED: Job now exists from creation */}
+                    {job ? (
                         <JobNotesSection job={job} onSaveNotes={handleSaveNotes} />
-                    </div>
-                )}
+                    ) : (
+                        <div className="flex items-center justify-center h-full text-text-tertiary">Loading notes...</div>
+                    )}
+                </div>
 
                 <div key="sample-checkouts" className="h-full overflow-hidden">
                     {/* MODIFIED: Removed isModalOpen/onCloseModal props as the component now manages its own state */}
                     <SampleCheckoutsSection project={project} />
                 </div>
                 
-                {isQuoteAccepted && (
-                    <div key="change-orders" className="h-full overflow-hidden">
+                <div key="change-orders" className="h-full overflow-hidden">
+                    <LockedWidget isLocked={!isQuoteAccepted} title="Change Orders">
+                        {isQuoteAccepted ? (
                         <ChangeOrderSection project={project} projectChangeOrders={projectChangeOrders} acceptedQuotes={acceptedQuotes} addChangeOrder={handleAddChangeOrder} onEditChangeOrder={handleOpenEditChangeOrderModal} />
-                    </div>
-                )}
+                        ) : (
+                            <div className="h-full w-full bg-surface/50" />
+                        )}
+                    </LockedWidget>
+                </div>
                 
-                {isQuoteAccepted && (
-                    <div key="material-orders" className="h-full overflow-hidden">
+                <div key="material-orders" className="h-full overflow-hidden">
+                    <LockedWidget isLocked={!isQuoteAccepted} title="Material Orders">
+                        {isQuoteAccepted ? (
                         <MaterialOrdersSection project={project} orders={projectOrders} isModalOpen={activeModal === 'order'} 
                             onCloseModal={() => { setActiveModal(null); setEditingOrder(null); }} editingOrder={editingOrder}
                             onEditOrder={(order) => { setEditingOrder(order); setActiveModal('order'); }}
                         />
-                    </div>
-                )}
+                        ) : (
+                            <div className="h-full w-full bg-surface/50" />
+                        )}
+                    </LockedWidget>
+                </div>
 
                 <div key="photos" className="h-full overflow-hidden">
+                    {/* UNLOCKED: Photos can be added anytime */}
                     <ProjectPhotosSection project={project} />
                 </div>
                 
