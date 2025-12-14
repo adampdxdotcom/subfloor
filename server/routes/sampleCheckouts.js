@@ -24,10 +24,10 @@ router.post('/', verifySession(), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { projectId, variantId, sampleType, quantity, expectedReturnDate } = req.body;
+    const { projectId, variantId, interestVariantId, sampleType, quantity, expectedReturnDate } = req.body;
     const result = await client.query(
-        `INSERT INTO sample_checkouts (project_id, variant_id, sample_type, quantity, expected_return_date) VALUES ($1, $2, $3, $4, $5) RETURNING *`, 
-        [projectId, variantId, sampleType, quantity || 1, expectedReturnDate]
+        `INSERT INTO sample_checkouts (project_id, variant_id, interest_variant_id, sample_type, quantity, expected_return_date) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, 
+        [projectId, variantId, interestVariantId || null, sampleType, quantity || 1, expectedReturnDate]
     );
     await client.query('COMMIT');
     res.status(201).json(toCamelCase(result.rows[0]));

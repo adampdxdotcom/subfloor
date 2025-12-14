@@ -1168,3 +1168,58 @@ We diagnosed and fixed a persistent issue where uploaded images (Products, Avata
     Smart Selection: Modified the variant table logic to automatically clear selection checkboxes after saving edits or cancelling, preventing accidental bulk updates.
 
     Theming: Updated "Discontinued" badges on cards and modals to use system theme variables instead of hardcoded colors for better contrast in Light Mode.
+
+
+    SESSION 26 SUMMARY
+Theme: Supply Chain Logic & "Smart" Data Architecture
+
+This session transformed the application from a simple list of isolated records into a relational supply chain system. We implemented intelligent links between brands and distributors, refined the inventory data model to handle different flooring types dynamically, and polished the user experience with a professional system status bar.
+1. Supply Chain Automation (Major Architectural Change)
+
+We modeled the real-world relationship between Manufacturers (Brands) and Suppliers (Distributors).
+
+    Self-Referencing Schema: Updated the vendors table so a Manufacturer can point to a specific Default Supplier.
+
+    Auto-Association: When creating a new Product Line, selecting a Brand (e.g., "Shaw") now automatically pre-fills the correct Distributor (e.g., "Gilbert").
+
+    Logistics Logic: When ordering materials, the system looks up the Supplier's dedicated_shipping_day and automatically calculates an ETA that is at least one week out, reducing scheduling errors.
+
+    UI Enhancements: Added a "Supplied Manufacturers" carousel to the Supplier detail page, giving instant visibility into the supply web.
+
+2. Inventory 2.0: "Smart Forms"
+
+We moved away from a rigid "One Size Fits All" data entry model to a dynamic system that adapts to the product type.
+
+    Schema Expansion: Added wear_layer and thickness columns to the database.
+
+    Dynamic UI:
+
+        Tile: Shows "Color", "Size" (e.g., 12x24), and Packaging inputs.
+
+        LVP/Hardwood: Shows "Color", "Plank Size", "Wear Layer", and "Thickness".
+
+        Carpet: Shows "Style", "Roll Width", and hides Packaging inputs entirely.
+
+    Data Clarity: Split the generic "Variant Name" column into distinct "Color" and "Size" fields across the app, including in the Order Search dropdowns, eliminating ambiguity for warehouse staff.
+
+3. Vendor CRM Enhancements
+
+We upgraded the Vendor management tools to capture more actionable data.
+
+    Digital Footprint: Added fields for website_url and portal_url, with clickable icons in the Vendor Directory and Detail pages.
+
+    Data Entry Shortcuts: Added a "Copy Contact Info" button in the modal. If you select a Distributor, one click copies their Address, Phone, and Email to the Manufacturer record.
+
+    Formatting: Implemented auto-formatting for phone numbers to ensure consistency.
+
+4. UI/UX Polish: The System Ticker
+
+    Headless Toast System: We removed the floating "Bubble" notifications that obscured page content.
+
+    Integrated Status Bar: Built a custom SystemStatusTicker component integrated directly into the Desktop Header. It displays "System Ready" when idle, scrolls messages (like "Saved successfully") when active, and maintains a clickable history log of the last 20 events.
+
+5. Database & Infrastructure
+
+    Migrations: Created and applied three new migrations to support the Supply Chain links, URL fields, and LVP technical specs.
+
+    Production Fixes: Resolved a schema drift issue where manual dev changes hadn't propagated to the production container.

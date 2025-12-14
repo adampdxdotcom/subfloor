@@ -83,13 +83,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         const type = activeProduct.productType;
         if (type === 'Carpet' || type === 'Sheet Product') {
             // Carpet usually doesn't have carton packing, and "Size" is usually Width
-            return { color: 'Color / Style', size: 'Width', showPackaging: false };
+            return { color: 'Color / Style', size: 'Width', showPackaging: false, showTechSpecs: false };
         }
         if (type === 'LVP' || type === 'LVT' || type === 'Laminate' || type === 'Hardwood') {
-            return { color: 'Color', size: 'Plank Size', showPackaging: true };
+            return { color: 'Color', size: 'Plank Size', showPackaging: true, showTechSpecs: true };
         }
         // Default (Tile, Quartz, etc)
-        return { color: 'Color', size: 'Size', showPackaging: true };
+        return { color: 'Color', size: 'Size', showPackaging: true, showTechSpecs: false };
     };
 
     const labels = getVariantLabels();
@@ -228,6 +228,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         setNewVariant({ 
             name: '', size: '', sku: '', 
             unitCost: 0, retailPrice: 0, 
+            wearLayer: '', thickness: '', // NEW
             hasSample: false, cartonSize: 0, 
             uom: 'SF', pricingUnit: 'SF' 
         });
@@ -238,6 +239,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         setNewVariant({
             name: variant.name, size: variant.size, sku: variant.sku,
             unitCost: variant.unitCost, retailPrice: variant.retailPrice,
+            wearLayer: variant.wearLayer, thickness: variant.thickness, // NEW
             hasSample: variant.hasSample, cartonSize: variant.cartonSize, 
             uom: variant.uom, pricingUnit: variant.pricingUnit
         });
@@ -285,6 +287,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         formData.append('name', newVariant.name);
         if (newVariant.size) formData.append('size', newVariant.size);
         if (newVariant.sku) formData.append('sku', newVariant.sku);
+        if (newVariant.wearLayer) formData.append('wearLayer', newVariant.wearLayer);
+        if (newVariant.thickness) formData.append('thickness', newVariant.thickness);
         if (newVariant.unitCost !== undefined) formData.append('unitCost', String(newVariant.unitCost));
         if (newVariant.retailPrice !== undefined) formData.append('retailPrice', String(newVariant.retailPrice));
         if (newVariant.hasSample !== undefined) formData.append('hasSample', String(newVariant.hasSample));
@@ -305,6 +309,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                     const safeVal = (val: any) => (val === undefined ? null : val);
                     if (selectedColumns.has('size')) updates.size = safeVal(newVariant.size);
                     if (selectedColumns.has('sku')) updates.sku = safeVal(newVariant.sku);
+                    if (selectedColumns.has('wearLayer')) updates.wearLayer = safeVal(newVariant.wearLayer);
+                    if (selectedColumns.has('thickness')) updates.thickness = safeVal(newVariant.thickness);
                     if (selectedColumns.has('unitCost')) updates.unitCost = safeVal(newVariant.unitCost);
                     if (selectedColumns.has('retailPrice')) updates.retailPrice = safeVal(newVariant.retailPrice);
                     if (selectedColumns.has('cartonSize')) updates.cartonSize = safeVal(newVariant.cartonSize);
@@ -357,7 +363,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 </div>
             </div>
 
-            <div className="bg-surface w-full max-w-5xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            {/* FIX: Increased width to 95vw to accommodate extra columns */}
+            <div className="bg-surface w-full max-w-[95vw] xl:max-w-7xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
                 {/* HEADER */}
                 <div className="p-4 border-b border-border flex justify-between items-center bg-background">
                     <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
@@ -449,13 +456,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                     )}
                                 </div>
 
-                                <div className="bg-background rounded-lg border border-border overflow-hidden">
-                                    <table className="w-full text-sm text-left">
+                                {/* FIX: Added overflow-x-auto to allow horizontal scrolling for wide tables */}
+                                <div className="bg-background rounded-lg border border-border overflow-x-auto">
+                                    <table className="w-full text-sm text-left whitespace-nowrap">
                                         <thead className="bg-surface text-text-secondary border-b border-border">
                                             <tr>
                                                 <th className="p-3 w-12 text-center">Img</th>
                                                 <th className="p-3">{labels.color}</th>
                                                 {renderColumnHeader(labels.size, "size")}
+                                                
+                                                {/* TECH SPECS COLUMNS */}
+                                                {labels.showTechSpecs && renderColumnHeader("Wear Layer", "wearLayer")}
+                                                {labels.showTechSpecs && renderColumnHeader("Thickness", "thickness")}
+                                                
                                                 {renderColumnHeader("SKU", "sku")}
                                                 {labels.showPackaging && renderColumnHeader("Packaging", "cartonSize")}
                                                 {renderColumnHeader("Cost", "unitCost", "text-right")}
@@ -466,17 +479,36 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                 <th className="p-3 text-center">Status</th>
                                                 
                                                 {/* TOGGLE COLUMN: QR vs Checkbox */}
-                                                <th className="p-3 w-16 text-center">
-                                                    <button 
-                                                        onClick={() => {
-                                                            setIsSelectionMode(!isSelectionMode);
-                                                            if (isSelectionMode) setSelectedRowIds(new Set()); // Clear on exit
-                                                        }}
-                                                        className={`p-1 rounded transition-colors ${isSelectionMode ? 'text-primary bg-primary/10' : 'text-text-secondary hover:text-primary'}`}
-                                                        title={isSelectionMode ? "Cancel Selection" : "Select Multiple"}
-                                                    >
-                                                        {isSelectionMode ? <CheckSquare size={18} /> : <ListChecks size={18} />}
-                                                    </button>
+                                                <th className="p-3 w-24 text-center">
+                                                    {isSelectionMode ? (
+                                                        <div className="flex justify-center items-center gap-1">
+                                                            <button 
+                                                                onClick={toggleAllRows}
+                                                                className="p-1 rounded text-primary hover:bg-primary/10"
+                                                                title="Select All"
+                                                            >
+                                                                <CheckSquare size={18} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    setIsSelectionMode(false);
+                                                                    setSelectedRowIds(new Set());
+                                                                }}
+                                                                className="p-1 rounded text-text-secondary hover:text-red-500 hover:bg-red-50"
+                                                                title="Cancel Selection"
+                                                            >
+                                                                <X size={18} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => setIsSelectionMode(true)}
+                                                            className="p-1 rounded text-text-secondary hover:text-primary transition-colors"
+                                                            title="Select Multiple"
+                                                        >
+                                                            <ListChecks size={18} />
+                                                        </button>
+                                                    )}
                                                 </th>
                                                 
                                                 <th className="p-3 w-20 text-center">Actions</th>
@@ -491,6 +523,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                         <td className="p-2 text-center"><button onClick={() => setShowImageModal(true)} className="w-8 h-8 rounded border bg-white flex items-center justify-center"><ImageIcon size={14}/></button></td>
                                                         <td className="p-2"><input type="text" placeholder={labels.color} className="w-full p-1 border border-primary rounded font-bold" value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
                                                         <td className="p-2"><input type="text" placeholder={labels.size} className="w-full p-1 border border-primary rounded" value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
+                                                        
+                                                        {/* EDIT INPUTS FOR TECH SPECS */}
+                                                        {labels.showTechSpecs && (
+                                                            <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.wearLayer || ''} onChange={e => setNewVariant({...newVariant, wearLayer: e.target.value})} placeholder="20mil" /></td>
+                                                        )}
+                                                        {labels.showTechSpecs && (
+                                                            <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.thickness || ''} onChange={e => setNewVariant({...newVariant, thickness: e.target.value})} placeholder="5mm" /></td>
+                                                        )}
+
                                                         <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
                                                         
                                                         {/* PACKAGING */}
@@ -546,6 +587,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                         
                                                         <td className="p-3 font-medium text-text-primary">{v.name}</td>
                                                         <td className="p-3 text-text-secondary">{v.size || '-'}</td>
+                                                        
+                                                        {/* READ ONLY TECH SPECS */}
+                                                        {labels.showTechSpecs && <td className="p-3 text-text-secondary">{v.wearLayer || '-'}</td>}
+                                                        {labels.showTechSpecs && <td className="p-3 text-text-secondary">{v.thickness || '-'}</td>}
+
                                                         <td className="p-3 text-text-secondary">{v.sku || '-'}</td>
                                                         {labels.showPackaging && <td className="p-3 text-text-secondary text-xs font-mono">{v.cartonSize ? `${v.cartonSize} ${v.uom}` : '-'}</td>}
                                                         <td className="p-3 text-right text-text-secondary">{v.unitCost ? `$${Number(v.unitCost).toFixed(2)}` : '-'}</td>
@@ -590,6 +636,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                     <td className="p-2"><button onClick={() => setShowImageModal(true)} className="w-10 h-10 border rounded flex items-center justify-center bg-white"><ImageIcon size={14} /></button></td>
                                                     <td className="p-2"><input autoFocus type="text" className="w-full p-1 border rounded" placeholder={labels.color} value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
                                                     <td className="p-2"><input type="text" className="w-full p-1 border rounded" placeholder={labels.size} value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
+                                                    
+                                                    {/* NEW ROW TECH SPECS */}
+                                                    {labels.showTechSpecs && <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.wearLayer || ''} onChange={e => setNewVariant({...newVariant, wearLayer: e.target.value})} placeholder="Wear Layer" /></td>}
+                                                    {labels.showTechSpecs && <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.thickness || ''} onChange={e => setNewVariant({...newVariant, thickness: e.target.value})} placeholder="Thickness" /></td>}
+
                                                     <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
                                                     
                                                     {/* PACKAGING */}

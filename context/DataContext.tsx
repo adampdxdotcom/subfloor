@@ -16,6 +16,7 @@ import { useJobs, useJobMutations } from '../hooks/useJobs';
 import { useChangeOrders, useChangeOrderMutations } from '../hooks/useChangeOrders';
 import { useMaterialOrders, useMaterialOrderMutations } from '../hooks/useMaterialOrders';
 import { useSampleCheckouts, useSampleCheckoutMutations } from '../hooks/useSampleCheckouts';
+import { useHistory } from '../hooks/useHistory'; // NEW IMPORT
 
 import * as customerService from '../services/customerService';
 import * as productService from '../services/productService'; // New Service
@@ -52,14 +53,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- REMOVED: The standalone uiPreferences state is no longer needed ---
   // const [uiPreferences, setUiPreferences] = useState<UiPreferences | null>(null);
 
-  const [customerHistory, setCustomerHistory] = useState<ActivityLogEntry[]>([]);
-  const [projectHistory, setProjectHistory] = useState<ActivityLogEntry[]>([]);
-  const [quotesHistory, setQuotesHistory] = useState<ActivityLogEntry[]>([]);
-  const [installerHistory, setInstallerHistory] = useState<ActivityLogEntry[]>([]);
-  const [vendorHistory, setVendorHistory] = useState<ActivityLogEntry[]>([]);
-  const [sampleHistory, setSampleHistory] = useState<ActivityLogEntry[]>([]);
-  const [materialOrderHistory, setMaterialOrderHistory] = useState<ActivityLogEntry[]>([]);
-  
   // --- REACT QUERY: Notification Polling ---
   // Replaces the manual useEffect/setInterval loop below
   const { data: unreadCount = 0 } = useUnreadNotificationCount(!!currentUser);
@@ -104,6 +97,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const { data: sampleCheckouts = [], isLoading: sampleCheckoutsLoading } = useSampleCheckouts(!!currentUser);
   const sampleCheckoutMutations = useSampleCheckoutMutations();
   
+  // --- NEW: History Hook (Replaces ~60 lines of code) ---
+  const {
+    customerHistory, fetchCustomerHistory,
+    projectHistory, fetchProjectHistory,
+    quotesHistory, fetchQuotesHistory,
+    installerHistory, fetchInstallerHistory,
+    vendorHistory, fetchVendorHistory,
+    sampleHistory, fetchSampleHistory,
+    materialOrderHistory, fetchMaterialOrderHistory
+  } = useHistory();
+
 
   const toggleLayoutEditMode = () => {
     setIsLayoutEditMode(prevMode => !prevMode);
@@ -251,44 +255,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser, fetchAllUsers]);
   
   
-  // Generic helper for history fetch (re-defined here to access pool/service context if needed)
-  const fetchActivityHistory = (entityType: string, setHistory: React.Dispatch<React.SetStateAction<ActivityLogEntry[]>>) => 
-    useCallback(async (id: number | string) => {
-        const serviceMap = {
-            'CUSTOMER': customerService.getCustomerHistory,
-            'PROJECT': projectService.getProjectHistory,
-            'QUOTE': quoteService.getQuotesHistory,
-            'INSTALLER': installerService.getInstallerHistory,
-            'VENDOR': vendorService.getVendorHistory,
-            'PRODUCT': (id: number | string) => productService.getProductHistory(String(id)), // Assume Product/Variant IDs are strings/UUIDs
-            'ORDER': materialOrderService.getMaterialOrderHistory,
-        };
-        
-        const service = serviceMap[entityType as keyof typeof serviceMap];
-        if (!service) {
-            console.error(`No history service found for entity type: ${entityType}`);
-            return;
-        }
-
-        try {
-            const historyData = await service(id);
-            setHistory(historyData);
-        } catch (error) {
-            console.error(`Error fetching ${entityType} history:`, error);
-            toast.error(`Could not load ${entityType} history.`);
-            setHistory([]);
-        }
-    }, []);
-
-  const fetchCustomerHistory = fetchActivityHistory('CUSTOMER', setCustomerHistory);
-  const fetchProjectHistory = fetchActivityHistory('PROJECT', setProjectHistory);
-  const fetchQuotesHistory = fetchActivityHistory('QUOTE', setQuotesHistory);
-  const fetchInstallerHistory = fetchActivityHistory('INSTALLER', setInstallerHistory);
-  const fetchVendorHistory = fetchActivityHistory('VENDOR', setVendorHistory);
-  const fetchSampleHistory = fetchActivityHistory('PRODUCT', setSampleHistory); // Updated Entity Name
-  const fetchMaterialOrderHistory = fetchActivityHistory('ORDER', setMaterialOrderHistory);
-
-
   const addVendor = useCallback(async (vendor: Omit<Vendor, 'id'>): Promise<void> => {
       await vendorMutations.addVendor.mutateAsync(vendor);
   }, [vendorMutations.addVendor]);
@@ -791,7 +757,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     vendorHistory,            
     fetchVendorHistory,       
     sampleHistory,            
-    fetchSampleHistory: (id) => fetchActivityHistory('PRODUCT', setSampleHistory)(id),
+    fetchSampleHistory,
     materialOrderHistory,
     fetchMaterialOrderHistory,
 

@@ -1,16 +1,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { Product, ProductVariant, SAMPLE_TYPES, SampleType } from '../types';
-import { Layers, ScanLine, X, Search, PlusCircle, ChevronRight } from 'lucide-react';
+import { Layers, ScanLine, X, Search, PlusCircle, ChevronRight, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import QrScanner from './QrScanner';
 
 // Define what the parent expects to receive
 export interface CheckoutItem {
     variantId: string;
+    interestVariantId: string; // NEW: Track intent
     // Display fields
     productName: string;
     variantName: string;
+    interestName: string; // NEW: Display intent
     manufacturerName?: string;
     // Checkout fields
     sampleType: SampleType;
@@ -32,10 +34,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
   // --- Internal State for the "Variant Picker" ---
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
-  
-  // Default values since UI inputs are removed
-  const selectedType: SampleType = 'Board';
-  const selectedQuantity: number = 1;
+  const [interestVariantId, setInterestVariantId] = useState<string>('');
 
   // --- SEARCH LOGIC ---
   const searchResults = useMemo(() => {
@@ -65,6 +64,8 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
   useEffect(() => {
       if (externalSelectedProduct) {
           setPendingProduct(externalSelectedProduct);
+          setInterestVariantId('');
+          
           // Try to select master or first variant
           if (externalSelectedProduct.variants.length > 0) {
              const master = externalSelectedProduct.variants.find(v => v.isMaster);
@@ -77,6 +78,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
 
   const handleProductClick = (product: Product) => {
       setPendingProduct(product);
+      setInterestVariantId('');
       
       if (product.variants.length > 0) {
           const master = product.variants.find(v => v.isMaster);
@@ -87,32 +89,32 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
   };
 
   const confirmAddItem = () => {
-      if (!pendingProduct || !selectedVariantId) return;
+      if (!pendingProduct || !selectedVariantId || !interestVariantId) return;
 
       const variant = pendingProduct.variants.find(v => v.id === selectedVariantId);
-      if (!variant) return;
+      const interestVariant = pendingProduct.variants.find(v => v.id === interestVariantId);
+      
+      if (!variant || !interestVariant) return;
 
       const newItem: CheckoutItem = {
           variantId: variant.id,
+          interestVariantId: interestVariant.id,
           productName: pendingProduct.name,
           variantName: variant.name || variant.size || 'Default',
+          interestName: interestVariant.name || interestVariant.size || 'Default',
           manufacturerName: pendingProduct.manufacturerName || '',
-          sampleType: selectedType,
-          quantity: selectedQuantity
+          sampleType: 'Board', // Hardcoded per requirement
+          quantity: 1
       };
 
-      // Check for duplicates (same variant AND type)
-      const existingIndex = selectedItems.findIndex(i => i.variantId === newItem.variantId && i.sampleType === newItem.sampleType);
+      // Check for duplicates (same variant AND same interest)
+      const existingIndex = selectedItems.findIndex(i => i.variantId === newItem.variantId && i.interestVariantId === newItem.interestVariantId);
       
       if (existingIndex >= 0) {
-          // Update quantity
-          const updated = [...selectedItems];
-          updated[existingIndex].quantity += newItem.quantity;
-          setSelectedItems(updated);
-          toast.success(`Updated quantity for ${newItem.variantName}`);
+          toast.error("Item already in list.");
       } else {
           setSelectedItems(prev => [...prev, newItem]);
-          toast.success(`Added ${newItem.variantName}`);
+          toast.success(`Added ${newItem.interestName}`);
       }
 
       // Reset
@@ -166,11 +168,14 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
             setPendingProduct(foundProduct);
             
             if (variantId) {
+                // Scanned a specific variant: Set as Physical AND Interest
                 setSelectedVariantId(variantId);
+                setInterestVariantId(variantId);
             } else {
                 // Product Scan: Check for Master Board
                 const master = foundProduct.variants.find(v => v.isMaster);
                 if (master) setSelectedVariantId(master.id);
+                setInterestVariantId(''); // Require manual selection
             }
             toast.success("Item found!");
         } else {
@@ -255,43 +260,65 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                         ← Back to Search
                     </div>
                     
-                    <div className="bg-surface p-4 rounded-lg border border-border flex-1 flex flex-col gap-4">
+                    <div className="bg-surface p-4 rounded-lg border border-border flex-1 flex col gap-4">
                         <div>
                             <h4 className="font-bold text-lg text-text-primary">{pendingProduct.name}</h4>
                             <p className="text-sm text-text-secondary">{pendingProduct.manufacturerName}</p>
+                            
+                            {/* Hidden physical variant selector - for Master Board logic */}
+                            <select 
+                                value={selectedVariantId} 
+                                onChange={e => setSelectedVariantId(e.target.value)} 
+                                className="hidden"
+                            >
+                                {pendingProduct.variants
+                                    .filter(v => v.isMaster || v.hasSample)
+                                    .sort((a, b) => (a.isMaster === b.isMaster) ? 0 : a.isMaster ? -1 : 1)
+                                    .map(v => (
+                                        <option key={v.id} value={v.id}>{v.name}</option>
+                                    ))}
+                            </select>
                         </div>
 
-                        {/* VARIANT SELECTOR - UNLOCKED & SIMPLIFIED */}
+                        {/* INTEREST SELECTOR (REQUIRED) */}
                         <div>
-                            <label className="block text-sm font-medium text-text-secondary mb-1">Select Item</label>
+                            <label className="block text-sm font-bold text-text-primary mb-1">
+                                Which style/color do they like? <span className="text-red-500">*</span>
+                            </label>
                             {pendingProduct.variants.length === 0 ? (
                                 <p className="text-red-500 text-sm">No variants available.</p>
                             ) : (
                             <select 
-                                value={selectedVariantId} 
-                                onChange={e => setSelectedVariantId(e.target.value)} 
-                                className="w-full p-2 bg-background border border-border rounded text-text-primary cursor-pointer"
+                                value={interestVariantId} 
+                                onChange={e => setInterestVariantId(e.target.value)} 
+                                size={5}
+                                className="w-full p-2 bg-background border-2 border-primary/20 focus:border-primary rounded text-text-primary cursor-pointer"
                             >   
-                                {/* Sort: Master first, then alphabetical */}
+                                <option value="" disabled className="text-text-tertiary">-- Select an option --</option>
                                 {pendingProduct.variants
-                                    .filter(v => v.isMaster || v.hasSample) // Only show if we have a sample (or it's master)
-                                    .sort((a, b) => (a.isMaster === b.isMaster) ? 0 : a.isMaster ? -1 : 1)
+                                    .filter(v => !v.isMaster) // Show colors, not the board itself
+                                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
                                     .map(v => (
-                                    <option key={v.id} value={v.id} className={v.isMaster ? 'font-bold' : ''}>
-                                        {v.isMaster ? '★ ' : ''}
-                                        {v.name} {v.size ? `(${v.size})` : ''} {v.sku ? `- ${v.sku}` : ''}
+                                    <option key={v.id} value={v.id} className="py-1">
+                                        {v.name} {v.size ? `(${v.size})` : ''}
                                     </option>
                                 ))}
                             </select>
+                            )}
+                            {!interestVariantId && (
+                                <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                                    <AlertCircle size={12} /> Selection required
+                                </p>
                             )}
                         </div>
 
                         <div className="mt-auto pt-4">
                             <button 
                                 onClick={confirmAddItem}
-                                className="w-full py-3 bg-primary hover:bg-primary-hover text-on-primary font-bold rounded-lg shadow-md"
+                                disabled={!interestVariantId}
+                                className="w-full py-3 bg-primary hover:bg-primary-hover disabled:bg-gray-400 text-on-primary font-bold rounded-lg shadow-md transition-all"
                             >
-                                Add to Checkout List
+                                {interestVariantId ? 'Add to Checkout List' : 'Select a Style'}
                             </button>
                         </div>
                     </div>
@@ -313,10 +340,9 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                         <div key={`${item.variantId}-${idx}`} className="bg-surface p-3 rounded border border-border flex justify-between items-start">
                             <div>
                                 <p className="font-bold text-sm text-text-primary">{item.productName}</p>
-                                <p className="text-xs text-text-secondary">{item.variantName}</p>
-                                <div className="flex gap-2 mt-1">
-                                    <span className="text-xs bg-background border border-border px-1.5 py-0.5 rounded text-text-secondary">{item.sampleType}</span>
-                                    <span className="text-xs bg-blue-900/30 text-blue-200 px-1.5 py-0.5 rounded border border-blue-800">Qty: {item.quantity}</span>
+                                <div className="flex items-center gap-1 mt-1">
+                                    <span className="text-xs text-text-secondary">Interested in:</span>
+                                    <span className="text-sm font-bold text-primary">{item.interestName}</span>
                                 </div>
                             </div>
                             <button onClick={() => removeItem(idx)} className="text-text-tertiary hover:text-red-400 p-1">

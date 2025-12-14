@@ -17,6 +17,8 @@ router.get('/', verifySession(), async (req, res) => {
                 v.vendor_type,
                 v.default_supplier_id,
                 v.default_product_type,
+                v.website_url,
+                v.portal_url,
                 v.phone,
                 v.address,
                 v.ordering_email,
@@ -53,7 +55,7 @@ router.get('/', verifySession(), async (req, res) => {
 router.post('/', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
     const { 
-        name, vendorType, defaultProductType, defaultSupplierId, phone, address, orderingEmail, 
+        name, vendorType, defaultProductType, defaultSupplierId, websiteUrl, portalUrl, phone, address, orderingEmail, 
         claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
         defaultMarkup, pricingMethod
     } = req.body;
@@ -65,14 +67,14 @@ router.post('/', verifySession(), async (req, res) => {
     try {
         const query = `
             INSERT INTO vendors (
-                name, vendor_type, default_product_type, default_supplier_id, phone, address, ordering_email, 
+                name, vendor_type, default_product_type, default_supplier_id, website_url, portal_url, phone, address, ordering_email, 
                 claims_email, rep_name, rep_phone, rep_email, shipping_method, dedicated_shipping_day, notes,
                 default_markup, pricing_method
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
             RETURNING *;
         `;
         const values = [
-            name, vendorType, defaultProductType, defaultSupplierId || null, phone, address, orderingEmail,
+            name, vendorType, defaultProductType, defaultSupplierId || null, websiteUrl || null, portalUrl || null, phone, address, orderingEmail,
             claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
             defaultMarkup || null, pricingMethod || null
         ];
@@ -92,7 +94,7 @@ router.put('/:id', verifySession(), async (req, res) => {
     const { id } = req.params;
     const userId = req.session.getUserId();
     const { 
-        name, vendorType, defaultProductType, defaultSupplierId, phone, address, orderingEmail, 
+        name, vendorType, defaultProductType, defaultSupplierId, websiteUrl, portalUrl, phone, address, orderingEmail, 
         claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
         defaultMarkup, pricingMethod
     } = req.body;
@@ -109,15 +111,15 @@ router.put('/:id', verifySession(), async (req, res) => {
         const beforeData = toCamelCase(beforeResult.rows[0]);
         const query = `
             UPDATE vendors SET
-                name = $1, vendor_type = $2, default_product_type = $3, default_supplier_id = $4, phone = $5, address = $6,
-                ordering_email = $7, claims_email = $8, rep_name = $9, rep_phone = $10,
-                rep_email = $11, shipping_method = $12, dedicated_shipping_day = $13, notes = $14,
-                default_markup = $15, pricing_method = $16
-            WHERE id = $17
+                name = $1, vendor_type = $2, default_product_type = $3, default_supplier_id = $4, website_url = $5, portal_url = $6, phone = $7, address = $8,
+                ordering_email = $9, claims_email = $10, rep_name = $11, rep_phone = $12,
+                rep_email = $13, shipping_method = $14, dedicated_shipping_day = $15, notes = $16,
+                default_markup = $17, pricing_method = $18
+            WHERE id = $19
             RETURNING *;
         `;
         const values = [
-            name, vendorType, defaultProductType, defaultSupplierId || null, phone, address, orderingEmail,
+            name, vendorType, defaultProductType, defaultSupplierId || null, websiteUrl || null, portalUrl || null, phone, address, orderingEmail,
             claimsEmail, repName, repPhone, repEmail, shippingMethod, dedicatedShippingDay, notes,
             defaultMarkup || null, pricingMethod || null,
             id

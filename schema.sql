@@ -18,6 +18,8 @@ CREATE TABLE vendors (
     vendor_type TEXT, -- Replaces is_manufacturer/is_supplier. Can be 'Manufacturer', 'Supplier', 'Both'.
     default_supplier_id INT REFERENCES vendors(id) ON DELETE SET NULL,
     default_product_type TEXT,
+    website_url TEXT,
+    portal_url TEXT,
     address TEXT,
     phone VARCHAR(50),
     ordering_email VARCHAR(255),
@@ -54,6 +56,8 @@ CREATE TABLE product_variants (
     size TEXT,
     finish TEXT,
     style TEXT,
+    wear_layer VARCHAR(50),
+    thickness VARCHAR(50),
     sku TEXT,
     unit_cost NUMERIC(10, 2),
     retail_price NUMERIC(10, 2),
@@ -90,6 +94,7 @@ CREATE TABLE sample_checkouts (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
     variant_id UUID REFERENCES product_variants(id) ON DELETE RESTRICT,
+    interest_variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
     sample_type TEXT, -- 'Board', 'Hand Sample', etc.
     quantity INT DEFAULT 1,
     checkout_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,

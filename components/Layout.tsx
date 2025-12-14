@@ -4,6 +4,7 @@ import { Home, Users, HardHat, Layers, Calendar, Menu, X, Settings as SettingsIc
 import UniversalSearch from './UniversalSearch';
 import UserStatus from './UserStatus';
 import NavigationListener from './NavigationListener'; // <-- NEW: Import the listener
+import SystemStatusTicker from './SystemStatusTicker';
 import { useData } from '../context/DataContext';
 
 const Layout: React.FC = () => {
@@ -118,7 +119,8 @@ const Layout: React.FC = () => {
                         <UniversalSearch />
                     </div>
                     
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-4">
+                        <SystemStatusTicker />
                         <UserStatus />
                     </div>
                 </header>

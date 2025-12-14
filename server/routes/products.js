@@ -62,6 +62,8 @@ router.get('/', verifySession(), async (req, res) => {
                             'size', pv.size,
                             'finish', pv.finish,
                             'style', pv.style,
+                            'wearLayer', pv.wear_layer,
+                            'thickness', pv.thickness,
                             'sku', pv.sku,
                             'unitCost', pv.unit_cost,
                             'retailPrice', pv.retail_price,
@@ -117,6 +119,8 @@ router.get('/discontinued', verifySession(), async (req, res) => {
                             'size', pv.size,
                             'finish', pv.finish,
                             'style', pv.style,
+                            'wearLayer', pv.wear_layer,
+                            'thickness', pv.thickness,
                             'sku', pv.sku,
                             'unitCost', pv.unit_cost,
                             'retailPrice', pv.retail_price,
@@ -287,7 +291,7 @@ router.post('/:id/variants', verifySession(), verifyRole(['Admin', 'User']), upl
         if (req.file) console.log("   -> Temp Path:", req.file.path);
 
         const { 
-            name, size, finish, style, sku, 
+            name, size, finish, style, wearLayer, thickness, sku, 
             unitCost, retailPrice, pricingUnit, uom, cartonSize, imageUrl: bodyImageUrl, hasSample 
         } = req.body;
 
@@ -309,16 +313,16 @@ router.post('/:id/variants', verifySession(), verifyRole(['Admin', 'User']), upl
 
         const query = `
             INSERT INTO product_variants (
-                product_id, name, size, finish, style, sku, 
+                product_id, name, size, finish, style, wear_layer, thickness, sku, 
                 unit_cost, retail_price, pricing_unit, uom, carton_size, 
                 image_url, thumbnail_url, has_sample
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING *;
         `;
 
         const result = await pool.query(query, [
-            productId, name, size, finish, style, sku, 
+            productId, name, size, finish, style, wearLayer || null, thickness || null, sku, 
             unitCost, retailPrice, pricingUnit, uom, safeCartonSize, 
             imageResults.imageUrl, imageResults.thumbnailUrl, finalHasSample
         ]);
@@ -347,10 +351,10 @@ router.post('/:id/variants/batch', verifySession(), verifyRole(['Admin', 'User']
         const createdVariants = [];
         const query = `
             INSERT INTO product_variants (
-                product_id, name, size, finish, style, sku, 
+                product_id, name, size, finish, style, wear_layer, thickness, sku, 
                 unit_cost, retail_price, pricing_unit, uom, carton_size, image_url, thumbnail_url, has_sample
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING *;
         `;
 
@@ -366,7 +370,7 @@ router.post('/:id/variants/batch', verifySession(), verifyRole(['Admin', 'User']
  
 
             const result = await client.query(query, [
-                productId, v.name, v.size, v.finish, v.style, v.sku,
+                productId, v.name, v.size, v.finish, v.style, v.wearLayer || null, v.thickness || null, v.sku,
                 v.unitCost, v.retailPrice, v.pricingUnit, v.uom, safeCartonSize, v.imageUrl || null, thumbnailUrl, 
                 v.hasSample !== undefined ? v.hasSample : true 
             ]);
@@ -495,6 +499,8 @@ router.patch('/variants/batch-update', verifySession(), verifyRole(['Admin', 'Us
         size: 'size',
         style: 'style',
         finish: 'finish',
+        wearLayer: 'wear_layer',
+        thickness: 'thickness',
         sku: 'sku', // Usually unique, but technically updateable in batch if needed (e.g. clearing it)
         hasSample: 'has_sample'
     };
@@ -582,6 +588,8 @@ router.patch('/variants/:id', verifySession(), verifyRole(['Admin', 'User']), up
         cartonSize: 'carton_size',
         imageUrl: 'image_url',
         thumbnailUrl: 'thumbnail_url', // NEW MAP
+        wearLayer: 'wear_layer',
+        thickness: 'thickness',
         hasSample: 'has_sample',
         uom: 'uom'
     };
@@ -592,7 +600,7 @@ router.patch('/variants/:id', verifySession(), verifyRole(['Admin', 'User']), up
 
     for (const [key, value] of Object.entries(updates)) {
         const dbCol = dbMap[key] || key;
-        if (['name', 'size', 'finish', 'style', 'sku', 'uom', 'has_sample', ...Object.values(dbMap)].includes(dbCol)) {
+        if (['name', 'size', 'finish', 'style', 'sku', 'uom', 'has_sample', 'wear_layer', 'thickness', ...Object.values(dbMap)].includes(dbCol)) {
             let safeValue = value === 'null' ? null : value;
             if (dbCol === 'carton_size' && safeValue === '') safeValue = null;
             fields.push(`${dbCol} = $${idx}`);
@@ -644,8 +652,8 @@ router.post('/:id/duplicate', verifySession(), verifyRole(['Admin', 'User']), as
 
         // 3. Duplicate Variants
         await client.query(`
-            INSERT INTO product_variants (product_id, name, size, finish, style, sku, unit_cost, retail_price, pricing_unit, uom, carton_size, image_url, thumbnail_url, has_sample, is_master)
-            SELECT $1, name, size, finish, style, sku, unit_cost, retail_price, pricing_unit, uom, carton_size, image_url, thumbnail_url, has_sample, is_master
+            INSERT INTO product_variants (product_id, name, size, finish, style, wear_layer, thickness, sku, unit_cost, retail_price, pricing_unit, uom, carton_size, image_url, thumbnail_url, has_sample, is_master)
+            SELECT $1, name, size, finish, style, wear_layer, thickness, sku, unit_cost, retail_price, pricing_unit, uom, carton_size, image_url, thumbnail_url, has_sample, is_master
             FROM product_variants WHERE product_id = $2
         `, [newProduct.id, id]);
 

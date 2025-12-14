@@ -91,6 +91,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
             addSampleCheckout({
                 projectId: selectedProject.id,
                 variantId: item.variantId,
+                interestVariantId: item.interestVariantId,
                 sampleType: item.sampleType,
                 quantity: item.quantity,
                 expectedReturnDate: new Date(expectedReturnDate).toISOString(),

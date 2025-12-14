@@ -30,6 +30,8 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
         unitCost: '',
         retailPrice: '',
         cartonSize: '',
+        wearLayer: '',
+        thickness: '',
         uom: 'SF',
         pricingUnit: 'SF', // NEW: Defaults to SF
         sku: '', // New Field
@@ -55,12 +57,12 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
     // --- SMART LABELS HELPERS ---
     const getLabels = () => {
         if (productType === 'Carpet' || productType === 'Sheet Product') {
-            return { color: 'Colors / Styles', size: 'Roll Widths', showPackaging: false };
+            return { color: 'Colors / Styles', size: 'Roll Widths', showPackaging: false, showTechSpecs: false };
         }
         if (productType === 'LVP' || productType === 'LVT' || productType === 'Laminate' || productType === 'Hardwood') {
-            return { color: 'Colors', size: 'Plank Sizes', showPackaging: true };
+            return { color: 'Colors', size: 'Plank Sizes', showPackaging: true, showTechSpecs: true };
         }
-        return { color: 'Colors', size: 'Sizes', showPackaging: true };
+        return { color: 'Colors', size: 'Sizes', showPackaging: true, showTechSpecs: false };
     };
 
     const labels = getLabels();
@@ -121,6 +123,8 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                     // Copy common data
                     ...commonData,
                     sku: commonData.sku, // Pass it through
+                    wearLayer: commonData.wearLayer,
+                    thickness: commonData.thickness,
                     // Ensure numbers are parsed for backend consistency
                     unitCost: parseFloat(commonData.unitCost) || 0,
                     retailPrice: parseFloat(commonData.retailPrice) || 0,
@@ -199,6 +203,21 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                                     <label className="block text-xs font-medium text-text-secondary mb-1">Common SKU (Optional)</label>
                                     <input type="text" value={commonData.sku} onChange={e => setCommonData({...commonData, sku: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary" placeholder="e.g. Base SKU" />
                                 </div>
+
+                                {/* TECH SPECS (LVP Only) */}
+                                {labels.showTechSpecs && (
+                                    <>
+                                        <div>
+                                            <label className="block text-xs font-medium text-text-secondary mb-1">Wear Layer</label>
+                                            <input type="text" value={commonData.wearLayer} onChange={e => setCommonData({...commonData, wearLayer: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary" placeholder="20mil" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-text-secondary mb-1">Thickness</label>
+                                            <input type="text" value={commonData.thickness} onChange={e => setCommonData({...commonData, thickness: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary" placeholder="5mm" />
+                                        </div>
+                                    </>
+                                )}
+
                                 <div>
                                     <label className="block text-xs font-medium text-text-secondary mb-1">Unit Cost</label>
                                     <input type="number" step="0.01" value={commonData.unitCost} onChange={e => handleCostChange(e.target.value)} className="w-full p-2 bg-surface border border-border rounded text-text-primary" />

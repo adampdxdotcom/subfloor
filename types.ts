@@ -94,6 +94,8 @@ export interface Vendor {
   vendorType: 'Manufacturer' | 'Supplier' | 'Both' | null; // REPLACES isManufacturer/isSupplier
   defaultSupplierId?: number | null;          // ADDED: Self-referencing FK
   defaultProductType: ProductType | string | null;            // ADDED for smart defaults
+  websiteUrl?: string | null;
+  portalUrl?: string | null;
   address?: string | null;
   phone?: string | null;
   orderingEmail?: string | null;
@@ -144,6 +146,8 @@ export interface ProductVariant {
   color?: string | null;
   finish?: string | null;
   style?: string | null;
+  wearLayer?: string | null; // NEW: For LVP (e.g. "20mil")
+  thickness?: string | null; // NEW: For LVP/Tile (e.g. "5mm" or "8mm")
 
   // Financials & Logistics
   sku?: string | null;

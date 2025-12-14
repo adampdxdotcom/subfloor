@@ -5,7 +5,7 @@ import AddEditVendorModal from '../components/AddEditVendorModal';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 // --- MODIFIED: Removed Edit and Trash2 as they are no longer used here ---
-import { PlusCircle, Building, Truck, Search, Layers } from 'lucide-react';
+import { PlusCircle, Building, Truck, Search, Layers, Globe, Link as LinkIcon } from 'lucide-react';
 import { useData } from '../context/DataContext'; // Import useData to get the full vendor list for lookup
 
 const VendorList: React.FC = () => {
@@ -86,8 +86,33 @@ const VendorList: React.FC = () => {
                     <Link to={`/vendors/${vendor.id}`} key={vendor.id} className="bg-surface rounded-lg shadow-md border border-border p-5 flex flex-col justify-between hover:border-accent transition-colors duration-200 group">
                         <div>
                             <div className="flex justify-between items-start">
-                                <h2 className="text-xl font-semibold text-text-primary mb-2 group-hover:text-accent">{vendor.name}</h2>
-                                {/* --- REMOVED: Edit and Delete buttons are gone from this view --- */}
+                                <h2 className="text-xl font-semibold text-text-primary mb-2 group-hover:text-accent truncate flex-1 pr-2">{vendor.name}</h2>
+                                <div className="flex gap-1">
+                                    {vendor.portalUrl && (
+                                        <a 
+                                            href={vendor.portalUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            onClick={(e) => e.stopPropagation()} 
+                                            className="p-1 text-text-tertiary hover:text-primary hover:bg-background rounded"
+                                            title="Open Dealer Portal"
+                                        >
+                                            <LinkIcon size={16} />
+                                        </a>
+                                    )}
+                                    {vendor.websiteUrl && (
+                                        <a 
+                                            href={vendor.websiteUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            onClick={(e) => e.stopPropagation()} 
+                                            className="p-1 text-text-tertiary hover:text-primary hover:bg-background rounded"
+                                            title="Open Website"
+                                        >
+                                            <Globe size={16} />
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-sm text-text-secondary mb-4">
                                 {(vendor.vendorType === 'Manufacturer' || vendor.vendorType === 'Both') && 

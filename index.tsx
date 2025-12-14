@@ -5,7 +5,6 @@ import './index.css';
 import SuperTokens, { SuperTokensWrapper } from 'supertokens-auth-react';
 import Session from 'supertokens-auth-react/recipe/session';
 import EmailPassword from 'supertokens-auth-react/recipe/emailpassword';
-import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // --- DEBUG LOG ---
@@ -105,6 +104,5 @@ root.render(
         <App />
       </SuperTokensWrapper>
     </QueryClientProvider>
-    <Toaster position="bottom-right" /> 
   </React.StrictMode>
 );
