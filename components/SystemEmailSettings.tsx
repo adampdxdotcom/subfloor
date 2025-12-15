@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Save, Mail, Lock, Eye, EyeOff, Clock, Send, Globe } from 'lucide-react';
+import { Save, Mail, Lock, Eye, EyeOff, Clock, Send, Globe, Calendar } from 'lucide-react';
 import * as preferenceService from '../services/preferenceService';
 
 // Define the shape of our system-wide email settings
@@ -11,7 +11,9 @@ type SystemEmailSettingsData = {
         isEnabled: boolean;
         frequencyDays: number;
     };
-    // We can add the central "send-to" address here later
+    upcomingJobReminders?: { // NEW
+        isEnabled: boolean;
+    };
 };
 
 const DEFAULTS: SystemEmailSettingsData = {
@@ -21,6 +23,9 @@ const DEFAULTS: SystemEmailSettingsData = {
         isEnabled: false,
         frequencyDays: 2,
     },
+    upcomingJobReminders: {
+        isEnabled: false
+    }
 };
 
 const TIMEZONES = [
@@ -52,6 +57,10 @@ const SystemEmailSettings: React.FC = () => {
                     pastDueReminders: {
                         ...prev.pastDueReminders,
                         ...(reminderData.pastDueReminders || {}),
+                    },
+                    upcomingJobReminders: {
+                        isEnabled: false,
+                        ...(reminderData.upcomingJobReminders || {})
                     }
                 }));
 
@@ -69,19 +78,31 @@ const SystemEmailSettings: React.FC = () => {
         fetchSystemSettings();
     }, []);
 
-    const handleSettingChange = (field: `pastDueReminders.${keyof SystemEmailSettingsData['pastDueReminders']}`, value: any) => {
-        const subField = field.split('.')[1] as keyof SystemEmailSettingsData['pastDueReminders'];
-        let processedValue = value;
-        if (subField === 'frequencyDays') {
-            processedValue = Math.max(1, parseInt(value, 10) || 1);
-        }
-        setSettings(prev => ({
-            ...prev,
-            pastDueReminders: {
-                ...prev.pastDueReminders,
-                [subField]: processedValue,
+    const handleSettingChange = (field: string, value: any) => {
+        // Helper to update nested state safely
+        if (field.startsWith('pastDueReminders.')) {
+            const subField = field.split('.')[1];
+            let processedValue = value;
+            if (subField === 'frequencyDays') {
+                processedValue = Math.max(1, parseInt(value, 10) || 1);
             }
-        }));
+            setSettings(prev => ({
+                ...prev,
+                pastDueReminders: { ...prev.pastDueReminders, [subField]: processedValue }
+            }));
+        } else if (field.startsWith('upcomingJobReminders.')) {
+            const subField = field.split('.')[1];
+            setSettings(prev => ({
+                ...prev,
+                upcomingJobReminders: { 
+                    ...(prev.upcomingJobReminders || { isEnabled: false }), 
+                    [subField]: value 
+                }
+            }));
+        } else {
+            // Top level
+            setSettings(prev => ({ ...prev, [field]: value }));
+        }
     };
 
     const handleSendTest = async () => {
@@ -173,7 +194,7 @@ const SystemEmailSettings: React.FC = () => {
 
             <div className="space-y-6 border-t border-border pt-6 mb-6">
                 <h3 className="text-lg font-medium text-text-primary -mb-2 flex items-center gap-2">
-                    <Clock className="w-4 h-4" /> Internal Daily Update Schedule
+                    <Clock className="w-4 h-4" /> Company Communication Schedule
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-background rounded-md border border-border flex flex-col gap-2">
@@ -201,7 +222,9 @@ const SystemEmailSettings: React.FC = () => {
             </div>
 
             <div className="space-y-6 border-t border-border pt-6">
-                <h3 className="text-lg font-medium text-text-primary -mb-2">Past Due Sample Reminders</h3>
+                <h3 className="text-lg font-medium text-text-primary -mb-2">Customer Automations</h3>
+                
+                {/* 1. PAST DUE REMINDERS */}
                 <div className="flex items-center justify-between p-4 bg-background rounded-md border border-border">
                     <label htmlFor="pastDueIsEnabled" className="font-semibold text-text-primary">
                         Enable Past Due Reminders
@@ -233,6 +256,27 @@ const SystemEmailSettings: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+                {/* 2. UPCOMING JOB REMINDERS (NEW) */}
+                <div className="flex items-center justify-between p-4 bg-background rounded-md border border-border">
+                    <div className="flex flex-col">
+                        <label htmlFor="upcomingJobIsEnabled" className="font-semibold text-text-primary flex items-center gap-2">
+                            Enable Upcoming Job Reminders <Calendar size={16} />
+                        </label>
+                        <span className="text-xs text-text-secondary mt-1">Automatically emails customers 2 business days before a job starts.</span>
+                    </div>
+                    
+                    <div className="relative inline-block w-14 h-8 align-middle select-none transition duration-200 ease-in">
+                        <input
+                            type="checkbox"
+                            id="upcomingJobIsEnabled"
+                            checked={settings.upcomingJobReminders?.isEnabled || false}
+                            onChange={(e) => handleSettingChange('upcomingJobReminders.isEnabled', e.target.checked)}
+                            className="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                        />
+                        <label htmlFor="upcomingJobIsEnabled" className="toggle-label block overflow-hidden h-8 rounded-full bg-secondary cursor-pointer"></label>
+                    </div>
+                </div>
             </div>
 
             <div className="mt-8 flex justify-end">

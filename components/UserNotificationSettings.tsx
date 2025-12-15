@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS: UserNotificationPrefs = {
 const UserNotificationSettings: React.FC = () => {
     const { currentUser, saveCurrentUserPreferences, isDataLoading } = useData();
     const [settings, setSettings] = useState<UserNotificationPrefs>(DEFAULT_SETTINGS);
+    const [notifyUpcomingJobs, setNotifyUpcomingJobs] = useState(true); // NEW
     const [isLoading, setIsLoading] = useState(true);
     const [isSendingTest, setIsSendingTest] = useState(false);
 
@@ -47,6 +48,7 @@ const UserNotificationSettings: React.FC = () => {
         if (!isDataLoading && currentUser) {
             const savedPrefs = currentUser.preferences?.dashboardEmail || {};
             setSettings({ ...DEFAULT_SETTINGS, ...savedPrefs });
+            setNotifyUpcomingJobs(currentUser.preferences?.notifyUpcomingJobs !== false); // Default True
             setIsLoading(false);
         }
     }, [currentUser, isDataLoading]);
@@ -75,6 +77,7 @@ const UserNotificationSettings: React.FC = () => {
         const newPreferences: UserPreferences = {
             ...currentUser.preferences,
             dashboardEmail: settings,
+            notifyUpcomingJobs: notifyUpcomingJobs // Save new pref
         };
         await saveCurrentUserPreferences(newPreferences);
     };
@@ -83,8 +86,6 @@ const UserNotificationSettings: React.FC = () => {
         setIsSendingTest(true);
         toast.loading('Sending test email...');
         try {
-            // The `sendTestDashboardEmail` service now expects the full, correct type.
-            // The `settings` object in our state now matches this type exactly.
             await reportService.sendTestDashboardEmail(settings);
             toast.dismiss();
             toast.success(`Test email sent to ${currentUser?.email}!`);
@@ -102,7 +103,7 @@ const UserNotificationSettings: React.FC = () => {
     }
 
     return (
-        <>
+        <div className="space-y-8">
             <section className="bg-surface p-6 rounded-lg shadow-md border border-border max-w-4xl mx-auto">
                 <h2 className="text-2xl font-semibold text-text-primary mb-2 flex items-center gap-3">
                     <Bell className="w-7 h-7 text-accent" />
@@ -144,13 +145,38 @@ const UserNotificationSettings: React.FC = () => {
                         <button onClick={handleSendTest} disabled={isSendingTest} className="flex items-center gap-2 py-2 px-6 text-base bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
                             <Send size={18}/> {isSendingTest ? 'Sending...' : 'Send Test'}
                         </button>
-                        <button onClick={handleSave} className="flex items-center gap-2 py-2 px-6 text-base bg-primary hover:bg-primary-hover rounded text-on-primary font-semibold">
-                            <Save size={18}/> Save My Settings
-                        </button>
                     </div>
                 </div>
             </section>
-        </>
+
+            {/* --- NEW SECTION: Project Alerts --- */}
+            <section className="bg-surface p-6 rounded-lg shadow-md border border-border max-w-4xl mx-auto">
+                <h2 className="text-xl font-semibold text-text-primary mb-2 flex items-center gap-3">
+                    <Bell className="w-6 h-6 text-accent" />
+                    Project Alerts
+                </h2>
+                <div className="p-4 bg-background rounded-md border border-border">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={notifyUpcomingJobs} 
+                            onChange={e => setNotifyUpcomingJobs(e.target.checked)}
+                            className="form-checkbox h-5 w-5 text-primary bg-surface border-border rounded focus:ring-primary" 
+                        />
+                        <span className="text-text-primary font-medium">Email me 2 days before my jobs start</span>
+                    </label>
+                    <p className="text-xs text-text-secondary mt-2 ml-8">
+                        If enabled, you will receive an individual email reminder for every project where you are assigned as the Project Lead.
+                    </p>
+                </div>
+                
+                <div className="flex justify-end pt-6">
+                    <button onClick={handleSave} className="flex items-center gap-2 py-2 px-6 text-base bg-primary hover:bg-primary-hover rounded text-on-primary font-semibold">
+                        <Save size={18}/> Save My Settings
+                    </button>
+                </div>
+            </section>
+        </div>
     );
 };
 

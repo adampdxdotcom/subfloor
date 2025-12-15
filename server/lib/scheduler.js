@@ -16,6 +16,24 @@ const __dirname = path.dirname(__filename);
 let dailyEmailTask;
 let reminderTask;
 let pastDueTask;
+let upcomingJobTask; // NEW
+
+// HELPER: Business Day Calculation
+// Returns 'YYYY-MM-DD' for 2 business days from now
+const getTwoBusinessDaysFromNow = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+    let daysToAdd = 2;
+
+    if (dayOfWeek === 4) daysToAdd = 4; // Thursday -> Monday (4 days)
+    if (dayOfWeek === 5) daysToAdd = 4; // Friday -> Tuesday (4 days)
+    if (dayOfWeek === 6) daysToAdd = 3; // Saturday -> Tuesday (3 days) - Edge case if script runs on weekend
+
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + daysToAdd);
+    
+    return targetDate.toISOString().split('T')[0];
+};
 
 // HELPER: Fetch branding for internal email construction
 const getBranding = async () => {
@@ -127,6 +145,7 @@ export const initializeScheduler = async () => {
     if (dailyEmailTask) dailyEmailTask.stop();
     if (reminderTask) reminderTask.stop();
     if (pastDueTask) pastDueTask.stop();
+    if (upcomingJobTask) upcomingJobTask.stop();
 
     console.log('🕒 Initializing scheduler...');
 
@@ -142,7 +161,7 @@ export const initializeScheduler = async () => {
             cronSchedule = `${parseInt(minute)} ${parseInt(hour)} * * *`;
         }
         if (s?.timezone) timezone = s.timezone;
-        console.log(`🕒 Configured Daily Email: ${s?.dailyUpdateTime || '07:00'} in ${timezone}`);
+        console.log(`🕒 Configured Schedule: ${s?.dailyUpdateTime || '07:00'} in ${timezone}`);
     } catch (e) { console.error("Error fetching schedule settings, using defaults.", e); }
 
     // --- JOB 1: Daily Dashboard Email (Assignable) ---
@@ -188,10 +207,9 @@ export const initializeScheduler = async () => {
     }, { scheduled: true, timezone });
 
     // --- JOB 2: Customer Sample Due Reminder (Assignable) ---
-    reminderTask = cron.schedule('0 8 * * *', async () => {
+    reminderTask = cron.schedule(cronSchedule, async () => {
         console.log('🕒 Cron Job: Running Customer Sample Due Reminder task...');
         try {
-            const branding = await getBranding();
             // ... (Query remains same)
             const query = `
                 SELECT
@@ -242,7 +260,7 @@ export const initializeScheduler = async () => {
     }, { scheduled: true, timezone });
 
     // --- JOB 3: Customer PAST DUE Sample Reminder (Assignable) ---
-    pastDueTask = cron.schedule('0 9 * * *', async () => {
+    pastDueTask = cron.schedule(cronSchedule, async () => {
         console.log('🕒 Cron Job: Running Customer PAST DUE Sample Reminder task...');
         try {
             // ... (Same query logic as before) ...
@@ -297,6 +315,120 @@ export const initializeScheduler = async () => {
             console.error('🔥 An error occurred during the Past Due Reminder task:', error);
         }
         console.log('✅ Cron Job: Customer PAST DUE Sample Reminder task finished.');
+    }, { scheduled: true, timezone });
+
+    // --- JOB 4: Upcoming Job Reminders (NEW) ---
+    upcomingJobTask = cron.schedule(cronSchedule, async () => {
+        console.log('🕒 Cron Job: Running Upcoming Job Reminder task...');
+        try {
+            const targetDate = getTwoBusinessDaysFromNow();
+            console.log(`Checking for jobs starting on: ${targetDate}`);
+
+            const branding = await getBranding();
+            
+            // Get System Preference for Customer Emails
+            const sysPrefsRes = await pool.query(`SELECT settings->'upcomingJobReminders'->>'isEnabled' as enabled FROM system_preferences WHERE key = 'email'`);
+            const customerEmailsEnabled = sysPrefsRes.rows[0]?.enabled === 'true';
+
+            // COMPLEX QUERY:
+            // 1. Find Jobs starting on Target Date
+            // 2. Join Project Lead (Manager) & Customer
+            // 3. Join User Preferences to see if Manager wants email
+            const query = `
+                SELECT 
+                    j.id as job_id,
+                    p.id as project_id,
+                    p.project_name,
+                    ja.start_date,
+                    
+                    -- Manager Info
+                    ep.email as manager_email,
+                    p.manager_id,
+                    up.preferences->>'notifyUpcomingJobs' as manager_pref,
+                    
+                    -- Customer Info
+                    c.full_name as customer_name,
+                    c.email as customer_email,
+                    c.phone_number as customer_phone,
+                    
+                    -- Installer Info
+                    i.installer_name
+                FROM job_appointments ja
+                JOIN jobs j ON ja.job_id = j.id
+                JOIN projects p ON j.project_id = p.id
+                JOIN customers c ON p.customer_id = c.id
+                LEFT JOIN installers i ON ja.installer_id = i.id
+                -- Join Manager User & Preferences
+                LEFT JOIN emailpassword_users ep ON p.manager_id = ep.user_id
+                LEFT JOIN user_preferences up ON p.manager_id = up.user_id
+                WHERE 
+                    ja.start_date::date = $1::date
+                    -- Only grab the FIRST appointment for the job to avoid spamming for multi-day jobs
+                    AND ja.id = (SELECT min(id) FROM job_appointments WHERE job_id = j.id)
+                    AND p.status != 'Cancelled'
+            `;
+
+            const result = await pool.query(query, [targetDate]);
+            const jobs = result.rows;
+
+            if (jobs.length === 0) { console.log("No upcoming jobs found."); return; }
+
+            console.log(`Found ${jobs.length} upcoming jobs.`);
+
+            const sysConfig = getSystemConfig();
+            const baseUrl = sysConfig.publicUrl || 'http://localhost:3001';
+
+            for (const job of jobs) {
+                const startDateStr = new Date(job.start_date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+
+                // A. Notify Project Manager
+                if (job.manager_email && job.manager_pref !== 'false') {
+                    // 1. Internal Notification (Red Dot)
+                    await pool.query(
+                        `INSERT INTO notifications (recipient_id, type, title, message, reference_id, reference_type, is_read)
+                         VALUES ($1, 'SYSTEM', 'Upcoming Job Alert', $2, $3, 'PROJECT', false)`,
+                        [job.manager_id, `Job "${job.project_name}" starts in 2 days.`, String(job.project_id)]
+                    );
+
+                    // 2. Email
+                    await sendEmail({
+                        to: job.manager_email,
+                        subject: `Upcoming Job: ${job.project_name}`,
+                        templateName: 'upcomingJobLead',
+                        data: {
+                            managerName: 'Project Lead', 
+                            projectName: job.project_name,
+                            startDate: startDateStr,
+                            customerName: job.customer_name,
+                            customerPhone: job.customer_phone || 'N/A',
+                            installerName: job.installer_name || 'Unassigned',
+                            projectLink: `${baseUrl}/projects/${job.project_id}`
+                        }
+                    });
+                    console.log(`-> Notified Manager: ${job.manager_email}`);
+                }
+
+                // B. Notify Customer
+                if (customerEmailsEnabled && job.customer_email) {
+                    await sendEmail({
+                        to: job.customer_email,
+                        subject: `Reminder: Your Project Starts Soon`,
+                        templateName: 'upcomingJobCustomer',
+                        data: {
+                            customerName: job.customer_name,
+                            projectName: job.project_name,
+                            startDate: startDateStr,
+                            companyPhone: '555-0123' // TODO: Add to System Preferences
+                        }
+                    });
+                    console.log(`-> Notified Customer: ${job.customer_email}`);
+                }
+            }
+
+        } catch (error) {
+            console.error('🔥 An error occurred during the Upcoming Job Reminder task:', error);
+        }
+        console.log('✅ Cron Job: Upcoming Job Reminder task finished.');
     }, { scheduled: true, timezone });
 
     console.log('✅ 🕒 Scheduler initialized with all jobs.');
