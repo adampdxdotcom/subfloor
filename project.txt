@@ -1223,3 +1223,56 @@ We upgraded the Vendor management tools to capture more actionable data.
     Migrations: Created and applied three new migrations to support the Supply Chain links, URL fields, and LVP technical specs.
 
     Production Fixes: Resolved a schema drift issue where manual dev changes hadn't propagated to the production container.
+
+Session 27 Summary: Calendar, Scheduling & Installers (Major Overhaul)
+
+This session focused on transforming the application's scheduling capabilities from a simple "View Only" calendar into a robust, interactive team scheduling system. We solved critical data loss bugs, implemented complex visibility logic, and refined the installer management workflow.
+1. Critical Bug Fixes (Data Integrity)
+
+We diagnosed and fixed a severe bug where saving "Job Details" was accidentally deleting the entire appointment schedule.
+
+    The Problem: The FinalizeJobSection component was initializing with incomplete data (missing appointments) from the global state, and then sending that empty list back to the server on save, wiping the database.
+
+    The Fix: We updated the backend GET /api/jobs endpoint to include appointment data in the global fetch, ensuring the frontend always has the full schedule. We also added "Guard Clauses" in the frontend component to ignore empty updates from background refetches.
+
+    Calendar Visibility: We updated the SQL query to ensure completed jobs remain visible (with a hashed style) but cancelled jobs are hidden.
+
+2. Advanced Calendar & Event System (New Major Feature)
+
+We built a full-featured "Team Calendar" with creating, inviting, and managing events.
+
+    Strict Sorting: Implemented logic to sort events by Start Time and Duration, fixing the "jumping" layout issue.
+
+    Overflow Handling: Added a "+ X More" button and a "Day View" modal for busy days.
+
+    Smart Mentions: Integrated the @ / ! / # mention system into the Calendar Notes and Title, solving a complex CSS z-index issue where the popup was hidden behind the modal.
+
+    Split View/Edit Modes: Refactored the Event Modal into distinct "Read-Only" and "Edit" states. Only the owner can edit; invitees see a clean summary.
+
+3. Invitation & Notification System
+
+We turned appointments into interactive invites.
+
+    Database Schema: Added status (pending/accepted/declined) to attendees and is_public to events.
+
+    Notification Logic: The system now automatically notifies users when they are invited or when an event is updated.
+
+    Response Workflow: Invitees can now "Accept" or "Decline" directly from the UI. Owners are notified of the response.
+
+    Privacy Rules: We implemented strict visibility logic: Users only see events they created, are invited to (unless declined), or are marked "Public".
+
+4. Installer Management Upgrades
+
+We refined how installers are categorized and assigned.
+
+    Managed vs. Unmanaged: Added a type field to installers.
+
+    Smart Filtering: Updated the Quote UI to dynamically filter the installer dropdown based on the selected "Installation Type" (e.g., selecting "Managed Installation" only shows Managed Installers).
+
+    Auto-Population: The "Job Schedule" now automatically pre-fills the installer from the Accepted Quote when creating the first appointment, saving clicks and reducing errors.
+
+5. Infrastructure & Database
+
+    Migrations: Created and applied multiple migrations to support the new features (is_public, status, installer_type).
+
+    Performance: Optimized SQL queries to aggregate job data efficiently.    

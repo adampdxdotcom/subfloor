@@ -8,14 +8,15 @@ interface EditInstallerModalProps {
   isOpen: boolean;
   onClose: () => void;
   installer: Installer | null;
-  initialData?: Partial<Installer>; // NEW PROP
+  initialData?: Partial<Installer>; 
 }
 
 const initialFormState = {
   installerName: '',
   contactEmail: '',
   contactPhone: '',
-  color: '#ffffff' // Default to white
+  color: '#ffffff',
+  type: 'Managed' as 'Managed' | 'Unmanaged'
 };
 
 const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose, installer, initialData }) => {
@@ -31,16 +32,16 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
         contactEmail: installer.contactEmail || '',
         contactPhone: installer.contactPhone || '',
         color: installer.color || '#ffffff',
+        type: (installer.type as 'Managed' | 'Unmanaged') || 'Managed',
       });
     } else if (isOpen && !installer) {
-      // Reset for Add Mode
-      setFormData({ ...initialFormState, ...initialData }); // MERGE INITIAL DATA
+      setFormData({ ...initialFormState, ...initialData }); 
     }
     setIsSaving(false);
     setIsDeleting(false);
   }, [isOpen, installer, initialData]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -103,6 +104,18 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
                 className="w-full p-2 bg-background border border-border rounded text-text-primary placeholder-text-secondary" 
                 required 
             />
+            
+            {/* Type Selector */}
+            <select
+                name="type"
+                value={formData.type}
+                onChange={handleInputChange}
+                className="w-full p-2 bg-background border border-border rounded text-text-primary"
+            >
+                <option value="Managed">Managed Installer (Employee)</option>
+                <option value="Unmanaged">Unmanaged Installer (Sub)</option>
+            </select>
+
             <input 
                 type="email" 
                 name="contactEmail" 

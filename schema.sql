@@ -76,7 +76,8 @@ CREATE TABLE installers (
     installer_name VARCHAR(255) NOT NULL,
     contact_email VARCHAR(255),
     contact_phone VARCHAR(50),
-    color VARCHAR(7)
+    color VARCHAR(7),
+    type VARCHAR(20) DEFAULT 'Managed' -- 'Managed' or 'Unmanaged'
 );
 
 CREATE TABLE projects (
@@ -320,16 +321,18 @@ CREATE TABLE IF NOT EXISTS import_profiles (
 -- =================================================================
 CREATE TABLE notifications (
     id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL, -- Renamed from recipient_id to match code
+    recipient_id VARCHAR(255) NOT NULL, -- Legacy name used in your DB
     sender_id VARCHAR(255),
-    type VARCHAR(50) NOT NULL, -- 'JOB_NOTE', 'ASSIGNMENT', 'SYSTEM'
-    reference_id VARCHAR(255), -- ProjectID or JobID
+    type VARCHAR(50) NOT NULL, -- 'JOB_NOTE', 'ASSIGNMENT', 'SYSTEM', 'APPOINTMENT'
+    title VARCHAR(255), -- Added for Appointment titles
+    reference_id VARCHAR(255), -- ProjectID or JobID or EventID
+    reference_type VARCHAR(50), -- 'PROJECT', 'JOB', 'EVENT'
     message TEXT,
     link_url TEXT,
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_recipient_id ON notifications(recipient_id);
 
 -- =================================================================
 -- DIRECT MESSAGING

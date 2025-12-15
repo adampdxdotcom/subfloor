@@ -43,6 +43,11 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     // --- MEMOIZED VALUES ---
     const acceptedQuotes = useMemo(() => quotes.filter(q => q.status === QuoteStatus.ACCEPTED), [quotes]);
     
+    // Helper to get the default installer from the accepted quote
+    const defaultInstallerId = useMemo(() => {
+        return acceptedQuotes.length > 0 ? acceptedQuotes[0].installerId : null;
+    }, [acceptedQuotes]);
+
     const isSchedulingApplicable = useMemo(() => {
         if (acceptedQuotes.length === 0) return false;
         return acceptedQuotes.some(q => q.installationType === 'Managed Installation' || q.installationType === 'Unmanaged Installer');
@@ -73,27 +78,22 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     // --- EFFECTS ---
     useEffect(() => {
         if (job) {
-            // GUARD: If we have appointments locally, but the incoming 'job' update 
-            // has NONE/UNDEFINED appointments (common during background refetches), 
-            // IGNORE the update to prevent wiping the user's data.
+            // GUARD: Prevent overwrite by empty updates
             const incomingHasAppointments = Array.isArray(job.appointments) && job.appointments.length > 0;
             const localHasAppointments = Array.isArray(jobDetails.appointments) && jobDetails.appointments.length > 0;
 
             if (isInitialized.current && localHasAppointments && !incomingHasAppointments) {
-                // Console warning for debugging, can be removed later
-                // console.warn("Prevented overwrite of appointments by empty update");
                 return;
             }
 
             setJobDetails({
                 ...job,
                 projectId: project.id,
-                // Ensure we map existing appointments or default to empty array
                 appointments: (job.appointments || []).map(a => ({ ...a, _tempId: a.id || tempAppointmentId++ })),
             });
             isInitialized.current = true;
         } else if (!isInitialized.current) {
-            // Initial Fallback if no job exists yet
+            // Initial Fallback
             setJobDetails({
                 projectId: project.id,
                 poNumber: '',
@@ -104,14 +104,14 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 appointments: [{
                     _tempId: tempAppointmentId++,
                     appointmentName: 'Installation',
-                    installerId: acceptedQuotes[0]?.installerId || null,
+                    installerId: defaultInstallerId, // PRE-FILL ON INITIAL LOAD
                     startDate: '',
                     endDate: '',
                 }]
             });
             isInitialized.current = true;
         }
-    }, [job, project.id, acceptedQuotes]);
+    }, [job, project.id, acceptedQuotes, defaultInstallerId]);
     
     // --- HANDLERS ---
     const handleJobChange = (field: keyof Job, value: any) => {
@@ -131,7 +131,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         const newAppointment = {
             _tempId: tempAppointmentId++,
             appointmentName: `Part ${ (jobDetails.appointments?.length || 0) + 1}`,
-            installerId: acceptedQuotes[0]?.installerId || null, // Auto-select installer if possible
+            installerId: defaultInstallerId, // PRE-FILL ON ADD BUTTON
             startDate: '',
             endDate: '',
         };
@@ -168,7 +168,6 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 await updateProject({ id: project.id, status: ProjectStatus.SCHEDULED });
             }
             
-            // Explicitly show success toast
             toast.success("Job details saved successfully.");
             
         } catch (error) { 

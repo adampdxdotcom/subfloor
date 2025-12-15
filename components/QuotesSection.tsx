@@ -3,7 +3,7 @@ import { useData } from '../context/DataContext';
 import { Project, Quote, Installer, QuoteStatus, Job, InstallationType, INSTALLATION_TYPES } from '../types';
 import { Edit, Check, X, History, FileText, Move } from 'lucide-react';
 import ActivityHistory from './ActivityHistory';
-import ModalPortal from './ModalPortal'; // NEW
+import ModalPortal from './ModalPortal'; 
 import { formatDate } from '../utils/dateUtils';
 import EditInstallerModal from './EditInstallerModal';
 
@@ -42,7 +42,38 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     const [isInstallerModalOpen, setIsInstallerModalOpen] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     
-    const installerSearchResults = useMemo(() => { if (!installerSearchTerm) return []; return installers.filter(i => i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase())); }, [installers, installerSearchTerm]);
+    // --- UPDATED FILTER LOGIC ---
+    const installerSearchResults = useMemo(() => { 
+        if (!installerSearchTerm) return []; 
+        
+        // Filter based on Installation Type
+        let allowedType = 'Managed'; // Default
+        if (newQuote.installationType === 'Unmanaged Installer') {
+            allowedType = 'Unmanaged';
+        }
+        
+        return installers.filter(i => 
+            // Name matches search
+            i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase()) && 
+            // Type matches selection (or fallback to allowing all if type is undefined/legacy)
+            (i.type === allowedType || !i.type)
+        ); 
+    }, [installers, installerSearchTerm, newQuote.installationType]);
+
+    // Also clear selection if type changes
+    useEffect(() => {
+        if (selectedInstaller) {
+            let requiredType = 'Managed';
+            if (newQuote.installationType === 'Unmanaged Installer') requiredType = 'Unmanaged';
+            
+            // If current selection doesn't match new type, clear it
+            if (selectedInstaller.type && selectedInstaller.type !== requiredType) {
+                setSelectedInstaller(null);
+                setInstallerSearchTerm('');
+            }
+        }
+    }, [newQuote.installationType]);
+
     const calculatedDeposit = useMemo(() => {
         const materials = parseFloat(newQuote.materialsAmount) || 0;
         if (newQuote.installationType === 'Managed Installation') {
@@ -115,6 +146,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     };
     
     const handleSelectInstaller = (installer: Installer) => { setSelectedInstaller(installer); setInstallerSearchTerm(installer.installerName); };
+    
     const handleShowAddNewInstaller = () => { setIsInstallerModalOpen(true); };
     
     const handleQuoteStatusChange = async (e: React.MouseEvent, quote: Quote, status: QuoteStatus) => { 
@@ -275,7 +307,11 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                             setInstallerSearchTerm(''); 
                         }} 
                         installer={null} 
-                        initialData={{ installerName: installerSearchTerm }} 
+                        // --- UPDATED: Pass the correct type based on what they were trying to quote ---
+                        initialData={{ 
+                            installerName: installerSearchTerm,
+                            type: newQuote.installationType === 'Unmanaged Installer' ? 'Unmanaged' : 'Managed'
+                        }} 
                     />
                 </ModalPortal>
             )}

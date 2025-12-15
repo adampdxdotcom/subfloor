@@ -17,7 +17,7 @@ router.get('/', verifySession(), async (req, res) => {
                 COALESCE(
                     (
                         SELECT json_agg(job_details ORDER BY "scheduledStartDate" DESC)
-                        FROM ( -- This subquery returns camelCased field names, which is correct
+                        FROM ( 
                             SELECT
                                 p.id AS "projectId",
                                 p.project_name AS "projectName",
@@ -37,12 +37,8 @@ router.get('/', verifySession(), async (req, res) => {
             ORDER BY i.installer_name ASC;
         `;
         const result = await pool.query(query);
-        // --- CORRECTED: The previous toCamelCase was insufficient. ---
-        // We need to remap the results to ensure the top-level keys are camelCased
-        // while preserving the already-correctly-cased nested 'jobs' array.
         const finalResult = result.rows.map(row => {
             const camelCasedRow = toCamelCase(row);
-            // The nested jobs array is already correctly cased by the SQL aliases
             return { ...camelCasedRow, jobs: row.jobs };
         });
         res.json(finalResult);
@@ -70,9 +66,7 @@ router.get('/:id', verifySession(), async (req, res) => {
 });
 
 /* ============================================================
-   ✔ NEW ROUTE — FIXES YOUR ERROR
    GET /api/installers/:id/projects
-   Replaces old scheduled_start/end_date with job_appointments
    ============================================================ */
 router.get('/:id/projects', verifySession(), async (req, res) => {
     const { id: installerId } = req.params;
@@ -134,17 +128,17 @@ router.get('/:id/schedule', verifySession(), async (req, res) => {
 /* ============================================================
    POST /api/installers
    ============================================================ */
-router.post('/', verifySession(), async (req, res) => {
+router.post('/', verifySession(), verifyRole('Admin'), async (req, res) => {
     const userId = req.session.getUserId();
 
     try {
-        const { installerName, contactEmail, contactPhone, color } = req.body;
+        const { installerName, contactEmail, contactPhone, color, type } = req.body; // Added type
 
         const result = await pool.query(
-            `INSERT INTO installers (installer_name, contact_email, contact_phone, color)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO installers (installer_name, contact_email, contact_phone, color, type)
+             VALUES ($1, $2, $3, $4, $5)
              RETURNING *`,
-            [installerName, contactEmail, contactPhone, color]
+            [installerName, contactEmail, contactPhone, color, type || 'Managed']
         );
 
         const newInstaller = toCamelCase(result.rows[0]);
@@ -161,7 +155,7 @@ router.post('/', verifySession(), async (req, res) => {
 /* ============================================================
    PUT /api/installers/:id
    ============================================================ */
-router.put('/:id', verifySession(), async (req, res) => {
+router.put('/:id', verifySession(), verifyRole('Admin'), async (req, res) => {
     const { id } = req.params;
     const userId = req.session.getUserId();
 
@@ -173,14 +167,14 @@ router.put('/:id', verifySession(), async (req, res) => {
 
         const beforeData = toCamelCase(beforeResult.rows[0]);
 
-        const { installerName, contactEmail, contactPhone, color } = req.body;
+        const { installerName, contactEmail, contactPhone, color, type } = req.body; // Added type
 
         const result = await pool.query(
             `UPDATE installers
-             SET installer_name = $1, contact_email = $2, contact_phone = $3, color = $4
-             WHERE id = $5
+             SET installer_name = $1, contact_email = $2, contact_phone = $3, color = $4, type = $5
+             WHERE id = $6
              RETURNING *`,
-            [installerName, contactEmail, contactPhone, color, id]
+            [installerName, contactEmail, contactPhone, color, type, id]
         );
 
         const updatedInstaller = toCamelCase(result.rows[0]);
@@ -240,7 +234,7 @@ router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => 
         }
 
         const deletedData = toCamelCase(installerToDelete.rows[0]);
-        await pool.query('DELETE FROM installers WHERE id = $1', [id]); // Fixed missing parameter
+        await pool.query('DELETE FROM installers WHERE id = $1', [id]);
 
         await logActivity(userId, 'DELETE', 'INSTALLER', id, { deletedData });
 
