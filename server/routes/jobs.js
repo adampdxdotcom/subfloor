@@ -5,11 +5,47 @@ import { verifySession } from 'supertokens-node/recipe/session/framework/express
 
 const router = express.Router();
 
-// GET /api/jobs (less useful now, returns jobs without appointment data)
+// GET /api/jobs (Updated to include appointments to prevent data loss on save)
 router.get('/', verifySession(), async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM jobs');
-        res.json(result.rows.map(toCamelCase));
+        const query = `
+            SELECT 
+                j.*,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', ja.id,
+                            'job_id', ja.job_id,
+                            'installer_id', ja.installer_id,
+                            'appointment_name', ja.appointment_name,
+                            'start_date', ja.start_date,
+                            'end_date', ja.end_date
+                        )
+                    ) FILTER (WHERE ja.id IS NOT NULL), 
+                    '[]'
+                ) as appointments
+            FROM jobs j
+            LEFT JOIN job_appointments ja ON j.id = ja.job_id
+            GROUP BY j.id
+            ORDER BY j.created_at DESC
+        `;
+        const result = await pool.query(query);
+        // We map toCamelCase, but we need to ensure the nested JSON keys inside 'appointments' 
+        // are also handled or accessed correctly. toCamelCase usually handles top-level.
+        // The json_build_object above uses snake_case keys (job_id, etc).
+        // Let's rely on the frontend or a deeper map if needed, but usually toCamelCase is shallow.
+        // To be safe and consistent with the project's camelCase convention, let's map the result.
+        
+        const camelCaseRows = result.rows.map(row => {
+            const ccRow = toCamelCase(row);
+            // Manually map the appointments array to camelCase if it exists
+            if (Array.isArray(ccRow.appointments)) {
+                ccRow.appointments = ccRow.appointments.map(toCamelCase);
+            }
+            return ccRow;
+        });
+
+        res.json(camelCaseRows);
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: 'Internal server error' });
@@ -104,6 +140,15 @@ router.post('/', verifySession(), async (req, res) => {
                 
                 const result = await client.query(query, [...values, existingJobId]);
                 job = result.rows[0];
+
+                // --- AUTOMATION: Mark Project as 'Completed' if Final Payment is Received ---
+                if (definedJobDetails.finalPaymentReceived === true) {
+                    await client.query(
+                        `UPDATE projects SET status = 'Completed' WHERE id = $1`,
+                        [projectId]
+                    );
+                }
+                
             } else {
                 // If no jobDetails are provided (e.g., only updating appointments)
                 job = existingJobResult.rows[0];

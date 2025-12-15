@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon, Clock, Check, XCircle, Globe, Lock, Edit2, Trash2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useInstallers } from '../hooks/useInstallers';
 import CalendarFilter from '../components/CalendarFilter';
@@ -9,7 +9,9 @@ import { toast } from 'react-hot-toast';
 import * as eventService from '../services/eventService';
 import { Event as ApiEvent, Installer, User } from '../types';
 import { formatDate } from '../utils/dateUtils';
-import { fromZonedTime } from 'date-fns-tz'; // UPDATED for v3
+import { fromZonedTime } from 'date-fns-tz';
+import MentionInput from '../components/MentionInput';
+import SmartMessage from '../components/SmartMessage'; // Assuming this exists from Chat feature
 
 interface CalendarEvent {
     id: number;
@@ -44,6 +46,12 @@ const normalizeDate = (date: Date): Date => {
     return newDate;
 };
 
+// Strips markup for calendar grid display
+const stripMentions = (text: string): string => {
+    if (!text) return '';
+    return text.replace(/@\[\w+:[\w-]+\|([^\]]+)\]/g, '$1');
+};
+
 const getContrastingTextColor = (hexColor: string | null): string => {
     if (!hexColor) return '#FFFFFF';
     const hex = hexColor.replace('#', '');
@@ -55,32 +63,29 @@ const getContrastingTextColor = (hexColor: string | null): string => {
 };
 
 const CalendarView: React.FC = () => {
-    // UPDATED: Destructure systemBranding
     const { users, currentUser, systemBranding } = useData(); 
-    const { data: installers = [] } = useInstallers(); // Fetch installers directly
+    const { data: installers = [] } = useInstallers();
     
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedInstallerIds, setSelectedInstallerIds] = new useState<Set<number>>(new Set());
-    // --- ADDED: State for the new user filter ---
-    const [selectedUserIds, setSelectedUserIds] = new useState<Set<string>>(new Set());
+    const [selectedInstallerIds, setSelectedInstallerIds] = useState<Set<number>>(new Set());
+    const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
     
     const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<ApiEvent | null>(null); 
     const [newlySelectedDate, setNewlySelectedDate] = useState<Date | null>(null);
+    const [dayViewDate, setDayViewDate] = useState<Date | null>(null);
 
     useEffect(() => {
         if (installers && installers.length > 0) {
             setSelectedInstallerIds(new Set(installers.map(i => i.id)));
         }
-        // --- ADDED: Initialize user filter to all selected ---
         if (users && users.length > 0) {
             setSelectedUserIds(new Set(users.map(u => u.userId)));
         }
     }, [installers, users]);
 
-    // Define fetcher as a stable callback
     const fetchCalendarEvents = useCallback(async () => {
         setIsLoading(true);
         const params = new URLSearchParams();
@@ -122,11 +127,25 @@ const CalendarView: React.FC = () => {
     
     const getEventsForDay = (date: Date) => {
         const checkDate = normalizeDate(date);
-        return events.filter(event => {
+        const filteredEvents = events.filter(event => {
             if (!event.start || !event.end) return false;
             const eventStart = normalizeDate(new Date(event.start));
             const eventEnd = normalizeDate(new Date(event.end));
             return checkDate >= eventStart && checkDate <= eventEnd;
+        });
+
+        return filteredEvents.sort((a, b) => {
+            const startA = new Date(a.start).getTime();
+            const startB = new Date(b.start).getTime();
+            if (startA !== startB) return startA - startB;
+
+            const endA = new Date(a.end).getTime();
+            const endB = new Date(b.end).getTime();
+            const durationA = endA - startA;
+            const durationB = endB - startB;
+            if (durationA !== durationB) return durationB - durationA;
+
+            return a.id - b.id;
         });
     };
     
@@ -144,6 +163,11 @@ const CalendarView: React.FC = () => {
         setEditingEvent(eventData);
         setNewlySelectedDate(null);
         setIsAppointmentModalOpen(true);
+        setDayViewDate(null);
+    };
+
+    const handleOverflowClick = (date: Date) => {
+        setDayViewDate(date);
     };
 
     const refetchEvents = () => {
@@ -163,19 +187,127 @@ const CalendarView: React.FC = () => {
                date.getFullYear() === today.getFullYear();
     };
 
+    const renderEventItem = (event: CalendarEvent, date: Date) => {
+        const jobStart = normalizeDate(new Date(event.start));
+        const jobEnd = normalizeDate(new Date(event.end));
+        const currentDay = normalizeDate(date);
+        const isStartDate = currentDay.getTime() === jobStart.getTime();
+        const isEndDate = currentDay.getTime() === jobEnd.getTime();
+        const isStartOfWeek = date.getDay() === 0;
+        const showLabel = isStartDate || isStartOfWeek || (dayViewDate !== null);
+        const isUserAppointment = event.type === 'user_appointment';
+        
+        const isMaterialOrder = event.type === 'material_order_eta';
+        const isReceived = isMaterialOrder && (event.fullEvent as any)?.status === 'Received';
+        const isJobComplete = event.type === 'appointment' && (event.fullEvent as any)?.isJobComplete;
+
+        let labelText = event.type === 'appointment' ? `${event.title} (${event.customerName.split(' ')[0]})` : event.title;
+        labelText = stripMentions(labelText);
+
+        let eventColor = event.backgroundColor || '#6b7280';
+        if (isUserAppointment) {
+            const fullEvent = event.fullEvent;
+            if (fullEvent && fullEvent.attendees && fullEvent.attendees.length === 1) {
+                const singleAttendee = fullEvent.attendees[0];
+                if ((singleAttendee as any).color) {
+                    eventColor = (singleAttendee as any).color;
+                } else if (singleAttendee.attendeeType === 'user') {
+                    if (currentUser && currentUser.userId === singleAttendee.attendeeId) {
+                        eventColor = currentUser.preferences?.calendarColor || '#3B82FF';
+                    } else {
+                        const user = (users || []).find(u => u.userId === singleAttendee.attendeeId);
+                        eventColor = user?.color || '#3B82FF';
+                    }
+                } else {
+                    const installer = (installers || []).find(i => String(i.id) === singleAttendee.attendeeId);
+                    eventColor = installer?.color || '#3B82FF';
+                }
+            } else {
+                eventColor = '#3B82FF'; 
+            }
+        }
+        
+        const textColor = getContrastingTextColor(eventColor);
+        let classNames = 'block text-xs p-1 truncate relative overflow-hidden mb-1'; 
+        
+        if (dayViewDate !== null) {
+            classNames += ' rounded';
+        } else {
+            if (isStartDate && isEndDate) classNames += ' rounded';
+            else if (isStartDate) classNames += ' rounded-l';
+            else if (isEndDate) classNames += ' rounded-r-md';
+        }
+        
+        if (event.isOnHold) classNames += ' on-hold-event';
+
+        const itemStyle: React.CSSProperties = !event.isOnHold 
+            ? { backgroundColor: eventColor, color: textColor } 
+            : { color: '#a0a0a0' };
+
+        if ((isReceived || isJobComplete) && !event.isOnHold) {
+            itemStyle.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.2) 5px, rgba(0,0,0,0.2) 10px)';
+            labelText = `✓ ${labelText}`;
+        }
+
+        if (isUserAppointment) {
+            const isAllDay = (event.fullEvent as any)?.isAllDay;
+            const timeString = isAllDay ? 'All Day' : new Date(event.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+            return (
+                <div
+                    onClick={(e) => { e.stopPropagation(); handleUserAppointmentClick(event.fullEvent as ApiEvent); }}
+                    key={event.appointmentId}
+                    className={`${classNames} cursor-pointer`}
+                    style={{ backgroundColor: eventColor, color: textColor }}
+                    title={labelText}
+                >
+                    <span className="font-bold">{timeString}</span>
+                    <span className="ml-1">{showLabel ? labelText : ''}</span>
+                </div>
+            );
+        } else {
+            return (
+                <Link 
+                    to={`/projects/${event.id}`} 
+                    key={event.appointmentId} 
+                    className={classNames}
+                    style={itemStyle}
+                    title={labelText}
+                    onClick={(e) => e.stopPropagation()} 
+                >
+                    {showLabel ? labelText : '\u00A0'}
+                </Link>
+            );
+        }
+    };
+
     if (isLoading) {
         return <div className="text-center p-8">Loading Calendar...</div>;
     }
 
+    const MAX_EVENTS_PER_CELL = 2;
+
     return (
-        <div className="bg-surface p-6 rounded-lg shadow-lg h-full flex flex-col">
-            <div className="flex justify-between items-center gap-4 mb-4">
-                <div className="flex items-center">
-                    <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-background text-text-primary"><ChevronLeft/></button>
-                    <h1 className="text-2xl font-bold text-text-primary mx-4">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h1>
-                    <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-background text-text-primary"><ChevronRight/></button>
+        <div className="flex flex-col h-full gap-6">
+            <div className="bg-surface p-6 rounded-lg shadow-md border border-border flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <CalendarIcon className="w-8 h-8 text-primary" />
+                        <h1 className="text-3xl font-bold text-text-primary">Calendar</h1>
+                    </div>
+                    
+                    <div className="h-10 w-px bg-border hidden md:block"></div>
+
+                    <div className="flex items-center bg-background rounded-lg border border-border p-1 shadow-sm">
+                        <button onClick={() => changeMonth(-1)} className="p-2 rounded hover:bg-surface text-text-secondary hover:text-text-primary transition-colors"><ChevronLeft size={20}/></button>
+                        <span className="font-bold text-lg px-4 min-w-[180px] text-center text-text-primary">
+                            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                        </span>
+                        <button onClick={() => changeMonth(1)} className="p-2 rounded hover:bg-surface text-text-secondary hover:text-text-primary transition-colors"><ChevronRight size={20}/></button>
+                    </div>
                 </div>
-                <div className="ml-auto">
+
+                <div className="w-full md:w-auto">
                     <CalendarFilter 
                         installers={installers}
                         users={users}
@@ -187,119 +319,72 @@ const CalendarView: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-7 text-center font-semibold text-text-primary border-b border-border pb-2">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
-            </div>
+            <div className="bg-surface p-6 rounded-lg shadow-md border border-border flex-1 flex flex-col min-h-0 relative">
+                <div className="grid grid-cols-7 text-center font-semibold text-text-primary border-b border-border pb-2 mb-2">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
+                </div>
 
-            <div className="grid grid-cols-7 grid-rows-6 flex-1">
-                {days.map((d, i) => {
-                    const eventsForDay = getEventsForDay(d);
-                    const isCurrentMonth = d.getMonth() === currentDate.getMonth();
+                <div className="grid grid-cols-7 grid-rows-6 flex-1">
+                    {days.map((d, i) => {
+                        const eventsForDay = getEventsForDay(d);
+                        const isCurrentMonth = d.getMonth() === currentDate.getMonth();
+                        
+                        const visibleEvents = eventsForDay.slice(0, MAX_EVENTS_PER_CELL);
+                        const hiddenCount = eventsForDay.length - MAX_EVENTS_PER_CELL;
 
-                    return (
-                        <div 
-                            key={i} 
-                            onClick={() => handleDayClick(d)} 
-                            className={`border border-border flex flex-col cursor-pointer transition-colors ${isCurrentMonth ? 'hover:bg-background' : 'bg-background text-text-secondary'}`}
-                        >
-                            <span className={`font-semibold mb-1 self-start p-1 ${isToday(d) ? 'bg-accent text-on-accent rounded-full w-7 h-7 flex items-center justify-center' : 'w-7 h-7 flex items-center justify-center text-text-primary'}`}>
-                                {d.getDate()}
-                            </span>
-                            <div className="flex-1 overflow-y-auto space-y-1 p-1">
-                                {eventsForDay.map(event => {
-                                    const jobStart = normalizeDate(new Date(event.start));
-                                    const jobEnd = normalizeDate(new Date(event.end));
-                                    const currentDay = normalizeDate(d);
-                                    const isStartDate = currentDay.getTime() === jobStart.getTime();
-                                    const isEndDate = currentDay.getTime() === jobEnd.getTime();
-                                    const isStartOfWeek = d.getDay() === 0;
-                                    const showLabel = isStartDate || isStartOfWeek;
-                                    const isUserAppointment = event.type === 'user_appointment';
+                        return (
+                            <div 
+                                key={i} 
+                                onClick={() => handleDayClick(d)} 
+                                className={`border border-border flex flex-col cursor-pointer transition-colors ${isCurrentMonth ? 'hover:bg-background' : 'bg-background text-text-secondary'}`}
+                            >
+                                <span className={`font-semibold mb-1 self-start p-1 ${isToday(d) ? 'bg-accent text-on-accent rounded-full w-7 h-7 flex items-center justify-center' : 'w-7 h-7 flex items-center justify-center text-text-primary'}`}>
+                                    {d.getDate()}
+                                </span>
+                                <div className="flex-1 overflow-hidden px-1">
+                                    {visibleEvents.map(event => renderEventItem(event, d))}
                                     
-                                    const isMaterialOrder = event.type === 'material_order_eta';
-                                    const isReceived = isMaterialOrder && (event.fullEvent as any)?.status === 'Received';
-                                    
-                                    let labelText = event.type === 'appointment' ? `${event.title} (${event.customerName.split(' ')[0]})` : event.title;
-                                    
-                                    let eventColor = event.backgroundColor || '#6b7280';
-                                    if (isUserAppointment) {
-                                        const fullEvent = event.fullEvent;
-                                        if (fullEvent && fullEvent.attendees && fullEvent.attendees.length === 1) {
-                                            const singleAttendee = fullEvent.attendees[0];
-                                            
-                                            // Priority 1: Use color directly from backend if available (most accurate)
-                                            if ((singleAttendee as any).color) {
-                                                eventColor = (singleAttendee as any).color;
-                                            } 
-                                            // Priority 2: If User, check Current User (reactive) or Context List
-                                            else if (singleAttendee.attendeeType === 'user') {
-                                                if (currentUser && currentUser.userId === singleAttendee.attendeeId) {
-                                                    // FIX: Access color from preferences, not the root user object
-                                                    eventColor = currentUser.preferences?.calendarColor || '#3B82FF';
-                                                } else {
-                                                    const user = (users || []).find(u => u.userId === singleAttendee.attendeeId);
-                                                    // Note: The User object now contains a 'color' property fetched from the DB for other users.
-                                                    eventColor = user?.color || '#3B82FF';
-                                                }
-                                            } else {
-                                                const installer = (installers || []).find(i => String(i.id) === singleAttendee.attendeeId);
-                                                eventColor = installer?.color || '#3B82FF';
-                                            }
-                                        } else {
-                                            eventColor = '#3B82FF'; 
-                                        }
-                                    }
-                                    
-                                    const textColor = getContrastingTextColor(eventColor);
-                                    let classNames = 'block text-xs p-1 truncate relative overflow-hidden';
-                                    if (isStartDate && isEndDate) classNames += ' rounded';
-                                    else if (isStartDate) classNames += ' rounded-l';
-                                    else if (isEndDate) classNames += ' rounded-r-md';
-                                    if (event.isOnHold) classNames += ' on-hold-event';
-
-                                    // Style logic for standard events (Jobs/Orders)
-                                    const itemStyle: React.CSSProperties = !event.isOnHold 
-                                        ? { backgroundColor: eventColor, color: textColor } 
-                                        : { color: '#a0a0a0' };
-
-                                    if (isReceived && !event.isOnHold) {
-                                        // Apply hash pattern for received orders
-                                        itemStyle.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.2) 5px, rgba(0,0,0,0.2) 10px)';
-                                        labelText = `✓ ${labelText}`; // Add visual indicator to text as well
-                                    }
-
-                                    if (isUserAppointment) {
-                                        return (
-                                            <div
-                                                onClick={(e) => { e.stopPropagation(); handleUserAppointmentClick(event.fullEvent as ApiEvent); }}
-                                                key={event.appointmentId}
-                                                className={`${classNames} cursor-pointer`}
-                                                style={{ backgroundColor: eventColor, color: textColor }}
-                                                title={labelText}
-                                            >
-                                                <span className="font-bold">{new Date(event.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
-                                                <span className="ml-1">{showLabel ? labelText : ''}</span>
-                                            </div>
-                                        );
-                                    } else {
-                                        return (
-                                            <Link 
-                                                to={`/projects/${event.id}`} 
-                                                key={event.appointmentId} 
-                                                className={classNames}
-                                                style={itemStyle}
-                                                title={labelText}
-                                            >
-                                                {showLabel ? labelText : '\u00A0'}
-                                            </Link>
-                                        );
-                                    }
-                                })}
+                                    {hiddenCount > 0 && (
+                                        <div 
+                                            onClick={(e) => { e.stopPropagation(); handleOverflowClick(d); }}
+                                            className="text-xs text-text-secondary font-medium hover:text-primary cursor-pointer mt-1 bg-surface/50 rounded p-1 text-center"
+                                        >
+                                            + {hiddenCount} More
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
+
+            {dayViewDate && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                    <div className="bg-surface p-6 rounded-lg shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+                        <div className="flex justify-between items-center mb-4 border-b border-border pb-2">
+                            <h2 className="text-xl font-bold text-text-primary">
+                                {dayViewDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                            </h2>
+                            <button onClick={() => setDayViewDate(null)} className="text-text-secondary hover:text-text-primary">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-2">
+                            {getEventsForDay(dayViewDate).map(event => renderEventItem(event, dayViewDate))}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-border flex justify-end">
+                            <button 
+                                onClick={() => { setDayViewDate(null); handleDayClick(dayViewDate); }}
+                                className="text-primary hover:text-primary-hover text-sm font-semibold"
+                            >
+                                + Add New Event
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {isAppointmentModalOpen && (
                 <AddEditEventModal
                     isOpen={isAppointmentModalOpen}
@@ -322,48 +407,60 @@ interface AddEditEventModalProps {
 }
 
 const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, event, selectedDate, onSaveSuccess }) => {
-    // UPDATED: Destructure systemBranding
     const { users, currentUser, systemBranding } = useData();
     const { data: installers = [] } = useInstallers();
-    
-    // Derived value for use in handleSave
     const systemTimezone = systemBranding?.systemTimezone;
 
+    // Determine Mode: CREATE vs VIEW vs EDIT
+    // New Event -> Edit Mode
+    // Existing Event -> View Mode (default) -> Edit Mode (if owner)
+    
+    // We check ownership using the createdByUserId
+    const isOwner = !event || (currentUser && event.createdByUserId === currentUser.userId);
+    
+    // Default to View Mode if event exists, else Edit Mode
+    const [isEditMode, setIsEditMode] = useState(!event); 
+
+    // Form State
     const [title, setTitle] = useState('');
     const [notes, setNotes] = useState('');
     const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [startTime, setStartTime] = useState('09:00');
+    const [endTime, setEndTime] = useState('10:00');
+    const [isAllDay, setIsAllDay] = useState(false);
+    const [isPublic, setIsPublic] = useState(false);
     const [attendees, setAttendees] = useState<MultiValue<AttendeeOption>>([]);
+    
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
     const attendeeOptions: AttendeeOption[] = React.useMemo(() => [
-        // FIX: Now that `u.color` is available on the User object (fetched from DB), we use it here.
         ...(users || []).map(u => ({ label: u.email, value: `user-${u.userId}`, type: 'user' as const, color: u.color })),
         ...(installers || []).map(i => ({ label: i.installerName, value: `installer-${String(i.id)}`, type: 'installer' as const, color: i.color }))
     ], [users, installers]);
 
+    // Load Data
     useEffect(() => {
         if (event) {
             setTitle(event.title);
             setNotes(event.notes || '');
+            
             const start = new Date(event.startTime);
+            const end = new Date(event.endTime);
             setStartDate(formatDateForInput(start));
+            setEndDate(formatDateForInput(end));
             setStartTime(start.toTimeString().substring(0, 5));
+            setEndTime(end.toTimeString().substring(0, 5));
+            setIsAllDay(event.isAllDay || false);
+            setIsPublic(event.isPublic || false); // Backend must return this now!
             
             if (event.attendees) {
                 const selectedAttendees = event.attendees.map(att => {
                     if (att.attendeeType === 'user') {
                         const user = (users || []).find(u => u.userId === att.attendeeId); 
-                        
-                        // When editing, we prefer the user's fetched color (`user.color`) if available.
                         let color = user?.color || null;
-                        
-                        // If it's the current user, ensure we use the live context color if the fetched user list color is missing.
-                        if (!color && currentUser && currentUser.userId === att.attendeeId) {
-                            color = currentUser.preferences?.calendarColor;
-                        }
-
+                        if (!color && currentUser && currentUser.userId === att.attendeeId) color = currentUser.preferences?.calendarColor;
                         return user ? { label: user.email, value: `user-${user.userId}`, type: 'user' as const, color: color } : null;
                     } else {
                         const installer = (installers || []).find((i: Installer) => String(i.id) === att.attendeeId);
@@ -373,13 +470,19 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                 setAttendees(selectedAttendees);
             }
         } else if (selectedDate) {
+            // Defaults for new event
             setTitle('');
             setNotes('');
-            setStartDate(formatDateForInput(selectedDate));
+            const dateStr = formatDateForInput(selectedDate);
+            setStartDate(dateStr);
+            setEndDate(dateStr);
             setStartTime('09:00');
+            setEndTime('10:00');
+            setIsAllDay(false);
+            setIsPublic(false);
+
             if (currentUser) {
                 const selfAttendee: AttendeeOption = {
-                    // FIX: Use preferences color for self-selection in modal
                     label: currentUser.email, value: `user-${currentUser.userId}`, type: 'user' as const, color: currentUser.preferences?.calendarColor
                 };
                 setAttendees([selfAttendee]);
@@ -387,138 +490,239 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
         }
     }, [event, selectedDate, users, installers, currentUser]);
 
+    // --- ACTIONS ---
+
     const handleSave = async () => {
-        if (!title) {
-            toast.error("Title is required.");
-            return;
-        }
+        if (!title) { toast.error("Title is required."); return; }
         setIsSaving(true);
         try {
-            
-            // Create date string "YYYY-MM-DDTHH:mm:00"
-            const localDateTimeString = `${startDate}T${startTime}:00`;
-            
-            // CRITICAL FIX: Use the library to say "This string is in LA Time, give me the UTC"
-            // This ignores the user's laptop timezone completely.
             const timeZone = systemTimezone || 'America/Los_Angeles';
-            const startDateTime = fromZonedTime(localDateTimeString, timeZone);
-            
-            // --- THIS IS THE CRITICAL FIX ---
+            let startDateTime: Date, endDateTime: Date;
+
+            if (isAllDay) {
+                const s = `${startDate}T00:00:00`;
+                const e = `${endDate}T23:59:59`;
+                startDateTime = fromZonedTime(s, timeZone);
+                endDateTime = fromZonedTime(e, timeZone);
+            } else {
+                const s = `${startDate}T${startTime}:00`;
+                const e = `${endDate}T${endTime}:00`;
+                startDateTime = fromZonedTime(s, timeZone);
+                endDateTime = fromZonedTime(e, timeZone);
+            }
+
             const eventData = {
                 title,
                 notes,
                 startTime: startDateTime.toISOString(),
-                endTime: startDateTime.toISOString(),
-                isAllDay: false,
-                jobId: null, // Add jobId for billable time later
+                endTime: endDateTime.toISOString(),
+                isAllDay,
+                isPublic,
+                jobId: null, 
                 attendees: attendees.map(opt => {
-                    // Robustly parse the ID from the value string
                     const firstHyphenIndex = opt.value.indexOf('-');
                     const attendeeId = opt.value.substring(firstHyphenIndex + 1);
-                    return {
-                        attendeeId: attendeeId, 
-                        attendeeType: opt.type
-                    };
+                    return { attendeeId: attendeeId, attendeeType: opt.type };
                 })
             };
             
             if (event) {
                 await eventService.updateEvent(event.id, eventData);
-                toast.success("Appointment updated successfully!");
+                toast.success("Updated!");
             } else {
                 await eventService.createEvent(eventData);
-                toast.success("Appointment created successfully!");
+                toast.success("Created!");
             }
             onSaveSuccess();
             onClose();
         } catch (error) {
-            toast.error("Failed to save appointment.");
+            toast.error("Failed to save.");
             console.error(error);
-        } finally {
-            setIsSaving(false);
-        }
+        } finally { setIsSaving(false); }
     };
     
     const handleDelete = async () => {
-        if (!event || !window.confirm("Are you sure you want to delete this appointment?")) {
-            return;
-        }
+        if (!event || !window.confirm("Delete this appointment?")) return;
         setIsDeleting(true);
         try {
             await eventService.deleteEvent(event.id);
-            toast.success("Appointment deleted.");
+            toast.success("Deleted.");
             onSaveSuccess();
             onClose();
-        } catch (error) {
-            toast.error("Failed to delete appointment.");
-            console.error(error);
-        } finally {
-            setIsDeleting(false);
-        }
+        } catch (error) { toast.error("Failed to delete."); } 
+        finally { setIsDeleting(false); }
     };
+
+    const handleRespond = async (status: 'accepted' | 'declined') => {
+        if (!event) return;
+        try {
+            // Assuming eventService has this new method
+            const res = await fetch(`/api/events/${event.id}/respond`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            if (!res.ok) throw new Error("Failed");
+            toast.success(`Invitation ${status}`);
+            onSaveSuccess(); // Refresh to show new status
+            onClose();
+        } catch (e) { toast.error("Could not update status"); }
+    };
+
+    // --- RENDER ---
 
     if (!isOpen) return null;
 
+    // My Status Logic
+    const myAttendeeRecord = event?.attendees?.find(a => a.attendeeType === 'user' && a.attendeeId === currentUser?.userId);
+    const myStatus = (myAttendeeRecord as any)?.status || 'pending';
+    const isPendingInvite = !!event && !isOwner && myAttendeeRecord && myStatus === 'pending';
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-            <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-lg">
-                <h2 className="text-2xl font-bold mb-6 text-text-primary">
-                    {event ? 'Edit Appointment' : `Add Appointment for ${selectedDate?.toLocaleDateString()}`}
-                </h2>
-                <div className="space-y-4">
-                    <div>
-                        <label htmlFor="appointmentTitle" className="block text-sm font-medium text-text-secondary">Title</label>
-                        <input type="text" id="appointmentTitle" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" required />
+            <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-lg relative">
+                
+                {/* Header Actions */}
+                <div className="flex justify-between items-start mb-6">
+                    <h2 className="text-2xl font-bold text-text-primary">
+                        {!event ? 'New Appointment' : isEditMode ? 'Edit Appointment' : 'Appointment Details'}
+                    </h2>
+                    <div className="flex items-center gap-2">
+                        {event && !isEditMode && isOwner && (
+                            <button onClick={() => setIsEditMode(true)} className="p-2 text-primary hover:bg-background rounded-full" title="Edit">
+                                <Edit2 size={18} />
+                            </button>
+                        )}
+                        <button onClick={onClose} className="p-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-background">
+                            <X size={20} />
+                        </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                </div>
+
+                {/* --- VIEW MODE --- */}
+                {!isEditMode && event ? (
+                    <div className="space-y-6">
+                        {/* Title & Time */}
                         <div>
-                            <label htmlFor="appointmentDate" className="block text-sm font-medium text-text-secondary">Date</label>
-                            <input type="date" id="appointmentDate" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />
-                        </div>
-                        <div>
-                            <label htmlFor="appointmentTime" className="block text-sm font-medium text-text-secondary">Time</label>
-                            <input type="time" id="appointmentTime" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />
-                        </div>
-                    </div>
-                    <div>
-                        <label htmlFor="appointmentAttendees" className="block text-sm font-medium text-text-secondary">Attendees</label>
-                        <Select 
-                            isMulti 
-                            options={attendeeOptions} 
-                            value={attendees} 
-                            onChange={setAttendees} 
-                            className="react-select-container mt-1" 
-                            classNamePrefix="react-select" 
-                            formatOptionLabel={(option) => (
-                                <div className="flex items-center">
-                                    <div 
-                                        className="w-4 h-4 rounded-full mr-3 flex-shrink-0" 
-                                        style={{ backgroundColor: option.color || '#6B7280' }}
-                                    />
-                                    <span>{option.label}</span>
+                            <h3 className="text-xl font-semibold text-text-primary mb-1">
+                                <span dangerouslySetInnerHTML={{__html: stripMentions(event.title)}} />
+                            </h3>
+                            <div className="flex items-center text-text-secondary text-sm">
+                                <Clock size={16} className="mr-2" />
+                                {new Date(event.startTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} 
+                                {' - '}
+                                {new Date(event.endTime).toLocaleString([], { timeStyle: 'short' })}
+                            </div>
+                            {event.isPublic && (
+                                <div className="flex items-center text-xs text-primary mt-1">
+                                    <Globe size={12} className="mr-1" /> Public Event
                                 </div>
                             )}
-                            styles={{
-                            control: (base) => ({ ...base, backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)' }),
-                            input: (base) => ({ ...base, color: 'var(--color-text-primary)' }),
-                            multiValue: (base) => ({ ...base, backgroundColor: 'var(--color-surface)' }),
-                            multiValueLabel: (base) => ({ ...base, color: 'var(--color-text-primary)' }),
-                            menu: (base) => ({ ...base, backgroundColor: 'var(--color-background)' }),
-                            option: (base, { isFocused, isSelected }) => ({ ...base, backgroundColor: isSelected ? 'var(--color-primary)' : isFocused ? 'var(--color-surface)' : undefined, color: isSelected ? 'var(--color-on-primary)' : 'var(--color-text-primary)' }),
-                        }} />
+                        </div>
+
+                        {/* Smart Notes */}
+                        <div className="bg-background p-4 rounded-md border border-border max-h-60 overflow-y-auto">
+                            <SmartMessage content={event.notes || 'No notes provided.'} />
+                        </div>
+
+                        {/* Attendees List */}
+                        <div>
+                            <h4 className="text-sm font-semibold text-text-secondary mb-2">Attendees</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {event.attendees?.map((att: any, idx: number) => {
+                                    const isUser = att.attendeeType === 'user';
+                                    const name = isUser 
+                                        ? users.find(u => u.userId === att.attendeeId)?.email 
+                                        : installers.find(i => String(i.id) === att.attendeeId)?.installerName;
+                                    
+                                    // Status Icon
+                                    let Icon = Clock;
+                                    let colorClass = 'text-yellow-500';
+                                    if (att.status === 'accepted') { Icon = Check; colorClass = 'text-green-500'; }
+                                    if (att.status === 'declined') { Icon = XCircle; colorClass = 'text-red-500'; }
+
+                                    return (
+                                        <div key={idx} className="flex items-center bg-background border border-border px-2 py-1 rounded-full text-xs">
+                                            <Icon size={12} className={`mr-1 ${colorClass}`} />
+                                            <span className="text-text-primary">{name || 'Unknown'}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Action Bar (For Invitees) */}
+                        {isPendingInvite && (
+                            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                                <span className="text-sm text-text-secondary self-center mr-auto">You are invited:</span>
+                                <button onClick={() => handleRespond('declined')} className="px-3 py-1.5 text-sm border border-red-500 text-red-500 rounded hover:bg-red-50">Decline</button>
+                                <button onClick={() => handleRespond('accepted')} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700">Accept</button>
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <label htmlFor="appointmentNotes" className="block text-sm font-medium text-text-secondary">Notes</label>
-                        <textarea id="appointmentNotes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full p-2 bg-background border border-border rounded text-text-primary"></textarea>
+                ) : (
+                    /* --- EDIT MODE --- */
+                    <div className="space-y-4">
+                        
+                        {/* Title */}
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Title</label>
+                            <MentionInput value={title} onChange={setTitle} placeholder="Event Title..." singleLine />
+                        </div>
+
+                        {/* Dates */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary">Start</label>
+                                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary mb-2" />
+                                {!isAllDay && <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary">End</label>
+                                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary mb-2" />
+                                {!isAllDay && <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />}
+                            </div>
+                        </div>
+
+                        {/* Toggles */}
+                        <div className="flex justify-between">
+                            <div className="flex items-center space-x-2">
+                                <input type="checkbox" id="isAllDay" checked={isAllDay} onChange={e => setIsAllDay(e.target.checked)} className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary" />
+                                <label htmlFor="isAllDay" className="text-sm font-medium text-text-primary cursor-pointer">All Day</label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <input type="checkbox" id="isPublic" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary" />
+                                <label htmlFor="isPublic" className="text-sm font-medium text-text-primary cursor-pointer flex items-center">
+                                    {isPublic ? <Globe size={14} className="mr-1"/> : <Lock size={14} className="mr-1"/>}
+                                    {isPublic ? 'Public Event' : 'Private'}
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Attendees */}
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary">Attendees</label>
+                            <Select isMulti options={attendeeOptions} value={attendees} onChange={setAttendees} className="react-select-container mt-1" classNamePrefix="react-select" styles={{ control: (base) => ({ ...base, backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)' }), input: (base) => ({ ...base, color: 'var(--color-text-primary)' }), multiValue: (base) => ({ ...base, backgroundColor: 'var(--color-surface)' }), multiValueLabel: (base) => ({ ...base, color: 'var(--color-text-primary)' }), menu: (base) => ({ ...base, backgroundColor: 'var(--color-background)' }), option: (base, { isFocused, isSelected }) => ({ ...base, backgroundColor: isSelected ? 'var(--color-primary)' : isFocused ? 'var(--color-surface)' : undefined, color: isSelected ? 'var(--color-on-primary)' : 'var(--color-text-primary)' }) }} />
+                        </div>
+
+                        {/* Notes */}
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Notes</label>
+                            <MentionInput value={notes} onChange={setNotes} placeholder="Add notes..." minHeight={80} />
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="mt-6 flex justify-end gap-4">
+                            {event && (
+                                <button type="button" onClick={handleDelete} disabled={isDeleting} className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold mr-auto">
+                                    <Trash2 size={16} />
+                                </button>
+                            )}
+                            <button type="button" onClick={() => event ? setIsEditMode(false) : onClose()} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-semibold">Cancel</button>
+                            <button type="button" onClick={handleSave} disabled={isSaving} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary font-semibold">{isSaving ? 'Saving...' : 'Save'}</button>
+                        </div>
                     </div>
-                </div>
-                <div className="mt-6 flex justify-end gap-4">
-                    {event && (
-                        <button type="button" onClick={handleDelete} disabled={isDeleting || isSaving} className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold disabled:opacity-50" style={{ marginRight: 'auto' }}>{isDeleting ? 'Deleting...' : 'Delete'}</button>
-                    )}
-                    <button type="button" onClick={onClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-semibold">Cancel</button>
-                    <button type="button" onClick={handleSave} disabled={isSaving || isDeleting} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary font-semibold disabled:opacity-50">{isSaving ? 'Saving...' : 'Save Changes'}</button>
-                </div>
+                )}
             </div>
         </div>
     );

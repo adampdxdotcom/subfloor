@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { Project, Job, Quote, ChangeOrder, ProjectStatus, QuoteStatus, JobAppointment } from '../types';
 import { Save, Calendar, AlertTriangle, PlusCircle, XCircle, Move } from 'lucide-react';
@@ -26,6 +26,9 @@ interface FinalizeJobSectionProps {
 const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, quotes, changeOrders, saveJobDetails, updateProject }) => {
     // --- DATA & STATE ---
     const { installers } = useData();
+
+    // Track if we have initialized to prevent aggressive overwrites
+    const isInitialized = useRef(false);
 
     const [jobDetails, setJobDetails] = useState<Partial<Job>>({
         projectId: project.id,
@@ -70,12 +73,27 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     // --- EFFECTS ---
     useEffect(() => {
         if (job) {
+            // GUARD: If we have appointments locally, but the incoming 'job' update 
+            // has NONE/UNDEFINED appointments (common during background refetches), 
+            // IGNORE the update to prevent wiping the user's data.
+            const incomingHasAppointments = Array.isArray(job.appointments) && job.appointments.length > 0;
+            const localHasAppointments = Array.isArray(jobDetails.appointments) && jobDetails.appointments.length > 0;
+
+            if (isInitialized.current && localHasAppointments && !incomingHasAppointments) {
+                // Console warning for debugging, can be removed later
+                // console.warn("Prevented overwrite of appointments by empty update");
+                return;
+            }
+
             setJobDetails({
                 ...job,
                 projectId: project.id,
-                appointments: job.appointments.map(a => ({ ...a, _tempId: a.id || tempAppointmentId++ })),
+                // Ensure we map existing appointments or default to empty array
+                appointments: (job.appointments || []).map(a => ({ ...a, _tempId: a.id || tempAppointmentId++ })),
             });
-        } else {
+            isInitialized.current = true;
+        } else if (!isInitialized.current) {
+            // Initial Fallback if no job exists yet
             setJobDetails({
                 projectId: project.id,
                 poNumber: '',
@@ -91,6 +109,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                     endDate: '',
                 }]
             });
+            isInitialized.current = true;
         }
     }, [job, project.id, acceptedQuotes]);
     
@@ -112,7 +131,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         const newAppointment = {
             _tempId: tempAppointmentId++,
             appointmentName: `Part ${ (jobDetails.appointments?.length || 0) + 1}`,
-            installerId: null,
+            installerId: acceptedQuotes[0]?.installerId || null, // Auto-select installer if possible
             startDate: '',
             endDate: '',
         };
@@ -148,8 +167,13 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
             if (shouldUpdateStatus) {
                 await updateProject({ id: project.id, status: ProjectStatus.SCHEDULED });
             }
+            
+            // Explicitly show success toast
+            toast.success("Job details saved successfully.");
+            
         } catch (error) { 
             console.error("Failed to save job details", error);
+            toast.error("Failed to save job details. Please try again.");
         }
     };
     
@@ -168,9 +192,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 </button>
             </div>
 
-            {/* --- MODIFIED: Grid container now grows and hides overflow --- */}
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 flex-grow overflow-hidden">
-                {/* --- MODIFIED: Each column is now independently scrollable --- */}
                 <div className="space-y-6 overflow-y-auto pr-2">
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">PO Number</label>

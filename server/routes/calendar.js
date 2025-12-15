@@ -7,11 +7,15 @@ const router = express.Router();
 
 // GET /api/calendar/events
 router.get('/events', verifySession(), async (req, res) => {
+    const currentUserId = req.session.getUserId(); 
+
     let installerWhereClause = '';
-    let userWhereClause = '';
+    let userFilterClause = ''; 
+    
     const params = [];
     let paramIndex = 1;
 
+    // --- 1. FILTER BY INSTALLER ---
     if (req.query.hasOwnProperty('installers')) {
         const installerIdsQueryParam = req.query.installers;
         const installerIds = installerIdsQueryParam
@@ -27,19 +31,23 @@ router.get('/events', verifySession(), async (req, res) => {
         }
     }
 
+    // --- 2. FILTER BY USER CREATOR ---
     if (req.query.hasOwnProperty('users')) {
         const userIdsQueryParam = req.query.users;
         const userIds = userIdsQueryParam ? String(userIdsQueryParam).split(',').filter(id => id) : [];
         if (userIds.length > 0) {
-            userWhereClause = `WHERE e.created_by_user_id = ANY($${paramIndex}::text[])`;
+            userFilterClause = `AND e.created_by_user_id = ANY($${paramIndex}::text[])`;
             params.push(userIds);
             paramIndex++;
         } else {
-            userWhereClause = `WHERE 1 = 0`;
+            userFilterClause = `AND 1 = 0`;
         }
     }
         
     try {
+        const userParamIdx = paramIndex;
+        params.push(currentUserId);
+
         const query = `
             SELECT 
                 p.id AS "id",
@@ -51,7 +59,7 @@ router.get('/events', verifySession(), async (req, res) => {
                 i.color AS "backgroundColor",
                 j.is_on_hold AS "isOnHold",
                 'appointment' AS "type",
-                '{}'::jsonb AS "fullEvent"
+                jsonb_build_object('isJobComplete', j.final_payment_received) AS "fullEvent"
             FROM job_appointments ja
             JOIN jobs j ON ja.job_id = j.id
             JOIN projects p ON j.project_id = p.id
@@ -59,6 +67,7 @@ router.get('/events', verifySession(), async (req, res) => {
             JOIN installers i ON ja.installer_id = i.id
             WHERE 
                 ja.installer_id IS NOT NULL
+                AND p.status != 'Cancelled' -- FIX: Hide cancelled jobs
                 ${installerWhereClause}
             
             UNION ALL
@@ -79,12 +88,12 @@ router.get('/events', verifySession(), async (req, res) => {
             JOIN customers c ON p.customer_id = c.id
             WHERE
                 mo.eta_date IS NOT NULL
+                AND p.status != 'Cancelled' -- FIX: Hide orders for cancelled jobs
             
             UNION ALL
 
             SELECT
                 e.id AS "id",
-                -- --- CORRECTED: Add a large offset to guarantee a unique key ---
                 (e.id + 1000000) AS "appointmentId", 
                 e.title AS "title",
                 e.start_time AS "start",
@@ -102,6 +111,7 @@ router.get('/events', verifySession(), async (req, res) => {
                     'isAllDay', e.is_all_day,
                     'createdByUserId', e.created_by_user_id,
                     'createdAt', e.created_at,
+                    'isPublic', e.is_public,
                     'attendees', COALESCE(att.attendees_agg, '[]'::jsonb)
                 ) AS "fullEvent"
             FROM events e
@@ -112,6 +122,7 @@ router.get('/events', verifySession(), async (req, res) => {
                         jsonb_build_object(
                             'attendeeId', ea.attendee_id, 
                             'attendeeType', ea.attendee_type,
+                            'status', ea.status,
                             'color', (
                                 CASE 
                                     WHEN ea.attendee_type = 'user' THEN (SELECT preferences->>'calendarColor' FROM user_preferences WHERE user_id = ea.attendee_id)
@@ -124,12 +135,33 @@ router.get('/events', verifySession(), async (req, res) => {
                 FROM event_attendees ea
                 GROUP BY ea.event_id
             ) att ON e.id = att.event_id
-            ${userWhereClause} -- This WHERE clause applies ONLY to the 'events' part of the UNION
+            WHERE 
+                (
+                    e.created_by_user_id = $${userParamIdx} 
+                    OR (
+                        (
+                            e.is_public = TRUE 
+                            OR EXISTS (
+                                SELECT 1 FROM event_attendees sub_ea 
+                                WHERE sub_ea.event_id = e.id 
+                                AND sub_ea.attendee_id = $${userParamIdx} 
+                                AND sub_ea.attendee_type = 'user'
+                            )
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1 FROM event_attendees decline_check
+                            WHERE decline_check.event_id = e.id
+                            AND decline_check.attendee_id = $${userParamIdx}
+                            AND decline_check.attendee_type = 'user'
+                            AND decline_check.status = 'declined'
+                        )
+                    )
+                )
+                ${userFilterClause}
             GROUP BY e.id, att.attendees_agg
         `;
         
         const result = await pool.query(query, params);
-        
         res.json(result.rows);
 
     } catch (err) {

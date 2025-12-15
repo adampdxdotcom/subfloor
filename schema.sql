@@ -127,7 +127,9 @@ CREATE TABLE jobs (
     final_payment_received BOOLEAN DEFAULT FALSE NOT NULL,
     paperwork_signed_url VARCHAR(255),
     is_on_hold BOOLEAN NOT NULL DEFAULT FALSE,
-    notes TEXT
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE change_orders (
@@ -244,6 +246,7 @@ CREATE TABLE events (
     start_time TIMESTAMPTZ NOT NULL, -- Full timestamp for time of day
     end_time TIMESTAMPTZ NOT NULL,   -- Full timestamp for time of day
     is_all_day BOOLEAN DEFAULT FALSE,
+    is_public BOOLEAN DEFAULT FALSE, -- New Feature: Visibility toggle
     
     -- Link to a job (optional, for billable time)
     job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL, 
@@ -259,7 +262,9 @@ CREATE TABLE event_attendees (
     -- We'll use a text field for the ID to accommodate different sources
     attendee_id VARCHAR(255) NOT NULL, 
     -- Type helps us know which table to look up ('user' or 'installer')
-    attendee_type VARCHAR(50) NOT NULL, 
+    attendee_type VARCHAR(50) NOT NULL,
+    -- Status tracking for invites
+    status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'accepted', 'declined' 
     PRIMARY KEY (event_id, attendee_id, attendee_type)
 );
 
@@ -315,7 +320,7 @@ CREATE TABLE IF NOT EXISTS import_profiles (
 -- =================================================================
 CREATE TABLE notifications (
     id SERIAL PRIMARY KEY,
-    recipient_id VARCHAR(255) NOT NULL,
+    user_id VARCHAR(255) NOT NULL, -- Renamed from recipient_id to match code
     sender_id VARCHAR(255),
     type VARCHAR(50) NOT NULL, -- 'JOB_NOTE', 'ASSIGNMENT', 'SYSTEM'
     reference_id VARCHAR(255), -- ProjectID or JobID
@@ -324,7 +329,7 @@ CREATE TABLE notifications (
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_notifications_recipient ON notifications(recipient_id);
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 
 -- =================================================================
 -- DIRECT MESSAGING
