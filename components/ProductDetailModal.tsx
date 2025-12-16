@@ -41,8 +41,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     // For batch editing logic
     const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(['unitCost', 'retailPrice'])); 
     
-    // --- BATCH PRINT STATE ---
-    const [showBatchPrint, setShowBatchPrint] = useState(false);
+    // --- PRINT STATE (Unified) ---
+    const [showPrintModal, setShowPrintModal] = useState(false);
     const [productsToPrint, setProductsToPrint] = useState<Product[]>([]);
 
     // --- Image Modal State ---
@@ -176,7 +176,32 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         });
     };
 
-    // --- PRINT HANDLERS ---
+    // --- UNIFIED PRINT HANDLER ---
+    const handlePrint = (type: 'product' | 'variant' | 'batch', variantId?: string) => {
+        let itemsToPrint: Product[] = [];
+
+        if (type === 'product') {
+            itemsToPrint = [activeProduct];
+        } else if (type === 'variant' && variantId) {
+            // Single Variant: Construct a mock product with ONLY this variant
+            const variant = activeProduct.variants.find(v => v.id === variantId);
+            if (variant) {
+                itemsToPrint = [{ ...activeProduct, variants: [variant] }];
+            }
+        } else if (type === 'batch') {
+            itemsToPrint = [{
+                ...activeProduct,
+                variants: activeProduct.variants.filter(v => selectedRowIds.has(v.id))
+            }];
+        }
+
+        if (itemsToPrint.length > 0) {
+            setProductsToPrint(itemsToPrint);
+            setShowPrintModal(true);
+        }
+    };
+
+    // --- PRINT HANDLERS (LEGACY - still used by single print functionality) ---
     const handlePrintQr = (id: string, type: 'product' | 'variant', name: string, variantData?: ProductVariant) => {
         const data = {
             id,
@@ -201,7 +226,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
             variants: activeProduct.variants.filter(v => selectedRowIds.has(v.id))
         };
         setProductsToPrint([filteredProduct]);
-        setShowBatchPrint(true);
+        setShowPrintModal(true); // Changed from setShowBatchPrint to setShowPrintModal
     };
 
     const handleSetPrimaryImage = async (variantImageUrl: string | null) => {
@@ -425,7 +450,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                         </div>
                                         <div className="flex gap-2">
                                             {/* PARENT PRINT BUTTON */}
-                                            <button onClick={() => handlePrintQr(activeProduct.id, 'product', activeProduct.name)} className="p-2 bg-surface hover:bg-background border border-border rounded text-text-secondary" title="Print Line Label"><QrCode size={16} /></button>
+                                            {/* Changed to unified handlePrint */}
+                                            <button onClick={() => handlePrint('product')} className="p-2 bg-surface hover:bg-background border border-border rounded text-text-secondary" title="Print Line Label"><QrCode size={16} /></button>
                                         </div>
                                     </div>
                                     <p className="text-text-primary mt-1 text-sm">{activeProduct.description || 'No description provided.'}</p>
@@ -441,7 +467,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                         {/* BATCH PRINT BUTTON - Visible if items selected */}
                                         {selectedRowIds.size > 0 && (
                                             <button 
-                                                onClick={handleBatchPrint}
+                                                onClick={() => handlePrint('batch')} // Changed to unified handlePrint
                                                 className="text-sm flex items-center gap-2 bg-primary text-on-primary px-3 py-1.5 rounded font-bold animate-in fade-in"
                                             >
                                                 <Printer size={16} /> Print Labels ({selectedRowIds.size})
@@ -610,7 +636,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                                     onChange={() => toggleRowSelection(v.id)}
                                                                 />
                                                             ) : (
-                                                                <button onClick={() => handlePrintQr(v.id, 'variant', activeProduct.name, v)} className="text-text-secondary hover:text-primary"><QrCode size={18} /></button>
+                                                                <button onClick={() => handlePrint('variant', v.id)} className="text-text-secondary hover:text-primary"><QrCode size={18} /></button>
                                                             )}
                                                         </td>
                                                         
@@ -679,7 +705,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 {/* MODALS */}
                 {showGenerator && <VariantGeneratorModal productId={activeProduct.id} productType={activeProduct.productType} manufacturerId={activeProduct.manufacturerId} pricingSettings={pricingSettings} onClose={() => setShowGenerator(false)} onSuccess={handleGeneratorSuccess} />}
                 {showImageModal && <VariantImageModal currentPreview={pendingImage.preview} onClose={() => setShowImageModal(false)} onSave={handleImageUpdate} />}
-                {showBatchPrint && <PrintQueueModal isOpen={true} onClose={() => setShowBatchPrint(false)} selectedProducts={productsToPrint} />}
+                
+                <PrintQueueModal 
+                    isOpen={showPrintModal} 
+                    onClose={() => setShowPrintModal(false)} 
+                    selectedProducts={productsToPrint} 
+                />
             </div>
         </div>
     );

@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Product, ProductVariant } from '../types';
-import { X, Printer, Loader2, CheckSquare, Square, ChevronDown, ChevronRight } from 'lucide-react';
+import { Product } from '../types';
+import { Printer, Loader2, CheckSquare, Square, X } from 'lucide-react';
 import { PrintableLabel } from './PrintableLabel';
 import { useReactToPrint } from 'react-to-print';
 
 interface PrintQueueModalProps {
     isOpen: boolean;
     onClose: () => void;
-    selectedProducts: Product[]; // Passed from Library
+    selectedProducts: Product[]; // Passed from Library (Single or Multiple)
 }
 
 export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: PrintQueueModalProps) {
@@ -30,11 +30,15 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
             
             selectedProducts.forEach(prod => {
                 // 1. Add Parent (Line Board) option
+                // If printing a single product (SampleForm), default to selecting the parent label
+                // If bulk printing (Library), usually we want everything, but let's default to parent too.
+                const isSingleProductMode = selectedProducts.length === 1;
+
                 newQueue.push({
                     id: prod.id,
                     parentId: prod.id,
                     isVariant: false,
-                    selected: prod.variants.length === 0, // Auto-select parent if no variants
+                    selected: isSingleProductMode && prod.variants.length === 0, 
                     data: {
                         id: prod.id,
                         name: prod.name,
@@ -49,7 +53,7 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
                         id: v.id,
                         parentId: prod.id,
                         isVariant: true,
-                        selected: true, // Auto-select variants by default
+                        selected: true, // Auto-select variants by default (common workflow)
                         data: {
                             id: v.id,
                             name: prod.name,
@@ -59,7 +63,7 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
                             manufacturer: prod.manufacturerName,
                             retailPrice: v.retailPrice,
                             uom: v.uom,
-                            pricingUnit: v.pricingUnit, // ADDED: Pass pricing unit to label
+                            pricingUnit: v.pricingUnit, 
                             cartonSize: v.cartonSize,
                             isVariant: true
                         }
@@ -75,9 +79,24 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
         documentTitle: `Sample_Labels_${new Date().toISOString().slice(0,10)}`,
         onBeforeGetContent: async () => {
             setIsGenerating(true);
-            await new Promise(resolve => setTimeout(resolve, 500)); // Allow render
+            // Wait for images to load (Basic delay, robust enough for local QR generation)
+            await new Promise(resolve => setTimeout(resolve, 500)); 
             setIsGenerating(false);
-        }
+        },
+        // Inject specific print styles to ensure grid alignment
+        pageStyle: `
+            @page { size: letter; margin: 0.25in; }
+            @media print {
+                body { -webkit-print-color-adjust: exact; }
+                .print-grid { 
+                    display: grid !important;
+                    grid-template-columns: repeat(2, 1fr) !important;
+                    grid-auto-rows: 3.33in !important;
+                    gap: 0.16in !important;
+                }
+                .break-inside-avoid { page-break-inside: avoid; }
+            }
+        `
     });
 
     const toggleSelection = (id: string) => {
@@ -93,7 +112,7 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
             <div className="bg-surface w-full max-w-6xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
                 
                 {/* Header */}
-                <div className="p-4 border-b border-border bg-background flex justify-between items-center">
+                <div className="p-4 border-b border-border bg-background flex justify-between items-center shrink-0">
                     <div>
                         <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
                             <Printer className="text-primary" /> Print Labels
@@ -103,7 +122,7 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
                     <div className="flex gap-3">
                         <button onClick={onClose} className="px-4 py-2 hover:bg-surface rounded text-text-secondary">Cancel</button>
                         <button 
-                            onClick={handlePrint} 
+                            onClick={() => handlePrint()} 
                             disabled={selectedCount === 0 || isGenerating}
                             className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary-hover text-on-primary font-bold rounded shadow-md disabled:opacity-50"
                         >
@@ -148,24 +167,21 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
 
                     {/* RIGHT: Print Preview */}
                     <div className="flex-1 bg-gray-100 overflow-y-auto p-8 flex justify-center">
-                        {/* Hidden Print Container */}
+                        {/* 
+                            Visual Preview Container 
+                            We scale it down to fit on screen, but the Ref content is what gets printed.
+                        */}
                         <div className="bg-white shadow-2xl p-[0.25in] min-h-[11in] w-[8.5in] scale-75 origin-top text-black">
-                            <div ref={printRef} className="print-grid">
-                                <style>{`
-                                    .print-grid {
-                                        display: grid;
-                                        grid-template-columns: repeat(2, 1fr); /* 2 Columns */
-                                        grid-auto-rows: 3.33in; /* 3 Rows per 11in page approx */
-                                        gap: 0;
-                                    }
-                                    @media print {
-                                        @page { size: letter; margin: 0.25in; }
-                                        body { -webkit-print-color-adjust: exact; }
-                                        .print-grid { gap: 0.16in; } /* Gap for standard label sheets */
-                                    }
-                                `}</style>
+                            
+                            {/* This div is referenced by useReactToPrint */}
+                            <div ref={printRef} className="print-grid" style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                gridAutoRows: '3.33in',
+                                gap: '0' // Screen gap (print gap handled by pageStyle)
+                            }}>
                                 {queue.filter(q => q.selected).map(item => (
-                                    <div key={item.id} className="p-2 w-full h-full flex items-center justify-center border border-dashed border-gray-200 print:border-none">
+                                    <div key={item.id} className="p-2 w-full h-full flex items-center justify-center border border-dashed border-gray-200 print:border-none break-inside-avoid">
                                         <PrintableLabel 
                                             data={item.data} 
                                             qrUrl={`/api/products/${item.isVariant ? 'variants/' : ''}${item.id}/qr`} 

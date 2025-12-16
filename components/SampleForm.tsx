@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Sample, Vendor, PRODUCT_TYPES, SAMPLE_FORMATS, ProductType, SampleFormat, UNITS, Unit, PricingSettings, SampleSizeVariant } from '../types';
+import { SampleFormData, Vendor, PRODUCT_TYPES, SAMPLE_FORMATS, ProductType, SampleFormat, UNITS, Unit, PricingSettings, SampleSizeVariant, Product } from '../types';
 import { useData } from '../context/DataContext';
 import CreatableSelect from 'react-select/creatable';
 import { MultiValue } from 'react-select';
@@ -8,33 +8,16 @@ import * as preferenceService from '../services/preferenceService';
 import { toast } from 'react-hot-toast';
 import AddEditVendorModal from './AddEditVendorModal';
 import { calculatePrice, getActivePricingRules, formatCurrency } from '../utils/pricingUtils';
+import { Printer, QrCode } from 'lucide-react'; 
+import PrintQueueModal from './PrintQueueModal'; 
 
-// This is the data shape the form will manage internally
-export type SampleFormData = {
-  manufacturerId: number | null;
-  supplierId: number | null;
-  productType: ProductType | '';
-  style: string;
-  line: string;
-  sizes: SampleSizeVariant[]; // CHANGED: Now an array of objects
-  finish: string;
-  color: string;
-  sampleFormat: SampleFormat | null;
-  boardColors: string;
-  unitCost?: number | null; // Renamed from unitPrice
-  uom?: Unit | '';
-  cartonSize?: number | null;
-  sku: string;
-  productUrl: string;
-};
-
-// These are the props the form component will accept
 interface SampleFormProps {
   initialData?: Partial<SampleFormData>;
   onSave: (formData: SampleFormData) => void;
   onCancel: () => void;
   isSaving: boolean;
   saveButtonText?: string;
+  existingProduct?: Product; 
 }
 
 interface SizeOption {
@@ -48,6 +31,7 @@ const SampleForm: React.FC<SampleFormProps> = ({
   onCancel,
   isSaving,
   saveButtonText = "Save Changes",
+  existingProduct 
 }) => {
   const { vendors, addVendor } = useData();
 
@@ -78,26 +62,23 @@ const SampleForm: React.FC<SampleFormProps> = ({
   const [vendorModalPurpose, setVendorModalPurpose] = useState<'Manufacturer' | 'Supplier'>('Manufacturer');
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
 
-  // Fetch size options and pricing settings when the component mounts
+  // Print Modal State
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  // We need a specific state to hold the "Mock Product" we are about to print
+  const [productToPrint, setProductToPrint] = useState<Product[]>([]);
+
   useEffect(() => {
     const fetchSizes = async () => {
       try {
         const uniqueSizes = await sampleService.getUniqueSizes();
         setSizeOptions(uniqueSizes.map(size => ({ label: size, value: size })));
-        
-        // Fetch global pricing settings
         const settings = await preferenceService.getPricingSettings();
         setPricingSettings(settings);
-        
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-        // Don't block the form, just log it
-      }
+      } catch (error) { console.error("Failed to fetch data:", error); }
     };
     fetchSizes();
   }, []);
 
-  // Pre-populate search fields and checkbox when initialData changes
   useEffect(() => {
     if (initialData.manufacturerId) {
         const mfName = vendors.find(v => v.id === initialData.manufacturerId)?.name;
@@ -115,26 +96,16 @@ const SampleForm: React.FC<SampleFormProps> = ({
 
   const manufacturerSearchResults = useMemo(() => {
     if (!manufacturerSearch.trim() || manufacturerSearch === selectedManufacturerName) return [];
-    return vendors.filter(v => 
-        (v.vendorType === 'Manufacturer' || v.vendorType === 'Both') && 
-        v.name.toLowerCase().includes(manufacturerSearch.toLowerCase())
-    );
+    return vendors.filter(v => (v.vendorType === 'Manufacturer' || v.vendorType === 'Both') && v.name.toLowerCase().includes(manufacturerSearch.toLowerCase()));
   }, [vendors, manufacturerSearch, selectedManufacturerName]);
 
   const supplierSearchResults = useMemo(() => {
     if (!supplierSearch.trim() || supplierSearch === selectedSupplierName) return [];
-    return vendors.filter(v => 
-        (v.vendorType === 'Supplier' || v.vendorType === 'Both') && 
-        v.name.toLowerCase().includes(supplierSearch.toLowerCase())
-    );
+    return vendors.filter(v => (v.vendorType === 'Supplier' || v.vendorType === 'Both') && v.name.toLowerCase().includes(supplierSearch.toLowerCase()));
   }, [vendors, supplierSearch, selectedSupplierName]);
 
   const handleSelectManufacturer = (vendor: Vendor) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      manufacturerId: vendor.id,
-      productType: (vendor.defaultProductType as ProductType) || prev.productType || '',
-    }));
+    setFormData(prev => ({ ...prev, manufacturerId: vendor.id, productType: (vendor.defaultProductType as ProductType) || prev.productType || '' }));
     setManufacturerSearch(vendor.name);
   };
 
@@ -145,7 +116,6 @@ const SampleForm: React.FC<SampleFormProps> = ({
   
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    // Handle numeric fields (unitCost replaces unitPrice)
     if (name === 'unitCost' || name === 'cartonSize') {
          setFormData(prev => ({ ...prev, [name]: value === '' ? null : parseFloat(value) }));
     } else {
@@ -153,25 +123,19 @@ const SampleForm: React.FC<SampleFormProps> = ({
     }
   };
 
-  // --- MODIFIED: Handle adding/removing sizes from the multi-select ---
   const handleSizeChange = useCallback((newValue: MultiValue<SizeOption>) => {
     const currentSizes = formData.sizes;
     const newSizeValues = newValue ? newValue.map(option => option.value) : [];
-    
-    // Merge logic: Keep existing objects if they match, create new objects for new strings
     const mergedSizes: SampleSizeVariant[] = newSizeValues.map(val => {
         const existing = currentSizes.find(s => s.value === val);
         return existing || { value: val, unitCost: null, cartonSize: null, uom: null };
     });
-    
     setFormData(prev => ({ ...prev, sizes: mergedSizes }));
   }, [formData.sizes]);
 
-  // --- NEW: Handle updating specific variant fields ---
   const handleVariantChange = (index: number, field: keyof SampleSizeVariant, value: string | number | null) => {
       setFormData(prev => {
           const newSizes = [...prev.sizes];
-          // TypeScript safety for the dynamic field update
           if (field === 'unitCost' || field === 'cartonSize') {
                newSizes[index] = { ...newSizes[index], [field]: value === '' ? null : Number(value) };
           } else {
@@ -186,7 +150,6 @@ const SampleForm: React.FC<SampleFormProps> = ({
     if (!formData.style || !formData.productType) return toast.error('Style and Product Type are required.');
     if (!formData.manufacturerId) return toast.error('Please select a manufacturer.');
     if (hasDifferentSupplier && !formData.supplierId) return toast.error('Please select a supplier.');
-    
     onSave(formData);
   };
 
@@ -195,18 +158,37 @@ const SampleForm: React.FC<SampleFormProps> = ({
     setIsVendorModalOpen(false);
   };
 
-  // --- Calculate Suggested Price ---
+  // --- NEW: Handle Single Variant Print ---
+  // This constructs a temporary "Product" object that contains ONLY the selected variant
+  // so the PrintQueueModal displays exactly what we want (1 label).
+  const handlePrintSingleVariant = (variantSize: string) => {
+      if (!existingProduct) return;
+
+      // Find the real variant object from the existing product
+      // We match by name/size because 'id' might not exist in formData yet if it's new
+      const realVariant = existingProduct.variants.find(v => v.size === variantSize || v.name === variantSize);
+      
+      if (!realVariant) {
+          toast.error("Save changes before printing new variants.");
+          return;
+      }
+
+      // Create a "Mock Product" that contains ONLY this variant
+      const mockProduct: Product = {
+          ...existingProduct,
+          variants: [realVariant] 
+      };
+
+      setProductToPrint([mockProduct]);
+      setIsPrintModalOpen(true);
+  };
+
   const calculatedRetailPrice = useMemo(() => {
       if (!formData.unitCost || !pricingSettings) return null;
-      
-      // Determine the active vendor ID (Supplier if different, otherwise Manufacturer)
       const activeVendorId = hasDifferentSupplier ? formData.supplierId : formData.manufacturerId;
       const activeVendor = vendors.find(v => v.id === activeVendorId);
-
-      // Get pricing rules (defaults to 'Customer' for retail sale, using global or vendor override)
       const rules = getActivePricingRules(activeVendor, pricingSettings, 'Customer');
       const price = calculatePrice(formData.unitCost, rules.percentage, rules.method);
-      
       return {
           price,
           details: `${rules.method} ${rules.percentage}% (${activeVendor?.defaultMarkup ? 'Vendor Override' : 'Global Default'})`
@@ -253,28 +235,12 @@ const SampleForm: React.FC<SampleFormProps> = ({
             <div><label className="text-sm text-text-secondary">Style *</label><input type="text" name="style" value={formData.style} onChange={handleFormChange} className="w-full p-2 bg-background border border-border rounded text-text-primary" required /></div>
             <div><label className="text-sm text-text-secondary">Color</label><input type="text" name="color" value={formData.color} onChange={handleFormChange} className="w-full p-2 bg-background border border-border rounded text-text-primary" /></div>
             
-            {formData.productType === 'Tile' && (
-              <div className="p-3 bg-background rounded border border-border space-y-3">
-                <fieldset>
-                  <legend className="text-sm font-medium text-text-secondary mb-2">Tile Format</legend>
-                  <div className="flex items-center gap-4">
-                      {SAMPLE_FORMATS.map(format => (
-                          <label key={format} className="flex items-center gap-2 text-sm">
-                              <input type="radio" name="sampleFormat" value={format} checked={formData.sampleFormat === format} onChange={handleFormChange} className="h-4 w-4 text-primary focus:ring-primary bg-background border-border"/>
-                              {format} Sample
-                          </label>
-                      ))}
-                  </div>
-                </fieldset>
-                {formData.sampleFormat === 'Board' && (
-                  <div><label className="text-sm text-text-secondary">Other Colors on Board</label><input type="text" name="boardColors" value={formData.boardColors} onChange={handleFormChange} placeholder="e.g., Taupe, Grey" className="w-full p-2 bg-surface border border-border rounded text-sm text-text-primary"/></div>
-                )}
-              </div>
-            )}
             <div className="grid grid-cols-2 gap-4">
               <div><label className="text-sm text-text-secondary">Line</label><input type="text" name="line" value={formData.line} onChange={handleFormChange} className="w-full p-2 bg-background border border-border rounded text-text-primary" /></div>
               <div><label className="text-sm text-text-secondary">Finish</label><input type="text" name="finish" value={formData.finish} onChange={handleFormChange} className="w-full p-2 bg-background border border-border rounded text-text-primary" /></div>
             </div>
+
+            {/* SIZES */}
             <div>
               <label className="text-sm text-text-secondary">Sizes</label>
               <CreatableSelect
@@ -298,7 +264,6 @@ const SampleForm: React.FC<SampleFormProps> = ({
               />
             </div>
             
-            {/* --- NEW: Variant Pricing Table --- */}
             {formData.sizes.length > 0 && (
                 <div className="bg-surface p-3 rounded border border-border overflow-x-auto">
                     <h4 className="text-xs font-semibold text-text-secondary uppercase mb-2">Size Variants Pricing</h4>
@@ -306,23 +271,38 @@ const SampleForm: React.FC<SampleFormProps> = ({
                         <thead>
                             <tr className="text-text-secondary border-b border-border">
                                 <th className="pb-2 px-2">Size</th>
-                                <th className="pb-2 px-2">Override Cost</th>
+                                <th className="pb-2 px-2">Cost</th>
                                 <th className="pb-2 px-2">UOM</th>
-                                <th className="pb-2 px-2">Carton Size</th>
+                                <th className="pb-2 px-2">Carton</th>
+                                <th className="pb-2 px-2 text-right">Actions</th> {/* NEW HEADER */}
                             </tr>
                         </thead>
                         <tbody>
                             {formData.sizes.map((variant, idx) => (
                                 <tr key={idx} className="border-b border-border last:border-0">
                                     <td className="py-2 px-2 font-medium text-text-primary">{variant.value}</td>
-                                    <td className="py-2 px-2"><input type="number" step="0.01" placeholder={formData.unitCost ? `Def: $${formData.unitCost}` : "0.00"} value={variant.unitCost ?? ''} onChange={(e) => handleVariantChange(idx, 'unitCost', e.target.value)} className="w-24 p-1 bg-background border border-border rounded text-xs text-text-primary" /></td>
+                                    <td className="py-2 px-2"><input type="number" step="0.01" placeholder={formData.unitCost ? `Def: $${formData.unitCost}` : "0.00"} value={variant.unitCost ?? ''} onChange={(e) => handleVariantChange(idx, 'unitCost', e.target.value)} className="w-20 p-1 bg-background border border-border rounded text-xs text-text-primary" /></td>
                                     <td className="py-2 px-2">
-                                        <select value={variant.uom ?? ''} onChange={(e) => handleVariantChange(idx, 'uom', e.target.value)} className="p-1 bg-background border border-border rounded text-xs text-text-primary">
-                                            <option value="">{formData.uom || 'Default'}</option>
+                                        <select value={variant.uom ?? ''} onChange={(e) => handleVariantChange(idx, 'uom', e.target.value)} className="p-1 bg-background border border-border rounded text-xs text-text-primary w-16">
+                                            <option value="">{formData.uom || 'Def'}</option>
                                             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                         </select>
                                     </td>
-                                    <td className="py-2 px-2"><input type="number" step="0.0001" placeholder={formData.cartonSize ? `Def: ${formData.cartonSize}` : "Qty"} value={variant.cartonSize ?? ''} onChange={(e) => handleVariantChange(idx, 'cartonSize', e.target.value)} className="w-20 p-1 bg-background border border-border rounded text-xs text-text-primary" /></td>
+                                    <td className="py-2 px-2"><input type="number" step="0.0001" placeholder={formData.cartonSize ? `Def: ${formData.cartonSize}` : "Qty"} value={variant.cartonSize ?? ''} onChange={(e) => handleVariantChange(idx, 'cartonSize', e.target.value)} className="w-16 p-1 bg-background border border-border rounded text-xs text-text-primary" /></td>
+                                    
+                                    {/* --- NEW: Per-Row Print Button --- */}
+                                    <td className="py-2 px-2 text-right">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => handlePrintSingleVariant(variant.value)}
+                                            className="p-1 text-text-secondary hover:text-primary hover:bg-background rounded"
+                                            title="Print Label"
+                                            // Disable if we don't have a real ID yet (new product)
+                                            disabled={!existingProduct}
+                                        >
+                                            <QrCode size={16} />
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -330,17 +310,12 @@ const SampleForm: React.FC<SampleFormProps> = ({
                 </div>
             )}
             
-            {/* --- PRICING & PACKAGING SECTION --- */}
             <div className="p-3 bg-background rounded border border-border space-y-3">
-                <h4 className="text-sm font-medium text-text-secondary border-b border-border pb-1 mb-2">Pricing & Packaging</h4>
+                <h4 className="text-sm font-medium text-text-secondary border-b border-border pb-1 mb-2">Default Pricing</h4>
                 <div className="grid grid-cols-3 gap-4">
                     <div>
                         <label className="text-sm text-text-secondary">Unit Cost ($)</label>
-                        <input 
-                            type="number" step="0.01" min="0" name="unitCost" 
-                            value={formData.unitCost ?? ''} onChange={handleFormChange} 
-                            className="w-full p-2 bg-surface border border-border rounded text-sm text-text-primary" placeholder="0.00" 
-                        />
+                        <input type="number" step="0.01" min="0" name="unitCost" value={formData.unitCost ?? ''} onChange={handleFormChange} className="w-full p-2 bg-surface border border-border rounded text-sm text-text-primary" placeholder="0.00" />
                     </div>
                     <div>
                         <label className="text-sm text-text-secondary">Unit (UOM)</label>
@@ -351,15 +326,9 @@ const SampleForm: React.FC<SampleFormProps> = ({
                     </div>
                     <div>
                         <label className="text-sm text-text-secondary">Carton Size</label>
-                        <input 
-                            type="number" step="0.0001" min="0" name="cartonSize" 
-                            value={formData.cartonSize ?? ''} onChange={handleFormChange} 
-                            className="w-full p-2 bg-surface border border-border rounded text-sm text-text-primary" placeholder="Qty per box" 
-                        />
+                        <input type="number" step="0.0001" min="0" name="cartonSize" value={formData.cartonSize ?? ''} onChange={handleFormChange} className="w-full p-2 bg-surface border border-border rounded text-sm text-text-primary" placeholder="Qty per box" />
                     </div>
                 </div>
-                
-                {/* --- NEW: Live Pricing Preview --- */}
                 {calculatedRetailPrice && (
                     <div className="mt-2 p-2 bg-green-900/20 border border-green-800/50 rounded flex justify-between items-center">
                         <span className="text-xs text-green-400">Suggested Retail:</span>
@@ -389,6 +358,15 @@ const SampleForm: React.FC<SampleFormProps> = ({
         onSave={handleSaveVendor} 
         initialVendorType={vendorModalPurpose} 
       />
+
+      {/* --- Print Modal Triggered by the Row Buttons --- */}
+      {isPrintModalOpen && productToPrint.length > 0 && (
+          <PrintQueueModal 
+            isOpen={isPrintModalOpen} 
+            onClose={() => setIsPrintModalOpen(false)} 
+            selectedProducts={productToPrint} 
+          />
+      )}
     </>
   );
 };

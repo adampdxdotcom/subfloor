@@ -12,7 +12,7 @@ import AddSampleInlineModal from './AddSampleInlineModal';
 
 const getTwoWeeksFromNowISO = () => {
     const date = new Date();
-    date.setDate(date.getDate() + 14);
+    date.setDate(date.getDate() + 3);
     return date.toISOString().split('T')[0];
 };
 

@@ -5,16 +5,13 @@ import { Layers, ScanLine, X, Search, PlusCircle, ChevronRight, AlertCircle } fr
 import { toast } from 'react-hot-toast';
 import QrScanner from './QrScanner';
 
-// Define what the parent expects to receive
 export interface CheckoutItem {
     variantId: string;
-    interestVariantId: string; // NEW: Track intent
-    // Display fields
+    interestVariantId: string;
     productName: string;
     variantName: string;
-    interestName: string; // NEW: Display intent
+    interestName: string;
     manufacturerName?: string;
-    // Checkout fields
     sampleType: SampleType;
     quantity: number;
 }
@@ -31,12 +28,10 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
   const [selectedItems, setSelectedItems] = useState<CheckoutItem[]>([]);
   const [isScanning, setIsScanning] = useState(false);
 
-  // --- Internal State for the "Variant Picker" ---
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [interestVariantId, setInterestVariantId] = useState<string>('');
 
-  // --- SEARCH LOGIC ---
   const searchResults = useMemo(() => {
     if (searchTerm.length < 2) return [];
     const term = searchTerm.toLowerCase();
@@ -46,7 +41,6 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
       (
         p.name.toLowerCase().includes(term) ||
         p.manufacturerName?.toLowerCase().includes(term) ||
-        // Deep search variants
         p.variants.some(v => 
             (v.name && v.name.toLowerCase().includes(term)) ||
             (v.sku && v.sku.toLowerCase().includes(term))
@@ -55,18 +49,14 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
     );
   }, [searchTerm, products]);
 
-  // Notify parent whenever local state changes
   useEffect(() => {
     onItemsChange(selectedItems);
   }, [selectedItems, onItemsChange]);
 
-  // Handle external selection (e.g. after creating a new sample)
   useEffect(() => {
       if (externalSelectedProduct) {
           setPendingProduct(externalSelectedProduct);
           setInterestVariantId('');
-          
-          // Try to select master or first variant
           if (externalSelectedProduct.variants.length > 0) {
              const master = externalSelectedProduct.variants.find(v => v.isMaster);
              setSelectedVariantId(master ? master.id : externalSelectedProduct.variants[0].id);
@@ -84,7 +74,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
           const master = product.variants.find(v => v.isMaster);
           setSelectedVariantId(master ? master.id : product.variants[0].id);
       } else {
-          setSelectedVariantId(''); // Should handle empty variants case?
+          setSelectedVariantId(''); 
       }
   };
 
@@ -103,11 +93,10 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
           variantName: variant.name || variant.size || 'Default',
           interestName: interestVariant.name || interestVariant.size || 'Default',
           manufacturerName: pendingProduct.manufacturerName || '',
-          sampleType: 'Board', // Hardcoded per requirement
+          sampleType: 'Board', 
           quantity: 1
       };
 
-      // Check for duplicates (same variant AND same interest)
       const existingIndex = selectedItems.findIndex(i => i.variantId === newItem.variantId && i.interestVariantId === newItem.interestVariantId);
       
       if (existingIndex >= 0) {
@@ -117,7 +106,6 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
           toast.success(`Added ${newItem.interestName}`);
       }
 
-      // Reset
       setPendingProduct(null);
       setSearchTerm('');
   };
@@ -126,34 +114,27 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
       setSelectedItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  // --- QR SCAN LOGIC ---
   const handleScanSuccess = (decodedText: string) => {
     setIsScanning(false);
-    
     let variantId = '';
     let productId = '';
     
     try {
-        // Handle full URL format: http://.../scan-result?variantId=... OR ?productId=...
         if (decodedText.includes('?')) {
             const url = new URL(decodedText);
             variantId = url.searchParams.get('variantId') || ''; 
             productId = url.searchParams.get('productId') || '';
         } else {
-            // Fallback: Assume raw UUID or legacy format
             variantId = decodedText;
         }
 
         if (!variantId && !productId) throw new Error("Could not parse ID");
 
-        // Find the product containing this variant
         let foundProduct: Product | undefined;
         
         if (productId) {
-            // Direct Product Lookup
             foundProduct = products.find(p => String(p.id) === String(productId));
         } else if (variantId) {
-            // Variant Lookup
             for (const p of products) {
                 if (p.variants.some(v => String(v.id) === String(variantId))) {
                     foundProduct = p;
@@ -162,20 +143,15 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
             }
         }
 
-
         if (foundProduct) {
-            // Match found! Open the picker
             setPendingProduct(foundProduct);
-            
             if (variantId) {
-                // Scanned a specific variant: Set as Physical AND Interest
                 setSelectedVariantId(variantId);
                 setInterestVariantId(variantId);
             } else {
-                // Product Scan: Check for Master Board
                 const master = foundProduct.variants.find(v => v.isMaster);
                 if (master) setSelectedVariantId(master.id);
-                setInterestVariantId(''); // Require manual selection
+                setInterestVariantId(''); 
             }
             toast.success("Item found!");
         } else {
@@ -194,7 +170,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[500px]">
-        {/* LEFT COLUMN: Search & Picker */}
+        {/* LEFT COLUMN */}
         <div className="flex flex-col h-full border-r border-border pr-4">
             
             {!pendingProduct ? (
@@ -254,18 +230,14 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                     </div>
                 </div>
             ) : (
-                /* VARIANT PICKER MODE */
+                /* VARIANT PICKER MODE (UPDATED) */
                 <div className="flex flex-col h-full animate-in slide-in-from-right-4 fade-in duration-200">
-                    <div className="flex items-center gap-2 mb-4 text-sm text-text-secondary cursor-pointer hover:text-primary" onClick={() => setPendingProduct(null)}>
-                        ← Back to Search
-                    </div>
                     
-                    <div className="bg-surface p-4 rounded-lg border border-border flex-1 flex col gap-4">
+                    <div className="bg-surface p-4 rounded-lg border border-border flex-1 flex flex-col gap-4">
                         <div>
                             <h4 className="font-bold text-lg text-text-primary">{pendingProduct.name}</h4>
                             <p className="text-sm text-text-secondary">{pendingProduct.manufacturerName}</p>
                             
-                            {/* Hidden physical variant selector - for Master Board logic */}
                             <select 
                                 value={selectedVariantId} 
                                 onChange={e => setSelectedVariantId(e.target.value)} 
@@ -280,10 +252,9 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                             </select>
                         </div>
 
-                        {/* INTEREST SELECTOR (REQUIRED) */}
-                        <div>
+                        <div className="flex-1 flex flex-col min-h-0">
                             <label className="block text-sm font-bold text-text-primary mb-1">
-                                Which style/color do they like? <span className="text-red-500">*</span>
+                                Choose Variant <span className="text-red-500">*</span>
                             </label>
                             {pendingProduct.variants.length === 0 ? (
                                 <p className="text-red-500 text-sm">No variants available.</p>
@@ -292,11 +263,11 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                                 value={interestVariantId} 
                                 onChange={e => setInterestVariantId(e.target.value)} 
                                 size={5}
-                                className="w-full p-2 bg-background border-2 border-primary/20 focus:border-primary rounded text-text-primary cursor-pointer"
+                                className="w-full flex-1 p-2 bg-background border-2 border-primary/20 focus:border-primary rounded text-text-primary cursor-pointer"
                             >   
                                 <option value="" disabled className="text-text-tertiary">-- Select an option --</option>
                                 {pendingProduct.variants
-                                    .filter(v => !v.isMaster) // Show colors, not the board itself
+                                    .filter(v => !v.isMaster) 
                                     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
                                     .map(v => (
                                     <option key={v.id} value={v.id} className="py-1">
@@ -312,13 +283,20 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                             )}
                         </div>
 
-                        <div className="mt-auto pt-4">
+                        {/* Updated Footer Actions */}
+                        <div className="mt-auto pt-4 flex gap-3">
+                            <button 
+                                onClick={() => setPendingProduct(null)} 
+                                className="flex-1 py-3 bg-secondary hover:bg-secondary-hover text-on-secondary font-medium rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
                             <button 
                                 onClick={confirmAddItem}
                                 disabled={!interestVariantId}
-                                className="w-full py-3 bg-primary hover:bg-primary-hover disabled:bg-gray-400 text-on-primary font-bold rounded-lg shadow-md transition-all"
+                                className="flex-[2] py-3 bg-primary hover:bg-primary-hover disabled:bg-gray-400 text-on-primary font-bold rounded-lg shadow-md transition-all whitespace-nowrap"
                             >
-                                {interestVariantId ? 'Add to Checkout List' : 'Select a Style'}
+                                {interestVariantId ? 'Add to List' : 'Select a Style'}
                             </button>
                         </div>
                     </div>
@@ -326,7 +304,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
             )}
         </div>
 
-        {/* RIGHT COLUMN: Checkout List */}
+        {/* RIGHT COLUMN */}
         <div className="flex flex-col h-full bg-background rounded-lg border border-border p-4">
             <h4 className="font-bold text-text-primary mb-4 border-b border-border pb-2">Checkout List ({selectedItems.length})</h4>
             

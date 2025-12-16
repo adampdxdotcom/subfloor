@@ -1,21 +1,24 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Project, Product, ProductVariant, SampleCheckout } from '../types';
-import { Check, Clock, X, Search, Layers, Move, ThumbsUp, ShoppingCart } from 'lucide-react'; // Added icons
+import { Check, Clock, X, Layers, Move, ThumbsUp, ShoppingCart, PlusCircle } from 'lucide-react'; 
 import { useData } from '../context/DataContext';
 import { toast } from 'react-hot-toast';
-import AddEditMaterialOrderModal from './AddEditMaterialOrderModal'; // Import Modal
-import ModalPortal from './ModalPortal'; // Import Portal
+import AddEditMaterialOrderModal from './AddEditMaterialOrderModal';
+import ModalPortal from './ModalPortal';
+import SampleSelector, { CheckoutItem } from './SampleSelector'; 
 
 interface SampleCheckoutsSectionProps {
     project: Project;
-    // These are now optional/deprecated as state is local
     isModalOpen?: boolean; 
     onCloseModal?: () => void;
 }
 
-import * as sampleCheckoutService from '../services/sampleCheckoutService'; // Direct import for patch
+const getThreeDaysFromNowISO = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 3);
+    return date.toISOString().split('T')[0];
+};
 
-// Helper to format display name
 const formatVariantName = (productName: string, variantName: string) => {
   return `${productName} - ${variantName}`;
 };
@@ -27,18 +30,13 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
         addSampleCheckout,
         updateSampleCheckout,
         extendSampleCheckout,
-        toggleSampleSelection // Use context function
+        toggleSampleSelection 
     } = useData();
     
-    // Internal state for modal management
     const [isModalOpen, setIsModalOpen] = useState(false);
-    
-    const [searchTerm, setSearchTerm] = useState(''); 
-    // Store the selected item as a pair of Product + Variant
-    const [selectedSearchItem, setSelectedSearchItem] = useState<{product: Product, variant: ProductVariant} | null>(null); 
-    const [returnDate, setReturnDate] = useState('');
+    const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([]);
+    const [returnDate, setReturnDate] = useState(getThreeDaysFromNowISO()); 
 
-    // --- NEW: Ordering State ---
     const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
     const [prefillOrderData, setPrefillOrderData] = useState<any>(null);
 
@@ -46,73 +44,43 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
         return sampleCheckouts
             .filter(sc => sc.projectId === project.id)
             .sort((a, b) => {
-                // Sort SELECTED items to the top, then by date
                 if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1;
                 return new Date(b.checkoutDate).getTime() - new Date(a.checkoutDate).getTime();
             });
     }, [sampleCheckouts, project.id]);
     
-    // --- NEW: Search Logic for Products/Variants ---
-    const searchResults = useMemo(() => {
-        if (searchTerm.length < 2) return [];
-        const lowercasedTerm = searchTerm.toLowerCase();
-        const results: {product: Product, variant: ProductVariant}[] = [];
-
-        products.forEach(p => {
-            // Match against Parent Name or Manufacturer
-            // FIX: Added safe checks (?.) and fallbacks (|| '') to prevent crashes
-            const parentMatch = (p.name || '').toLowerCase().includes(lowercasedTerm) || 
-                                (p.manufacturerName || '').toLowerCase().includes(lowercasedTerm);
-            
-            p.variants.forEach(v => {
-                // Match against Variant Name or SKU
-                // FIX: Added safe checks (?.) here too
-                const variantMatch = (v.name || '').toLowerCase().includes(lowercasedTerm) || 
-                                     (v.sku || '').toLowerCase().includes(lowercasedTerm);
-                
-                // If either matches, include this specific variant in results
-                if (parentMatch || variantMatch) {
-                    results.push({ product: p, variant: v });
-                }
-            });
-        });
-        return results;
-    }, [products, searchTerm]); 
-    
-    const resetModalState = () => { 
-        setSearchTerm(''); 
-        setSelectedSearchItem(null); 
-        setReturnDate(''); 
-    }; 
-    
     const handleOpenModal = () => {
+        setCheckoutItems([]); 
+        setReturnDate(getThreeDaysFromNowISO()); 
         setIsModalOpen(true);
     };
 
     const handleCloseMainModal = () => {
-        resetModalState();
         setIsModalOpen(false);
     };
 
-    const handleSelectVariant = (product: Product, variant: ProductVariant) => {
-        // Warn if already checked out
-        if ((variant.activeCheckouts || 0) > 0) {
-             toast(`Note: "${variant.name}" is marked as checked out.`, { icon: '⚠️' });
-        }
-        setSelectedSearchItem({ product, variant });
-        setSearchTerm(formatVariantName(product.name, variant.name));
-    }; 
+    const handleItemsChange = useCallback((newItems: CheckoutItem[]) => {
+        setCheckoutItems(newItems);
+    }, []);
     
     const handleCheckoutSubmit = async (e: React.FormEvent) => { 
         e.preventDefault(); 
-        if (!selectedSearchItem || !returnDate) return; 
+        if (checkoutItems.length === 0 || !returnDate) return; 
+        
         try { 
-            await addSampleCheckout({ 
-                projectId: project.id, 
-                sampleId: 0, // Legacy field, backend handles or ignores
-                variantId: selectedSearchItem.variant.id, // NEW Field
-                expectedReturnDate: new Date(returnDate).toISOString(), 
-            }); 
+            const promises = checkoutItems.map(item => 
+                addSampleCheckout({ 
+                    projectId: project.id, 
+                    variantId: item.variantId,
+                    interestVariantId: item.interestVariantId,
+                    sampleType: item.sampleType,
+                    quantity: item.quantity,
+                    expectedReturnDate: new Date(returnDate).toISOString(), 
+                })
+            );
+            
+            await Promise.all(promises);
+            toast.success(`Checked out ${checkoutItems.length} sample(s).`);
             handleCloseMainModal();
         } catch (error) { 
             console.error("Checkout failed", error);
@@ -137,7 +105,6 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
     };
 
     const handleOrderMaterial = (checkout: SampleCheckout) => {
-        // Find full product details
         let foundProduct: Product | undefined;
         let foundVariant: ProductVariant | undefined;
 
@@ -155,10 +122,8 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
         }
     };
 
-    // Helper to look up display info for the list
     const getCheckoutDisplay = (checkout: SampleCheckout) => {
         for (const p of products) {
-            // FIX: Added safe check for variants array
             if (!p.variants) continue;
             const v = p.variants.find(v => String(v.id) === String(checkout.variantId));
             if (v) return formatVariantName(p.name, v.name);
@@ -168,7 +133,6 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
 
     return (
         <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
-             {/* Header */}
              <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <Move className="drag-handle cursor-move text-text-secondary hover:text-text-primary transition-colors" size={20} />
@@ -177,13 +141,12 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                 </div>
                 <button 
                   onClick={handleOpenModal} 
-                  className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-1 px-3 text-sm rounded-lg"
+                  className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-1 px-3 text-sm rounded-lg flex items-center gap-1"
                 >
-                    Check Out
+                    <PlusCircle size={16} /> Check Out
                 </button>
             </div>
 
-            {/* List of Checkouts */}
             <div className="p-4 overflow-y-auto flex-grow">
                 <div className="space-y-3"> 
                     {projectCheckouts.map(checkout => { 
@@ -197,7 +160,6 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                                     <p className="font-semibold text-text-primary">{displayName}</p>
                                     <p className="text-xs text-text-secondary">Expected Return: {new Date(checkout.expectedReturnDate).toLocaleDateString()}</p>
                                     
-                                    {/* SELECTION BUTTON */}
                                     <div className="mt-2 flex gap-2">
                                         <button 
                                             onClick={() => handleToggleSelect(checkout)}
@@ -211,7 +173,6 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                                             {checkout.isSelected ? 'Selected Choice' : 'Select'}
                                         </button>
 
-                                        {/* ORDER BUTTON (Only if Selected) */}
                                         {checkout.isSelected && (
                                             <button 
                                                 onClick={() => handleOrderMaterial(checkout)}
@@ -240,54 +201,33 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                 </div>
             </div>
 
-            {/* Add Checkout Modal */}
             {isModalOpen && (
                 <ModalPortal>
                     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"> 
-                        <div className="bg-surface p-8 rounded-lg w-full max-w-md border border-border">
-                            {/* Modal Header */}
+                        <div className="bg-surface p-8 rounded-lg w-full max-w-2xl border border-border flex flex-col max-h-[90vh]">
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-bold text-text-primary">Check Out Sample</h3> 
                                 <button onClick={handleCloseMainModal} className="text-text-secondary hover:text-text-primary"><X size={24} /></button>
                             </div>
-                            <form onSubmit={handleCheckoutSubmit} className="space-y-4"> 
-                                {/* Search Input */}
-                                <div> 
-                                    <label className="text-sm font-medium text-text-secondary block mb-2">1. Find Sample</label> 
-                                    <div className="relative"> 
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={20} />
-                                        <input type="text" placeholder="Search by style, color, manufacturer..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedSearchItem(null); }} className="w-full p-2 pl-10 bg-background border border-border rounded text-text-primary" /> 
-                                        
-                                        {/* Search Results Dropdown */}
-                                        {searchTerm.length > 1 && !selectedSearchItem && ( 
-                                            <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-60 overflow-y-auto shadow-xl"> 
-                                                {searchResults.map(item => (
-                                                    <div key={item.variant.id} onClick={() => handleSelectVariant(item.product, item.variant)} className={`p-2 hover:bg-background cursor-pointer text-text-primary border-b border-border last:border-0`}>
-                                                        <p className="font-semibold">{item.product.name} - {item.variant.name}</p>
-                                                        <div className="flex justify-between text-xs mt-1">
-                                                            <span className="text-text-secondary">{item.product.manufacturerName}</span>
-                                                            {(item.variant.activeCheckouts || 0) > 0 && <span className="text-orange-400 font-bold">Currently Out</span>}
-                                                        </div>
-                                                    </div> 
-                                                ))} 
-                                                {searchResults.length === 0 && ( 
-                                                    <div className="p-4 text-center text-text-secondary text-sm">No matching samples found.</div>
-                                                )} 
-                                            </div> 
-                                        )} 
+                            
+                            <form onSubmit={handleCheckoutSubmit} className="flex-1 flex flex-col min-h-0"> 
+                                <div className="space-y-4 flex-1 overflow-y-auto pr-2">
+                                    <div> 
+                                        <label className="text-sm font-medium text-text-secondary block mb-2">1. Expected Return Date</label> 
+                                        <input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" required/> 
                                     </div> 
-                                </div>  
+
+                                    <div> 
+                                        <label className="text-sm font-medium text-text-secondary block mb-2">2. Search or Scan Samples</label> 
+                                        <SampleSelector onItemsChange={handleItemsChange} />
+                                    </div> 
+                                </div>
                                 
-                                {/* Date Input */}
-                                <div> 
-                                    <label className="text-sm font-medium text-text-secondary block mb-2">2. Select Return Date</label> 
-                                    <input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full p-2 bg-background border-border rounded text-text-primary" required/> 
-                                </div> 
-                                
-                                {/* Actions */}
-                                <div className="flex justify-end space-x-2 pt-4 border-t border-border"> 
+                                <div className="flex justify-end space-x-2 pt-6 border-t border-border mt-4"> 
                                     <button type="button" onClick={handleCloseMainModal} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button> 
-                                    <button type="submit" disabled={!selectedSearchItem || !returnDate} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled:cursor-not-allowed">Check Out Sample</button> 
+                                    <button type="submit" disabled={checkoutItems.length === 0 || !returnDate} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled:cursor-not-allowed">
+                                        Check Out ({checkoutItems.length})
+                                    </button> 
                                 </div> 
                             </form> 
                         </div> 
@@ -295,7 +235,6 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                 </ModalPortal>
             )}
             
-            {/* ORDER MODAL (Portal to escape dashboard grid) */}
             {isOrderModalOpen && (
                 <ModalPortal>
                     <AddEditMaterialOrderModal 

@@ -2,19 +2,17 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useProducts, useProductMutations } from '../hooks/useProducts';
 import { useGridColumns } from '../hooks/useWindowSize';
-import { useSampleCheckouts, useSampleCheckoutMutations } from '../hooks/useSampleCheckouts';
-import { useVendors } from '../hooks/useVendors';
-import { PlusCircle, Search, Download, Clock, Undo2, Archive, LayoutGrid, ChevronRight, ExternalLink } from 'lucide-react';
-import { Product, Vendor, PricingSettings } from '../types';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSampleCheckouts } from '../hooks/useSampleCheckouts';
+import { PlusCircle, Search, LayoutGrid, Archive } from 'lucide-react'; 
+import { Product, PricingSettings } from '../types';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import AddEditVendorModal from '../components/AddEditVendorModal';
 import ProductForm from '../components/ProductForm'; 
 import * as preferenceService from '../services/preferenceService';
-import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
 import ProductDetailModal from '../components/ProductDetailModal';
 import SampleCarousel from '../components/SampleCarousel';
 import ProductCard from '../components/ProductCard';
+// Removed PrintQueueModal import since we removed the trigger
 
 const SampleLibrary: React.FC = () => {
   const { data: products = [], isLoading: productsLoading } = useProducts();
@@ -29,7 +27,6 @@ const SampleLibrary: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
   
-  // Sync URL when search changes
   useEffect(() => {
       const params = new URLSearchParams();
       if (searchTerm) params.set('search', searchTerm);
@@ -150,10 +147,12 @@ const SampleLibrary: React.FC = () => {
                   </button>
               </div>
 
+              {/* REMOVED: Bulk Print Button */}
+
               {viewMode === 'active' && (
                   <button onClick={() => setIsAddModalOpen(true)} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors shadow-md">
                     <PlusCircle className="w-5 h-5 mr-2" />
-                    Add New Product
+                    Add Product
                   </button>
               )}
           </div>
@@ -176,7 +175,6 @@ const SampleLibrary: React.FC = () => {
         </>
       )}
       
-      {/* VIRTUALIZED GRID CONTAINER */}
       <div 
         ref={parentRef} 
         className="overflow-y-auto w-full relative bg-surface border border-border rounded-lg shadow-md"

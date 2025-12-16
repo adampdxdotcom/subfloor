@@ -5,6 +5,7 @@ import { Save, Calendar, AlertTriangle, PlusCircle, XCircle, Move } from 'lucide
 import { toast } from 'react-hot-toast';
 
 // --- HELPER FUNCTIONS ---
+// Strips time for input display
 const formatDateForInput = (dateString: string | undefined | null): string => {
     if (!dateString) return '';
     return new Date(dateString).toISOString().split('T')[0];
@@ -155,7 +156,14 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         }
 
         const { appointments, ...coreJobDetails } = jobDetails;
-        const finalAppointments = (appointments || []).map(({ _tempId, ...rest }) => rest);
+        
+        // --- TIMEZONE FIX: Append Noon (T12:00:00) to ensure dates stick ---
+        const finalAppointments = (appointments || []).map(({ _tempId, startDate, endDate, ...rest }) => ({
+            ...rest,
+            // If date exists and doesn't already have time, append noon.
+            startDate: startDate && !startDate.includes('T') ? `${startDate}T12:00:00` : startDate,
+            endDate: endDate && !endDate.includes('T') ? `${endDate}T12:00:00` : endDate
+        }));
 
         try {
             await saveJobDetails({ 

@@ -1275,4 +1275,16 @@ We refined how installers are categorized and assigned.
 
     Migrations: Created and applied multiple migrations to support the new features (is_public, status, installer_type).
 
-    Performance: Optimized SQL queries to aggregate job data efficiently.    
+    Performance: Optimized SQL queries to aggregate job data efficiently. 
+
+ 6. Printing Infrastructure & Sample Checkout
+
+We completely refactored how labels and QR codes are printed to solve the "Blank Page" bug.
+
+    Unified Print Engine: Replaced direct window.print() calls with a new PrintQueueModal using react-to-print.
+
+    CSS Fix: Removed conflicting global print styles that were hiding content.
+
+    Sample Checkout: Refactored SampleCheckoutsSection to use the modern, tag-based SampleSelector (removing redundant code) and widened the modal for better usability.
+
+    Single Variant Print: Wired the individual QR button on the Variant row to open the unified Print Modal with a single item queue.      
