@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import { Project, ProjectStatus, ProjectType, PROJECT_TYPES, Installer } from '../types';
-import { User, Mail, Phone, MapPin, PlusCircle, Edit, Briefcase, ChevronRight, History } from 'lucide-react';
+import { Project, ProjectStatus, ProjectType, PROJECT_TYPES, Installer, SampleCheckout } from '../types';
+import { User, Mail, Phone, MapPin, PlusCircle, Edit, Briefcase, ChevronRight, History, Layers } from 'lucide-react';
 import EditCustomerModal from '../components/EditCustomerModal';
 import CollapsibleSection from '../components/CollapsibleSection'; // <-- NEW IMPORT
 import ActivityHistory from '../components/ActivityHistory';     // <-- NEW IMPORT
 import { formatDate } from '../utils/dateUtils';
+import * as sampleService from '../services/sampleCheckoutService';
+import SampleHistoryCard from '../components/SampleHistoryCard'; // RENAMED IMPORT
 
 const CustomerDetail: React.FC = () => {
   const { customerId } = useParams<{ customerId: string }>();
@@ -26,6 +28,10 @@ const CustomerDetail: React.FC = () => {
   const [isAddingNewInstaller, setIsAddingNewInstaller] = useState(false);
   const [newInstallerForm, setNewInstallerForm] = useState({ installerName: '', contactEmail: '', contactPhone: '' });
   
+  const [sampleHistory, setSampleHistory] = useState<SampleCheckout[]>([]);
+  // Track which sample we are converting to a project
+  const [transferSampleId, setTransferSampleId] = useState<number | null>(null);
+  
   const [isEditCustomerModalOpen, setIsEditCustomerModalOpen] = useState(false);
   
   const installerSearchResults = useMemo(() => {
@@ -37,11 +43,13 @@ const CustomerDetail: React.FC = () => {
   const customerProjects = projects.filter(p => p.customerId === customer?.id);
   
   // =================================================================
-  //  NEW EFFECT TO FETCH HISTORY
+  //  NEW EFFECT TO FETCH HISTORY & SAMPLES
   // =================================================================
   useEffect(() => {
     if (customerId) {
-      fetchCustomerHistory(parseInt(customerId));
+      const cid = parseInt(customerId);
+      fetchCustomerHistory(cid);
+      sampleService.getCheckoutsByCustomer(cid).then(setSampleHistory).catch(console.error);
     }
   }, [customerId, fetchCustomerHistory]);
   // =================================================================
@@ -56,6 +64,7 @@ const CustomerDetail: React.FC = () => {
     setSelectedInstaller(null);
     setInstallerSearchTerm('');
     setIsAddingNewInstaller(false);
+    setTransferSampleId(null); // Reset transfer state
     setNewInstallerForm({ installerName: '', contactEmail: '', contactPhone: '' });
     setIsProjectModalOpen(false);
   };
@@ -74,6 +83,12 @@ const CustomerDetail: React.FC = () => {
         };
 
         const createdProject = await addProject(projectData);
+        
+        // TRANSFER LOGIC: If this was started from a sample, move it to the new project
+        if (transferSampleId) {
+            await sampleService.transferCheckoutsToProject([transferSampleId], createdProject.id);
+        }
+        
         resetProjectModal();
         navigate(`/projects/${createdProject.id}`);
       } catch (error) {
@@ -103,6 +118,14 @@ const CustomerDetail: React.FC = () => {
     } catch (error) {
       console.error("Failed to add new installer:", error);
     }
+  };
+
+  const handleStartProjectFromSample = (sample: any) => {
+      // Pre-fill project modal based on sample info
+      const productName = sample.productName || 'Flooring';
+      setNewProjectName(`${productName} Project`);
+      setTransferSampleId(sample.id);
+      setIsProjectModalOpen(true);
   };
 
   return (
@@ -156,6 +179,23 @@ const CustomerDetail: React.FC = () => {
           )) : (
             <p className="text-center text-text-secondary py-4">No projects for this customer yet.</p>
           )}
+        </div>
+      </div>
+
+      {/* Sample History Section */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-text-primary flex items-center"><Layers className="w-6 h-6 mr-3"/> Sample History</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {sampleHistory.map(sample => (
+                <SampleHistoryCard 
+                    key={sample.id} 
+                    sample={sample} 
+                    onStartProject={handleStartProjectFromSample} 
+                />
+            ))}
+            {sampleHistory.length === 0 && <p className="col-span-full text-center text-text-secondary py-4">No sample history found.</p>}
         </div>
       </div>
       

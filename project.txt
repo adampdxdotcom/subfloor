@@ -1287,4 +1287,160 @@ We completely refactored how labels and QR codes are printed to solve the "Blank
 
     Sample Checkout: Refactored SampleCheckoutsSection to use the modern, tag-based SampleSelector (removing redundant code) and widened the modal for better usability.
 
-    Single Variant Print: Wired the individual QR button on the Variant row to open the unified Print Modal with a single item queue.      
+    Single Variant Print: Wired the individual QR button on the Variant row to open the unified Print Modal with a single item queue.    
+
+Session 28
+
+SESSION 28 SUMMARY: Scheduling, Automation & Printing Overhaul
+
+This session was a massive architectural push focused on transforming the Calendar from a simple viewer into a collaborative team hub, automating critical communication flows, and stabilizing the printing infrastructure.
+
+1. Critical Bug Fix: The "Disappearing Job"
+We diagnosed and fixed a severe data-loss bug where saving "Job Details" was accidentally deleting the entire appointment schedule.
+
+    Root Cause: The frontend component (FinalizeJobSection) initialized with incomplete data from the global state, then sent that "empty" schedule back to the server on save, wiping the database.
+
+    The Fix:
+
+        Updated server/routes/jobs.js to hydrate the global job list with appointment data.
+
+        Added "Guard Clauses" to the frontend to prevent saving empty data.
+
+        Timezone Fix: Forced appointment dates to save as Noon (T12:00:00) to prevent dates shifting back a day due to UTC conversion.
+
+        Visuals: Updated the calendar to show Completed (Paid) jobs with a "hashed" stripe pattern.
+
+2. Advanced Team Calendar (Major Feature)
+We rebuilt the Calendar module to support team collaboration.
+
+    Smart Mentions: Integrated MentionInput (@User, !Project) into calendar notes, fixing a complex Z-Index bug where the popup was hidden behind the modal.
+
+    Invite System: Users can now invite others to appointments.
+
+        Status Tracking: Added pending, accepted, declined statuses.
+
+        Visibility Logic: Events are now hidden unless you are the Owner, Invited (and didn't decline), or the event is marked Public.
+
+        Notification: Sending an invite triggers a system "Red Dot" notification for the recipient.
+
+    UI Overhaul:
+
+        Implemented Strict Sorting (Time/Duration) to stop events from "jumping" around.
+
+        Added an Overflow Modal ("+2 More") for busy days.
+
+        Split the Event Modal into View Mode (Read-only/Respond) and Edit Mode (Owner only).
+
+3. Automated Job Reminders
+We implemented a "T-Minus 2 Days" automated alert system.
+
+    Scheduler Logic: Updated server/lib/scheduler.js to calculate "2 Business Days" (skipping weekends).
+
+    Communication:
+
+        Internal: Sends a notification/email to the Project Lead.
+
+        External: Sends a branded "Appointment Reminder" email to the Customer.
+
+    Settings: Added toggles in System Settings and My Settings to opt-in/out of these alerts.
+
+4. Installer & Quote Logic
+We aligned the software with real-world business rules regarding "Employees" vs "Subcontractors".
+
+    Managed vs. Unmanaged: Added a type column to the installers table.
+
+    Quote Filtering: The Quote UI now filters the Installer Dropdown based on the selected Installation Type.
+
+    Auto-Fill: The Job Schedule now automatically pre-fills the Installer from the accepted quote to save clicks.
+
+5. Printing Infrastructure & Sample Checkout
+We completely refactored how labels and QR codes are printed to solve the "Blank Page" bug.
+
+    Unified Print Engine: Replaced direct window.print() calls with a new PrintQueueModal using react-to-print.
+
+    CSS Fix: Removed conflicting global print styles that were hiding content.
+
+    Sample Checkout: Refactored SampleCheckoutsSection to use the modern, tag-based SampleSelector (removing redundant code) and widened the modal for better usability.
+
+    Single Variant Print: Wired the individual QR button on the Variant row to open the unified Print Modal with a single item queue.
+
+Database Changes (Migrations Applied)
+
+    events: Added is_public.
+
+    event_attendees: Added status.
+
+    installers: Added type.
+
+    notifications: Added title, user_id, reference_type.
+
+    jobs: Added timestamps.
+
+Session 29
+
+SESSION SUMMARY: Advanced Logistics, Scheduling & Checkout Overhaul
+
+This was a massive session touching almost every part of the application. We evolved the system from a linear "Project-Based" workflow into a flexible, real-world logistics platform. We enabled "Early Access" to job features, linked financials to the schedule via POs, and completely decoupled sample checkouts from projects to support lead generation and installer management.
+1. The "Interest" System (Sample Tracking V2)
+
+We separated the Physical Item (The Board) from the Customer Intent (The specific color they want).
+
+    Database: Added interest_variant_id to sample_checkouts.
+
+    UI: Updated the Quick Checkout flow. When scanning a "Master Board", the user is now forced to select the specific color the customer is interested in.
+
+    Printouts: The checkout receipt now clearly lists the specific color name ("Almond Oak") instead of just the generic board name.
+
+2. "Early Job" Architecture (Workflow Fix)
+
+We solved the issue where Job Notes and Photos were "Locked" until a quote was accepted.
+
+    Backend Refactor: The system now creates a "Shadow Job" immediately upon Project creation.
+
+    Migration: Wrote a backfill script to fix all existing projects.
+
+    Benefit: Users can now take site photos and write pre-job notes during the estimation phase.
+
+    Layout: Completely reorganized the Project Detail Dashboard grid (4-row layout) and unlocked the relevant widgets.
+
+3. Financial Integration & PO Numbers
+
+We tightened the link between money and time.
+
+    PO Tracking: Added po_number to Quotes. Users can enter a PO on an Accepted Quote.
+
+    Quote-Based Scheduling: Completely rebuilt the scheduling logic in FinalizeJobSection. Instead of selecting a generic Installer, users now select a specific Accepted Quote (Scope of Work).
+
+    Result: Scheduling an appointment automatically pulls the correct Installer and PO Number from that quote.
+
+    Calendar: The Calendar now displays the PO Number on job events.
+
+4. Direct Checkouts (Installers & Leads)
+
+We broke the requirement that a sample must belong to a Project.
+
+    Schema Change: Made project_id nullable. Added customer_id and installer_id.
+
+    Branched Checkout: The Quick Checkout Modal now asks "Who is this for?" (Project, Customer, or Installer).
+
+    Installer Management:
+
+        Installer List: Cards now show an "Active Samples" section.
+
+        Installer Detail: Added a full "Sample History" gallery to track what boards they are holding.
+
+    Lead Generation:
+
+        Customer Detail: Added a "Sample History" gallery showing items checked out before a project exists.
+
+        Conversion: Added a "Start Project" button to these samples, allowing one-click conversion from "Lead with Sample" to "Active Project".
+
+5. Automation & Polish
+
+    Auto-Completion: Checking "Final Payment Received" now automatically marks the Project Status as Completed.
+
+    Calendar Polish: Completed jobs now appear "hashed out" (visual consistency with received orders). Fixed a timezone bug that caused Material Orders to show on the wrong day.
+
+    Compliance: Added logic to block scheduling of Managed Jobs until Deposit/Contracts are marked received.
+
+    Notifications: Updated the email scheduler to route overdue reminders to the correct person (Direct Customer vs. Project Contact vs. Installer).

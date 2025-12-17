@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useInstallers } from '../hooks/useInstallers';
 import { Installer } from '../types';
 // --- MODIFIED: Imported the Search icon ---
-import { PlusCircle, User, Mail, Phone, Edit, Briefcase, Search } from 'lucide-react';
+import { PlusCircle, User, Mail, Phone, Edit, Briefcase, Search, Layers, Box } from 'lucide-react';
 import EditInstallerModal from '../components/EditInstallerModal'; // <-- NEW IMPORT
 
 const formatDateRange = (startDateStr: string, endDateStr: string): string => {
@@ -112,9 +112,23 @@ const InstallerList: React.FC = () => {
               <p className="flex items-center"><Phone className="w-4 h-4 mr-2 shrink-0"/> <span className="truncate">{installer.contactPhone || 'N/A'}</span></p>
             </div>
             
+            <div className="border-t border-border my-4"></div>
+            
+            {/* Active Samples Section - Always Visible */}
+            <div className="mb-4">
+                <h3 className="text-sm font-semibold text-text-secondary flex items-center mb-1">
+                    <Layers className="w-4 h-4 mr-2" />
+                    Active Samples
+                </h3>
+                <p className="text-xs text-text-primary ml-6">
+                    {installer.activeSampleCount && installer.activeSampleCount > 0 
+                        ? `${installer.activeSampleCount} items checked out` 
+                        : 'No samples checked out'}
+                </p>
+            </div>
+            
             {installer.jobs && installer.jobs.length > 0 && (
               <>
-                <div className="border-t border-border my-4"></div>
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold text-text-secondary flex items-center mb-2">
                     <Briefcase className="w-4 h-4 mr-2" />

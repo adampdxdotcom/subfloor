@@ -227,22 +227,21 @@ export interface Project {
   projectType: ProjectType;
   status: ProjectStatus;
   finalChoice: string | null;
-  managerId?: string | null; // NEW FIELD
+  managerId?: string | null;
   createdAt: string;
 }
 
 export interface SampleCheckout {
   id: number;
   projectId: number;
-  sampleId: number; // This will eventually point to a ProductVariant
-  // New fields for Inventory 2.0
+  sampleId: number;
   variantId?: string | null; 
   sampleType?: SampleType;
   quantity?: number;
   checkoutDate: string;
   expectedReturnDate: string;
   actualReturnDate: string | null;
-  isSelected?: boolean; // NEW field for marking final selection
+  isSelected?: boolean;
 }
 
 export interface Installer {
@@ -251,6 +250,8 @@ export interface Installer {
   contactEmail: string;
   contactPhone: string;
   color?: string | null;
+  activeSampleCount?: number;
+  type?: 'Managed' | 'Unmanaged';
   jobs: {
     projectId: number;
     projectName: string;

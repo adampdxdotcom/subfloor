@@ -14,6 +14,12 @@ router.get('/', verifySession(), async (req, res) => {
         const query = `
             SELECT
                 i.*,
+                -- Count active samples checked out to this installer
+                (
+                    SELECT COUNT(*) 
+                    FROM sample_checkouts sc 
+                    WHERE sc.installer_id = i.id AND sc.actual_return_date IS NULL
+                )::int AS "activeSampleCount",
                 COALESCE(
                     (
                         SELECT json_agg(job_details ORDER BY "scheduledStartDate" DESC)

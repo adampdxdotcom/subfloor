@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Installer } from '../types';
+import { Installer, SampleCheckout } from '../types';
 import { useData } from '../context/DataContext';
-// --- MODIFIED: Removed Trash2 icon ---
-import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History } from 'lucide-react';
+import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History, Layers } from 'lucide-react';
 import EditInstallerModal from '../components/EditInstallerModal';
 import CollapsibleSection from '../components/CollapsibleSection';
 import ActivityHistory from '../components/ActivityHistory';
+import SampleHistoryCard from '../components/SampleHistoryCard'; // <-- NEW IMPORT
 import { toast } from 'react-hot-toast';
+import * as sampleService from '../services/sampleCheckoutService';
 
 interface AssignedProject {
   projectId: number;
@@ -40,7 +41,6 @@ const InstallerDetail: React.FC = () => {
   const navigate = useNavigate();
   
   const { 
-    // --- MODIFIED: deleteInstaller is no longer called directly from this page ---
     installers, 
     isLoading: isDataLoading, 
     installerHistory, 
@@ -49,8 +49,8 @@ const InstallerDetail: React.FC = () => {
   
   const [projects, setProjects] = useState<AssignedProject[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [sampleHistory, setSampleHistory] = useState<SampleCheckout[]>([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  // --- REMOVED: isDeleting state is no longer needed ---
   // const [isDeleting, setIsDeleting] = useState(false);
 
   const installer = installers.find(i => i.id === parseInt(installerId || ''));
@@ -76,10 +76,10 @@ const InstallerDetail: React.FC = () => {
 
     if (installerId) {
       fetchInstallerHistory(parseInt(installerId));
+      sampleService.getCheckoutsByInstaller(parseInt(installerId)).then(setSampleHistory).catch(console.error);
     }
   }, [installerId, fetchInstallerHistory]);
   
-  // --- REMOVED: The handleDeleteInstaller function is no longer needed on this page ---
   
   if (isDataLoading) {
     return <div className="text-center">Loading installer details...</div>;
@@ -125,6 +125,19 @@ const InstallerDetail: React.FC = () => {
           <ActivityHistory history={installerHistory} />
         </CollapsibleSection>
       </div>
+
+      {/* Sample History Section */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-text-primary flex items-center"><Layers className="w-6 h-6 mr-3"/> Sample History</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {sampleHistory.map(sample => (
+                <SampleHistoryCard key={sample.id} sample={sample} onStartProject={() => {}} />
+            ))}
+            {sampleHistory.length === 0 && <p className="col-span-full text-center text-text-secondary py-4">No active samples for this installer.</p>}
+        </div>
+      </div>
       
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-text-primary flex items-center"><Briefcase className="w-6 h-6 mr-3"/> Assigned Projects</h2>
@@ -164,8 +177,6 @@ const InstallerDetail: React.FC = () => {
         )}
       </div>
       
-      {/* --- REMOVED: The entire "Danger Zone" section has been deleted from here --- */}
-
       {isEditModalOpen && (
         <EditInstallerModal
           isOpen={isEditModalOpen}

@@ -94,6 +94,8 @@ CREATE TABLE projects (
 CREATE TABLE sample_checkouts (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+    customer_id INT REFERENCES customers(id) ON DELETE SET NULL,
+    installer_id INT REFERENCES installers(id) ON DELETE SET NULL,
     variant_id UUID REFERENCES product_variants(id) ON DELETE RESTRICT,
     interest_variant_id UUID REFERENCES product_variants(id) ON DELETE SET NULL,
     sample_type TEXT, -- 'Board', 'Hand Sample', etc.

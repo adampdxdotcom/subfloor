@@ -3,20 +3,27 @@ import { useProjects } from '../hooks/useProjects';
 import { useSampleCheckouts } from '../hooks/useSampleCheckouts';
 import { useMaterialOrders } from '../hooks/useMaterialOrders';
 import { Link } from 'react-router-dom';
-import { Project, ProjectStatus } from '../types';
+import { Project, ProjectStatus, Product } from '../types';
 import { Filter, PackagePlus } from 'lucide-react';
 import QuickCheckoutModal from '../components/QuickCheckoutModal';
 import ProjectCarousel from '../components/ProjectCarousel'; 
 import OrderCarousel from '../components/OrderCarousel';
+import SampleCarousel from '../components/SampleCarousel';
+import SampleDetailModal from '../components/SampleDetailModal';
+import { useData } from '../context/DataContext'; // Need products to map back if needed, but carousel passes product
 
 const Dashboard: React.FC = () => {
   const { data: projects = [] } = useProjects();
   const { data: sampleCheckouts = [] } = useSampleCheckouts();
   const { data: materialOrders = [] } = useMaterialOrders();
+  const { samples } = useData(); // Get legacy samples for modal mapping
   
   const [filter, setFilter] = useState<ProjectStatus | 'All' | 'Recap'>('Recap');
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  
+  // Sample Modal State
+  const [selectedSampleForModal, setSelectedSampleForModal] = useState<any>(null); // Use any/legacy Sample type
   
   const safeDateSort = (a: Project, b: Project) => {
     const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -24,23 +31,12 @@ const Dashboard: React.FC = () => {
     return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
   };
 
-  // 1. SAMPLES OUT CAROUSEL
-  const samplesOutProjects = useMemo(() => {
-    const projectsWithActiveCheckouts = new Set<number>();
-    sampleCheckouts.forEach(sc => {
-        if (sc.actualReturnDate === null) {
-            projectsWithActiveCheckouts.add(sc.projectId);
-        }
-    });
-
-    return projects
-        .filter(p => projectsWithActiveCheckouts.has(p.id))
-        .sort((a, b) => {
-            const earliestA = Math.min(...sampleCheckouts.filter(sc => sc.projectId === a.id && !sc.actualReturnDate).map(sc => new Date(sc.expectedReturnDate).getTime()));
-            const earliestB = Math.min(...sampleCheckouts.filter(sc => sc.projectId === b.id && !sc.actualReturnDate).map(sc => new Date(b.expectedReturnDate).getTime()));
-            return earliestA - earliestB;
-        });
-  }, [projects, sampleCheckouts]);
+  // 1. ACTIVE SAMPLES
+  const activeCheckouts = useMemo(() => {
+      return sampleCheckouts
+          .filter(sc => !sc.actualReturnDate)
+          .sort((a, b) => new Date(a.expectedReturnDate).getTime() - new Date(b.expectedReturnDate).getTime());
+  }, [sampleCheckouts]);
 
   // 2. UPCOMING ORDERS CAROUSEL (5 Days)
   const upcomingOrders = useMemo(() => {
@@ -120,6 +116,15 @@ const Dashboard: React.FC = () => {
     ProjectStatus.SCHEDULED, ProjectStatus.COMPLETED, ProjectStatus.CANCELLED
   ];
 
+  const handleSampleClick = (product: Product) => {
+      // Map Product back to legacy Sample format for the modal (temporary bridge)
+      // Or better, update SampleDetailModal to take Product. 
+      // For now, find the matching sample in context.
+      const sample = samples.find(s => s.id === parseInt(product.id as any) || s.sku === product.variants[0]?.sku);
+      if (sample) setSelectedSampleForModal(sample);
+      // Fallback: If migration isn't 100% perfect, we might fail to open old samples via new product objects
+  };
+
   return (
     <div>
       <div className="bg-surface p-6 rounded-lg shadow-md mb-6 border border-border">
@@ -167,7 +172,7 @@ const Dashboard: React.FC = () => {
       <div>
           {filter === 'Recap' ? (
             <div>
-                <ProjectCarousel title="Samples Out - Next Due" projects={samplesOutProjects} />
+                <SampleCarousel title="Active Sample Checkouts" checkouts={activeCheckouts} onItemClick={handleSampleClick} />
                 {/* This is the ONLY Order Carousel */}
                 <OrderCarousel title="Upcoming Deliveries (Next 5 Days)" orders={upcomingOrders} projects={projects} />
                 <ProjectCarousel title="Active Pipeline" projects={activePipelineProjects} />
@@ -193,6 +198,12 @@ const Dashboard: React.FC = () => {
       <QuickCheckoutModal 
         isOpen={isCheckoutModalOpen}
         onClose={() => setIsCheckoutModalOpen(false)}
+      />
+      
+      <SampleDetailModal 
+        isOpen={!!selectedSampleForModal}
+        onClose={() => setSelectedSampleForModal(null)}
+        sample={selectedSampleForModal}
       />
     </div>
   );

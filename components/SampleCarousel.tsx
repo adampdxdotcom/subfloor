@@ -7,9 +7,11 @@ import { toast } from 'react-hot-toast';
 
 // Helper to find product/variant data from a checkout
 const useCheckoutDetails = (checkout: SampleCheckout) => {
-    const { products, projects } = useData();
+    const { products, projects, customers, installers } = useData();
     
     const project = projects.find(p => p.id === checkout.projectId);
+    const customer = customers.find(c => c.id === checkout.customerId);
+    const installer = installers.find(i => i.id === checkout.installerId);
     
     // Find the product and variant that matches this checkout
     // Note: This is O(N) on products. For very large libraries, a map would be better, 
@@ -26,12 +28,12 @@ const useCheckoutDetails = (checkout: SampleCheckout) => {
         }
     }
 
-    return { product, variant, project };
+    return { product, variant, project, customer, installer };
 };
 
 const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick: (p: Product) => void }) => {
     const { extendSampleCheckout, updateSampleCheckout } = useData();
-    const { product, variant, project } = useCheckoutDetails(checkout);
+    const { product, variant, project, customer, installer } = useCheckoutDetails(checkout);
 
     if (!product || !variant) return null; // Should not happen unless data integrity issue
 
@@ -88,14 +90,24 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
                         {statusText === 'OVERDUE' && <AlertCircle size={14} />}
                     </div>
                     
-                    {project && (
-                        <div className="mb-2 truncate">
-                            <span className="text-text-secondary">For: </span>
+                    <div className="mb-2 truncate">
+                        <span className="text-text-secondary">For: </span>
+                        {project ? (
                             <Link to={`/projects/${project.id}`} className="text-accent hover:underline font-medium" onClick={(e) => e.stopPropagation()}>
                                 {project.projectName}
                             </Link>
-                        </div>
-                    )}
+                        ) : customer ? (
+                            <Link to={`/customers/${customer.id}`} className="text-accent hover:underline font-medium" onClick={(e) => e.stopPropagation()}>
+                                {customer.fullName} (Customer)
+                            </Link>
+                        ) : installer ? (
+                            <Link to={`/installers/${installer.id}`} className="text-accent hover:underline font-medium" onClick={(e) => e.stopPropagation()}>
+                                {installer.installerName} (Installer)
+                            </Link>
+                        ) : (
+                            <span className="text-text-tertiary font-medium">Unknown</span>
+                        )}
+                    </div>
 
                     <div className="flex items-center gap-2 justify-end pt-2 border-t border-border/50">
                         <button onClick={handleExtend} className="text-xs bg-surface hover:bg-surface-hover border border-border text-text-primary py-1.5 px-3 rounded flex items-center gap-1 transition-colors">

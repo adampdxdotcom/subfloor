@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useData } from '../context/DataContext';
-import { Customer, Project, Product } from '../types';
-import { X, User, Briefcase, CheckCircle, Calendar, Printer } from 'lucide-react';
+import { Customer, Project, Product, Installer } from '../types';
+import { X, User, Briefcase, CheckCircle, Calendar, Printer, HardHat, Building2 } from 'lucide-react';
 import CustomerSelector from './CustomerSelector';
 import ProjectSelector from './ProjectSelector';
 import SampleSelector, { CheckoutItem } from './SampleSelector'; // Updated
@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import { PrintableCheckout } from './PrintableCheckout';
 import EditCustomerModal from './EditCustomerModal';
 import AddSampleInlineModal from './AddSampleInlineModal';
+import Select from 'react-select';
 
 const getTwoWeeksFromNowISO = () => {
     const date = new Date();
@@ -16,16 +17,23 @@ const getTwoWeeksFromNowISO = () => {
     return date.toISOString().split('T')[0];
 };
 
+type CheckoutTarget = 'PROJECT' | 'CUSTOMER' | 'INSTALLER';
+
 interface QuickCheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose }) => {
-  const { addSampleCheckout, vendors } = useData(); // FIX: Get vendors from context
+  const { addSampleCheckout, vendors, installers } = useData(); 
 
+  // --- STATE ---
+  const [checkoutTarget, setCheckoutTarget] = useState<CheckoutTarget>('PROJECT');
+  
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedInstaller, setSelectedInstaller] = useState<Installer | null>(null);
+  
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([]); // Changed State
   const [expectedReturnDate, setExpectedReturnDate] = useState(getTwoWeeksFromNowISO());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,8 +52,10 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   }, []);
 
   const handleClose = () => {
+    setCheckoutTarget('PROJECT');
     setSelectedCustomer(null);
     setSelectedProject(null);
+    setSelectedInstaller(null);
     setCheckoutItems([]);
     setExpectedReturnDate(getTwoWeeksFromNowISO());
     setCheckoutComplete(false);
@@ -80,16 +90,22 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   };
 
   const handleFinishCheckout = async () => {
-    if (!selectedProject || checkoutItems.length === 0 || !expectedReturnDate) {
-      toast.error("Please ensure a project, samples, and a return date are selected.");
-      return;
-    }
+    if (checkoutItems.length === 0) { toast.error("Please add at least one sample."); return; }
+    if (!expectedReturnDate) { toast.error("Please select a return date."); return; }
+
+    if (checkoutTarget === 'PROJECT' && !selectedProject) { toast.error("Please select a project."); return; }
+    if (checkoutTarget === 'CUSTOMER' && !selectedCustomer) { toast.error("Please select a customer."); return; }
+    if (checkoutTarget === 'INSTALLER' && !selectedInstaller) { toast.error("Please select an installer."); return; }
+
     setIsSubmitting(true);
     const toastId = toast.loading(`Checking out ${checkoutItems.length} item(s)...`);
     try {
         const checkoutPromises = checkoutItems.map(item => 
             addSampleCheckout({
-                projectId: selectedProject.id,
+                projectId: checkoutTarget === 'PROJECT' ? selectedProject!.id : undefined,
+                customerId: checkoutTarget === 'CUSTOMER' ? selectedCustomer!.id : undefined,
+                installerId: checkoutTarget === 'INSTALLER' ? selectedInstaller!.id : undefined,
+                
                 variantId: item.variantId,
                 interestVariantId: item.interestVariantId,
                 sampleType: item.sampleType,
@@ -115,17 +131,26 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
     return null;
   }
 
+  // Determine who the printable summary is for
+  const printableRecipient = 
+    checkoutTarget === 'PROJECT' ? selectedCustomer :
+    checkoutTarget === 'CUSTOMER' ? selectedCustomer :
+    checkoutTarget === 'INSTALLER' ? selectedInstaller :
+    null;
+
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
         
         <div className="print-only">
           <PrintableCheckout 
-              customer={selectedCustomer}
+              customer={printableRecipient as Customer} // Casting loosely as we check existence above
               project={selectedProject}
-              checkoutItems={checkoutItems} // Changed Prop
+              checkoutItems={checkoutItems} 
               vendors={vendors} 
               returnDate={expectedReturnDate}
+              installer={printableRecipient as Installer}
+              target={checkoutTarget}
           />
         </div>
 
@@ -138,7 +163,39 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
           </div>
 
           <fieldset disabled={checkoutComplete} className="flex-1 overflow-y-auto pr-4 space-y-8">
+            
+            {/* 0. TARGET SELECTION */}
             <section>
+                <h3 className="text-lg font-semibold mb-4 text-text-primary">Who is this for?</h3>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                    <button 
+                        onClick={() => setCheckoutTarget('PROJECT')}
+                        className={`p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${checkoutTarget === 'PROJECT' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-text-secondary hover:border-primary/50'}`}
+                    >
+                        <Briefcase size={24} />
+                        <span className="font-bold">Project</span>
+                    </button>
+                    <button 
+                        onClick={() => setCheckoutTarget('CUSTOMER')}
+                        className={`p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${checkoutTarget === 'CUSTOMER' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-text-secondary hover:border-primary/50'}`}
+                    >
+                        <User size={24} />
+                        <span className="font-bold">Customer Only</span>
+                    </button>
+                    <button 
+                        onClick={() => setCheckoutTarget('INSTALLER')}
+                        className={`p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${checkoutTarget === 'INSTALLER' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-text-secondary hover:border-primary/50'}`}
+                    >
+                        <HardHat size={24} />
+                        <span className="font-bold">Installer</span>
+                    </button>
+                </div>
+            </section>
+
+            <section>
+              {/* 1. CUSTOMER / PROJECT SELECTOR */}
+              {(checkoutTarget === 'PROJECT' || checkoutTarget === 'CUSTOMER') && (
+              <>
               <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2 text-text-primary">1. Customer</h3>
               {!selectedCustomer ? (
                 <CustomerSelector 
@@ -167,9 +224,11 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                   )}
                 </div>
               )}
+              </>
+              )}
             </section>
 
-            {selectedCustomer && (
+            {checkoutTarget === 'PROJECT' && selectedCustomer && (
               <section>
                 <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2 text-text-primary">2. Project</h3>
                 {!selectedProject ? (
@@ -199,9 +258,37 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
               </section>
             )}
 
-            {selectedProject && (
+            {/* INSTALLER SELECTOR */}
+            {checkoutTarget === 'INSTALLER' && (
+                <section>
+                    <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2 text-text-primary">1. Select Installer</h3>
+                    <Select 
+                        options={installers.map(i => ({ label: i.installerName, value: i }))}
+                        onChange={(opt) => setSelectedInstaller(opt?.value || null)}
+                        value={selectedInstaller ? { label: selectedInstaller.installerName, value: selectedInstaller } : null}
+                        placeholder="Search installers..."
+                        className="text-text-primary"
+                        styles={{
+                            control: (base) => ({ ...base, backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)' }),
+                            menu: (base) => ({ ...base, backgroundColor: 'var(--color-surface)', zIndex: 100 }),
+                            option: (base, { isFocused }) => ({ ...base, backgroundColor: isFocused ? 'var(--color-primary)' : 'transparent', color: isFocused ? 'var(--color-on-primary)' : 'var(--color-text-primary)' }),
+                            singleValue: (base) => ({ ...base, color: 'var(--color-text-primary)' }),
+                            input: (base) => ({ ...base, color: 'var(--color-text-primary)' })
+                        }}
+                    />
+                </section>
+            )}
+
+            {/* SAMPLES & DATE (Show if Valid Selection Made) */}
+            {(
+                (checkoutTarget === 'PROJECT' && selectedProject) || 
+                (checkoutTarget === 'CUSTOMER' && selectedCustomer) || 
+                (checkoutTarget === 'INSTALLER' && selectedInstaller)
+            ) && (
               <section>
-                <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2 text-text-primary">3. Samples & Return Date</h3>
+                <h3 className="text-lg font-semibold mb-2 border-b border-border pb-2 text-text-primary">
+                    {checkoutTarget === 'PROJECT' ? '3.' : '2.'} Samples & Return Date
+                </h3>
                 <div className="mb-4">
                   <label htmlFor="returnDate" className="block text-sm font-medium text-text-secondary mb-2">Expected Return Date</label>
                   <div className="relative">
@@ -248,7 +335,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                 <button
                   type="button"
                   onClick={handleFinishCheckout}
-                  disabled={!selectedCustomer || !selectedProject || checkoutItems.length === 0 || isSubmitting}
+                  disabled={!((checkoutTarget === 'PROJECT' && selectedProject) || (checkoutTarget === 'CUSTOMER' && selectedCustomer) || (checkoutTarget === 'INSTALLER' && selectedInstaller)) || checkoutItems.length === 0 || isSubmitting}
                   className="py-2 px-6 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled-cursor-not-allowed"
                 >
                   {isSubmitting ? 'Checking Out...' : `Finish Checkout (${checkoutItems.length})`}

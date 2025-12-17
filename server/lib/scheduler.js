@@ -213,26 +213,28 @@ export const initializeScheduler = async () => {
             // ... (Query remains same)
             const query = `
                 SELECT
-                    c.full_name as customer_name,
-                    c.email as customer_email,
-                    p.project_name,
+                    COALESCE(c_proj.full_name, c_direct.full_name, i.installer_name) as recipient_name,
+                    COALESCE(c_proj.email, c_direct.email, i.contact_email) as recipient_email,
+                    COALESCE(p.project_name, 'Direct Checkout') as project_name,
                     sc.expected_return_date,
                     json_agg(COALESCE(prod.name || ' - ' || pv.name, 'Sample ID: ' || pv.id::text)) as samples
                 FROM sample_checkouts sc
-                JOIN projects p ON sc.project_id = p.id
-                JOIN customers c ON p.customer_id = c.id
+                LEFT JOIN projects p ON sc.project_id = p.id
+                LEFT JOIN customers c_proj ON p.customer_id = c_proj.id
+                LEFT JOIN customers c_direct ON sc.customer_id = c_direct.id
+                LEFT JOIN installers i ON sc.installer_id = i.id
                 JOIN product_variants pv ON sc.variant_id = pv.id
                 JOIN products prod ON pv.product_id = prod.id
                 WHERE sc.expected_return_date::date = CURRENT_DATE + INTERVAL '1 day'
                   AND sc.actual_return_date IS NULL
-                  AND c.email IS NOT NULL AND c.email != ''
-                GROUP BY c.full_name, c.email, p.project_name, sc.expected_return_date;
+                  AND COALESCE(c_proj.email, c_direct.email, i.contact_email) IS NOT NULL
+                GROUP BY recipient_name, recipient_email, project_name, sc.expected_return_date;
             `;
             const result = await pool.query(query);
             const checkouts = result.rows;
 
             if (checkouts.length === 0) { return; }
-            console.log(`Found ${checkouts.length} project(s) with samples due tomorrow.`);
+            console.log(`Found ${checkouts.length} entity(s) with samples due tomorrow.`);
             const templatePath = path.join(__dirname, '../email-templates/customerReminder.html');
             const template = await fs.readFile(templatePath, 'utf-8');
 
@@ -242,11 +244,11 @@ export const initializeScheduler = async () => {
 
                 
                 await sendEmail({
-                    to: checkout.customer_email,
+                    to: checkout.recipient_email,
                     subject: "Friendly Reminder: Your Samples are Due Tomorrow",
                     templateName: 'customerReminder',
                     data: {
-                        customerName: checkout.customer_name,
+                        customerName: checkout.recipient_name,
                         projectName: checkout.project_name,
                         dueDate: dueDate,
                         sampleList: sampleListHtml
@@ -271,21 +273,23 @@ export const initializeScheduler = async () => {
             
             const query = `
                 SELECT
-                    c.full_name as customer_name,
-                    c.email as customer_email,
-                    p.project_name,
+                    COALESCE(c_proj.full_name, c_direct.full_name, i.installer_name) as recipient_name,
+                    COALESCE(c_proj.email, c_direct.email, i.contact_email) as recipient_email,
+                    COALESCE(p.project_name, 'Direct Checkout') as project_name,
                     sc.expected_return_date,
                     (CURRENT_DATE - sc.expected_return_date::date) as days_overdue,
                     json_agg(COALESCE(prod.name || ' - ' || pv.name, 'Sample ID: ' || pv.id::text)) as samples
                 FROM sample_checkouts sc
-                JOIN projects p ON sc.project_id = p.id
-                JOIN customers c ON p.customer_id = c.id
+                LEFT JOIN projects p ON sc.project_id = p.id
+                LEFT JOIN customers c_proj ON p.customer_id = c_proj.id
+                LEFT JOIN customers c_direct ON sc.customer_id = c_direct.id
+                LEFT JOIN installers i ON sc.installer_id = i.id
                 JOIN product_variants pv ON sc.variant_id = pv.id
                 JOIN products prod ON pv.product_id = prod.id
                 WHERE sc.expected_return_date::date < CURRENT_DATE
                   AND sc.actual_return_date IS NULL
-                  AND c.email IS NOT NULL AND c.email != ''
-                GROUP BY c.full_name, c.email, p.project_name, sc.expected_return_date;
+                  AND COALESCE(c_proj.email, c_direct.email, i.contact_email) IS NOT NULL
+                GROUP BY recipient_name, recipient_email, project_name, sc.expected_return_date;
             `;
             const result = await pool.query(query);
             const overdueCheckouts = result.rows;
@@ -298,11 +302,11 @@ export const initializeScheduler = async () => {
 
                     // Use the new smart sendEmail call
                     await sendEmail({
-                        to: checkout.customer_email,
+                        to: checkout.recipient_email,
                         subject: "Action Required: Your Samples are Overdue",
                         templateName: 'pastDueReminder',
                         data: {
-                            customerName: checkout.customer_name,
+                            customerName: checkout.recipient_name,
                             projectName: checkout.project_name,
                             dueDate: dueDate,
                             daysOverdue: checkout.days_overdue,

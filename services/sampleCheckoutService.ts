@@ -14,6 +14,22 @@ export const getSampleCheckouts = async (projectId?: number): Promise<SampleChec
     return response.json();
 };
 
+export const getCheckoutsByCustomer = async (customerId: number): Promise<SampleCheckout[]> => {
+    const response = await fetch(`${API_BASE_URL}?customerId=${customerId}`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch customer samples.');
+    }
+    return response.json();
+};
+
+export const getCheckoutsByInstaller = async (installerId: number): Promise<SampleCheckout[]> => {
+    const response = await fetch(`${API_BASE_URL}?installerId=${installerId}`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch installer samples.');
+    }
+    return response.json();
+};
+
 /**
  * Creates a new sample checkout record.
  */
@@ -44,7 +60,6 @@ export const returnSampleCheckout = async (checkout: SampleCheckout): Promise<Sa
     return response.json();
 };
 
-// --- NEW FUNCTION TO EXTEND CHECKOUTS ---
 /**
  * Partially updates a sample checkout record, e.g., to change the return date or selection status.
  */
@@ -58,4 +73,15 @@ export const patchSampleCheckout = async (checkoutId: number, data: { expectedRe
         throw new Error('Failed to update sample checkout.');
     }
     return response.json();
+};
+
+/**
+ * Transfers existing checkouts to a new project.
+ */
+export const transferCheckoutsToProject = async (checkoutIds: number[], projectId: number): Promise<void> => {
+    await fetch(`${API_BASE_URL}/transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkoutIds, projectId })
+    });
 };

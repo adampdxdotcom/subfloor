@@ -54,7 +54,7 @@ const initialEmptyFormData: SampleFormData = {
 const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, sample }) => {
   const { 
     currentUser,
-    vendors, sampleCheckouts, projects, fetchSamples, updateSample, addVendor,
+    vendors, sampleCheckouts, projects, customers, installers, fetchSamples, updateSample, addVendor,
     updateSampleCheckout, deleteSample, extendSampleCheckout, toggleSampleDiscontinued,
     sampleHistory, fetchSampleHistory
   } = useData();
@@ -89,12 +89,26 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
   const { checkoutHistory, currentCheckout } = useMemo(() => {
     if (!sample) return { checkoutHistory: [], currentCheckout: null };
     const history = sampleCheckouts.filter(sc => sc.sampleId === sample.id).map(checkout => {
-        const project = projects.find(p => p.id === checkout.projectId);
-        return { ...checkout, projectName: project?.projectName || 'Unknown Project' };
+        let name = 'Unknown';
+        let link = '#';
+        if (checkout.projectId) {
+             const p = projects.find(p => p.id === checkout.projectId);
+             name = p ? p.projectName : 'Unknown Project';
+             link = `/projects/${checkout.projectId}`;
+        } else if (checkout.customerId) {
+             const c = customers.find(c => c.id === checkout.customerId);
+             name = c ? c.fullName : 'Unknown Customer';
+             link = `/customers/${checkout.customerId}`;
+        } else if (checkout.installerId) {
+             const i = installers.find(inst => inst.id === checkout.installerId);
+             name = i ? i.installerName : 'Unknown Installer';
+             link = `/installers/${checkout.installerId}`;
+        }
+        return { ...checkout, entityName: name, entityLink: link };
     }).sort((a, b) => new Date(b.checkoutDate).getTime() - new Date(a.checkoutDate).getTime());
     const activeCheckout = history.find(h => !h.actualReturnDate) || null;
     return { checkoutHistory: history, currentCheckout: activeCheckout };
-  }, [sample, sampleCheckouts, projects]);
+  }, [sample, sampleCheckouts, projects, customers, installers]);
 
 
   // Helper to map Sample props to SampleFormData required by the inner form
@@ -448,7 +462,7 @@ const SampleDetailModal: React.FC<SampleDetailModalProps> = ({ isOpen, onClose, 
                     {historyView === 'checkouts' ? (
                       checkoutHistory.length > 0 ? checkoutHistory.map(h => (
                           <li key={h.id} className="bg-background p-3 rounded-md flex justify-between items-center list-none">
-                            <div><p className="font-semibold text-text-primary">Checked out to <Link to={`/projects/${h.projectId}`} className="text-accent hover:underline">{h.projectName}</Link></p><p className="text-xs text-text-secondary">{new Date(h.checkoutDate).toLocaleDateString()} <ChevronsRight className="inline w-4 h-4 mx-1" /> {h.actualReturnDate ? new Date(h.actualReturnDate).toLocaleDateString() : 'Present'}</p></div>
+                            <div><p className="font-semibold text-text-primary">Checked out to <Link to={h.entityLink} className="text-accent hover:underline">{h.entityName}</Link></p><p className="text-xs text-text-secondary">{new Date(h.checkoutDate).toLocaleDateString()} <ChevronsRight className="inline w-4 h-4 mx-1" /> {h.actualReturnDate ? new Date(h.actualReturnDate).toLocaleDateString() : 'Present'}</p></div>
                             <span className={`px-2 py-1 text-xs rounded-full font-bold ${h.actualReturnDate ? 'bg-secondary text-text-secondary' : 'bg-yellow-500 text-gray-900'}`}>{h.actualReturnDate ? 'Returned' : 'Active'}</span>
                           </li>
                       )) : <p className="text-text-secondary text-center py-4">No checkout history for this sample.</p>
