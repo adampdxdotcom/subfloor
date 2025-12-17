@@ -58,6 +58,8 @@ router.get('/events', verifySession(), async (req, res) => {
                 c.full_name AS "customerName",
                 i.color AS "backgroundColor",
                 j.is_on_hold AS "isOnHold",
+                p.status AS "projectStatus", -- ADDED: For hashed completed jobs
+                q.po_number AS "poNumber",   -- ADDED: Linked PO Number
                 'appointment' AS "type",
                 jsonb_build_object('isJobComplete', j.final_payment_received) AS "fullEvent"
             FROM job_appointments ja
@@ -65,6 +67,7 @@ router.get('/events', verifySession(), async (req, res) => {
             JOIN projects p ON j.project_id = p.id
             JOIN customers c ON p.customer_id = c.id
             JOIN installers i ON ja.installer_id = i.id
+            LEFT JOIN quotes q ON ja.quote_id = q.id -- ADDED: Link to Quote for PO
             WHERE 
                 ja.installer_id IS NOT NULL
                 AND p.status != 'Cancelled' -- FIX: Hide cancelled jobs
@@ -81,6 +84,8 @@ router.get('/events', verifySession(), async (req, res) => {
                 c.full_name AS "customerName",
                 '#8B5CF6' AS "backgroundColor",
                 false AS "isOnHold",
+                NULL AS "projectStatus",
+                NULL AS "poNumber",
                 'material_order_eta' AS "type",
                 jsonb_build_object('status', mo.status) AS "fullEvent"
             FROM material_orders mo
@@ -101,6 +106,8 @@ router.get('/events', verifySession(), async (req, res) => {
                 '' AS "customerName", 
                 '#3B82F6' AS "backgroundColor",
                 false AS "isOnHold",
+                NULL AS "projectStatus",
+                NULL AS "poNumber",
                 'user_appointment' AS "type",
                 jsonb_build_object(
                     'id', e.id,

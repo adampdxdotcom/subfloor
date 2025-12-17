@@ -26,7 +26,7 @@ router.get('/:id', verifySession(), async (req, res) => {
 router.post('/', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
     try {
-        let { projectId, installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status } = req.body;
+        let { projectId, installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status, poNumber } = req.body;
 
         if (installationType === 'Materials Only Sale') {
             installerId = null;
@@ -35,9 +35,9 @@ router.post('/', verifySession(), async (req, res) => {
         }
 
         const result = await pool.query(
-            `INSERT INTO quotes (project_id, installer_id, installation_type, quote_details, materials_amount, labor_amount, installer_markup, labor_deposit_percentage, date_sent, status) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, $9) RETURNING *`, 
-            [projectId, installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status]
+            `INSERT INTO quotes (project_id, installer_id, installation_type, quote_details, materials_amount, labor_amount, installer_markup, labor_deposit_percentage, date_sent, status, po_number) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, $9, $10) RETURNING *`, 
+            [projectId, installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status, poNumber]
         );
         const newQuote = toCamelCase(result.rows[0]);
 
@@ -136,7 +136,7 @@ router.put('/:id', verifySession(), async (req, res) => {
         const beforeData = toCamelCase(beforeResult.rows[0]);
         // --- END AUDIT LOG ---
 
-        let { installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status } = req.body;
+        let { installerId, installationType, quoteDetails, materialsAmount, laborAmount, installerMarkup, laborDepositPercentage, status, poNumber } = req.body;
         
         const fields = [];
         const values = [];
@@ -156,6 +156,7 @@ router.put('/:id', verifySession(), async (req, res) => {
         if (installerMarkup !== undefined) { fields.push(`installer_markup = $${fields.length + 1}`); values.push(installerMarkup); }
         if (laborDepositPercentage !== undefined) { fields.push(`labor_deposit_percentage = $${fields.length + 1}`); values.push(laborDepositPercentage); }
         if (status !== undefined) { fields.push(`status = $${fields.length + 1}`); values.push(status); }
+        if (poNumber !== undefined) { fields.push(`po_number = $${fields.length + 1}`); values.push(poNumber); }
 
         if (fields.length === 0) return res.status(400).json({ error: 'No fields to update provided.' });
 

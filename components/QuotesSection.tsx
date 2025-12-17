@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '../context/DataContext';
 import { Project, Quote, Installer, QuoteStatus, Job, InstallationType, INSTALLATION_TYPES } from '../types';
-import { Edit, Check, X, History, FileText, Move } from 'lucide-react';
+import { Edit, Check, X, History, FileText, Move, Save } from 'lucide-react';
 import ActivityHistory from './ActivityHistory';
 import ModalPortal from './ModalPortal'; 
 import { formatDate } from '../utils/dateUtils';
@@ -134,6 +134,8 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
             laborAmount: newQuote.installationType === 'Managed Installation' ? (parseFloat(newQuote.laborAmount) || 0) : null,
             laborDepositPercentage: newQuote.installationType === 'Managed Installation' ? (parseFloat(newQuote.laborDepositPercentage) || 50) : null,
             quoteDetails: newQuote.quoteDetails,
+            // Preserve existing PO if editing, otherwise null for new
+            poNumber: editingQuote ? editingQuote.poNumber : null,
             status: editingQuote ? editingQuote.status : QuoteStatus.SENT
         };
 
@@ -158,6 +160,14 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
         } else {
             await updateQuote({ id: quote.id, status: status }); 
         } 
+    };
+
+    const handlePoUpdate = async (quoteId: number, poNumber: string) => {
+        // Only update if the value actually changed to prevent API spam
+        const quote = projectQuotes.find(q => q.id === quoteId);
+        if (quote && quote.poNumber !== poNumber) {
+            await updateQuote({ id: quoteId, poNumber });
+        }
     };
 
     return (
@@ -210,6 +220,21 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                                                     <button onClick={() => onOpenEditModal(quote)} className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface rounded-full" title="Edit Quote"><Edit className="w-4 h-4" /></button>
                                                     <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.ACCEPTED)} className="p-2 bg-green-600 rounded-full hover:bg-green-700" title="Accept Quote"><Check className="w-4 h-4 text-white" /></button>
                                                     <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.REJECTED)} className="p-2 bg-red-600 rounded-full hover:bg-red-700" title="Reject Quote"><X className="w-4 h-4 text-white" /></button>
+                                                </div>
+                                            )}
+                                            {quote.status === QuoteStatus.ACCEPTED && (
+                                                <div className="mt-2 flex items-center gap-1">
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Add PO #" 
+                                                        defaultValue={quote.poNumber || ''}
+                                                        onKeyDown={(e) => { if(e.key === 'Enter') handlePoUpdate(quote.id, e.currentTarget.value); }}
+                                                        className="text-xs w-24 p-1 bg-surface border border-border rounded text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                                                        id={`po-input-${quote.id}`}
+                                                    />
+                                                    <button onClick={() => { const val = (document.getElementById(`po-input-${quote.id}`) as HTMLInputElement).value; handlePoUpdate(quote.id, val); }} className="p-1 bg-primary text-on-primary rounded hover:bg-primary-hover" title="Save PO">
+                                                        <Save className="w-3 h-3" />
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>

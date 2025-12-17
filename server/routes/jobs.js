@@ -17,6 +17,7 @@ router.get('/', verifySession(), async (req, res) => {
                             'id', ja.id,
                             'job_id', ja.job_id,
                             'installer_id', ja.installer_id,
+                            'quote_id', ja.quote_id,
                             'appointment_name', ja.appointment_name,
                             'start_date', ja.start_date,
                             'end_date', ja.end_date
@@ -86,6 +87,7 @@ router.get('/project/:projectId', verifySession(), async (req, res) => {
         }
         const job = toCamelCase(jobResult.rows[0]);
 
+        // Note: The SELECT * here will fetch 'quote_id' automatically
         const appointmentsResult = await pool.query(
             'SELECT * FROM job_appointments WHERE job_id = $1 ORDER BY start_date ASC',
             [job.id]
@@ -177,11 +179,17 @@ router.post('/', verifySession(), async (req, res) => {
                 if (isNaN(installerId)) {
                   installerId = null;
                 }
+                
+                // Extract quoteId (must be null if not provided)
+                let quoteId = appt.quoteId ? parseInt(appt.quoteId, 10) : null;
+                if (isNaN(quoteId)) {
+                    quoteId = null;
+                }
 
                 await client.query(
-                    `INSERT INTO job_appointments (job_id, installer_id, appointment_name, start_date, end_date)
-                     VALUES ($1, $2, $3, $4, $5)`,
-                    [job.id, installerId, appt.appointmentName, appt.startDate || null, appt.endDate || null]
+                    `INSERT INTO job_appointments (job_id, installer_id, quote_id, appointment_name, start_date, end_date)
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [job.id, installerId, quoteId, appt.appointmentName, appt.startDate || null, appt.endDate || null]
                 );
             }
         }

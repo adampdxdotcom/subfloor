@@ -45,6 +45,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     const acceptedQuotes = useMemo(() => quotes.filter(q => q.status === QuoteStatus.ACCEPTED), [quotes]);
     
     // Helper to get the default installer from the accepted quote
+    // NOTE: This defaultInstallerId is no longer used for pre-filling appointments.
     const defaultInstallerId = useMemo(() => {
         return acceptedQuotes.length > 0 ? acceptedQuotes[0].installerId : null;
     }, [acceptedQuotes]);
@@ -52,6 +53,11 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     const isSchedulingApplicable = useMemo(() => {
         if (acceptedQuotes.length === 0) return false;
         return acceptedQuotes.some(q => q.installationType === 'Managed Installation' || q.installationType === 'Unmanaged Installer');
+    }, [acceptedQuotes]);
+
+    // NEW: Logic to strictly identify Managed jobs for compliance rules
+    const isManagedJob = useMemo(() => {
+        return acceptedQuotes.some(q => q.installationType === 'Managed Installation');
     }, [acceptedQuotes]);
 
     const financialSummary = useMemo(() => {
@@ -105,7 +111,9 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 appointments: [{
                     _tempId: tempAppointmentId++,
                     appointmentName: 'Installation',
-                    installerId: defaultInstallerId, // PRE-FILL ON INITIAL LOAD
+                    // Auto-select if only one quote exists, otherwise force selection
+                    quoteId: acceptedQuotes.length === 1 ? acceptedQuotes[0].id : undefined,
+                    installerId: acceptedQuotes.length === 1 ? acceptedQuotes[0].installerId : null,
                     startDate: '',
                     endDate: '',
                 }]
@@ -114,6 +122,26 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         }
     }, [job, project.id, acceptedQuotes, defaultInstallerId]);
     
+    // NEW: Auto-Link Effect. 
+    // If there is exactly ONE accepted quote, ensure all appointments are linked to it automatically.
+    // This fixes "Legacy" jobs failing validation because they visually show the installer but lack the ID in state.
+    useEffect(() => {
+        if (acceptedQuotes.length === 1 && jobDetails.appointments) {
+            const singleQuoteId = acceptedQuotes[0].id;
+            const needsUpdate = jobDetails.appointments.some(a => a.quoteId !== singleQuoteId);
+            if (needsUpdate) {
+                setJobDetails(prev => ({
+                    ...prev,
+                    appointments: (prev.appointments || []).map(a => ({
+                        ...a,
+                        quoteId: singleQuoteId,
+                        installerId: acceptedQuotes[0].installerId
+                    }))
+                }));
+            }
+        }
+    }, [acceptedQuotes, jobDetails.appointments]);
+
     // --- HANDLERS ---
     const handleJobChange = (field: keyof Job, value: any) => {
         setJobDetails(prev => ({ ...prev, [field]: value }));
@@ -128,11 +156,30 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         }));
     };
 
+    // NEW: Handle Quote Selection for Appointment
+    const handleQuoteSelection = (tempId: number, quoteIdStr: string) => {
+        const quoteId = quoteIdStr ? parseInt(quoteIdStr) : null;
+        const selectedQuote = acceptedQuotes.find(q => q.id === quoteId);
+        
+        setJobDetails(prev => ({
+            ...prev,
+            appointments: (prev.appointments || []).map(appt =>
+                appt._tempId === tempId ? { 
+                    ...appt, 
+                    quoteId: quoteId,
+                    installerId: selectedQuote?.installerId || null 
+                } : appt
+            )
+        }));
+    };
+
     const addAppointment = () => {
         const newAppointment = {
             _tempId: tempAppointmentId++,
             appointmentName: `Part ${ (jobDetails.appointments?.length || 0) + 1}`,
-            installerId: defaultInstallerId, // PRE-FILL ON ADD BUTTON
+            // Auto-select if only one quote exists
+            quoteId: acceptedQuotes.length === 1 ? acceptedQuotes[0].id : undefined,
+            installerId: acceptedQuotes.length === 1 ? acceptedQuotes[0].installerId : null,
             startDate: '',
             endDate: '',
         };
@@ -153,6 +200,21 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         if (shouldUpdateStatus && (!firstAppointment || !firstAppointment.startDate)) {
             toast.error("Please enter a Start Date for the first appointment to schedule the job.");
             return;
+        }
+        
+        // Validation check for linked quote
+        if (isSchedulingApplicable && jobDetails.appointments?.some(a => !a.quoteId)) {
+            toast.error("All appointments must be linked to an Accepted Quote (Scope of Work).");
+            return;
+        }
+
+
+        // NEW: Managed Job Compliance Rule
+        if (shouldUpdateStatus && isManagedJob) {
+            if (!jobDetails.depositReceived || !jobDetails.contractsReceived) {
+                toast.error("Deposit and Contracts must be marked as received before scheduling a Managed Job.");
+                return;
+            }
         }
 
         const { appointments, ...coreJobDetails } = jobDetails;
@@ -184,7 +246,27 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         }
     };
     
-    const isScheduledOrLater = project.status === ProjectStatus.SCHEDULED || project.status === ProjectStatus.COMPLETED;
+    const toggleHold = () => {
+        const newState = !jobDetails.isOnHold;
+        handleJobChange('isOnHold', newState);
+        // If we want to save immediately, we can uncomment this:
+        // saveJobDetails({ ...jobDetails, isOnHold: newState });
+    };
+
+    // Logic for Final Payment Eligibility (Managed Only)
+    const finalPaymentUnlockDate = useMemo(() => {
+        if (!jobDetails.appointments || jobDetails.appointments.length === 0) return null;
+        // Find the latest end date
+        const dates = jobDetails.appointments
+            .map(a => a.endDate ? new Date(a.endDate).getTime() : 0)
+            .sort((a, b) => b - a);
+        
+        return dates[0] > 0 ? new Date(dates[0]) : null;
+    }, [jobDetails.appointments]);
+
+    const canReceiveFinalPayment = !finalPaymentUnlockDate ? false : new Date() >= finalPaymentUnlockDate;
+    const isLockedForSchedule = (project.status === ProjectStatus.SCHEDULED || project.status === ProjectStatus.COMPLETED);
+
 
     return (
         <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
@@ -194,35 +276,41 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                     <Calendar className="w-6 h-6 text-accent"/>
                     <h2 className="text-xl font-semibold text-text-primary">Job Details & Scheduling</h2>
                 </div>
-                <button onClick={handleSave} className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg flex items-center gap-2">
-                    <Save className="w-4 h-4"/> Save Details
-                </button>
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={toggleHold}
+                        className={`font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors ${
+                            jobDetails.isOnHold 
+                                ? 'bg-yellow-500 hover:bg-yellow-600 text-white' 
+                                : 'bg-secondary hover:bg-secondary-hover text-on-secondary'
+                        }`}
+                    >
+                        <AlertTriangle className="w-4 h-4"/> {jobDetails.isOnHold ? 'ON HOLD' : 'Place Hold'}
+                    </button>
+                    <button onClick={handleSave} className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                        <Save className="w-4 h-4"/> Save Details
+                    </button>
+                </div>
             </div>
 
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 flex-grow overflow-hidden">
                 <div className="space-y-6 overflow-y-auto pr-2">
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">PO Number</label>
-                        <input type="text" value={jobDetails.poNumber || ''} onChange={e => handleJobChange('poNumber', e.target.value)} className="w-full p-2 bg-background border-border rounded text-text-primary"/>
-                    </div>
                     
-                    <div className="flex items-center space-x-3 bg-background p-3 rounded-md">
-                        <input
-                            type="checkbox"
-                            id="isOnHold"
-                            checked={jobDetails.isOnHold || false}
-                            onChange={e => handleJobChange('isOnHold', e.target.checked)}
-                            className="h-5 w-5 rounded text-primary focus:ring-primary bg-surface border-border"
-                        />
-                        <label htmlFor="isOnHold" className="font-semibold text-yellow-400 flex items-center">
-                            <AlertTriangle className="w-5 h-5 mr-2" />
-                            Place Job ON HOLD
-                        </label>
-                    </div>
+                    {/* The PO Number input block was intentionally removed in the previous step/diff */}
+                    
+                    {/* The ON HOLD toggle was moved to the header */}
 
                     {isSchedulingApplicable && (
                         <div className="space-y-4">
-                            {(jobDetails.appointments || []).map((appt) => (
+                            {acceptedQuotes.length === 0 && (
+                                <div className="p-3 bg-red-900/30 text-red-400 border border-red-900 rounded-lg flex items-center gap-2">
+                                    <AlertTriangle size={20}/> Scheduling requires at least one accepted quote.
+                                </div>
+                            )}
+
+                            {(jobDetails.appointments || []).map((appt) => {
+                                const linkedQuote = acceptedQuotes.find(q => q.id === appt.quoteId);
+                                return (
                                 <div key={appt._tempId} className="bg-background p-4 rounded-lg border border-border relative">
                                     { (jobDetails.appointments?.length || 0) > 1 && (
                                         <button onClick={() => removeAppointment(appt._tempId)} className="absolute -top-2 -right-2 text-text-secondary hover:text-red-500">
@@ -243,18 +331,64 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                                             <input type="date" value={formatDateForInput(appt.endDate)} onChange={e => handleAppointmentChange(appt._tempId, 'endDate', e.target.value)} className="w-full p-2 text-sm bg-surface border-border rounded text-text-primary"/>
                                         </div>
                                         <div className="col-span-2">
-                                            <label className="block text-xs font-medium text-text-secondary mb-1">Assigned Installer</label>
-                                            <select value={appt.installerId || ''} onChange={e => handleAppointmentChange(appt._tempId, 'installerId', e.target.value ? parseInt(e.target.value) : null)} className="w-full p-2 text-sm bg-surface border-border rounded text-text-primary">
-                                                <option value="">-- Select Installer --</option>
-                                                {installers.map(installer => (
-                                                    <option key={installer.id} value={installer.id}>{installer.installerName}</option>
-                                                ))}
-                                            </select>
+                                            <label className="block text-xs font-medium text-text-secondary mb-1">Linked Quote (Installer & PO)</label>
+                                            
+                                            {/* UI LOGIC: If only 1 quote, show text. If multiple, show dropdown. */}
+                                            {acceptedQuotes.length === 1 ? (
+                                                <div className="w-full p-2 text-sm bg-background border border-border rounded text-text-primary font-medium">
+                                                    {(() => {
+                                                        const q = acceptedQuotes[0];
+                                                        const i = installers.find(inst => inst.id === q.installerId);
+                                                        return `${i?.installerName || 'Installer'} ${q.poNumber ? `(PO: ${q.poNumber})` : ''}`;
+                                                    })()}
+                                                </div>
+                                            ) : (
+                                                <select 
+                                                    value={appt.quoteId ? String(appt.quoteId) : ''} 
+                                                    onChange={e => handleQuoteSelection(appt._tempId, e.target.value)} 
+                                                    className="w-full p-2 text-sm bg-surface border-border rounded text-text-primary"
+                                                    disabled={acceptedQuotes.length === 0}
+                                                >
+                                                    <option value="">-- Select Installer (Via Quote) --</option>
+                                                    {acceptedQuotes.map(quote => {
+                                                        const installer = installers.find(i => i.id === quote.installerId);
+                                                        const installerName = installer ? installer.installerName : 'Unknown Installer';
+                                                        const typeSuffix = quote.installationType !== 'Managed Installation' ? ` - ${quote.installationType}` : '';
+                                                        const poSuffix = quote.poNumber ? ` (PO: ${quote.poNumber})` : '';
+
+                                                        return (
+                                                            <option key={quote.id} value={quote.id}>
+                                                                {`${installerName}${poSuffix}${typeSuffix}`}
+                                                            </option>
+                                                        );
+                                                    })}
+                                                </select>
+                                            )}
+                                            {/* Display Read-Only Installer info */}
+                                            {linkedQuote && (
+                                                <p className="text-xs text-text-tertiary mt-1">
+                                                    Assigned Installer: {installers.find(i => i.id === linkedQuote.installerId)?.installerName || 'N/A'}
+                                                </p>
+                                            )}
+                                            {!linkedQuote && appt.quoteId && (
+                                                <p className="text-xs text-red-500 mt-1">
+                                                    Warning: Linked quote not found.
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
-                            ))}
-                            <button onClick={addAppointment} className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-primary hover:text-primary-hover py-2 border-2 border-dashed border-border hover:border-primary rounded-lg transition-colors">
+                                ); // Closing the arrow function
+                            })}
+                            <button 
+                                onClick={addAppointment} 
+                                className={`w-full flex items-center justify-center gap-2 text-sm font-semibold py-2 border-2 border-dashed rounded-lg transition-colors ${
+                                    acceptedQuotes.length > 0 
+                                        ? 'text-primary hover:text-primary-hover border-border hover:border-primary'
+                                        : 'text-text-tertiary border-border opacity-50 cursor-not-allowed'
+                                }`}
+                                disabled={acceptedQuotes.length === 0}
+                            >
                                 <PlusCircle size={16} /> Add Appointment
                             </button>
                         </div>
@@ -268,22 +402,31 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                         <div className="flex justify-between items-center font-bold text-lg border-t-2 border-accent pt-2 mt-2"><span className="text-text-primary">Balance Due:</span><span className="text-accent">${financialSummary.balanceDue.toFixed(2)}</span></div> 
                     </div>
                 
+                    {/* HIDE Checkboxes for Unmanaged/Materials Jobs */}
+                    {isManagedJob && (
                     <div className="pt-2 space-y-3 flex-grow"> 
-                        <label className={`flex items-center space-x-2 ${isScheduledOrLater ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                            <input type="checkbox" checked={jobDetails.depositReceived || false} onChange={e => handleJobChange('depositReceived', e.target.checked)} disabled={isScheduledOrLater} className="form-checkbox h-5 w-5 text-primary bg-background border-border rounded focus:ring-primary"/>
+                        <label className={`flex items-center space-x-2 ${isLockedForSchedule ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                            <input type="checkbox" checked={jobDetails.depositReceived || false} onChange={e => handleJobChange('depositReceived', e.target.checked)} disabled={isLockedForSchedule} className="form-checkbox h-5 w-5 text-primary bg-background border-border rounded focus:ring-primary"/>
                             <span className="text-text-primary">Deposit Received</span>
                         </label> 
-                        <label className={`flex items-center space-x-2 ${isScheduledOrLater ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                            <input type="checkbox" checked={jobDetails.contractsReceived || false} onChange={e => handleJobChange('contractsReceived', e.target.checked)} disabled={isScheduledOrLater} className="form-checkbox h-5 w-5 text-primary bg-background border-border rounded focus:ring-primary"/>
+                        <label className={`flex items-center space-x-2 ${isLockedForSchedule ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                            <input type="checkbox" checked={jobDetails.contractsReceived || false} onChange={e => handleJobChange('contractsReceived', e.target.checked)} disabled={isLockedForSchedule} className="form-checkbox h-5 w-5 text-primary bg-background border-border rounded focus:ring-primary"/>
                             <span className="text-text-primary">Contracts Received</span>
                         </label> 
-                        {isScheduledOrLater && (
-                            <label className="flex items-center space-x-2 cursor-pointer">
-                                <input type="checkbox" checked={jobDetails.finalPaymentReceived || false} onChange={e => handleJobChange('finalPaymentReceived', e.target.checked)} className="form-checkbox h-5 w-5 text-primary bg-background border-border rounded focus:ring-primary"/>
+                        
+                        {/* Final Payment: Only show if scheduled, only enable if date passed */}
+                        {isLockedForSchedule && (
+                            <label className={`flex items-center space-x-2 ${canReceiveFinalPayment ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`} title={!canReceiveFinalPayment ? `Available after ${finalPaymentUnlockDate?.toLocaleDateString()}` : ''}>
+                                <input type="checkbox" 
+                                    checked={jobDetails.finalPaymentReceived || false} 
+                                    onChange={e => handleJobChange('finalPaymentReceived', e.target.checked)} 
+                                    disabled={!canReceiveFinalPayment}
+                                    className="form-checkbox h-5 w-5 text-primary bg-background border-border rounded focus:ring-primary"/>
                                 <span className="text-text-primary">Final Payment Received</span>
                             </label>
                         )}
                     </div>
+                    )}
                 </div>
             </div>
         </div>

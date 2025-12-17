@@ -24,6 +24,8 @@ interface CalendarEvent {
     customerName: string;
     backgroundColor: string | null;
     isOnHold: boolean;
+    projectStatus?: string; // ADDED
+    poNumber?: string;      // ADDED
 }
 
 interface AttendeeOption {
@@ -44,6 +46,16 @@ const normalizeDate = (date: Date): Date => {
     const newDate = new Date(date);
     newDate.setHours(0, 0, 0, 0);
     return newDate;
+};
+
+// NEW: Helper to fix the "Midnight UTC = Previous Day" bug for Material Orders
+const parseEventDate = (dateStr: string, type: string): Date => {
+    const date = new Date(dateStr);
+    if (type === 'material_order_eta') {
+        // Add the timezone offset to force the UTC midnight time back to Local midnight
+        return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+    }
+    return date;
 };
 
 // Strips markup for calendar grid display
@@ -129,8 +141,8 @@ const CalendarView: React.FC = () => {
         const checkDate = normalizeDate(date);
         const filteredEvents = events.filter(event => {
             if (!event.start || !event.end) return false;
-            const eventStart = normalizeDate(new Date(event.start));
-            const eventEnd = normalizeDate(new Date(event.end));
+            const eventStart = normalizeDate(parseEventDate(event.start, event.type));
+            const eventEnd = normalizeDate(parseEventDate(event.end, event.type));
             return checkDate >= eventStart && checkDate <= eventEnd;
         });
 
@@ -188,8 +200,8 @@ const CalendarView: React.FC = () => {
     };
 
     const renderEventItem = (event: CalendarEvent, date: Date) => {
-        const jobStart = normalizeDate(new Date(event.start));
-        const jobEnd = normalizeDate(new Date(event.end));
+        const jobStart = normalizeDate(parseEventDate(event.start, event.type));
+        const jobEnd = normalizeDate(parseEventDate(event.end, event.type));
         const currentDay = normalizeDate(date);
         const isStartDate = currentDay.getTime() === jobStart.getTime();
         const isEndDate = currentDay.getTime() === jobEnd.getTime();
@@ -202,6 +214,12 @@ const CalendarView: React.FC = () => {
         const isJobComplete = event.type === 'appointment' && (event.fullEvent as any)?.isJobComplete;
 
         let labelText = event.type === 'appointment' ? `${event.title} (${event.customerName.split(' ')[0]})` : event.title;
+        
+        // ADDED: Show PO Number if available
+        if (event.type === 'appointment' && event.poNumber) {
+            labelText += ` - PO: ${event.poNumber}`;
+        }
+
         labelText = stripMentions(labelText);
 
         let eventColor = event.backgroundColor || '#6b7280';
@@ -244,7 +262,8 @@ const CalendarView: React.FC = () => {
             ? { backgroundColor: eventColor, color: textColor } 
             : { color: '#a0a0a0' };
 
-        if ((isReceived || isJobComplete) && !event.isOnHold) {
+        // Check for Job Completed status from the projectStatus field
+        if ((isReceived || isJobComplete || event.projectStatus === 'Completed') && !event.isOnHold) {
             itemStyle.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.2) 5px, rgba(0,0,0,0.2) 10px)';
             labelText = `✓ ${labelText}`;
         }

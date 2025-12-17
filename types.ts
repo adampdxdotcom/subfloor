@@ -264,6 +264,7 @@ export interface Quote {
   id: number;
   projectId: number;
   installerId?: number | null;
+  poNumber?: string | null;
   installationType: InstallationType;
   quoteDetails?: string | null;
   materialsAmount?: number | null;
@@ -277,6 +278,7 @@ export interface Quote {
 export interface JobAppointment {
   id: number;
   jobId: number;
+  quoteId?: number | null;
   installerId: number | null;
   appointmentName: string;
   startDate: string;

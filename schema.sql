@@ -108,6 +108,7 @@ CREATE TABLE quotes (
     id SERIAL PRIMARY KEY,
     project_id INT REFERENCES projects(id) ON DELETE CASCADE,
     installer_id INT REFERENCES installers(id),
+    po_number TEXT, -- ADDED BY DIFF
     installation_type VARCHAR(50) NOT NULL DEFAULT 'Managed Installation',
     quote_details TEXT,
     materials_amount NUMERIC(10, 2),
@@ -209,6 +210,7 @@ CREATE TABLE job_appointments (
     id SERIAL PRIMARY KEY,
     job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     installer_id INTEGER REFERENCES installers(id) ON DELETE SET NULL,
+    quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL, -- ADDED BY DIFF
     appointment_name TEXT NOT NULL,
     start_date TIMESTAMPTZ NOT NULL,
     end_date TIMESTAMPTZ NOT NULL,

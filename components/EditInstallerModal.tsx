@@ -43,7 +43,16 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    let finalValue = value;
+
+    if (name === 'contactPhone') {
+        const digits = value.replace(/\D/g, '').slice(0, 10);
+        if (digits.length <= 3) finalValue = digits;
+        else if (digits.length <= 6) finalValue = `${digits.slice(0, 3)}-${digits.slice(3)}`;
+        else finalValue = `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+
+    setFormData(prev => ({ ...prev, [name]: finalValue }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
