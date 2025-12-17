@@ -9,6 +9,7 @@ import ActivityHistory from '../components/ActivityHistory';     // <-- NEW IMPO
 import { formatDate } from '../utils/dateUtils';
 import * as sampleService from '../services/sampleCheckoutService';
 import SampleHistoryCard from '../components/SampleHistoryCard'; // RENAMED IMPORT
+import AddProjectModal from '../components/AddProjectModal'; // <-- NEW IMPORT
 
 const CustomerDetail: React.FC = () => {
   const { customerId } = useParams<{ customerId: string }>();
@@ -18,27 +19,14 @@ const CustomerDetail: React.FC = () => {
   const navigate = useNavigate();
   
   // State for the "Add Project" modal
+  // --- REFACTOR: Using Reusable Modal ---
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectType, setNewProjectType] = useState<ProjectType>(PROJECT_TYPES[0]);
-  
-  // State for the installer "search-or-add" feature
-  const [selectedInstaller, setSelectedInstaller] = useState<Installer | null>(null);
-  const [installerSearchTerm, setInstallerSearchTerm] = useState('');
-  const [isAddingNewInstaller, setIsAddingNewInstaller] = useState(false);
-  const [newInstallerForm, setNewInstallerForm] = useState({ installerName: '', contactEmail: '', contactPhone: '' });
+  const [transferSampleId, setTransferSampleId] = useState<number | null>(null);
+  const [initialProjectName, setInitialProjectName] = useState('');
   
   const [sampleHistory, setSampleHistory] = useState<SampleCheckout[]>([]);
-  // Track which sample we are converting to a project
-  const [transferSampleId, setTransferSampleId] = useState<number | null>(null);
-  
   const [isEditCustomerModalOpen, setIsEditCustomerModalOpen] = useState(false);
   
-  const installerSearchResults = useMemo(() => {
-    if (!installerSearchTerm) return [];
-    return installers.filter(i => i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase()));
-  }, [installers, installerSearchTerm]);
-
   const customer = customers.find(c => c.id === parseInt(customerId || ''));
   const customerProjects = projects.filter(p => p.customerId === customer?.id);
   
@@ -58,72 +46,10 @@ const CustomerDetail: React.FC = () => {
     return <div className="text-center text-text-secondary">Customer not found.</div>;
   }
 
-  const resetProjectModal = () => {
-    setNewProjectName('');
-    setNewProjectType(PROJECT_TYPES[0]);
-    setSelectedInstaller(null);
-    setInstallerSearchTerm('');
-    setIsAddingNewInstaller(false);
-    setTransferSampleId(null); // Reset transfer state
-    setNewInstallerForm({ installerName: '', contactEmail: '', contactPhone: '' });
-    setIsProjectModalOpen(false);
-  };
-  
-  const handleAddProject = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newProjectName) {
-      try {
-        const projectData = {
-          projectName: newProjectName,
-          projectType: newProjectType,
-          customerId: customer.id,
-          status: ProjectStatus.NEW,
-          finalChoice: null,
-          installerId: selectedInstaller ? selectedInstaller.id : undefined
-        };
-
-        const createdProject = await addProject(projectData);
-        
-        // TRANSFER LOGIC: If this was started from a sample, move it to the new project
-        if (transferSampleId) {
-            await sampleService.transferCheckoutsToProject([transferSampleId], createdProject.id);
-        }
-        
-        resetProjectModal();
-        navigate(`/projects/${createdProject.id}`);
-      } catch (error) {
-        console.error("Failed to create project:", error);
-        alert("There was an error creating the project.");
-      }
-    }
-  };
-
-  const handleSelectInstaller = (installer: Installer) => {
-    setSelectedInstaller(installer);
-    setInstallerSearchTerm(installer.installerName);
-  };
-
-  const handleShowAddNewInstaller = () => {
-    setNewInstallerForm({ installerName: installerSearchTerm, contactEmail: '', contactPhone: '' });
-    setIsAddingNewInstaller(true);
-  };
-
-  const handleSaveNewInstaller = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newInstallerForm.installerName) return;
-    try {
-      const newlyAddedInstaller = await addInstaller(newInstallerForm);
-      setIsAddingNewInstaller(false);
-      handleSelectInstaller(newlyAddedInstaller);
-    } catch (error) {
-      console.error("Failed to add new installer:", error);
-    }
-  };
-
   const handleStartProjectFromSample = (sample: any) => {
       // Pre-fill project modal based on sample info
       const productName = sample.productName || 'Flooring';
-      setNewProjectName(`${productName} Project`);
+      setInitialProjectName(`${productName} Project`);
       setTransferSampleId(sample.id);
       setIsProjectModalOpen(true);
   };
@@ -162,7 +88,7 @@ const CustomerDetail: React.FC = () => {
       <div className="mb-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-text-primary flex items-center"><Briefcase className="w-6 h-6 mr-3"/> Projects</h2>
-          <button onClick={() => setIsProjectModalOpen(true)} className="flex items-center bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg transition-colors">
+          <button onClick={() => { setInitialProjectName(''); setTransferSampleId(null); setIsProjectModalOpen(true); }} className="flex items-center bg-primary hover:bg-secondary text-white font-bold py-2 px-4 rounded-lg transition-colors">
             <PlusCircle className="w-5 h-5 mr-2" />
             New Project
           </button>
@@ -214,56 +140,13 @@ const CustomerDetail: React.FC = () => {
       {/* =========================================================== */}
 
 
-      {isProjectModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-6 text-text-primary">Add New Project</h2>
-            {!isAddingNewInstaller ? (
-              <form onSubmit={handleAddProject}>
-                <div className="space-y-4">
-                  <input type="text" placeholder="Project Name (e.g., Kitchen Flooring)" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} className="w-full p-2 bg-gray-800 border border-border rounded" required />
-                  <select value={newProjectType} onChange={(e) => setNewProjectType(e.target.value as ProjectType)} className="w-full p-2 bg-gray-800 border border-border rounded">
-                      {PROJECT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
-                  </select>
-                  <div className="relative">
-                    <label className="block text-sm font-medium text-text-secondary mb-1">Installer (Optional)</label>
-                    <input type="text" placeholder="Search for an installer..." value={installerSearchTerm} onChange={e => { setInstallerSearchTerm(e.target.value); setSelectedInstaller(null); }} className="w-full p-2 bg-gray-800 border-border rounded" />
-                    {installerSearchTerm && !selectedInstaller && (
-                      <div className="absolute z-10 w-full bg-gray-900 border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
-                        {installerSearchResults.map(inst => (
-                          <div key={inst.id} onClick={() => handleSelectInstaller(inst)} className="p-2 hover:bg-accent cursor-pointer">{inst.installerName}</div>
-                        ))}
-                        {installerSearchResults.length === 0 && (
-                          <div className="p-2 text-center text-text-secondary">
-                            No results. <button type="button" onClick={handleShowAddNewInstaller} className="ml-2 text-accent font-semibold hover:underline">Add it?</button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-4 mt-8">
-                  <button type="button" onClick={resetProjectModal} className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white">Cancel</button>
-                  <button type="submit" className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white">Create Project</button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={handleSaveNewInstaller}>
-                <p className="text-sm text-text-secondary mb-2">Adding new installer to library...</p>
-                <div className="space-y-4">
-                  <input type="text" placeholder="Installer Name" value={newInstallerForm.installerName} onChange={(e) => setNewInstallerForm({ ...newInstallerForm, installerName: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" required />
-                  <input type="text" placeholder="Contact Phone (optional)" value={newInstallerForm.contactPhone} onChange={(e) => setNewInstallerForm({ ...newInstallerForm, contactPhone: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" />
-                  <input type="email" placeholder="Contact Email (optional)" value={newInstallerForm.contactEmail} onChange={(e) => setNewInstallerForm({ ...newInstallerForm, contactEmail: e.target.value })} className="w-full p-2 bg-gray-800 border border-border rounded" />
-                </div>
-                <div className="flex justify-end space-x-2 mt-8">
-                  <button type="button" onClick={() => setIsAddingNewInstaller(false)} className="py-2 px-4 bg-gray-600 rounded">Back to Project</button>
-                  <button type="submit" className="py-2 px-4 bg-primary rounded">Save & Select</button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      <AddProjectModal 
+        isOpen={isProjectModalOpen}
+        onClose={() => {setIsProjectModalOpen(false); setTransferSampleId(null); setInitialProjectName('');}}
+        initialCustomer={customer}
+        initialProjectName={initialProjectName}
+        transferSampleId={transferSampleId}
+      />
 
       <EditCustomerModal
         isOpen={isEditCustomerModalOpen}

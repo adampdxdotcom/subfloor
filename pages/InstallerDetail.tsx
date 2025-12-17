@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Installer, SampleCheckout } from '../types';
 import { useData } from '../context/DataContext';
+// --- MODIFIED: Removed Trash2 icon ---
 import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History, Layers } from 'lucide-react';
 import EditInstallerModal from '../components/EditInstallerModal';
 import CollapsibleSection from '../components/CollapsibleSection';
@@ -11,6 +12,7 @@ import ActivityHistory from '../components/ActivityHistory';
 import SampleHistoryCard from '../components/SampleHistoryCard'; // <-- NEW IMPORT
 import { toast } from 'react-hot-toast';
 import * as sampleService from '../services/sampleCheckoutService';
+import AddProjectModal from '../components/AddProjectModal'; // <-- NEW IMPORT
 
 interface AssignedProject {
   projectId: number;
@@ -41,6 +43,7 @@ const InstallerDetail: React.FC = () => {
   const navigate = useNavigate();
   
   const { 
+    // --- MODIFIED: deleteInstaller is no longer called directly from this page ---
     installers, 
     isLoading: isDataLoading, 
     installerHistory, 
@@ -50,7 +53,12 @@ const InstallerDetail: React.FC = () => {
   const [projects, setProjects] = useState<AssignedProject[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [sampleHistory, setSampleHistory] = useState<SampleCheckout[]>([]);
+  // Modal State
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [transferSample, setTransferSample] = useState<SampleCheckout | null>(null);
+  
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // --- REMOVED: isDeleting state is no longer needed ---
   // const [isDeleting, setIsDeleting] = useState(false);
 
   const installer = installers.find(i => i.id === parseInt(installerId || ''));
@@ -80,6 +88,12 @@ const InstallerDetail: React.FC = () => {
     }
   }, [installerId, fetchInstallerHistory]);
   
+  const handleStartProject = (sample: SampleCheckout) => {
+      setTransferSample(sample);
+      setIsProjectModalOpen(true);
+  };
+  
+  // --- REMOVED: The handleDeleteInstaller function is no longer needed on this page ---
   
   if (isDataLoading) {
     return <div className="text-center">Loading installer details...</div>;
@@ -133,7 +147,7 @@ const InstallerDetail: React.FC = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {sampleHistory.map(sample => (
-                <SampleHistoryCard key={sample.id} sample={sample} onStartProject={() => {}} />
+                <SampleHistoryCard key={sample.id} sample={sample} onStartProject={handleStartProject} />
             ))}
             {sampleHistory.length === 0 && <p className="col-span-full text-center text-text-secondary py-4">No active samples for this installer.</p>}
         </div>
@@ -184,6 +198,15 @@ const InstallerDetail: React.FC = () => {
           installer={installer}
         />
       )}
+      
+      {/* Project Creation Modal */}
+      <AddProjectModal
+        isOpen={isProjectModalOpen}
+        onClose={() => { setIsProjectModalOpen(false); setTransferSample(null); }}
+        initialInstaller={installer}
+        transferSampleId={transferSample?.id}
+        initialProjectName={transferSample ? `Project for Sample #${transferSample.id}` : ''}
+      />
     </div>
   );
 };
