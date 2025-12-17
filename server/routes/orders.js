@@ -52,8 +52,14 @@ const getFullOrderById = async (orderId, client = pool) => {
         JOIN projects p ON mo.project_id = p.id
         JOIN customers c ON p.customer_id = c.id
         -- Attempt to find the assigned installer via an Accepted Quote
-        LEFT JOIN quotes q ON q.project_id = p.id AND q.status = 'Accepted'
-        LEFT JOIN installers i ON q.installer_id = i.id
+        LEFT JOIN LATERAL (
+            SELECT i.installer_name, i.contact_email
+            FROM quotes q
+            JOIN installers i ON q.installer_id = i.id
+            WHERE q.project_id = p.id AND q.status = 'Accepted'
+            ORDER BY q.id DESC
+            LIMIT 1
+        ) i ON true
         WHERE mo.id = $1;
     `;
     const result = await client.query(query, [orderId]);
@@ -93,8 +99,14 @@ router.get('/', verifySession(), async (req, res) => {
         LEFT JOIN vendors v ON mo.supplier_id = v.id
         JOIN projects p ON mo.project_id = p.id
         JOIN customers c ON p.customer_id = c.id
-        LEFT JOIN quotes q ON q.project_id = p.id AND q.status = 'Accepted'
-        LEFT JOIN installers i ON q.installer_id = i.id
+        LEFT JOIN LATERAL (
+            SELECT i.installer_name, i.contact_email
+            FROM quotes q
+            JOIN installers i ON q.installer_id = i.id
+            WHERE q.project_id = p.id AND q.status = 'Accepted'
+            ORDER BY q.id DESC
+            LIMIT 1
+        ) i ON true
     `;
 
     try {

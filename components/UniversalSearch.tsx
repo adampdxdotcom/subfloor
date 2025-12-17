@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, User, Briefcase, Layers, HardHat } from 'lucide-react';
-import { useData } from '../context/DataContext';
-import { Sample } from '../types';
-import SampleDetailModal from './SampleDetailModal';
 
 // --- MODIFIED: SearchResult types for the new grouped structure ---
 interface SearchResultItem {
-    id: number;
+    id: string | number;
     title: string;
     subtitle: string | null;
     path: string;
@@ -31,17 +28,12 @@ const getResultIcon = (type: keyof GroupedSearchResults) => {
 };
 
 const UniversalSearch: React.FC = () => {
-    const { samples } = useData(); // Get all samples for the modal
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<GroupedSearchResults | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
-
-    // --- ADDED: State for the sample detail modal ---
-    const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
-    const [isSampleModalOpen, setIsSampleModalOpen] = useState(false);
 
     // Debouncing logic
     useEffect(() => {
@@ -83,15 +75,6 @@ const UniversalSearch: React.FC = () => {
         setIsDropdownOpen(false);
     };
 
-    const handleSampleResultClick = (resultItem: SearchResultItem) => {
-        const sampleToShow = samples.find(s => s.id === resultItem.id);
-        if (sampleToShow) {
-            setSelectedSample(sampleToShow);
-            setIsSampleModalOpen(true);
-        }
-        resetSearch();
-    };
-
     const totalResults = results 
         ? Object.values(results).reduce((acc, val) => acc + val.length, 0) 
         : 0;
@@ -127,16 +110,17 @@ const UniversalSearch: React.FC = () => {
                                                 {groupResults.map((result) => (
                                                     <li key={`${groupName}-${result.id}`}>
                                                         {groupName === 'samples' ? (
-                                                            <button
-                                                                onClick={() => handleSampleResultClick(result)}
-                                                                className="w-full flex items-center gap-4 p-3 hover:bg-background transition-colors text-left"
+                                                            <Link
+                                                                to={`/samples?open=${result.id}`}
+                                                                onClick={resetSearch}
+                                                                className="flex items-center gap-4 p-3 hover:bg-background transition-colors"
                                                             >
                                                                 {getResultIcon(groupName as keyof GroupedSearchResults)}
                                                                 <div>
                                                                     <p className="font-semibold text-text-primary">{result.title}</p>
                                                                     {result.subtitle && <p className="text-xs text-text-secondary">{result.subtitle}</p>}
                                                                 </div>
-                                                            </button>
+                                                            </Link>
                                                         ) : (
                                                             <Link 
                                                                 to={result.path}
@@ -163,14 +147,6 @@ const UniversalSearch: React.FC = () => {
                     </div>
                 )}
             </div>
-
-            {isSampleModalOpen && selectedSample && (
-                <SampleDetailModal
-                    isOpen={isSampleModalOpen}
-                    onClose={() => setIsSampleModalOpen(false)}
-                    sample={selectedSample}
-                />
-            )}
         </>
     );
 };

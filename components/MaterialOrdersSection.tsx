@@ -57,12 +57,12 @@ const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, 
                                 <div className="flex justify-between items-start mb-3">
                                     <div>
                                         <p className="font-bold text-text-primary">{order.supplierName || 'N/A'}</p>
-                                        <p className="text-xs text-text-secondary">Order Date: {formatDate(order.orderDate, systemBranding?.systemTimezone)}</p>
+                                        <p className="text-xs text-text-secondary">Order Date: {formatDate(order.orderDate.split('T')[0] + 'T12:00:00', systemBranding?.systemTimezone)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="text-right">
                                             <p className="text-sm font-semibold text-accent">{order.status}</p>
-                                            <p className="text-xs text-text-secondary">ETA: {order.etaDate ? formatDate(order.etaDate, systemBranding?.systemTimezone) : 'N/A'}</p>
+                                            <p className="text-xs text-text-secondary">ETA: {order.etaDate ? formatDate(order.etaDate.split('T')[0] + 'T12:00:00', systemBranding?.systemTimezone) : 'N/A'}</p>
                                         </div>
                                         <button onClick={() => onEditOrder(order)} className="p-1 text-text-secondary hover:text-text-primary"><Edit size={16}/></button>
                                         {currentUser?.roles?.includes('Admin') && (

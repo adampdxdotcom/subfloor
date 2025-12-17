@@ -28,10 +28,15 @@ const SampleLibrary: React.FC = () => {
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
   
   useEffect(() => {
-      const params = new URLSearchParams();
-      if (searchTerm) params.set('search', searchTerm);
-      setSearchParams(params, { replace: true });
-  }, [searchTerm, setSearchParams]);
+    // Only update if the URL actually needs changing to avoid loops/races
+    const currentSearch = searchParams.get('search') || '';
+    if (searchTerm !== currentSearch) {
+      const newParams = new URLSearchParams(searchParams);
+      if (searchTerm) newParams.set('search', searchTerm);
+      else newParams.delete('search');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchTerm, searchParams, setSearchParams]);
   
   const [viewMode, setViewMode] = useState<'active' | 'discontinued'>('active');
 
@@ -47,6 +52,29 @@ const SampleLibrary: React.FC = () => {
   
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  useEffect(() => {
+    const openId = searchParams.get('open');
+
+    if (openId && products.length > 0) {
+      // Match ID as string to support UUIDs
+      const productToOpen = products.find((p) => String(p.id) === openId);
+
+      if (productToOpen) {
+        setSelectedProduct(productToOpen);
+        setIsDetailModalOpen(true);
+      }
+    }
+  }, [searchParams, products]);
+
+  const handleCloseDetailModal = () => {
+    setIsDetailModalOpen(false);
+    if (searchParams.has('open')) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('open');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   const resetAddModal = () => {
     setIsAddModalOpen(false);
@@ -226,7 +254,13 @@ const SampleLibrary: React.FC = () => {
         </div>
       )}
       
-      {isDetailModalOpen && selectedProduct && (<ProductDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} product={selectedProduct} />)}
+      {isDetailModalOpen && selectedProduct && (
+        <ProductDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={handleCloseDetailModal}
+          product={selectedProduct}
+        />
+      )}
     </div>
   );
 };

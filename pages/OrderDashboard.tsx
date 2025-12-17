@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useProjects } from '../hooks/useProjects';
 import { useMaterialOrders, useMaterialOrderMutations } from '../hooks/useMaterialOrders';
 import { Project, MaterialOrder } from '../types';
-import { Package, AlertTriangle, CheckCircle, Clock, Search, Plus, Truck } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle, Clock, Search, Plus, Truck, ChevronDown, ChevronUp } from 'lucide-react';
 import ReceiveOrderModal from '../components/ReceiveOrderModal';
 import AddEditMaterialOrderModal from '../components/AddEditMaterialOrderModal';
 
@@ -25,6 +26,18 @@ const OrderDashboard: React.FC = () => {
     // State for "Add Order" Modal
     const [isAddOrderModalOpen, setIsAddOrderModalOpen] = useState(false);
     const [activeProjectForAdd, setActiveProjectForAdd] = useState<number | null>(null);
+
+    // State to track expanded projects (for collapsing >2 orders)
+    const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
+
+    const toggleProjectExpanded = (projectId: number) => {
+        setExpandedProjects(prev => {
+            const next = new Set(prev);
+            if (next.has(projectId)) next.delete(projectId);
+            else next.add(projectId);
+            return next;
+        });
+    };
 
     const groupedOrders = useMemo(() => {
         const groups: ProjectOrders[] = [];
@@ -134,74 +147,114 @@ const OrderDashboard: React.FC = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {groupedOrders.map(({ project, orders }) => (
-                        <div key={project.id} className="bg-surface border border-border rounded-lg shadow-sm flex flex-col">
-                            
-                            {/* Card Header */}
-                            <div className="p-4 border-b border-border flex justify-between items-start bg-surface rounded-t-lg">
-                                <div>
-                                    <h3 className="font-bold text-lg text-text-primary truncate max-w-[200px]">{project.projectName}</h3>
-                                </div>
-                                <button 
-                                    onClick={() => handleOpenAddOrder(project)}
-                                    className="p-2 bg-background hover:bg-primary/10 text-primary rounded-full transition-colors"
-                                    title="Add Order"
-                                >
-                                    <Plus size={18} />
-                                </button>
-                            </div>
+                    {groupedOrders.map(({ project, orders }) => {
+                        const isExpanded = expandedProjects.has(project.id);
+                        // Show all if expanded, otherwise show first 2
+                        const visibleOrders = isExpanded ? orders : orders.slice(0, 2);
+                        const hiddenCount = orders.length - visibleOrders.length;
 
-                            {/* Orders List */}
-                            <div className="p-4 space-y-4 flex-grow">
-                                {orders.map(order => (
-                                    <div key={order.id} className={`relative border-l-4 pl-3 py-1 ${
-                                        order.status === 'Received' ? 'border-green-500' : 
-                                        order.status === 'Damage Replacement' ? 'border-red-500' : 'border-primary'
-                                    }`}>
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="font-semibold text-text-primary text-sm">{order.supplierName || 'Unknown Supplier'}</span>
-                                            {order.status === 'Received' ? (
-                                                <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle size={10} /> Received</span>
-                                            ) : order.status === 'Damage Replacement' ? (
-                                                <span className="text-xs font-bold text-red-500 flex items-center gap-1"><AlertTriangle size={10} /> Replacement</span>
-                                            ) : (
-                                                <span className="text-xs font-bold text-primary flex items-center gap-1"><Clock size={10} /> Ordered</span>
-                                            )}
-                                        </div>
-                                        
-                                        <div className="text-xs text-text-secondary space-y-0.5 mb-2">
-                                            <p>Ordered: {new Date(order.orderDate).toLocaleDateString()}</p>
-                                            {order.etaDate && (
-                                                <p className={new Date(order.etaDate) < new Date() && order.status !== 'Received' ? 'text-red-500 font-bold' : ''}>
-                                                    ETA: {new Date(order.etaDate).toLocaleDateString()}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        {/* Mini Line Items */}
-                                        <ul className="text-xs text-text-secondary mb-2 bg-background p-2 rounded border border-border/50">
-                                            {order.lineItems.slice(0, 3).map(item => (
-                                                <li key={item.id} className="flex justify-between">
-                                                    <span className="truncate w-3/4">{item.quantity} {item.unit} - {item.style}</span>
-                                                </li>
-                                            ))}
-                                            {order.lineItems.length > 3 && <li className="text-text-tertiary italic">+{order.lineItems.length - 3} more...</li>}
-                                        </ul>
-
-                                        {/* Action Button */}
-                                        {order.status !== 'Received' && (
-                                            <button 
-                                                onClick={() => handleOpenReceive(order)}
-                                                className="w-full py-1.5 bg-primary hover:bg-primary-hover text-on-primary text-xs font-medium rounded flex items-center justify-center gap-2 transition-colors"
-                                            >
-                                                <Package size={14} /> Receive Order
-                                            </button>
-                                        )}
+                        return (
+                            <div key={project.id} className="bg-surface border border-border rounded-lg shadow-sm flex flex-col transition-all duration-200">
+                                
+                                {/* Card Header */}
+                                <div className="p-4 border-b border-border flex justify-between items-start bg-surface rounded-t-lg">
+                                    <div className="min-w-0 pr-2">
+                                        <Link 
+                                            to={`/projects/${project.id}`}
+                                            className="font-bold text-lg text-primary hover:text-primary-hover hover:underline truncate block"
+                                            title="View Project"
+                                        >
+                                            {project.projectName}
+                                        </Link>
                                     </div>
-                                ))}
+                                    <button 
+                                        onClick={() => handleOpenAddOrder(project)}
+                                        className="flex-shrink-0 p-2 bg-background hover:bg-primary/10 text-primary rounded-full transition-colors"
+                                        title="Add Order"
+                                    >
+                                        <Plus size={18} />
+                                    </button>
+                                </div>
+
+                                {/* Orders List */}
+                                <div className="p-4 space-y-6 flex-grow">
+                                    {visibleOrders.map(order => (
+                                        <div key={order.id} className={`relative border-l-4 pl-3 py-1 ${
+                                            order.status === 'Received' ? 'border-green-500' : 
+                                            order.status === 'Damage Replacement' ? 'border-red-500' : 'border-primary'
+                                        }`}>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="font-semibold text-text-primary text-sm truncate max-w-[60%]">{order.supplierName || 'Unknown Supplier'}</span>
+                                                {order.status === 'Received' ? (
+                                                    <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle size={10} /> Received</span>
+                                                ) : order.status === 'Damage Replacement' ? (
+                                                    <span className="text-xs font-bold text-red-500 flex items-center gap-1"><AlertTriangle size={10} /> Replacement</span>
+                                                ) : (
+                                                    <span className="text-xs font-bold text-primary flex items-center gap-1"><Clock size={10} /> Ordered</span>
+                                                )}
+                                            </div>
+                                            
+                                            {/* ENHANCED DATE DISPLAY */}
+                                            <div className="flex gap-4 mb-3">
+                                                <div>
+                                                    <span className="text-[10px] uppercase tracking-wide text-text-tertiary block">Ordered</span>
+                                                    <span className="text-sm font-medium text-text-primary">
+                                                        {new Date(order.orderDate.split('T')[0] + 'T12:00:00').toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                {order.etaDate && (
+                                                    <div>
+                                                        <span className="text-[10px] uppercase tracking-wide text-text-tertiary block">ETA</span>
+                                                        <span className={`text-sm font-medium ${
+                                                            new Date(order.etaDate.split('T')[0] + 'T12:00:00') < new Date() && order.status !== 'Received' 
+                                                            ? 'text-red-500' 
+                                                            : 'text-text-primary'
+                                                        }`}>
+                                                            {new Date(order.etaDate.split('T')[0] + 'T12:00:00').toLocaleDateString()}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Mini Line Items */}
+                                            <ul className="text-xs text-text-secondary mb-3 bg-background p-2 rounded border border-border/50">
+                                                {order.lineItems.slice(0, 3).map(item => (
+                                                    <li key={item.id} className="flex justify-between">
+                                                        <span className="truncate w-3/4">{item.quantity} {item.unit} - {item.style}</span>
+                                                    </li>
+                                                ))}
+                                                {order.lineItems.length > 3 && <li className="text-text-tertiary italic">+{order.lineItems.length - 3} more...</li>}
+                                            </ul>
+
+                                            {/* Action Button */}
+                                            {order.status !== 'Received' && (
+                                                <button 
+                                                    onClick={() => handleOpenReceive(order)}
+                                                    className="w-full py-1.5 bg-primary hover:bg-primary-hover text-on-primary text-xs font-medium rounded flex items-center justify-center gap-2 transition-colors"
+                                                >
+                                                    <Package size={14} /> Receive Order
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* EXPAND/COLLAPSE FOOTER */}
+                                {orders.length > 2 && (
+                                    <button 
+                                        onClick={() => toggleProjectExpanded(project.id)}
+                                        className="w-full py-3 border-t border-border flex items-center justify-center gap-1 text-xs font-semibold text-text-secondary hover:text-primary hover:bg-background transition-colors rounded-b-lg"
+                                    >
+                                        {isExpanded ? (
+                                            <>Show Less <ChevronUp size={14} /></>
+                                        ) : (
+                                            <>Show {hiddenCount} More <ChevronDown size={14} /></>
+                                        )}
+                                    </button>
+                                )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
