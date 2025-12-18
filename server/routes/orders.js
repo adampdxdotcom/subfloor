@@ -29,6 +29,7 @@ const getFullOrderById = async (orderId, client = pool) => {
             mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, 
             mo.order_date, mo.eta_date, mo.date_received, mo.purchaser_type, mo.status, mo.notes, mo.parent_order_id,
             p.project_name,
+            j.po_number,
             c.full_name as customer_name, c.email as customer_email,
             i.installer_name, i.contact_email as installer_email,
             COALESCE(
@@ -50,6 +51,7 @@ const getFullOrderById = async (orderId, client = pool) => {
         FROM material_orders mo
         LEFT JOIN vendors v ON mo.supplier_id = v.id
         JOIN projects p ON mo.project_id = p.id
+        LEFT JOIN jobs j ON j.project_id = p.id
         JOIN customers c ON p.customer_id = c.id
         -- Attempt to find the assigned installer via an Accepted Quote
         LEFT JOIN LATERAL (
@@ -75,6 +77,7 @@ router.get('/', verifySession(), async (req, res) => {
             mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, 
             mo.order_date, mo.eta_date, mo.date_received, mo.purchaser_type, mo.status, mo.notes, mo.parent_order_id,
             p.project_name,
+            j.po_number,
             c.full_name as customer_name, c.email as customer_email,
             i.installer_name, i.contact_email as installer_email,
             COALESCE(
@@ -98,6 +101,7 @@ router.get('/', verifySession(), async (req, res) => {
         FROM material_orders mo 
         LEFT JOIN vendors v ON mo.supplier_id = v.id
         JOIN projects p ON mo.project_id = p.id
+        LEFT JOIN jobs j ON j.project_id = p.id
         JOIN customers c ON p.customer_id = c.id
         LEFT JOIN LATERAL (
             SELECT i.installer_name, i.contact_email
@@ -236,7 +240,10 @@ router.delete('/:id', verifySession(), verifyRole('Admin'), async (req, res) => 
 router.post('/:id/receive', verifySession(), upload.array('paperwork', 5), async (req, res) => {
     const { id: orderId } = req.params;
     const userId = req.session.getUserId();
-    const { dateReceived, notes, sendEmailNotification } = req.body;
+    let { dateReceived, notes, sendEmailNotification } = req.body;
+    
+    // Fix FormData boolean string conversion
+    const shouldSendEmail = sendEmailNotification === 'true' || sendEmailNotification === true;
 
     const client = await pool.connect();
     try {
@@ -280,7 +287,7 @@ router.post('/:id/receive', verifySession(), upload.array('paperwork', 5), async
         await client.query('COMMIT');
 
         // Send Email Notification (if requested)
-        if (sendEmailNotification && updatedOrder) {
+        if (shouldSendEmail && updatedOrder) {
             let recipientEmail = null;
             let recipientName = null;
 
@@ -324,7 +331,10 @@ router.post('/:id/damage', verifySession(), upload.array('damagePhotos', 10), as
     const userId = req.session.getUserId();
     // Parse 'items' because FormData sends it as a string
     let { items, replacementEta, notes, sendEmailNotification } = req.body;
+    
     if (typeof items === 'string') items = JSON.parse(items);
+    // Fix FormData boolean string conversion
+    const shouldSendEmail = sendEmailNotification === 'true' || sendEmailNotification === true;
 
     if (!items || items.length === 0) return res.status(400).json({ error: 'No damage items specified.' });
 
@@ -396,7 +406,7 @@ router.post('/:id/damage', verifySession(), upload.array('damagePhotos', 10), as
         // ----------------------------------
 
         // --- NEW: Send Damage Email ---
-        if (sendEmailNotification) {
+        if (shouldSendEmail) {
             let recipientEmail = null;
             let recipientName = null;
             if (originalOrder.purchaserType === 'Installer' && originalOrder.installerEmail) {

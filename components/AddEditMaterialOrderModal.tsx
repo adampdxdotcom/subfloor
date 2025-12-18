@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useData } from '../context/DataContext';
 import { MaterialOrder, Product, ProductVariant, Unit, UNITS, Vendor, PricingSettings } from '../types';
 import { X, Package as PackageIcon, History, Calculator, XCircle, AlertCircle } from 'lucide-react';
@@ -134,7 +134,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                 // Search all products
                 for (const p of products) {
                      // Try to find ANY variant that matches
-                     const v = p.variants.find(v => Number(v.id) === item.sampleId || String(v.id) === String(item.sampleId));
+                     const v = p.variants.find(v => Number(v.id) === item.variantId || String(v.id) === String(item.variantId));
                      if (v) {
                          foundProduct = p;
                          foundVariant = v;
@@ -169,8 +169,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             const vendor = vendors.find(v => v.id === supplierId);
 
             if (vendor) {
-                setSupplierId(vendor.id);
-                setSupplierSearch(vendor.name);
+                handleSupplierSelect(vendor.id);
             } else {
                 setSupplierId(null);
                 setSupplierSearch('');
@@ -214,6 +213,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
         setSupplierId(vendorId);
         const selectedVendor = vendors.find(v => v.id === vendorId);
         setSupplierSearch(selectedVendor?.name || '');
+        
         // Calculate Next Delivery Day logic
         if (selectedVendor?.dedicatedShippingDay !== null && selectedVendor?.dedicatedShippingDay !== undefined) {
             const deliveryDay = selectedVendor.dedicatedShippingDay;
@@ -230,6 +230,8 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             const nextDeliveryDate = new Date();
             nextDeliveryDate.setDate(today.getDate() + daysUntilDelivery);
             setEtaDate(formatDateForInput(nextDeliveryDate.toISOString()));
+        } else {
+            setEtaDate(''); // Clear ETA if the new supplier doesn't have a schedule
         }
     };
     
@@ -274,6 +276,10 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                  const manufacturer = vendors.find(v => v.id === selectedSearchItem.product.manufacturerId);
                 if (manufacturer && (manufacturer.vendorType === 'Supplier' || manufacturer.vendorType === 'Both')) {
                     handleSupplierSelect(manufacturer.id);
+                }
+                // NEW: Follow supply chain link
+                else if (manufacturer && manufacturer.defaultSupplierId) {
+                    handleSupplierSelect(manufacturer.defaultSupplierId);
                 }
             }
             

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useProjects } from '../hooks/useProjects';
 import { useMaterialOrders, useMaterialOrderMutations } from '../hooks/useMaterialOrders';
 import { Project, MaterialOrder } from '../types';
-import { Package, AlertTriangle, CheckCircle, Clock, Search, Plus, Truck, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle, Clock, Search, Plus, Truck, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import ReceiveOrderModal from '../components/ReceiveOrderModal';
 import AddEditMaterialOrderModal from '../components/AddEditMaterialOrderModal';
 
@@ -26,6 +26,9 @@ const OrderDashboard: React.FC = () => {
     // State for "Add Order" Modal
     const [isAddOrderModalOpen, setIsAddOrderModalOpen] = useState(false);
     const [activeProjectForAdd, setActiveProjectForAdd] = useState<number | null>(null);
+
+    // Filter State
+    const [showReceived, setShowReceived] = useState(false);
 
     // State to track expanded projects (for collapsing >2 orders)
     const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
@@ -53,7 +56,12 @@ const OrderDashboard: React.FC = () => {
 
         // 2. Map to projects, filtering by search
         projects.forEach(project => {
-            const projOrders = ordersByProject.get(project.id) || [];
+            let projOrders = ordersByProject.get(project.id) || [];
+            
+            // Filter out received orders unless toggled on
+            if (!showReceived) {
+                projOrders = projOrders.filter(o => o.status !== 'Received');
+            }
             
             // Filter Logic: Show if project matches search OR has orders that match search
             const matchesSearch = !searchTerm || 
@@ -78,7 +86,7 @@ const OrderDashboard: React.FC = () => {
             if (!aUrgent && bUrgent) return 1;
             return 0;
         });
-    }, [projects, materialOrders, searchTerm]);
+    }, [projects, materialOrders, searchTerm, showReceived]);
 
     const handleOpenReceive = (order: MaterialOrder) => {
         setReceivingOrder(order);
@@ -117,12 +125,21 @@ const OrderDashboard: React.FC = () => {
                         <p className="text-text-secondary text-sm mt-1 ml-11">Track, receive, and manage material orders.</p>
                     </div>
                     
-                    <button 
-                        onClick={handleGlobalAddOrder}
-                        className="mt-4 md:mt-0 bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg flex items-center gap-2 shadow-md transition-colors"
-                    >
-                        <Plus size={20} /> New Order
-                    </button>
+                    <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto mt-4 md:mt-0">
+                        <button 
+                            onClick={() => setShowReceived(!showReceived)}
+                            className="w-full md:w-auto justify-center bg-background border border-border hover:bg-surface text-text-secondary font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors"
+                        >
+                            {showReceived ? <EyeOff size={20} /> : <Eye size={20} />}
+                            {showReceived ? 'Hide Received' : 'Show Received'}
+                        </button>
+                        <button 
+                            onClick={handleGlobalAddOrder}
+                            className="w-full md:w-auto justify-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg flex items-center gap-2 shadow-md transition-colors"
+                        >
+                            <Plus size={20} /> New Order
+                        </button>
+                    </div>
                 </div>
 
                 {/* Search Bar */}
@@ -153,6 +170,15 @@ const OrderDashboard: React.FC = () => {
                         const visibleOrders = isExpanded ? orders : orders.slice(0, 2);
                         const hiddenCount = orders.length - visibleOrders.length;
 
+                        // Extract Header Data from the first order (shared by all in project)
+                        const firstOrder = orders[0];
+                        const poNumber = firstOrder?.poNumber || 'No PO';
+                        
+                        // Get Last Name only
+                        const customerName = firstOrder?.customerName || '';
+                        const lastName = customerName.split(' ').pop() || customerName;
+                        const headerTitle = `#${poNumber} - ${lastName}`;
+
                         return (
                             <div key={project.id} className="bg-surface border border-border rounded-lg shadow-sm flex flex-col transition-all duration-200">
                                 
@@ -161,11 +187,12 @@ const OrderDashboard: React.FC = () => {
                                     <div className="min-w-0 pr-2">
                                         <Link 
                                             to={`/projects/${project.id}`}
-                                            className="font-bold text-lg text-primary hover:text-primary-hover hover:underline truncate block"
+                                            className="font-bold text-xl text-primary hover:text-primary-hover hover:underline truncate block"
                                             title="View Project"
                                         >
-                                            {project.projectName}
+                                            {headerTitle}
                                         </Link>
+                                        <p className="text-xs text-text-secondary truncate">{project.projectName}</p>
                                     </div>
                                     <button 
                                         onClick={() => handleOpenAddOrder(project)}
@@ -230,9 +257,9 @@ const OrderDashboard: React.FC = () => {
                                             {order.status !== 'Received' && (
                                                 <button 
                                                     onClick={() => handleOpenReceive(order)}
-                                                    className="w-full py-1.5 bg-primary hover:bg-primary-hover text-on-primary text-xs font-medium rounded flex items-center justify-center gap-2 transition-colors"
+                                                    className="w-full py-4 md:py-1.5 bg-primary hover:bg-primary-hover text-on-primary text-lg md:text-xs font-bold md:font-medium rounded-lg md:rounded flex items-center justify-center gap-3 md:gap-2 transition-colors shadow-md md:shadow-none mt-2 md:mt-0"
                                                 >
-                                                    <Package size={14} /> Receive Order
+                                                    <Package className="w-6 h-6 md:w-3.5 md:h-3.5" /> Receive Order
                                                 </button>
                                             )}
                                         </div>

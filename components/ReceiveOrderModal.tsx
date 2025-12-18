@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { MaterialOrder, OrderLineItem } from '../types';
-import { X, Truck, AlertTriangle, Mail, ArrowLeft, CheckCircle, Upload } from 'lucide-react';
+import { X, Truck, AlertTriangle, Mail, ArrowLeft, CheckCircle, Upload, MailX, Camera, FileText, Trash2, FolderOpen } from 'lucide-react';
 
 interface ReceiveOrderModalProps {
     isOpen: boolean;
     onClose: () => void;
     order: MaterialOrder | null;
-    onReceive: (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean; files: FileList | null }) => Promise<void>;
-    onReportDamage: (orderId: number, data: { items: { sampleId: number; quantity: number; unit: string }[]; replacementEta: string; notes: string; sendEmailNotification: boolean; files: FileList | null }) => Promise<void>;
+    onReceive: (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean; files: File[] }) => Promise<void>;
+    onReportDamage: (orderId: number, data: { items: { sampleId: number; quantity: number; unit: string }[]; replacementEta: string; notes: string; sendEmailNotification: boolean; files: File[] }) => Promise<void>;
 }
 
 const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, order, onReceive, onReportDamage }) => {
@@ -18,7 +18,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
     const [dateReceived, setDateReceived] = useState('');
     const [notes, setNotes] = useState('');
     const [sendEmail, setSendEmail] = useState(true);
-    const [files, setFiles] = useState<FileList | null>(null); // NEW: File State
+    const [files, setFiles] = useState<File[]>([]); // CHANGED: File Array
 
     // Damage State
     const [damageItems, setDamageItems] = useState<Set<number>>(new Set()); // ID of line items
@@ -34,7 +34,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
             setDamageItems(new Set());
             setReplacementEta('');
             setDamageNotes('');
-            setFiles(null);
+            setFiles([]);
             setIsSubmitting(false);
         }
     }, [isOpen, order]);
@@ -53,6 +53,18 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
         if (next.has(itemId)) next.delete(itemId);
         else next.add(itemId);
         setDamageItems(next);
+    };
+
+    // NEW: Handle accumulating files
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            // Convert FileList to Array and append to existing files
+            setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+        }
+    };
+
+    const removeFile = (indexToRemove: number) => {
+        setFiles(prev => prev.filter((_, index) => index !== indexToRemove));
     };
 
     const handleReceiveSubmit = async (e: React.FormEvent) => {
@@ -77,7 +89,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
         const itemsToReorder = order.lineItems
             .filter(item => damageItems.has(item.id))
             .map(item => ({
-                sampleId: item.sampleId,
+                sampleId: item.variantId, // Changed to variantId to match the new type
                 quantity: item.quantity, // Default to full quantity, user can edit later if needed or we could add qty input here
                 unit: item.unit || 'SF'
             }));
@@ -150,40 +162,80 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                             </div>
 
                             {/* PAPERWORK UPLOAD */}
-                            <div>
+                            <div className="space-y-3">
                                 <label className="block text-sm font-medium text-text-secondary mb-1">Paperwork (Packing Slip / BOL)</label>
-                                <div className="border-2 border-dashed border-border rounded-lg p-4 hover:bg-background transition-colors text-center cursor-pointer relative">
-                                    <input 
-                                        type="file" 
-                                        multiple 
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                        onChange={(e) => setFiles(e.target.files)}
-                                    />
-                                    <Upload className="w-6 h-6 text-text-tertiary mx-auto mb-1" />
-                                    <span className="text-sm text-text-secondary">{files && files.length > 0 ? `${files.length} file(s) selected` : 'Click to upload documents'}</span>
+                                
+                                {/* Split Action Buttons */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    {/* Standard Upload */}
+                                    <label className="border border-border bg-surface hover:bg-background rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
+                                        <input 
+                                            type="file" 
+                                            multiple 
+                                            accept=".pdf, .png, .jpg, .jpeg"
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                        />
+                                        <FolderOpen className="w-6 h-6 text-primary mb-2" />
+                                        <span className="text-xs font-bold text-text-primary">Upload Files</span>
+                                    </label>
+
+                                    {/* Camera Capture */}
+                                    <label className="border border-border bg-surface hover:bg-background rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            capture="environment" 
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                        />
+                                        <Camera className="w-6 h-6 text-primary mb-2" />
+                                        <span className="text-xs font-bold text-text-primary">Take Photo</span>
+                                    </label>
                                 </div>
+
+                                {/* File Gallery / Preview */}
+                                {files.length > 0 && (
+                                    <div className="bg-background border border-border rounded-lg p-2 space-y-2">
+                                        {files.map((file, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-2 bg-surface rounded shadow-sm">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    {file.type.startsWith('image/') ? (
+                                                        <img src={URL.createObjectURL(file)} alt="Preview" className="w-8 h-8 object-cover rounded" />
+                                                    ) : (
+                                                        <FileText className="w-8 h-8 text-text-tertiary" />
+                                                    )}
+                                                    <span className="text-xs font-medium truncate max-w-[150px] md:max-w-[200px]">{file.name}</span>
+                                                </div>
+                                                <button type="button" onClick={() => removeFile(idx)} className="text-text-tertiary hover:text-red-500"><X size={16} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {hasEmail && (
-                                <div className="flex items-start gap-3 p-3 bg-background border border-border rounded-lg mt-2">
-                                    <div className="pt-0.5">
-                                        <input 
-                                            type="checkbox" 
-                                            id="sendEmail"
-                                            checked={sendEmail}
-                                            onChange={e => setSendEmail(e.target.checked)}
-                                            className="w-4 h-4 text-primary bg-surface border-border rounded focus:ring-primary"
-                                        />
+                                <button
+                                    type="button"
+                                    onClick={() => setSendEmail(!sendEmail)}
+                                    className={`w-full text-left p-4 rounded-lg border-2 transition-all flex items-center gap-4 group ${
+                                        sendEmail 
+                                            ? 'border-primary bg-primary/10' 
+                                            : 'border-border bg-background hover:bg-surface'
+                                    }`}
+                                >
+                                    <div className={`p-2 rounded-full ${sendEmail ? 'bg-primary text-on-primary' : 'bg-secondary text-text-secondary'}`}>
+                                        {sendEmail ? <Mail size={24} /> : <MailX size={24} />}
                                     </div>
-                                    <label htmlFor="sendEmail" className="text-sm cursor-pointer">
-                                        <span className="font-semibold text-text-primary flex items-center gap-2">
-                                            <Mail size={14} /> Email Notification
-                                        </span>
-                                        <span className="block text-text-secondary mt-0.5">
-                                            Send an email to <strong>{emailRecipient}</strong> confirming arrival.
-                                        </span>
-                                    </label>
-                                </div>
+                                    <div>
+                                        <p className={`font-bold ${sendEmail ? 'text-primary' : 'text-text-secondary'}`}>
+                                            {sendEmail ? 'Sending Email Notification' : 'Email Notification Disabled'}
+                                        </p>
+                                        <p className="text-sm text-text-secondary">
+                                            {sendEmail ? `Will notify ${emailRecipient}` : `Click to enable notification for ${emailRecipient}`}
+                                        </p>
+                                    </div>
+                                </button>
                             )}
 
                             <div className="pt-4 flex items-center justify-between">
@@ -256,38 +308,77 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                             {/* DAMAGE PHOTOS UPLOAD */}
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-1">Damage Photos / Evidence</label>
-                                <div className="border-2 border-dashed border-red-200 bg-red-50 hover:bg-red-100 rounded-lg p-4 transition-colors text-center cursor-pointer relative">
-                                    <input 
-                                        type="file" 
-                                        multiple 
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                        onChange={(e) => setFiles(e.target.files)}
-                                    />
-                                    <Upload className="w-6 h-6 text-red-400 mx-auto mb-1" />
-                                    <span className="text-sm text-red-600">{files && files.length > 0 ? `${files.length} file(s) selected` : 'Upload photos of damage'}</span>
+                                
+                                <div className="grid grid-cols-2 gap-4 mb-3">
+                                    {/* Standard Upload */}
+                                    <label className="border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
+                                        <input 
+                                            type="file" 
+                                            multiple 
+                                            accept=".pdf, .png, .jpg, .jpeg"
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                        />
+                                        <FolderOpen className="w-6 h-6 text-red-500 mb-2" />
+                                        <span className="text-xs font-bold text-red-700">Upload Files</span>
+                                    </label>
+
+                                    {/* Camera Capture */}
+                                    <label className="border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            capture="environment" 
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                        />
+                                        <Camera className="w-6 h-6 text-red-500 mb-2" />
+                                        <span className="text-xs font-bold text-red-700">Take Photo</span>
+                                    </label>
                                 </div>
+
+                                {/* File Gallery / Preview */}
+                                {files.length > 0 && (
+                                    <div className="bg-background border border-border rounded-lg p-2 space-y-2">
+                                        {files.map((file, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-2 bg-surface rounded shadow-sm border-l-2 border-red-400">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    {file.type.startsWith('image/') ? (
+                                                        <img src={URL.createObjectURL(file)} alt="Preview" className="w-8 h-8 object-cover rounded" />
+                                                    ) : (
+                                                        <FileText className="w-8 h-8 text-text-tertiary" />
+                                                    )}
+                                                    <span className="text-xs font-medium truncate max-w-[150px] md:max-w-[200px]">{file.name}</span>
+                                                </div>
+                                                <button type="button" onClick={() => removeFile(idx)} className="text-text-tertiary hover:text-red-500"><X size={16} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {hasEmail && (
-                                <div className="flex items-start gap-3 p-3 bg-background border border-border rounded-lg mt-2">
-                                    <div className="pt-0.5">
-                                        <input 
-                                            type="checkbox" 
-                                            id="sendDamageEmail"
-                                            checked={sendEmail}
-                                            onChange={e => setSendEmail(e.target.checked)}
-                                            className="w-4 h-4 text-primary bg-surface border-border rounded focus:ring-primary"
-                                        />
+                                <button
+                                    type="button"
+                                    onClick={() => setSendEmail(!sendEmail)}
+                                    className={`w-full text-left p-4 rounded-lg border-2 transition-all flex items-center gap-4 group ${
+                                        sendEmail 
+                                            ? 'border-red-500 bg-red-50' 
+                                            : 'border-border bg-background hover:bg-surface'
+                                    }`}
+                                >
+                                    <div className={`p-2 rounded-full ${sendEmail ? 'bg-red-500 text-white' : 'bg-secondary text-text-secondary'}`}>
+                                        {sendEmail ? <Mail size={24} /> : <MailX size={24} />}
                                     </div>
-                                    <label htmlFor="sendDamageEmail" className="text-sm cursor-pointer">
-                                        <span className="font-semibold text-text-primary flex items-center gap-2">
-                                            <Mail size={14} /> Send Damage Notification
-                                        </span>
-                                        <span className="block text-text-secondary mt-0.5">
-                                            Email <strong>{emailRecipient}</strong> about the damage and new ETA.
-                                        </span>
-                                    </label>
-                                </div>
+                                    <div>
+                                        <p className={`font-bold ${sendEmail ? 'text-red-600' : 'text-text-secondary'}`}>
+                                            {sendEmail ? 'Sending Damage Alert' : 'Alert Disabled'}
+                                        </p>
+                                        <p className="text-sm text-text-secondary">
+                                            {sendEmail ? `Will notify ${emailRecipient}` : `Click to enable alert for ${emailRecipient}`}
+                                        </p>
+                                    </div>
+                                </button>
                             )}
                         </form>
                     )}
