@@ -1,12 +1,13 @@
 import { Customer, ActivityLogEntry } from "../types";
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/customers';
+const getApiUrl = () => getEndpoint('/api/customers');
 
 /**
  * Fetches all customers from the API.
  */
 export const getCustomers = async (): Promise<Customer[]> => {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(getApiUrl());
     if (!response.ok) {
         throw new Error('Failed to fetch customers.');
     }
@@ -19,7 +20,7 @@ export const getCustomers = async (): Promise<Customer[]> => {
  * @returns The newly created customer from the database.
  */
 export const addCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt' | 'jobs'>): Promise<Customer> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(customerData)
@@ -36,7 +37,7 @@ export const addCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt
  * @returns The updated customer from the database.
  */
 export const updateCustomer = async (customer: Customer): Promise<Customer> => {
-    const response = await fetch(`${API_BASE_URL}/${customer.id}`, {
+    const response = await fetch(`${getApiUrl()}/${customer.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(customer)
@@ -52,7 +53,7 @@ export const updateCustomer = async (customer: Customer): Promise<Customer> => {
  * @param customerId The ID of the customer to delete.
  */
 export const deleteCustomer = async (customerId: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${customerId}`, {
+    const response = await fetch(`${getApiUrl()}/${customerId}`, {
         method: 'DELETE'
     });
 
@@ -70,7 +71,7 @@ export const deleteCustomer = async (customerId: number): Promise<void> => {
  * @returns A promise that resolves to an array of activity log entries.
  */
 export const getCustomerHistory = async (customerId: number): Promise<ActivityLogEntry[]> => {
-    const response = await fetch(`${API_BASE_URL}/${customerId}/history`);
+    const response = await fetch(`${getApiUrl()}/${customerId}/history`);
     if (!response.ok) {
         throw new Error('Failed to fetch customer history.');
     }

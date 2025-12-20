@@ -1,6 +1,7 @@
 import { Sample } from "../types";
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/products';
+const getApiUrl = () => getEndpoint('/api/products');
 
 export interface SizeStat {
     value: string;
@@ -9,7 +10,7 @@ export interface SizeStat {
 }
 
 export const getSamples = async (): Promise<Sample[]> => {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(getApiUrl());
     if (!response.ok) {
         throw new Error('Failed to fetch samples.');
     }
@@ -17,7 +18,7 @@ export const getSamples = async (): Promise<Sample[]> => {
 };
 
 export const getUniqueSizes = async (): Promise<string[]> => {
-    const response = await fetch(`${API_BASE_URL}/sizes`);
+    const response = await fetch(`${getApiUrl()}/sizes`);
     if (!response.ok) {
         throw new Error('Failed to fetch unique sizes.');
     }
@@ -25,7 +26,7 @@ export const getUniqueSizes = async (): Promise<string[]> => {
 };
 
 export const getUniqueSizeStats = async (): Promise<SizeStat[]> => {
-    const response = await fetch(`${API_BASE_URL}/sizes/stats`);
+    const response = await fetch(`${getApiUrl()}/sizes/stats`);
     if (!response.ok) {
         const text = await response.text();
         throw new Error(`Error ${response.status}: ${text || response.statusText}`);
@@ -35,7 +36,7 @@ export const getUniqueSizeStats = async (): Promise<SizeStat[]> => {
 
 // --- NEW: Function to update a size value globally ---
 export const updateSizeValue = async (oldValue: string, newValue: string): Promise<any> => {
-    const response = await fetch(`${API_BASE_URL}/sizes`, {
+    const response = await fetch(`${getApiUrl()}/sizes`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ oldValue, newValue })
@@ -49,7 +50,7 @@ export const updateSizeValue = async (oldValue: string, newValue: string): Promi
 
 // --- NEW: Function to delete a size value globally ---
 export const deleteSizeValue = async (value: string): Promise<any> => {
-    const response = await fetch(`${API_BASE_URL}/sizes`, {
+    const response = await fetch(`${getApiUrl()}/sizes`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value })
@@ -63,7 +64,7 @@ export const deleteSizeValue = async (value: string): Promise<any> => {
 
 // --- NEW: Function to create a standalone size ---
 export const createSize = async (value: string): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/sizes`, {
+    const response = await fetch(`${getApiUrl()}/sizes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value })
@@ -75,7 +76,7 @@ export const createSize = async (value: string): Promise<void> => {
 };
 
 export const addSample = async (sampleData: any): Promise<Sample> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -90,7 +91,7 @@ export const addSample = async (sampleData: any): Promise<Sample> => {
 };
 
 export const updateSample = async (sampleId: number, sampleData: any): Promise<Sample> => {
-    const response = await fetch(`${API_BASE_URL}/${sampleId}`, {
+    const response = await fetch(`${getApiUrl()}/${sampleId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -107,7 +108,7 @@ export const updateSample = async (sampleId: number, sampleData: any): Promise<S
 
 // --- NEW: Toggle Discontinued Status ---
 export const toggleSampleDiscontinued = async (sampleId: number, isDiscontinued: boolean): Promise<Sample> => {
-    const response = await fetch(`${API_BASE_URL}/${sampleId}/discontinue`, {
+    const response = await fetch(`${getApiUrl()}/${sampleId}/discontinue`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isDiscontinued }),
@@ -120,7 +121,7 @@ export const toggleSampleDiscontinued = async (sampleId: number, isDiscontinued:
 };
 
 export const deleteSample = async (sampleId: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${sampleId}`, {
+    const response = await fetch(`${getApiUrl()}/${sampleId}`, {
         method: 'DELETE',
     });
 
@@ -134,7 +135,7 @@ export const deleteSample = async (sampleId: number): Promise<void> => {
 };
 
 export const getSampleHistory = async (sampleId: number) => {
-    const response = await fetch(`${API_BASE_URL}/${sampleId}/history`);
+    const response = await fetch(`${getApiUrl()}/${sampleId}/history`);
     if (!response.ok) {
         throw new Error('Failed to fetch sample history.');
     }

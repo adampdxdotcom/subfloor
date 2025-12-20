@@ -1,12 +1,13 @@
 import { Installer, ActivityLogEntry } from "../types";
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/installers';
+const getApiUrl = () => getEndpoint('/api/installers');
 
 /**
  * Fetches all installers from the API.
  */
 export const getInstallers = async (): Promise<Installer[]> => {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(getApiUrl());
     if (!response.ok) {
         throw new Error('Failed to fetch installers.');
     }
@@ -17,7 +18,7 @@ export const getInstallers = async (): Promise<Installer[]> => {
  * Adds a new installer.
  */
 export const addInstaller = async (installerData: Omit<Installer, 'id' | 'jobs'>): Promise<Installer> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(installerData)
@@ -32,7 +33,7 @@ export const addInstaller = async (installerData: Omit<Installer, 'id' | 'jobs'>
  * Updates an existing installer.
  */
 export const updateInstaller = async (installer: Installer): Promise<Installer> => {
-    const response = await fetch(`${API_BASE_URL}/${installer.id}`, {
+    const response = await fetch(`${getApiUrl()}/${installer.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(installer)
@@ -47,7 +48,7 @@ export const updateInstaller = async (installer: Installer): Promise<Installer> 
  * Deletes an installer by their ID.
  */
 export const deleteInstaller = async (installerId: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${installerId}`, {
+    const response = await fetch(`${getApiUrl()}/${installerId}`, {
         method: 'DELETE'
     });
 
@@ -63,7 +64,7 @@ export const deleteInstaller = async (installerId: number): Promise<void> => {
  * @returns A promise that resolves to an array of activity log entries.
  */
 export const getInstallerHistory = async (installerId: number): Promise<ActivityLogEntry[]> => {
-    const response = await fetch(`${API_BASE_URL}/${installerId}/history`);
+    const response = await fetch(`${getApiUrl()}/${installerId}/history`);
     if (!response.ok) {
         throw new Error('Failed to fetch installer history.');
     }

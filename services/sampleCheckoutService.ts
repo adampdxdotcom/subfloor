@@ -1,12 +1,14 @@
 import { SampleCheckout } from "../types";
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/sample-checkouts';
+const getApiUrl = () => getEndpoint('/api/sample-checkouts');
 
 /**
  * Fetches all sample checkouts, optionally filtered by projectId.
  */
 export const getSampleCheckouts = async (projectId?: number): Promise<SampleCheckout[]> => {
-    const url = projectId ? `${API_BASE_URL}?projectId=${projectId}` : API_BASE_URL;
+    const baseUrl = getApiUrl();
+    const url = projectId ? `${baseUrl}?projectId=${projectId}` : baseUrl;
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error('Failed to fetch sample checkouts.');
@@ -15,7 +17,7 @@ export const getSampleCheckouts = async (projectId?: number): Promise<SampleChec
 };
 
 export const getCheckoutsByCustomer = async (customerId: number): Promise<SampleCheckout[]> => {
-    const response = await fetch(`${API_BASE_URL}?customerId=${customerId}`);
+    const response = await fetch(`${getApiUrl()}?customerId=${customerId}`);
     if (!response.ok) {
         throw new Error('Failed to fetch customer samples.');
     }
@@ -23,7 +25,7 @@ export const getCheckoutsByCustomer = async (customerId: number): Promise<Sample
 };
 
 export const getCheckoutsByInstaller = async (installerId: number): Promise<SampleCheckout[]> => {
-    const response = await fetch(`${API_BASE_URL}?installerId=${installerId}`);
+    const response = await fetch(`${getApiUrl()}?installerId=${installerId}`);
     if (!response.ok) {
         throw new Error('Failed to fetch installer samples.');
     }
@@ -34,7 +36,7 @@ export const getCheckoutsByInstaller = async (installerId: number): Promise<Samp
  * Creates a new sample checkout record.
  */
 export const addSampleCheckout = async (checkoutData: any): Promise<SampleCheckout> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(checkoutData)
@@ -49,7 +51,7 @@ export const addSampleCheckout = async (checkoutData: any): Promise<SampleChecko
  * Updates a sample checkout to mark it as returned.
  */
 export const returnSampleCheckout = async (checkout: SampleCheckout): Promise<SampleCheckout> => {
-    const response = await fetch(`${API_BASE_URL}/${checkout.id}`, {
+    const response = await fetch(`${getApiUrl()}/${checkout.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}) 
@@ -64,7 +66,7 @@ export const returnSampleCheckout = async (checkout: SampleCheckout): Promise<Sa
  * Partially updates a sample checkout record, e.g., to change the return date or selection status.
  */
 export const patchSampleCheckout = async (checkoutId: number, data: { expectedReturnDate?: string; isSelected?: boolean }): Promise<SampleCheckout> => {
-    const response = await fetch(`${API_BASE_URL}/${checkoutId}`, {
+    const response = await fetch(`${getApiUrl()}/${checkoutId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -79,7 +81,7 @@ export const patchSampleCheckout = async (checkoutId: number, data: { expectedRe
  * Transfers existing checkouts to a new project.
  */
 export const transferCheckoutsToProject = async (checkoutIds: number[], projectId: number): Promise<void> => {
-    await fetch(`${API_BASE_URL}/transfer`, {
+    await fetch(`${getApiUrl()}/transfer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ checkoutIds, projectId })

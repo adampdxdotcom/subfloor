@@ -3,6 +3,7 @@ Hello!  We are working on a project.  Here is file tree as well as a synopsis of
 Do not make any code unless asked.
 Do not make adjustments that were not requested. If there is an issue applying a change, let's talk about it.
 Provide only diff files, not fully modified files.
+Please don't make code for files you haven't seen.
 
 
 ================================================================================

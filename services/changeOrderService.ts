@@ -1,23 +1,24 @@
 import { ChangeOrder } from "../types";
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/change-orders';
+const getApiUrl = () => getEndpoint('/api/change-orders');
 
 /**
  * Fetches all change orders from the API.
  */
 export const getChangeOrders = async (): Promise<ChangeOrder[]> => {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(getApiUrl());
     if (!response.ok) {
         throw new Error('Failed to fetch change orders.');
     }
     return response.json();
-};
+}
 
 /**
  * Adds a new change order for a project.
  */
 export const addChangeOrder = async (changeOrderData: Omit<ChangeOrder, 'id' | 'createdAt'>): Promise<ChangeOrder> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(changeOrderData)
@@ -32,7 +33,7 @@ export const addChangeOrder = async (changeOrderData: Omit<ChangeOrder, 'id' | '
  * Updates an existing change order.
  */
 export const updateChangeOrder = async (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt'>>): Promise<ChangeOrder> => {
-    const response = await fetch(`${API_BASE_URL}/${changeOrderId}`, {
+    const response = await fetch(`${getApiUrl()}/${changeOrderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(changeOrderData)
@@ -48,7 +49,7 @@ export const updateChangeOrder = async (changeOrderId: number, changeOrderData: 
  * @param changeOrderId The ID of the change order to delete.
  */
 export const deleteChangeOrder = async (changeOrderId: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${changeOrderId}`, {
+    const response = await fetch(`${getApiUrl()}/${changeOrderId}`, {
         method: 'DELETE'
     });
 

@@ -1,12 +1,13 @@
 import { Vendor, ActivityLogEntry } from '../types';
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/vendors';
+const getApiUrl = () => getEndpoint('/api/vendors');
 
 /**
  * Fetches all vendors from the API.
  */
 export const getVendors = async (): Promise<Vendor[]> => {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(getApiUrl());
     if (!response.ok) {
         throw new Error('Failed to fetch vendors.');
     }
@@ -18,7 +19,7 @@ export const getVendors = async (): Promise<Vendor[]> => {
  * @param vendorData - The vendor data to add, excluding the ID.
  */
 export const addVendor = async (vendorData: Omit<Vendor, 'id'>): Promise<Vendor> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(vendorData),
@@ -36,7 +37,7 @@ export const addVendor = async (vendorData: Omit<Vendor, 'id'>): Promise<Vendor>
  * @param vendorData - The vendor data to update.
  */
 export const updateVendor = async (vendorId: number, vendorData: Partial<Omit<Vendor, 'id'>>): Promise<Vendor> => {
-    const response = await fetch(`${API_BASE_URL}/${vendorId}`, {
+    const response = await fetch(`${getApiUrl()}/${vendorId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(vendorData),
@@ -53,7 +54,7 @@ export const updateVendor = async (vendorId: number, vendorData: Partial<Omit<Ve
  * @param vendorId - The ID of the vendor to delete.
  */
 export const deleteVendor = async (vendorId: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${vendorId}`, {
+    const response = await fetch(`${getApiUrl()}/${vendorId}`, {
         method: 'DELETE',
     });
     if (!response.ok) {
@@ -71,7 +72,7 @@ export const deleteVendor = async (vendorId: number): Promise<void> => {
  * @returns A promise that resolves to an array of activity log entries.
  */
 export const getVendorHistory = async (vendorId: number): Promise<ActivityLogEntry[]> => {
-    const response = await fetch(`${API_BASE_URL}/${vendorId}/history`);
+    const response = await fetch(`${getApiUrl()}/${vendorId}/history`);
     if (!response.ok) {
         throw new Error('Failed to fetch vendor history.');
     }

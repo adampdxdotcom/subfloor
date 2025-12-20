@@ -1,14 +1,15 @@
 // services/materialOrderService.ts
 
 import { MaterialOrder, ActivityLogEntry } from "../types"; // <-- MODIFIED: Added ActivityLogEntry
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/orders';
+const getApiUrl = () => getEndpoint('/api/orders');
 
 /**
  * Fetches all material orders from the API.
  */
 export const getMaterialOrders = async (): Promise<MaterialOrder[]> => {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(getApiUrl());
     if (!response.ok) {
         throw new Error('Failed to fetch material orders.');
     }
@@ -25,7 +26,7 @@ export const getMaterialOrders = async (): Promise<MaterialOrder[]> => {
  * @param {Array<{sampleId: number, quantity: number, unit: string | null, totalCost: number | null}>} orderData.lineItems - The line items.
  */
 export const addMaterialOrder = async (orderData: any): Promise<MaterialOrder> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
@@ -47,7 +48,7 @@ export const addMaterialOrder = async (orderData: any): Promise<MaterialOrder> =
  * @param {Array<{sampleId: number, quantity: number, unit: string | null, totalCost: number | null}>} orderData.lineItems - The line items.
  */
 export const updateMaterialOrder = async (orderId: number, orderData: any): Promise<MaterialOrder> => {
-    const response = await fetch(`${API_BASE_URL}/${orderId}`, {
+    const response = await fetch(`${getApiUrl()}/${orderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
@@ -64,7 +65,7 @@ export const updateMaterialOrder = async (orderId: number, orderData: any): Prom
  * @param {number} orderId - The ID of the order to delete.
  */
 export const deleteMaterialOrder = async (orderId: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${orderId}`, {
+    const response = await fetch(`${getApiUrl()}/${orderId}`, {
         method: 'DELETE',
     });
     if (!response.ok) {
@@ -82,7 +83,7 @@ export const deleteMaterialOrder = async (orderId: number): Promise<void> => {
  * @returns A promise that resolves to an array of activity log entries.
  */
 export const getMaterialOrderHistory = async (orderId: number): Promise<ActivityLogEntry[]> => {
-    const response = await fetch(`${API_BASE_URL}/${orderId}/history`);
+    const response = await fetch(`${getApiUrl()}/${orderId}/history`);
     if (!response.ok) {
         throw new Error('Failed to fetch material order history.');
     }
@@ -107,7 +108,7 @@ export const receiveMaterialOrder = async (
       });
   }
 
-  const response = await fetch(`${API_BASE_URL}/${orderId}/receive`, {
+  const response = await fetch(`${getApiUrl()}/${orderId}/receive`, {
     method: 'POST',
     // NO 'Content-Type': 'application/json' header! 
     // Browser sets multipart/form-data boundary automatically when body is FormData
@@ -140,7 +141,7 @@ export const reportMaterialOrderDamage = async (
       });
   }
 
-  const response = await fetch(`${API_BASE_URL}/${orderId}/damage`, {
+  const response = await fetch(`${getApiUrl()}/${orderId}/damage`, {
     method: 'POST',
     // No Content-Type header (browser sets boundary)
     body: formData,

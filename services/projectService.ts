@@ -1,12 +1,14 @@
 import { Project, ActivityLogEntry } from "../types";
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/projects';
+const getApiUrl = () => getEndpoint('/api/projects');
 
 /**
  * Fetches all projects, optionally filtered by installerId.
  */
 export const getProjects = async (installerId?: number): Promise<Project[]> => {
-    const url = installerId ? `${API_BASE_URL}?installerId=${installerId}` : API_BASE_URL;
+    const baseUrl = getApiUrl();
+    const url = installerId ? `${baseUrl}?installerId=${installerId}` : baseUrl;
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error('Failed to fetch projects.');
@@ -18,7 +20,7 @@ export const getProjects = async (installerId?: number): Promise<Project[]> => {
  * Adds a new project.
  */
 export const addProject = async (projectData: Omit<Project, 'id' | 'createdAt'> & { installerId?: number }): Promise<Project> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(projectData)
@@ -33,7 +35,7 @@ export const addProject = async (projectData: Omit<Project, 'id' | 'createdAt'> 
  * Updates an existing project.
  */
 export const updateProject = async (projectData: Partial<Project> & { id: number }): Promise<Project> => {
-    const response = await fetch(`${API_BASE_URL}/${projectData.id}`, {
+    const response = await fetch(`${getApiUrl()}/${projectData.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(projectData)
@@ -48,7 +50,7 @@ export const updateProject = async (projectData: Partial<Project> & { id: number
  * Deletes a project by its ID, which triggers a cascade on the backend.
  */
 export const deleteProject = async (projectId: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${projectId}`, {
+    const response = await fetch(`${getApiUrl()}/${projectId}`, {
         method: 'DELETE'
     });
 
@@ -64,7 +66,7 @@ export const deleteProject = async (projectId: number): Promise<void> => {
  * @returns A promise that resolves to an array of activity log entries.
  */
 export const getProjectHistory = async (projectId: number): Promise<ActivityLogEntry[]> => {
-    const response = await fetch(`${API_BASE_URL}/${projectId}/history`);
+    const response = await fetch(`${getApiUrl()}/${projectId}/history`);
     if (!response.ok) {
         throw new Error('Failed to fetch project history.');
     }

@@ -1,0 +1,33 @@
+// src/utils/apiConfig.ts
+
+export const STORAGE_KEY_API_URL = 'subfloor_server_url';
+
+/**
+ * Determines the Base URL for API requests.
+ * 
+ * Logic:
+ * 1. If a user has manually set a server URL (e.g. on Mobile), use it.
+ * 2. Otherwise, default to an empty string '' to allow the browser to 
+ *    handle relative paths (standard web behavior).
+ */
+export const getBaseUrl = (): string => {
+    const storedUrl = localStorage.getItem(STORAGE_KEY_API_URL);
+    
+    if (storedUrl) {
+        // Ensure no trailing slash
+        return storedUrl.replace(/\/$/, '');
+    }
+
+    // Default to relative path for standard web usage
+    return '';
+};
+
+/**
+ * Helper to construct full API endpoints.
+ * Usage: getEndpoint('/api/jobs') -> 'https://site.com/api/jobs' OR '/api/jobs'
+ */
+export const getEndpoint = (path: string): string => {
+    const base = getBaseUrl();
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${base}${normalizedPath}`;
+};

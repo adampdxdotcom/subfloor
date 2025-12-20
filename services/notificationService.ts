@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getEndpoint } from "../utils/apiConfig";
 
 export interface Notification {
     id: number;
@@ -12,23 +13,23 @@ export interface Notification {
 }
 
 export const getNotifications = async (): Promise<Notification[]> => {
-    const response = await axios.get('/api/notifications');
+    const response = await axios.get(getEndpoint('/api/notifications'));
     return response.data;
 };
 
 export const getUnreadCount = async (): Promise<number> => {
-    const response = await axios.get('/api/notifications/unread-count');
+    const response = await axios.get(getEndpoint('/api/notifications/unread-count'));
     return response.data.count;
 };
 
 export const markAsRead = async (id: number): Promise<void> => {
-    await axios.patch(`/api/notifications/${id}/read`);
+    await axios.patch(getEndpoint(`/api/notifications/${id}/read`));
 };
 
 export const markAllAsRead = async (): Promise<void> => {
-    await axios.patch('/api/notifications/read-all');
+    await axios.patch(getEndpoint('/api/notifications/read-all'));
 };
 
 export const markReferenceAsRead = async (referenceId: string | number): Promise<void> => {
-    await axios.patch(`/api/notifications/mark-reference/${referenceId}`);
+    await axios.patch(getEndpoint(`/api/notifications/mark-reference/${referenceId}`));
 };

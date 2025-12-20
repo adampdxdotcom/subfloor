@@ -2,14 +2,15 @@
 
 import { Product, ProductVariant } from '../types';
 import { ActivityLogEntry } from '../types'; // Assuming this import exists or is needed for getProductHistory
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_URL = '/api/products';
+const getApiUrl = () => getEndpoint('/api/products');
 
 /**
  * Fetches all products with their nested variants.
  */
 export const getProducts = async (): Promise<Product[]> => {
-    const response = await fetch(API_URL);
+    const response = await fetch(getApiUrl());
     if (!response.ok) {
         throw new Error('Failed to fetch products');
     }
@@ -20,7 +21,7 @@ export const getProducts = async (): Promise<Product[]> => {
  * Fetches discontinued products (Parent level only).
  */
 export const getDiscontinuedProducts = async (): Promise<Product[]> => {
-    const response = await fetch(`${API_URL}/discontinued`);
+    const response = await fetch(`${getApiUrl()}/discontinued`);
     if (!response.ok) {
         throw new Error('Failed to fetch discontinued products');
     }
@@ -31,7 +32,7 @@ export const getDiscontinuedProducts = async (): Promise<Product[]> => {
  * Fetches history for a product.
  */
 export const getProductHistory = async (id: string): Promise<ActivityLogEntry[]> => {
-    const response = await fetch(`${API_URL}/${id}/history`);
+    const response = await fetch(`${getApiUrl()}/${id}/history`);
     if (!response.ok) {
         throw new Error('Failed to fetch product history');
     }
@@ -43,7 +44,7 @@ export const getProductHistory = async (id: string): Promise<ActivityLogEntry[]>
  * @param formData Must contain 'name', 'productType', etc., and optionally 'image'.
  */
 export const createProduct = async (formData: FormData): Promise<Product> => {
-    const response = await fetch(API_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         // Content-Type header is set automatically by browser for FormData
         body: formData,
@@ -60,7 +61,7 @@ export const createProduct = async (formData: FormData): Promise<Product> => {
  * Updates a Parent Product.
  */
 export const updateProduct = async (id: string, formData: FormData): Promise<Product> => {
-    const response = await fetch(`${API_URL}/${id}`, {
+    const response = await fetch(`${getApiUrl()}/${id}`, {
         method: 'PATCH',
         body: formData,
     });
@@ -76,7 +77,7 @@ export const updateProduct = async (id: string, formData: FormData): Promise<Pro
  * Duplicates a product line and its variants.
  */
 export const duplicateProduct = async (id: string): Promise<Product> => {
-    const response = await fetch(`${API_URL}/${id}/duplicate`, {
+    const response = await fetch(`${getApiUrl()}/${id}/duplicate`, {
         method: 'POST',
     });
 
@@ -91,7 +92,7 @@ export const duplicateProduct = async (id: string): Promise<Product> => {
  * Deletes a Parent Product (and cascades to all variants).
  */
 export const deleteProduct = async (id: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/${id}`, {
+    const response = await fetch(`${getApiUrl()}/${id}`, {
         method: 'DELETE',
     });
 
@@ -105,7 +106,7 @@ export const deleteProduct = async (id: string): Promise<void> => {
  * Adds a new Variant to an existing Product.
  */
 export const addVariant = async (productId: string, formData: FormData): Promise<ProductVariant> => {
-    const response = await fetch(`${API_URL}/${productId}/variants`, {
+    const response = await fetch(`${getApiUrl()}/${productId}/variants`, {
         method: 'POST',
         body: formData,
     });
@@ -119,7 +120,7 @@ export const addVariant = async (productId: string, formData: FormData): Promise
 
 // --- NEW: Batch Create Variants ---
 export const createVariantsBatch = async (productId: string, variants: any[]): Promise<any[]> => {
-    const response = await fetch(`${API_URL}/${productId}/variants/batch`, {
+    const response = await fetch(`${getApiUrl()}/${productId}/variants/batch`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -137,7 +138,7 @@ export const createVariantsBatch = async (productId: string, variants: any[]): P
  * Patches a specific Product Variant.
  */
 export const updateVariant = async (variantId: string, formData: FormData): Promise<ProductVariant> => {
-    const response = await fetch(`${API_URL}/variants/${variantId}`, {
+    const response = await fetch(`${getApiUrl()}/variants/${variantId}`, {
         method: 'PATCH',
         body: formData,
     });
@@ -150,7 +151,7 @@ export const updateVariant = async (variantId: string, formData: FormData): Prom
 
 // --- NEW: Batch Update Variants ---
 export const batchUpdateVariants = async (ids: string[], updates: Partial<ProductVariant>): Promise<void> => {
-    const response = await fetch(`${API_URL}/variants/batch-update`, {
+    const response = await fetch(`${getApiUrl()}/variants/batch-update`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -167,7 +168,7 @@ export const batchUpdateVariants = async (ids: string[], updates: Partial<Produc
  * Deletes a specific Product Variant.
  */
 export const deleteVariant = async (variantId: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/variants/${variantId}`, { method: 'DELETE' });
+    const response = await fetch(`${getApiUrl()}/variants/${variantId}`, { method: 'DELETE' });
     if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Failed to delete variant' }));
         throw new Error(error.error || 'Failed to delete variant');

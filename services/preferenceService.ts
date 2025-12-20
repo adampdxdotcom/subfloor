@@ -1,7 +1,8 @@
 import { UserPreferences, PricingSettings } from '../types'; 
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/preferences';
-const SYSTEM_PREFS_URL = '/api/preferences/system';
+const getApiUrl = () => getEndpoint('/api/preferences');
+const getSystemPrefsUrl = () => getEndpoint('/api/preferences/system');
 
 /**
  * Fetches the UI preferences for the current user.
@@ -9,7 +10,7 @@ const SYSTEM_PREFS_URL = '/api/preferences/system';
  */
 export const getPreferences = async (): Promise<UserPreferences> => {
   try {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(getApiUrl());
     if (!response.ok) {
         // If the server returns an error, we'll throw to be caught by the catch block
         throw new Error(`Failed to fetch preferences with status: ${response.status}`);
@@ -29,7 +30,7 @@ export const getPreferences = async (): Promise<UserPreferences> => {
  */
 export const savePreferences = async (preferences: UserPreferences): Promise<UserPreferences> => {
   try {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -52,13 +53,13 @@ export const savePreferences = async (preferences: UserPreferences): Promise<Use
 // --- ADMIN: SYSTEM PREFERENCES (Pricing, Email, etc.) ---
 
 export const getSystemPreferences = async (key: string): Promise<any> => {
-  const response = await fetch(`${SYSTEM_PREFS_URL}/${key}`);
+  const response = await fetch(`${getSystemPrefsUrl()}/${key}`);
   if (!response.ok) throw new Error(`Failed to fetch system preference: ${key}`);
   return response.json();
 };
 
 export const saveSystemPreferences = async (key: string, settings: any): Promise<void> => {
-  const response = await fetch(`${SYSTEM_PREFS_URL}/${key}`, {
+  const response = await fetch(`${getSystemPrefsUrl()}/${key}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
@@ -67,7 +68,7 @@ export const saveSystemPreferences = async (key: string, settings: any): Promise
 };
 
 export const sendTestSystemEmail = async (): Promise<void> => {
-    const response = await fetch(`${SYSTEM_PREFS_URL}/email_test`, {
+    const response = await fetch(`${getSystemPrefsUrl()}/email_test`, {
         method: 'POST',
     });
     if (!response.ok) throw new Error('Failed to send test email.');
@@ -86,7 +87,7 @@ export const savePricingSettings = async (settings: PricingSettings): Promise<vo
 // --- BRANDING FUNCTIONS (Added for Session 15) ---
 
 export const uploadSystemBranding = async (formData: FormData): Promise<any> => {
-  const response = await fetch(`${SYSTEM_PREFS_URL}/branding`, {
+  const response = await fetch(`${getSystemPrefsUrl()}/branding`, {
     method: 'POST',
     // Note: Do NOT set Content-Type header manually here; 
     // the browser automatically sets it to multipart/form-data with the correct boundary
@@ -104,7 +105,7 @@ export const uploadSystemBranding = async (formData: FormData): Promise<any> => 
 export const getSystemPreference = getSystemPreferences;
 
 export const deleteSystemBranding = async (type: 'logo' | 'favicon'): Promise<any> => {
-  const response = await fetch(`${SYSTEM_PREFS_URL}/branding/${type}`, {
+  const response = await fetch(`${getSystemPrefsUrl()}/branding/${type}`, {
     method: 'DELETE',
   });
   if (!response.ok) {

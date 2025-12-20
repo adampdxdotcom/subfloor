@@ -122,7 +122,9 @@ supertokens.init({
         Session.init({
             // --- DYNAMIC COOKIE CONFIG ---
             cookieDomain: getCookieDomain(APP_DOMAIN),
-            cookieSecure: APP_DOMAIN.startsWith('https'), // Secure only if on HTTPS
+            // FIX: Allow insecure cookies if running on localhost (Mobile App context)
+            // If APP_DOMAIN is https, but we are developing or on mobile, we might need flexibility.
+            cookieSecure: APP_DOMAIN.startsWith('https') && process.env.NODE_ENV === 'production', 
             cookieSameSite: "lax" 
         })
     ]
@@ -247,6 +249,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/preferences', preferenceRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/reports', reportRoutes); // Existing Dashboard Reports
+app.use('/api/report-generator', reportGeneratorRoutes); // NEW: Business Reports
 app.use('/api/report-generator', reportGeneratorRoutes); // NEW: Business Reports
 app.use('/api/import', importRoutes); // NEW: Import Tool
 app.use('/api/reminders', reminderRoutes);

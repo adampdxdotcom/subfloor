@@ -1,6 +1,7 @@
 // services/userService.ts
 
 import { User, CurrentUser } from '../types';
+import { getEndpoint } from "../utils/apiConfig";
 
 // Define a simple Role type for clarity
 export interface Role {
@@ -10,7 +11,7 @@ export interface Role {
 }
 
 export const getUsers = async (): Promise<User[]> => {
-  const response = await fetch('/api/users');
+  const response = await fetch(getEndpoint('/api/users'));
   if (!response.ok) {
     throw new Error('Failed to fetch users');
   }
@@ -23,7 +24,7 @@ export const createUser = async (
   lastName?: string, 
   role?: string
 ): Promise<User> => {
-  const response = await fetch('/api/users', {
+  const response = await fetch(getEndpoint('/api/users'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, firstName, lastName, role }),
@@ -36,7 +37,7 @@ export const createUser = async (
 };
 
 export const deleteUser = async (userId: string): Promise<void> => {
-  const response = await fetch(`/api/users/${userId}`, {
+  const response = await fetch(getEndpoint(`/api/users/${userId}`), {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -46,7 +47,7 @@ export const deleteUser = async (userId: string): Promise<void> => {
 };
 
 export const getCurrentUser = async (): Promise<CurrentUser> => {
-  const response = await fetch('/api/users/me');
+  const response = await fetch(getEndpoint('/api/users/me'));
   if (!response.ok) {
     throw new Error('Failed to fetch current user');
   }
@@ -57,7 +58,7 @@ export const getCurrentUser = async (): Promise<CurrentUser> => {
  * Updates the current user's profile information (Name).
  */
 export const updateUserProfile = async (firstName: string, lastName: string): Promise<{ firstName: string; lastName: string; avatarUrl: string | null }> => {
-  const response = await fetch('/api/users/me/profile', {
+  const response = await fetch(getEndpoint('/api/users/me/profile'), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ firstName, lastName }),
@@ -76,7 +77,7 @@ export const uploadUserAvatar = async (file: File): Promise<{ avatarUrl: string 
   const formData = new FormData();
   formData.append('avatar', file);
 
-  const response = await fetch('/api/users/me/avatar', {
+  const response = await fetch(getEndpoint('/api/users/me/avatar'), {
     method: 'POST',
     body: formData,
   });
@@ -92,7 +93,7 @@ export const uploadUserAvatar = async (file: File): Promise<{ avatarUrl: string 
  * Deletes the current user's profile picture.
  */
 export const deleteUserAvatar = async (): Promise<void> => {
-  const response = await fetch('/api/users/me/avatar', {
+  const response = await fetch(getEndpoint('/api/users/me/avatar'), {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -104,7 +105,7 @@ export const deleteUserAvatar = async (): Promise<void> => {
  * Updates the current user's password.
  */
 export const changeUserPassword = async (currentPassword: string, newPassword: string): Promise<void> => {
-    const response = await fetch('/api/users/me/password', {
+    const response = await fetch(getEndpoint('/api/users/me/password'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword }),
@@ -124,7 +125,7 @@ export const changeUserPassword = async (currentPassword: string, newPassword: s
  * @returns A promise that resolves to an array of Role objects.
  */
 export const getRoles = async (): Promise<Role[]> => {
-    const response = await fetch('/api/roles');
+    const response = await fetch(getEndpoint('/api/roles'));
     if (!response.ok) {
         throw new Error('Failed to fetch roles');
     }
@@ -138,7 +139,7 @@ export const getRoles = async (): Promise<Role[]> => {
  * @returns A promise that resolves when the update is complete.
  */
 export const updateUserRoles = async (userId: string, roles: string[]): Promise<void> => {
-    const response = await fetch(`/api/users/${userId}/roles`, {
+    const response = await fetch(getEndpoint(`/api/users/${userId}/roles`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roles }),

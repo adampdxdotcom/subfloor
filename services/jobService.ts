@@ -1,6 +1,7 @@
 import { Job } from "../types";
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_BASE_URL = '/api/jobs';
+const getApiUrl = () => getEndpoint('/api/jobs');
 
 /**
  * Fetches all jobs from the API.
@@ -8,7 +9,7 @@ const API_BASE_URL = '/api/jobs';
  * It's suitable for initial app load, but individual job details should be fetched separately.
  */
 export const getJobs = async (): Promise<Job[]> => {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetch(getApiUrl());
     if (!response.ok) {
         throw new Error('Failed to fetch jobs.');
     }
@@ -23,7 +24,7 @@ export const getJobs = async (): Promise<Job[]> => {
  * Returns null if no job is found (404), which is an expected condition.
  */
 export const getJobForProject = async (projectId: number): Promise<Job | null> => {
-    const response = await fetch(`${API_BASE_URL}/project/${projectId}`);
+    const response = await fetch(`${getApiUrl()}/project/${projectId}`);
     
     // --- THIS IS THE FIX ---
     // If the status is 404, we gracefully return null.
@@ -46,7 +47,7 @@ export const getJobForProject = async (projectId: number): Promise<Job | null> =
  * The backend handles the transactional logic.
  */
 export const saveJobDetails = async (jobDetails: Partial<Job>): Promise<Job> => {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jobDetails)

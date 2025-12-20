@@ -1,9 +1,10 @@
 import { JobNote } from '../types';
+import { getEndpoint } from "../utils/apiConfig";
 
-const API_URL = '/api/jobs';
+const getApiUrl = () => getEndpoint('/api/jobs');
 
 export const getJobNotes = async (jobId: number): Promise<JobNote[]> => {
-    const response = await fetch(`${API_URL}/${jobId}/notes`);
+    const response = await fetch(`${getApiUrl()}/${jobId}/notes`);
     if (!response.ok) {
         throw new Error('Failed to fetch job notes');
     }
@@ -11,7 +12,7 @@ export const getJobNotes = async (jobId: number): Promise<JobNote[]> => {
 };
 
 export const addJobNote = async (jobId: number, content: string): Promise<JobNote> => {
-    const response = await fetch(`${API_URL}/${jobId}/notes`, {
+    const response = await fetch(`${getApiUrl()}/${jobId}/notes`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
