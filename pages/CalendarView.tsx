@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon, Clock, Check, XCircle, Globe, Lock, Edit2, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon, Clock, Check, XCircle, Globe, Lock, Edit2, Trash2, Plus } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useInstallers } from '../hooks/useInstallers';
 import CalendarFilter from '../components/CalendarFilter';
@@ -83,6 +83,7 @@ const CalendarView: React.FC = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedInstallerIds, setSelectedInstallerIds] = useState<Set<number>>(new Set());
     const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+    const [showDeliveries, setShowDeliveries] = useState(true);
     
     const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<ApiEvent | null>(null); 
@@ -124,23 +125,38 @@ const CalendarView: React.FC = () => {
         fetchCalendarEvents();
     }, [currentDate, fetchCalendarEvents]);
 
+    // --- Grid / Month Logic (Desktop) ---
     const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-    const startDate = new Date(startOfMonth);
-    startDate.setDate(startDate.getDate() - startDate.getDay());
-    const endDate = new Date(endOfMonth);
-    endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
-    const days = [];
-    let day = new Date(startDate);
-    while (day <= endDate) {
-        days.push(new Date(day));
-        day.setDate(day.getDate() + 1);
-    }
+    const gridStartDate = new Date(startOfMonth);
+    gridStartDate.setDate(gridStartDate.getDate() - gridStartDate.getDay()); // Start on Sunday
+    const gridEndDate = new Date(endOfMonth);
+    gridEndDate.setDate(gridEndDate.getDate() + (6 - gridEndDate.getDay())); // End on Saturday
     
+    const monthDays = [];
+    let d = new Date(gridStartDate);
+    while (d <= gridEndDate) {
+        monthDays.push(new Date(d));
+        d.setDate(d.getDate() + 1);
+    }
+
+    // --- Agenda / Week Logic (Mobile) ---
+    const weekStart = new Date(currentDate);
+    weekStart.setDate(currentDate.getDate() - currentDate.getDay()); // Sunday of current week
+    const weekDays = Array.from({ length: 7 }, (_, i) => {
+        const day = new Date(weekStart);
+        day.setDate(weekStart.getDate() + i);
+        return day;
+    });
+
     const getEventsForDay = (date: Date) => {
         const checkDate = normalizeDate(date);
         const filteredEvents = events.filter(event => {
             if (!event.start || !event.end) return false;
+            
+            // Filter Deliveries
+            if (!showDeliveries && event.type === 'material_order_eta') return false;
+
             const eventStart = normalizeDate(parseEventDate(event.start, event.type));
             const eventEnd = normalizeDate(parseEventDate(event.end, event.type));
             return checkDate >= eventStart && checkDate <= eventEnd;
@@ -162,7 +178,15 @@ const CalendarView: React.FC = () => {
     };
     
     const changeMonth = (amount: number) => {
-        setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + amount)));
+        const newDate = new Date(currentDate);
+        newDate.setMonth(newDate.getMonth() + amount);
+        setCurrentDate(newDate);
+    };
+
+    const changeWeek = (amount: number) => {
+        const newDate = new Date(currentDate);
+        newDate.setDate(newDate.getDate() + (amount * 7));
+        setCurrentDate(newDate);
     };
 
     const handleDayClick = (date: Date) => {
@@ -199,14 +223,16 @@ const CalendarView: React.FC = () => {
                date.getFullYear() === today.getFullYear();
     };
 
-    const renderEventItem = (event: CalendarEvent, date: Date) => {
+    const renderEventItem = (event: CalendarEvent, date: Date, viewMode: 'grid' | 'list' = 'grid') => {
         const jobStart = normalizeDate(parseEventDate(event.start, event.type));
         const jobEnd = normalizeDate(parseEventDate(event.end, event.type));
         const currentDay = normalizeDate(date);
         const isStartDate = currentDay.getTime() === jobStart.getTime();
         const isEndDate = currentDay.getTime() === jobEnd.getTime();
         const isStartOfWeek = date.getDay() === 0;
-        const showLabel = isStartDate || isStartOfWeek || (dayViewDate !== null);
+        
+        // In List view, we always show the label because items are stacked
+        const showLabel = viewMode === 'list' || isStartDate || isStartOfWeek || (dayViewDate !== null);
         const isUserAppointment = event.type === 'user_appointment';
         
         const isMaterialOrder = event.type === 'material_order_eta';
@@ -246,14 +272,18 @@ const CalendarView: React.FC = () => {
         }
         
         const textColor = getContrastingTextColor(eventColor);
-        let classNames = 'block text-xs p-1 truncate relative overflow-hidden mb-1'; 
         
-        if (dayViewDate !== null) {
-            classNames += ' rounded';
+        let classNames = 'block text-xs p-1 truncate relative overflow-hidden mb-1';
+        if (viewMode === 'list') {
+             classNames = 'block text-sm p-2 rounded relative overflow-hidden mb-2'; 
         } else {
-            if (isStartDate && isEndDate) classNames += ' rounded';
-            else if (isStartDate) classNames += ' rounded-l';
-            else if (isEndDate) classNames += ' rounded-r-md';
+            if (dayViewDate !== null) {
+                classNames += ' rounded';
+            } else {
+                if (isStartDate && isEndDate) classNames += ' rounded';
+                else if (isStartDate) classNames += ' rounded-l';
+                else if (isEndDate) classNames += ' rounded-r-md';
+            }
         }
         
         if (event.isOnHold) classNames += ' on-hold-event';
@@ -307,44 +337,125 @@ const CalendarView: React.FC = () => {
     const MAX_EVENTS_PER_CELL = 2;
 
     return (
-        <div className="flex flex-col h-full gap-6">
-            <div className="bg-surface p-6 rounded-lg shadow-md border border-border flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-6">
+        <div className="flex flex-col h-full gap-4 md:gap-6">
+            <div className="bg-surface p-4 md:p-6 rounded-lg shadow-md border border-border flex flex-col md:flex-row justify-between md:items-center gap-4">
+                
+                {/* Mobile Layout: Title on top, then controls row */}
+                {/* Desktop Layout: Title Left, Month Nav Left-Center, Filter Right */}
+                
+                <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6 w-full md:w-auto">
+                    {/* Title */}
                     <div className="flex items-center gap-2">
                         <CalendarIcon className="w-8 h-8 text-primary" />
-                        <h1 className="text-3xl font-bold text-text-primary">Calendar</h1>
+                        <h1 className="text-2xl md:text-3xl font-bold text-text-primary">Calendar</h1>
                     </div>
                     
+                    {/* Desktop Divider */}
                     <div className="h-10 w-px bg-border hidden md:block"></div>
 
-                    <div className="flex items-center bg-background rounded-lg border border-border p-1 shadow-sm">
-                        <button onClick={() => changeMonth(-1)} className="p-2 rounded hover:bg-surface text-text-secondary hover:text-text-primary transition-colors"><ChevronLeft size={20}/></button>
-                        <span className="font-bold text-lg px-4 min-w-[180px] text-center text-text-primary">
-                            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                        </span>
-                        <button onClick={() => changeMonth(1)} className="p-2 rounded hover:bg-surface text-text-secondary hover:text-text-primary transition-colors"><ChevronRight size={20}/></button>
+                    {/* Month Nav & Filter Container */}
+                    {/* On Mobile: This row sits under title. On Desktop: Sits next to title/filter. */}
+                    <div className="flex flex-row items-center justify-between gap-4 w-full md:w-auto">
+                        {/* Month Nav */}
+                        <div className="flex items-center bg-background rounded-lg border border-border p-1 shadow-sm flex-shrink-0">
+                            <button onClick={() => changeMonth(-1)} className="p-2 rounded hover:bg-surface text-text-secondary hover:text-text-primary transition-colors"><ChevronLeft size={20}/></button>
+                            <span className="font-bold text-sm md:text-lg px-2 md:px-4 min-w-[120px] md:min-w-[180px] text-center text-text-primary">
+                                {currentDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
+                            </span>
+                            <button onClick={() => changeMonth(1)} className="p-2 rounded hover:bg-surface text-text-secondary hover:text-text-primary transition-colors"><ChevronRight size={20}/></button>
+                        </div>
+
+                        {/* Filter - Hidden on Desktop here because it moves to the right. Visible on Mobile. */}
+                        <div className="block md:hidden w-full max-w-[200px]">
+                            <CalendarFilter 
+                                installers={installers}
+                                users={users}
+                                selectedInstallerIds={selectedInstallerIds}
+                                selectedUserIds={selectedUserIds}
+                                showDeliveries={showDeliveries}
+                                onInstallerChange={setSelectedInstallerIds}
+                                onUserChange={setSelectedUserIds}
+                                onShowDeliveriesChange={setShowDeliveries}
+                            />
+                        </div>
                     </div>
                 </div>
 
-                <div className="w-full md:w-auto">
+                {/* Filter - Desktop Position */}
+                <div className="hidden md:block w-full md:w-auto">
                     <CalendarFilter 
                         installers={installers}
                         users={users}
                         selectedInstallerIds={selectedInstallerIds}
                         selectedUserIds={selectedUserIds}
+                        showDeliveries={showDeliveries}
                         onInstallerChange={setSelectedInstallerIds}
                         onUserChange={setSelectedUserIds}
+                        onShowDeliveriesChange={setShowDeliveries}
                     />
                 </div>
             </div>
 
-            <div className="bg-surface p-6 rounded-lg shadow-md border border-border flex-1 flex flex-col min-h-0 relative">
+            {/* Mobile View: Agenda List (One week at a time) */}
+            <div className="md:hidden flex-1 flex flex-col gap-4">
+                {/* Week Navigation */}
+                <div className="flex justify-between items-center bg-surface p-3 rounded-lg border border-border shadow-sm">
+                    <button onClick={() => changeWeek(-1)} className="flex items-center text-sm font-medium text-text-secondary hover:text-primary">
+                        <ChevronLeft size={16} className="mr-1"/> Prev Week
+                    </button>
+                    <span className="text-sm font-bold text-text-primary">
+                        Week of {weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                    <button onClick={() => changeWeek(1)} className="flex items-center text-sm font-medium text-text-secondary hover:text-primary">
+                        Next Week <ChevronRight size={16} className="ml-1"/>
+                    </button>
+                </div>
+
+                {/* Daily Vertical Stack */}
+                <div className="space-y-4">
+                    {weekDays.map((d, i) => {
+                         const eventsForDay = getEventsForDay(d);
+                         const isTodayDate = isToday(d);
+                         
+                         return (
+                            <div key={i} className={`bg-surface border ${isTodayDate ? 'border-primary' : 'border-border'} rounded-lg shadow-sm overflow-hidden`}>
+                                <div className="flex justify-between items-center p-3 bg-background border-b border-border">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`text-lg font-bold w-8 h-8 flex items-center justify-center rounded-full ${isTodayDate ? 'bg-primary text-on-primary' : 'text-text-primary'}`}>
+                                            {d.getDate()}
+                                        </div>
+                                        <span className="font-semibold text-text-primary">
+                                            {d.toLocaleDateString(undefined, { weekday: 'long' })}
+                                        </span>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleDayClick(d)}
+                                        className="p-1.5 bg-secondary/10 text-secondary hover:bg-secondary/20 rounded-md transition-colors"
+                                    >
+                                        <Plus size={18} />
+                                    </button>
+                                </div>
+                                <div className="p-3 min-h-[60px]">
+                                    {eventsForDay.length > 0 ? (
+                                        eventsForDay.map(event => renderEventItem(event, d, 'list'))
+                                    ) : (
+                                        <p className="text-sm text-text-tertiary italic">No events scheduled</p>
+                                    )}
+                                </div>
+                            </div>
+                         );
+                    })}
+                </div>
+            </div>
+
+            {/* Desktop View: Traditional Grid */}
+            <div className="hidden md:flex bg-surface p-6 rounded-lg shadow-md border border-border flex-1 flex-col min-h-0 relative">
                 <div className="grid grid-cols-7 text-center font-semibold text-text-primary border-b border-border pb-2 mb-2">
                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
                 </div>
 
                 <div className="grid grid-cols-7 grid-rows-6 flex-1">
-                    {days.map((d, i) => {
+                    {monthDays.map((d, i) => {
                         const eventsForDay = getEventsForDay(d);
                         const isCurrentMonth = d.getMonth() === currentDate.getMonth();
                         

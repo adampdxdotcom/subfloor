@@ -87,17 +87,17 @@ const Layout: React.FC = () => {
         <div className="flex h-screen bg-background text-text-primary">
             <NavigationListener /> {/* <-- NEW: Place the listener here */}
             
-            <aside className="hidden md:flex w-64 bg-surface p-6 flex-col shrink-0">
+            <aside className="hidden lg:flex w-64 bg-surface p-6 flex-col shrink-0">
                 <SidebarContent />
             </aside>
 
             {isSidebarOpen && (
                 <>
                     <div 
-                        className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden" 
+                        className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden" 
                         onClick={() => setIsSidebarOpen(false)}
                     ></div>
-                    <aside className="fixed top-0 left-0 w-64 h-full bg-surface p-6 flex flex-col z-30 md:hidden">
+                    <aside className="fixed top-0 left-0 w-64 h-full bg-surface p-6 flex flex-col z-30 lg:hidden">
                         <SidebarContent />
                     </aside>
                 </>
@@ -107,7 +107,7 @@ const Layout: React.FC = () => {
                 {/* Header: Removed text-white, used text-text-primary to respect theme */}
                 <header className="bg-surface shadow-md p-4 flex justify-between items-center z-10 text-text-primary">
                     <button 
-                        className="p-2 rounded-md hover:bg-background md:hidden"
+                        className="p-2 rounded-md hover:bg-background lg:hidden"
                         onClick={() => setIsSidebarOpen(true)}
                     >
                         <Menu className="w-6 h-6" />
@@ -115,12 +115,14 @@ const Layout: React.FC = () => {
                     
                     {/* Logo removed from header to prevent duplication with sidebar */}
         
-                    <div className="flex-1 flex justify-center md:justify-start md:ml-4">
+                    <div className="flex-1 flex justify-center lg:justify-start md:ml-4 min-w-0 px-2">
                         <UniversalSearch />
                     </div>
                     
-                    <div className="flex items-center gap-4">
-                        <SystemStatusTicker />
+                    <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+                        <div className="hidden xl:block">
+                            <SystemStatusTicker />
+                        </div>
                         <UserStatus />
                     </div>
                 </header>

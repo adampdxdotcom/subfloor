@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Project, ProjectStatus, ProjectType, PROJECT_TYPES, Installer, SampleCheckout } from '../types';
 import { User, Mail, Phone, MapPin, PlusCircle, Edit, Briefcase, ChevronRight, History, Layers } from 'lucide-react';
-import EditCustomerModal from '../components/EditCustomerModal';
+import AddEditCustomerModal from '../components/AddEditCustomerModal';
 import CollapsibleSection from '../components/CollapsibleSection'; // <-- NEW IMPORT
 import ActivityHistory from '../components/ActivityHistory';     // <-- NEW IMPORT
 import { formatDate } from '../utils/dateUtils';
@@ -148,7 +148,7 @@ const CustomerDetail: React.FC = () => {
         transferSampleId={transferSampleId}
       />
 
-      <EditCustomerModal
+      <AddEditCustomerModal
         isOpen={isEditCustomerModalOpen}
         onClose={() => setIsEditCustomerModalOpen(false)}
         customer={customer}

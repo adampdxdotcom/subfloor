@@ -4,7 +4,7 @@ import { useProjects } from '../hooks/useProjects';
 import { useSampleCheckouts } from '../hooks/useSampleCheckouts';
 import { Link } from 'react-router-dom';
 import { PlusCircle, Search, User, Mail, Phone, MapPin, Briefcase } from 'lucide-react';
-import EditCustomerModal from '../components/EditCustomerModal';
+import AddEditCustomerModal from '../components/AddEditCustomerModal';
 import ProjectCarousel from '../components/ProjectCarousel'; 
 import { Project, ProjectStatus } from '../types';
 
@@ -166,7 +166,7 @@ const CustomerList: React.FC = () => {
         )}
       </div>
 
-      <EditCustomerModal 
+      <AddEditCustomerModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         customer={null}

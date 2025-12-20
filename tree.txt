@@ -1,230 +1,238 @@
 .
-|____.dockerignore
-|____.env
-|____.env.example
-|____.git
-   |____COMMIT_EDITMSG
-   |____FETCH_HEAD
-   |____HEAD
-   |____ORIG_HEAD
-   |____config
-   |____description
-   |____hooks
-      |____applypatch-msg.sample
-      |____commit-msg.sample
-      |____fsmonitor-watchman.sample
-      |____post-update.sample
-      |____pre-applypatch.sample
-      |____pre-commit.sample
-      |____pre-merge-commit.sample
-      |____pre-push.sample
-      |____pre-rebase.sample
-      |____pre-receive.sample
-      |____prepare-commit-msg.sample
-      |____push-to-checkout.sample
-      |____sendemail-validate.sample
-      |____update.sample
-   |____index
-   |____info
-      |____exclude
-      |____refs
-   |____logs
-      |____HEAD
-      |____refs
-         |____heads
-            |____main
-         |____remotes
-            |____origin
-               |____main
-   |____objects
-   |____refs
-      |____heads
-         |____main
-      |____remotes
-         |____origin
-            |____main
-      |____tags
-|____.gitignore
-|____App.tsx
-|____Dockerfile
-|____Dockerfile.dev
-|____README.md
-|____components
-|____context
-   |____DataContext.tsx
-|____docker-compose.dev.yml
-|____docker-compose.yml
-|____hooks
-   |____useChangeOrders.ts
-   |____useCustomers.ts
-   |____useInstallers.ts
-   |____useJobs.ts
-   |____useMaterialOrders.ts
-   |____useNotifications.ts
-   |____usePhotos.ts
-   |____useProducts.ts
-   |____useProjects.ts
-   |____useQuotes.ts
-   |____useSampleCheckouts.ts
-   |____useVendors.ts
-   |____useWindowSize.ts
-|____index.css
-|____index.html
-|____index.tsx
-|____metadata.json
-|____migrations
-   |____1765151641142_init-schema.cjs
-   |____1765151641815_transform_messages_to_conversations.cjs
-   |____1765151700000_add_mute_to_participants.cjs
-|____node_modules
-|____package-lock.json
-|____package.json
-|____pages
-   |____CalendarView.tsx
-   |____CustomerDetail.tsx
-   |____CustomerList.tsx
-   |____Dashboard.tsx
-   |____ImportData.tsx
-   |____InstallerDetail.tsx
-   |____InstallerList.tsx
-   |____KnowledgeBase.tsx
-   |____Messages.tsx
-   |____OrderDashboard.tsx
-   |____ProjectDetail.tsx
-   |____QuoteDetail.tsx
-   |____Reports.tsx
-   |____SampleLibrary.tsx
-   |____Settings.tsx
-   |____SetupWizard.tsx
-   |____VendorDetail.tsx
-   |____VendorList.tsx
-|____postcss.config.js
-|____project.txt
-|____project_1old.txt
-|____schema.sql
-|____server
-   |____db.js
-   |____email-templates
-      |____customerReminder.html
-      |____orderDamage.html
-      |____orderReceived.html
-      |____pastDueReminder.html
-      |____userInvite.html
-   |____index.js
-   |____lib
-      |____dbInit.js
-      |____emailService.js
-      |____imageProcessor.js
-      |____reportGenerator.js
-      |____reports.js
-      |____scheduler.js
-      |____setupService.js
-   |____make-admin.js
-   |____migrate-images.js
-   |____migrate-profiles.js
-   |____node_modules
-   |____package-lock.json
-   |____package.json
-   |____routes
-      |____backup.js
-      |____calendar.js
-      |____change-orders.js
-      |____customers.js
-      |____events.js
-      |____import.js
-      |____installers.js
-      |____jobNotes.js
-      |____jobs.js
-      |____kb.js
-      |____messages.js
-      |____notifications.js
-      |____orders.js
-      |____photos.js
-      |____preferences.js
-      |____products.js
-      |____projects.js
-      |____quotes.js
-      |____reminders.js
-      |____reportGenerator.js
-      |____reports.js
-      |____restore.js
-      |____roles.js
-      |____sampleCheckouts.js
-      |____search.js
-      |____setup.js
-      |____users.js
-      |____vendors.js
-   |____temp-uploads
-   |____uploads
-      |____.gitkeep
-      |____avatars
-         |____.gitkeep
-         |____avatar-51117396-0980-49c3-a5e2-64624d80bd84-1763561455785-832882225.png
-      |____branding
-         |____.gitkeep
-         |____favicon-1763653827118.png
-         |____logo-1763653815340.png
-         |____logo-1763654366165.png
-         |____logo-1763825080181.png
-         |____logo-1763825160367.png
-         |____logo-1763829676299.png
-         |____logo-1764857970590.png
-      |____jobs
-         |____.gitkeep
-         |____originals
-            |____file-1764531036782-121862548-Invoice_2501.pdf
-            |____file-1764531046781-673283799-ChatGPT_Image_Oct_26__2025__08_59_53_AM.png
-            |____photo-1764430134774-890495936.png
-            |____photo-1764430343853-476463788.jpg
-            |____photo-1764530942136-833522693.pdf
-         |____thumbnails
-            |____file-1764531046781-673283799-thumb.jpg
-            |____photo-1764430134774-890495936-thumb.jpg
-            |____photo-1764430343853-476463788-thumb.jpg
-      |____misc
-         |____originals
-            |____file-1765069869319-589601879-rosesPoster-853x1024.jpg
-            |____file-1765070988236-70287492-ChatGPT_Image_Oct_3__2025__06_44_49_PM.png
-            |____file-1765118762625-390960576-Invoice_2501.pdf
-         |____thumbnails
-            |____file-1765069869319-589601879-thumb.jpg
-            |____file-1765070988236-70287492-thumb.jpg
-      |____products
-         |____.gitkeep
-         |____originals
-         |____thumbnails
-   |____utils.js
-|____services
-   |____changeOrderService.ts
-   |____customerService.ts
-   |____eventService.ts
-   |____installerService.ts
-   |____jobNotesService.ts
-   |____jobService.ts
-   |____materialOrderService.ts
-   |____notificationService.ts
-   |____preferenceService.ts
-   |____productService.ts
-   |____projectService.ts
-   |____quoteService.ts
-   |____reportService.ts
-   |____sampleCheckoutService.ts
-   |____sampleService.ts
-   |____useSampleCheckouts.ts
-   |____userService.ts
-   |____vendorService.ts
-|____tailwind.config.js
-|____temp-uploads
-|____todo.txt
-|____tree.sh
-|____tree.txt
-|____tsconfig.json
-|____types.ts
-|____userauditplan.txt
-|____utils
-   |____changeFormatter.ts
-   |____cryptoUtils.ts
-   |____csvUtils.ts
-   |____dateUtils.ts
-   |____pricingUtils.ts
-|____vite.config.ts
+├── components
+│   ├── import
+│   │   ├── ColumnMapper.tsx
+│   │   ├── FileUploader.tsx
+│   │   └── ImportReview.tsx
+│   ├── kb
+│   │   ├── ArticleHistoryView.tsx
+│   │   ├── ArticleList.tsx
+│   │   ├── kbStyles.ts
+│   │   ├── MediaLibraryModal.tsx
+│   │   ├── ResizableImageNode.tsx
+│   │   ├── RichTextEditor.tsx
+│   │   └── suggestion.ts
+│   ├── reports
+│   │   ├── InstallerReportTable.tsx
+│   │   ├── JobReportTable.tsx
+│   │   ├── ProductReportTable.tsx
+│   │   └── ReportCharts.tsx
+│   ├── ActivityHistory.tsx
+│   ├── AddEditCustomerModal.tsx
+│   ├── AddEditInstallerModal.tsx
+│   ├── AddEditMaterialOrderModal.tsx
+│   ├── AddEditVendorModal.tsx
+│   ├── AddProjectModal.tsx
+│   ├── AddSampleInlineModal.tsx
+│   ├── BackupRestoreSection.tsx
+│   ├── BrandingSettingsSection.tsx
+│   ├── CalendarFilter.tsx
+│   ├── ChangeOrderSection.tsx
+│   ├── CollapsibleSection.tsx
+│   ├── CombinedRestoreForm.tsx
+│   ├── CustomerCarousel.tsx
+│   ├── CustomerSelector.tsx
+│   ├── DashboardEmailSettings.tsx
+│   ├── EditChangeOrderModal.tsx
+│   ├── EditProjectModal.tsx
+│   ├── FinalizeJobSection.tsx
+│   ├── GlobalProjectSelector.tsx
+│   ├── JobNotesSection.tsx
+│   ├── Layout.tsx
+│   ├── LiveThemePreview.tsx
+│   ├── LockedWidget.tsx
+│   ├── MaterialOrdersSection.tsx
+│   ├── MentionInput.tsx
+│   ├── ModalPortal.tsx
+│   ├── MySettingsSection.tsx
+│   ├── NavigationListener.tsx
+│   ├── OrderCarousel.tsx
+│   ├── PricingConfigurationSection.tsx
+│   ├── PrintableCheckout.tsx
+│   ├── PrintableLabel.tsx
+│   ├── PrintQueueModal.tsx
+│   ├── ProductCard.tsx
+│   ├── ProductDetailModal.tsx
+│   ├── ProductForm.tsx
+│   ├── ProjectCarousel.tsx
+│   ├── ProjectInfoHeader.tsx
+│   ├── ProjectPhotosSection.tsx
+│   ├── ProjectSelector.tsx
+│   ├── QrScanner.tsx
+│   ├── QuickCheckoutModal.tsx
+│   ├── QuotesSection.tsx
+│   ├── ReceiveOrderModal.tsx
+│   ├── RestoreForm.tsx
+│   ├── SampleCarousel.tsx
+│   ├── SampleCheckoutsSection.tsx
+│   ├── SampleDetailModal.tsx
+│   ├── SampleForm.tsx
+│   ├── SampleHistoryCard.tsx
+│   ├── SampleSelector.tsx
+│   ├── SizeManagement.tsx
+│   ├── SmartMessage.tsx
+│   ├── SystemEmailSettings.tsx
+│   ├── SystemStatusTicker.tsx
+│   ├── UniversalSearch.tsx
+│   ├── UserManagementSection.tsx
+│   ├── UserNotificationSettings.tsx
+│   ├── UserStatus.tsx
+│   ├── VariantGeneratorModal.tsx
+│   ├── VariantImageModal.tsx
+│   └── VendorCarousel.tsx
+├── context
+│   └── DataContext.tsx
+├── hooks
+│   ├── useChangeOrders.ts
+│   ├── useCustomers.ts
+│   ├── useHistory.ts
+│   ├── useInstallers.ts
+│   ├── useJobs.ts
+│   ├── useMaterialOrders.ts
+│   ├── useNotifications.ts
+│   ├── usePhotos.ts
+│   ├── useProducts.ts
+│   ├── useProjects.ts
+│   ├── useQuotes.ts
+│   ├── useSampleCheckouts.ts
+│   ├── useVendors.ts
+│   └── useWindowSize.ts
+├── migrations
+│   ├── migrations
+│   │   └── 1765220000000_add_supplier_to_vendors.cjs
+│   ├── 1765151641142_init-schema.cjs
+│   ├── 1765151641815_transform_messages_to_conversations.cjs
+│   ├── 1765151700000_add_mute_to_participants.cjs
+│   ├── 1765225000000_add_urls_to_vendors.cjs
+│   ├── 1765230000000_add_lvp_fields.cjs
+│   ├── 1765235000000_add_interest_variant.cjs
+│   ├── 1765241000000_backfill_missing_jobs.cjs
+│   ├── 1765251800000_calendar_and_notifications_schema_update.cjs
+│   ├── 1765352200000_installer_types.cjs
+│   ├── 1765363000000_link_appointments_to_quotes.cjs
+│   └── 1765474000000_update_sample_checkouts_targets.cjs
+├── pages
+│   ├── CalendarView.tsx
+│   ├── CustomerDetail.tsx
+│   ├── CustomerList.tsx
+│   ├── Dashboard.tsx
+│   ├── ImportData.tsx
+│   ├── InstallerDetail.tsx
+│   ├── InstallerList.tsx
+│   ├── KnowledgeBase.tsx
+│   ├── Messages.tsx
+│   ├── OrderDashboard.tsx
+│   ├── ProjectDetail.tsx
+│   ├── QuoteDetail.tsx
+│   ├── Reports.tsx
+│   ├── SampleLibrary.tsx
+│   ├── Settings.tsx
+│   ├── SetupWizard.tsx
+│   ├── VendorDetail.tsx
+│   └── VendorList.tsx
+├── server
+│   ├── email-templates
+│   │   ├── customerReminder.html
+│   │   ├── orderDamage.html
+│   │   ├── orderReceived.html
+│   │   ├── pastDueReminder.html
+│   │   ├── upcomingJobCustomer.html
+│   │   ├── upcomingJobLead.html
+│   │   └── userInvite.html
+│   ├── lib
+│   │   ├── dbInit.js
+│   │   ├── emailService.js
+│   │   ├── imageProcessor.js
+│   │   ├── reportGenerator.js
+│   │   ├── reports.js
+│   │   ├── scheduler.js
+│   │   └── setupService.js
+│   ├── routes
+│   │   ├── backup.js
+│   │   ├── calendar.js
+│   │   ├── change-orders.js
+│   │   ├── customers.js
+│   │   ├── events.js
+│   │   ├── import.js
+│   │   ├── installers.js
+│   │   ├── jobNotes.js
+│   │   ├── jobs.js
+│   │   ├── kb.js
+│   │   ├── messages.js
+│   │   ├── notifications.js
+│   │   ├── orders.js
+│   │   ├── photos.js
+│   │   ├── preferences.js
+│   │   ├── products.js
+│   │   ├── projects.js
+│   │   ├── quotes.js
+│   │   ├── reminders.js
+│   │   ├── reportGenerator.js
+│   │   ├── reports.js
+│   │   ├── restore.js
+│   │   ├── roles.js
+│   │   ├── sampleCheckouts.js
+│   │   ├── search.js
+│   │   ├── setup.js
+│   │   ├── users.js
+│   │   └── vendors.js
+│   ├── db.js
+│   ├── index.js
+│   ├── make-admin.js
+│   ├── migrate-images.js
+│   ├── migrate-profiles.js
+│   ├── package.json
+│   ├── package-lock.json
+│   └── utils.js
+├── services
+│   ├── changeOrderService.ts
+│   ├── customerService.ts
+│   ├── eventService.ts
+│   ├── installerService.ts
+│   ├── jobNotesService.ts
+│   ├── jobService.ts
+│   ├── materialOrderService.ts
+│   ├── notificationService.ts
+│   ├── preferenceService.ts
+│   ├── productService.ts
+│   ├── projectService.ts
+│   ├── quoteService.ts
+│   ├── reportService.ts
+│   ├── sampleCheckoutService.ts
+│   ├── sampleService.ts
+│   ├── userService.ts
+│   ├── useSampleCheckouts.ts
+│   └── vendorService.ts
+├── utils
+│   ├── changeFormatter.ts
+│   ├── cryptoUtils.ts
+│   ├── csvUtils.ts
+│   ├── dateUtils.ts
+│   └── pricingUtils.ts
+├── androidPlan.txt
+├── App.tsx
+├── docker-compose.dev.yml
+├── docker-compose.yml
+├── Dockerfile
+├── Dockerfile.dev
+├── index.css
+├── index.html
+├── index.tsx
+├── metadata.json
+├── package.json
+├── package-lock.json
+├── postcss.config.js
+├── project_1old.txt
+├── project.txt
+├── README.md
+├── schema.sql
+├── tailwind.config.js
+├── todo.txt
+├── tree.sh
+├── tree.txt
+├── tsconfig.json
+├── types.ts
+├── userauditplan.txt
+└── vite.config.ts
+
+16 directories, 220 files

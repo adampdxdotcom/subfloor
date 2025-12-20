@@ -1,12 +1,10 @@
-// pages/InstallerDetail.tsx
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Installer, SampleCheckout } from '../types';
 import { useData } from '../context/DataContext';
 // --- MODIFIED: Removed Trash2 icon ---
 import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History, Layers } from 'lucide-react';
-import EditInstallerModal from '../components/EditInstallerModal';
+import AddEditInstallerModal from '../components/AddEditInstallerModal'; // Corrected Import
 import CollapsibleSection from '../components/CollapsibleSection';
 import ActivityHistory from '../components/ActivityHistory';
 import SampleHistoryCard from '../components/SampleHistoryCard'; // <-- NEW IMPORT
@@ -192,7 +190,7 @@ const InstallerDetail: React.FC = () => {
       </div>
       
       {isEditModalOpen && (
-        <EditInstallerModal
+        <AddEditInstallerModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           installer={installer}

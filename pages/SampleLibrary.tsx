@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useProducts, useProductMutations } from '../hooks/useProducts';
 import { useGridColumns } from '../hooks/useWindowSize';
 import { useSampleCheckouts } from '../hooks/useSampleCheckouts';
-import { PlusCircle, Search, LayoutGrid, Archive } from 'lucide-react'; 
+import { PlusCircle, Search, LayoutGrid, Archive, X } from 'lucide-react'; 
 import { Product, PricingSettings } from '../types';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -153,13 +153,13 @@ const SampleLibrary: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="bg-surface p-6 rounded-lg shadow-md border border-border">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 w-full">
           <h1 className="text-3xl font-bold text-text-primary">Sample Library</h1>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full md:w-auto">
               <div className="bg-background p-1 rounded-lg flex items-center border border-border">
                   <button 
                     onClick={() => setViewMode('active')}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 md:py-1.5 rounded-md text-sm font-medium transition-all ${
                         viewMode === 'active' ? 'bg-surface shadow text-primary' : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
@@ -167,7 +167,7 @@ const SampleLibrary: React.FC = () => {
                   </button>
                   <button 
                     onClick={() => setViewMode('discontinued')}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 md:py-1.5 rounded-md text-sm font-medium transition-all ${
                         viewMode === 'discontinued' ? 'bg-surface shadow text-red-400' : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
@@ -178,7 +178,7 @@ const SampleLibrary: React.FC = () => {
               {/* REMOVED: Bulk Print Button */}
 
               {viewMode === 'active' && (
-                  <button onClick={() => setIsAddModalOpen(true)} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors shadow-md">
+                  <button onClick={() => setIsAddModalOpen(true)} className="flex items-center justify-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-3 md:py-2 px-4 rounded-lg transition-colors shadow-md">
                     <PlusCircle className="w-5 h-5 mr-2" />
                     Add Product
                   </button>
@@ -242,14 +242,21 @@ const SampleLibrary: React.FC = () => {
       </div>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold mb-6 text-text-primary">Create New Product Line</h2>
+        <div className="fixed inset-0 bg-black/75 flex justify-center z-50 overflow-y-auto">
+          <div className="bg-surface w-full min-h-full md:min-h-0 md:h-auto md:max-h-[90vh] md:max-w-3xl md:rounded-lg shadow-2xl flex flex-col border border-border md:my-auto relative" onClick={(e) => e.stopPropagation()}>
+            
+            <div className="p-4 border-b border-border flex justify-between items-center bg-background md:rounded-t-lg">
+                <h2 className="text-xl font-bold text-text-primary">Create New Product Line</h2>
+                <button onClick={resetAddModal} className="p-2 hover:bg-surface rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-grow">
             <ProductForm 
                 onSave={handleAddProduct} 
                 onCancel={resetAddModal} 
                 isSaving={isSaving} 
             />
+            </div>
           </div>
         </div>
       )}

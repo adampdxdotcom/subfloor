@@ -110,11 +110,12 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
     };
 
     return (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
-            <div className="bg-surface rounded-lg shadow-2xl w-full max-w-lg border border-border flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/75 z-50 overflow-y-auto">
+            <div className="flex h-full items-center justify-center p-0 lg:p-4">
+            <div className="bg-surface w-full h-full lg:h-auto lg:max-h-[90vh] lg:max-w-lg lg:rounded-lg shadow-2xl flex flex-col border border-border relative">
                 
                 {/* HEADER */}
-                <div className="p-4 border-b border-border flex justify-between items-center bg-background rounded-t-lg">
+                <div className="p-4 border-b border-border flex justify-between items-center bg-background lg:rounded-t-lg sticky top-0 z-10">
                     <div className="flex items-center gap-3">
                         {mode === 'DAMAGE' ? (
                             <AlertTriangle className="text-text-primary w-6 h-6" />
@@ -131,7 +132,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                 </div>
 
                 {/* BODY */}
-                <div className="p-6 overflow-y-auto">
+                <div className="p-6 overflow-y-auto flex-grow">
                     
                     {/* --- RECEIVE MODE --- */}
                     {mode === 'RECEIVE' && (
@@ -386,7 +387,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                 </div>
 
                 {/* FOOTER */}
-                <div className="p-4 border-t border-border bg-surface rounded-b-lg flex justify-end gap-3">
+                <div className="p-4 border-t border-border bg-surface lg:rounded-b-lg flex justify-end gap-3 shrink-0 sticky bottom-0 z-10 lg:static">
                     {mode === 'DAMAGE' ? (
                         <>
                             <button 
@@ -427,6 +428,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                     )}
                 </div>
 
+            </div>
             </div>
         </div>
     );

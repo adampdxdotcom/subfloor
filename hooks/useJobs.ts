@@ -31,6 +31,8 @@ export const useJobMutations = () => {
                 queryClient.invalidateQueries({ queryKey: ['job'] }); 
                 // Saving job details often updates Project Status (e.g., to SCHEDULED)
                 queryClient.invalidateQueries({ queryKey: ['projects'] });
+                // NEW: Update Order Dashboard if PO/Customer info changed
+                queryClient.invalidateQueries({ queryKey: ['material-orders'] });
             },
         }),
     };

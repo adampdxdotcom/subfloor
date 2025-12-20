@@ -4,7 +4,7 @@ import { useInstallers } from '../hooks/useInstallers';
 import { Installer } from '../types';
 // --- MODIFIED: Imported the Search icon ---
 import { PlusCircle, User, Mail, Phone, Edit, Briefcase, Search, Layers, Box } from 'lucide-react';
-import EditInstallerModal from '../components/EditInstallerModal'; // <-- NEW IMPORT
+import AddEditInstallerModal from '../components/AddEditInstallerModal'; // <-- NEW IMPORT // Renamed import alias
 
 const formatDateRange = (startDateStr: string, endDateStr: string): string => {
   const startDate = new Date(startDateStr);
@@ -165,7 +165,7 @@ const InstallerList: React.FC = () => {
       </div>
 
       {/* Use the reusable modal instead of hardcoded form */}
-      <EditInstallerModal 
+      <AddEditInstallerModal 
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         installer={editingInstaller}

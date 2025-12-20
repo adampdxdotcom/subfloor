@@ -7,7 +7,7 @@ import ProjectSelector from './ProjectSelector';
 import SampleSelector, { CheckoutItem } from './SampleSelector'; // Updated
 import { toast } from 'react-hot-toast';
 import { PrintableCheckout } from './PrintableCheckout';
-import EditCustomerModal from './EditCustomerModal';
+import AddEditCustomerModal from './AddEditCustomerModal';
 import AddSampleInlineModal from './AddSampleInlineModal';
 import Select from 'react-select';
 
@@ -140,7 +140,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black/75 z-50 overflow-y-auto">
         
         <div className="print-only">
           <PrintableCheckout 
@@ -154,20 +154,22 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
           />
         </div>
 
-        <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
-          <div className="flex justify-between items-center mb-6 no-print">
-            <h2 className="text-2xl font-bold text-text-primary">New Sample Checkout</h2>
-            <button onClick={handleClose} className="p-2 rounded-full hover:bg-background">
+        <div className="flex h-full items-center justify-center p-0 lg:p-4">
+        <div className="bg-surface w-full h-full lg:h-[90vh] lg:max-w-4xl lg:rounded-lg shadow-2xl flex flex-col border border-border relative">
+          
+          <div className="p-4 border-b border-border flex justify-between items-center bg-background lg:rounded-t-lg sticky top-0 z-20 no-print">
+            <h2 className="text-xl font-bold text-text-primary">New Sample Checkout</h2>
+            <button onClick={handleClose} className="p-2 rounded-full hover:bg-surface text-text-secondary hover:text-text-primary">
               <X className="w-6 h-6 text-text-primary" />
             </button>
           </div>
 
-          <fieldset disabled={checkoutComplete} className="flex-1 overflow-y-auto pr-4 space-y-8">
+          <fieldset disabled={checkoutComplete} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8">
             
             {/* 0. TARGET SELECTION */}
             <section>
                 <h3 className="text-lg font-semibold mb-4 text-text-primary">Who is this for?</h3>
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <button 
                         onClick={() => setCheckoutTarget('PROJECT')}
                         className={`p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${checkoutTarget === 'PROJECT' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-text-secondary hover:border-primary/50'}`}
@@ -312,16 +314,16 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
             )}
           </fieldset>
 
-          <div className="mt-8 pt-6 border-t border-border flex justify-end gap-4 no-print">
+          <div className="p-4 border-t border-border bg-background lg:rounded-b-lg flex justify-end gap-4 no-print sticky bottom-0 z-20 lg:static">
             {checkoutComplete ? (
               <>
-                <button type="button" onClick={handleClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">
+                <button type="button" onClick={handleClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-medium">
                   Close
                 </button>
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="py-2 px-6 bg-accent hover:bg-accent-hover rounded text-on-accent flex items-center gap-2"
+                  className="py-2 px-6 bg-accent hover:bg-accent-hover rounded text-on-accent flex items-center gap-2 font-medium"
                 >
                   <Printer size={18} />
                   Print Summary
@@ -329,14 +331,14 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
               </>
             ) : (
               <>
-                <button type="button" onClick={handleClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary" disabled={isSubmitting}>
+                <button type="button" onClick={handleClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-medium" disabled={isSubmitting}>
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleFinishCheckout}
                   disabled={!((checkoutTarget === 'PROJECT' && selectedProject) || (checkoutTarget === 'CUSTOMER' && selectedCustomer) || (checkoutTarget === 'INSTALLER' && selectedInstaller)) || checkoutItems.length === 0 || isSubmitting}
-                  className="py-2 px-6 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled-cursor-not-allowed"
+                  className="py-2 px-6 bg-primary hover:bg-primary-hover rounded text-on-primary font-bold disabled:opacity-50 disabled-cursor-not-allowed shadow-md"
                 >
                   {isSubmitting ? 'Checking Out...' : `Finish Checkout (${checkoutItems.length})`}
                 </button>
@@ -344,9 +346,10 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
             )}
           </div>
         </div>
+        </div>
       </div>
       
-      <EditCustomerModal
+      <AddEditCustomerModal
         isOpen={isAddCustomerModalOpen}
         onClose={() => setIsAddCustomerModalOpen(false)}
         customer={null}

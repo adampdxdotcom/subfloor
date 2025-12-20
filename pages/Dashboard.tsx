@@ -143,7 +143,7 @@ const Dashboard: React.FC = () => {
         </div>
         
         <div className="border-t border-border pt-4">
-            <div className="flex items-center space-x-2 overflow-x-auto pb-2 no-scrollbar">
+            <div className="flex items-center space-x-2 overflow-x-auto pb-2 no-scrollbar after:content-[''] after:min-w-[1rem]">
                 <button 
                   onClick={() => setIsFilterVisible(!isFilterVisible)} 
                   className="flex items-center space-x-2 p-2 rounded-md hover:bg-background transition-colors cursor-pointer mr-2"

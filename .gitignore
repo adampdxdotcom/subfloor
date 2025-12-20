@@ -20,6 +20,7 @@ Dockerfile.prod
 tree.txt
 project_1old.txt
 project.txt
+androidPlan.txt
 
 # IDE and OS files
 .DS_Store

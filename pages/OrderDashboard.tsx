@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import { useProjects } from '../hooks/useProjects';
 import { useMaterialOrders, useMaterialOrderMutations } from '../hooks/useMaterialOrders';
 import { Project, MaterialOrder } from '../types';
-import { Package, AlertTriangle, CheckCircle, Clock, Search, Plus, Truck, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle, Clock, Search, Plus, Truck, ChevronDown, ChevronUp, Eye, EyeOff, Edit2 } from 'lucide-react';
 import ReceiveOrderModal from '../components/ReceiveOrderModal';
 import AddEditMaterialOrderModal from '../components/AddEditMaterialOrderModal';
+import ModalPortal from '../components/ModalPortal';
 
 // Helper to group orders by project
 interface ProjectOrders {
@@ -26,6 +27,9 @@ const OrderDashboard: React.FC = () => {
     // State for "Add Order" Modal
     const [isAddOrderModalOpen, setIsAddOrderModalOpen] = useState(false);
     const [activeProjectForAdd, setActiveProjectForAdd] = useState<number | null>(null);
+    
+    // State for "Edit Order" Modal
+    const [editingOrder, setEditingOrder] = useState<MaterialOrder | null>(null);
 
     // Filter State
     const [showReceived, setShowReceived] = useState(false);
@@ -212,13 +216,24 @@ const OrderDashboard: React.FC = () => {
                                         }`}>
                                             <div className="flex justify-between items-start mb-2">
                                                 <span className="font-semibold text-text-primary text-sm truncate max-w-[60%]">{order.supplierName || 'Unknown Supplier'}</span>
-                                                {order.status === 'Received' ? (
-                                                    <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle size={10} /> Received</span>
-                                                ) : order.status === 'Damage Replacement' ? (
-                                                    <span className="text-xs font-bold text-red-500 flex items-center gap-1"><AlertTriangle size={10} /> Replacement</span>
-                                                ) : (
-                                                    <span className="text-xs font-bold text-primary flex items-center gap-1"><Clock size={10} /> Ordered</span>
-                                                )}
+                                                <div className="flex items-center">
+                                                    {order.status === 'Received' ? (
+                                                        <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle size={10} /> Received</span>
+                                                    ) : order.status === 'Damage Replacement' ? (
+                                                        <span className="text-xs font-bold text-red-500 flex items-center gap-1"><AlertTriangle size={10} /> Replacement</span>
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-primary flex items-center gap-1"><Clock size={10} /> Ordered</span>
+                                                    )}
+                                                    
+                                                    {/* EDIT BUTTON */}
+                                                    <button 
+                                                        onClick={() => setEditingOrder(order)}
+                                                        className="p-1 text-text-tertiary hover:text-primary hover:bg-background rounded transition-colors ml-2"
+                                                        title="Edit Order Details"
+                                                    >
+                                                        <Edit2 size={12} />
+                                                    </button>
+                                                </div>
                                             </div>
                                             
                                             {/* ENHANCED DATE DISPLAY */}
@@ -287,22 +302,37 @@ const OrderDashboard: React.FC = () => {
 
             {/* Modals */}
             {receivingOrder && (
-                <ReceiveOrderModal 
-                    isOpen={!!receivingOrder}
-                    onClose={() => setReceivingOrder(null)}
-                    order={receivingOrder}
-                    onReceive={handleReceiveWrapper}
-                    onReportDamage={handleDamageWrapper}
-                />
+                <ModalPortal>
+                    <ReceiveOrderModal 
+                        isOpen={!!receivingOrder}
+                        onClose={() => setReceivingOrder(null)}
+                        order={receivingOrder}
+                        onReceive={handleReceiveWrapper}
+                        onReportDamage={handleDamageWrapper}
+                    />
+                </ModalPortal>
             )}
 
             {isAddOrderModalOpen && (
-                <AddEditMaterialOrderModal 
-                    isOpen={isAddOrderModalOpen}
-                    onClose={() => setIsAddOrderModalOpen(false)}
-                    editingOrder={null}
-                    initialProjectId={activeProjectForAdd} // This might be null if using global add button
-                />
+                <ModalPortal>
+                    <AddEditMaterialOrderModal 
+                        isOpen={isAddOrderModalOpen}
+                        onClose={() => setIsAddOrderModalOpen(false)}
+                        editingOrder={null}
+                        initialProjectId={activeProjectForAdd} // This might be null if using global add button
+                    />
+                </ModalPortal>
+            )}
+            
+            {/* EDIT Modal */}
+            {editingOrder && (
+                <ModalPortal>
+                    <AddEditMaterialOrderModal 
+                        isOpen={!!editingOrder}
+                        onClose={() => setEditingOrder(null)}
+                        editingOrder={editingOrder}
+                    />
+                </ModalPortal>
             )}
         </div>
     );

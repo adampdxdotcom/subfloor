@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* MOBILE APP CONFIGURATION */
+:root {
+  /* Define Safe Area variables for the Notch and Home Bar */
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
+  --safe-right: env(safe-area-inset-right);
+}
+
+html, body {
+  /* Prevent "Rubber Banding" (Pull-to-refresh feel) */
+  overscroll-behavior-y: none;
+  /* Prevent text selection (optional, makes it feel more app-like) */
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* === GLOBAL THEME VARIABLES === */
 :root {
   /* --- Brand Identity --- */
@@ -215,4 +231,11 @@ body > div[style*="position: absolute"] {
 
 div[style*="z-index: 99999"] {
     z-index: 2147483647 !important;
+}
+/* Prevent iOS Auto-Zoom on inputs */
+
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { Product, ProductVariant, SAMPLE_TYPES, SampleType } from '../types';
-import { Layers, ScanLine, X, Search, PlusCircle, ChevronRight, AlertCircle } from 'lucide-react';
+import { Layers, ScanLine, X, Search, PlusCircle, ChevronRight, AlertCircle, Lock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import QrScanner from './QrScanner';
 
@@ -23,7 +23,7 @@ interface SampleSelectorProps {
 }
 
 const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onRequestNewSample, externalSelectedProduct }) => {
-  const { products } = useData();
+  const { products, sampleCheckouts } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<CheckoutItem[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -31,6 +31,17 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [interestVariantId, setInterestVariantId] = useState<string>('');
+
+  // INVENTORY CHECK: Set of Variant IDs that are currently OUT
+  const checkedOutVariantIds = useMemo(() => {
+      const outIds = new Set<string>();
+      sampleCheckouts.forEach(checkout => {
+          if (checkout.actualReturnDate === null) {
+              outIds.add(String(checkout.variantId));
+          }
+      });
+      return outIds;
+  }, [sampleCheckouts]);
 
   const searchResults = useMemo(() => {
     if (searchTerm.length < 2) return [];
@@ -85,6 +96,12 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
       const interestVariant = pendingProduct.variants.find(v => v.id === interestVariantId);
       
       if (!variant || !interestVariant) return;
+      
+      // Final sanity check before adding
+      if (checkedOutVariantIds.has(String(variant.id))) {
+          toast.error("This physical sample is currently checked out.");
+          return;
+      }
 
       const newItem: CheckoutItem = {
           variantId: variant.id,
@@ -135,6 +152,12 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
         if (productId) {
             foundProduct = products.find(p => String(p.id) === String(productId));
         } else if (variantId) {
+            // Check inventory before finding product
+            if (checkedOutVariantIds.has(String(variantId))) {
+                toast.error("This sample is already checked out!");
+                return;
+            }
+            
             for (const p of products) {
                 if (p.variants.some(v => String(v.id) === String(variantId))) {
                     foundProduct = p;
@@ -221,7 +244,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                                 className="p-3 bg-background hover:bg-surface border border-border rounded-lg cursor-pointer flex justify-between items-center group"
                             >
                                 <div>
-                                    <p className="font-bold text-text-primary">{product.name}</p>
+                                    <p className="font-bold text-lg text-text-primary">{product.name}</p>
                                     <p className="text-xs text-text-secondary">{product.manufacturerName}</p>
                                 </div>
                                 <ChevronRight size={16} className="text-text-tertiary group-hover:text-primary" />
@@ -269,11 +292,18 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                                 {pendingProduct.variants
                                     .filter(v => !v.isMaster) 
                                     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-                                    .map(v => (
-                                    <option key={v.id} value={v.id} className="py-1">
-                                        {v.name} {v.size ? `(${v.size})` : ''}
+                                    .map(v => {
+                                        // NOTE: We check inventory on the physical sample (v.id), 
+                                        // but logic says we select INTEREST here. 
+                                        // If this variant *is* the sample (Inventory V2 logic), we lock it.
+                                        const isOut = checkedOutVariantIds.has(String(v.id));
+                                        
+                                        return (
+                                    <option key={v.id} value={v.id} disabled={isOut} className={`py-1 flex justify-between ${isOut ? 'text-red-400 opacity-70 bg-red-500/10' : ''}`}>
+                                        {v.name} {v.size ? `(${v.size})` : ''} {isOut ? '(Out)' : ''}
                                     </option>
-                                ))}
+                                        );
+                                    })}
                             </select>
                             )}
                             {!interestVariantId && (
@@ -293,7 +323,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                             </button>
                             <button 
                                 onClick={confirmAddItem}
-                                disabled={!interestVariantId}
+                                disabled={!interestVariantId || checkedOutVariantIds.has(selectedVariantId)} // Disable if physical sample is out
                                 className="flex-[2] py-3 bg-primary hover:bg-primary-hover disabled:bg-gray-400 text-on-primary font-bold rounded-lg shadow-md transition-all whitespace-nowrap"
                             >
                                 {interestVariantId ? 'Add to List' : 'Select a Style'}

@@ -29,9 +29,9 @@ const getFullOrderById = async (orderId, client = pool) => {
             mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, 
             mo.order_date, mo.eta_date, mo.date_received, mo.purchaser_type, mo.status, mo.notes, mo.parent_order_id,
             p.project_name,
-            j.po_number,
+            COALESCE(j.po_number, q_data.po_number) as po_number,
             c.full_name as customer_name, c.email as customer_email,
-            i.installer_name, i.contact_email as installer_email,
+            q_data.installer_name, q_data.contact_email as installer_email,
             COALESCE(
                 (SELECT json_agg(json_build_object(
                     'id', oli.id, 'quantity', oli.quantity, 'unit', oli.unit, 'totalCost', oli.total_cost, 
@@ -55,13 +55,13 @@ const getFullOrderById = async (orderId, client = pool) => {
         JOIN customers c ON p.customer_id = c.id
         -- Attempt to find the assigned installer via an Accepted Quote
         LEFT JOIN LATERAL (
-            SELECT i.installer_name, i.contact_email
+            SELECT i.installer_name, i.contact_email, q.po_number
             FROM quotes q
             JOIN installers i ON q.installer_id = i.id
             WHERE q.project_id = p.id AND q.status = 'Accepted'
             ORDER BY q.id DESC
             LIMIT 1
-        ) i ON true
+        ) q_data ON true
         WHERE mo.id = $1;
     `;
     const result = await client.query(query, [orderId]);
@@ -77,9 +77,9 @@ router.get('/', verifySession(), async (req, res) => {
             mo.id, mo.project_id, mo.supplier_id, v.name as supplier_name, 
             mo.order_date, mo.eta_date, mo.date_received, mo.purchaser_type, mo.status, mo.notes, mo.parent_order_id,
             p.project_name,
-            j.po_number,
+            COALESCE(j.po_number, q_data.po_number) as po_number,
             c.full_name as customer_name, c.email as customer_email,
-            i.installer_name, i.contact_email as installer_email,
+            q_data.installer_name, q_data.contact_email as installer_email,
             COALESCE(
                 (
                     SELECT json_agg(json_build_object(
@@ -104,13 +104,13 @@ router.get('/', verifySession(), async (req, res) => {
         LEFT JOIN jobs j ON j.project_id = p.id
         JOIN customers c ON p.customer_id = c.id
         LEFT JOIN LATERAL (
-            SELECT i.installer_name, i.contact_email
+            SELECT i.installer_name, i.contact_email, q.po_number
             FROM quotes q
             JOIN installers i ON q.installer_id = i.id
             WHERE q.project_id = p.id AND q.status = 'Accepted'
             ORDER BY q.id DESC
             LIMIT 1
-        ) i ON true
+        ) q_data ON true
     `;
 
     try {

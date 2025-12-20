@@ -106,7 +106,7 @@ const ProjectCarousel = ({ title, projects }: { title: string, projects: Project
         <div className="mb-12">
             <h2 className="text-2xl font-semibold mb-4 text-text-primary">{title}</h2>
             {projects.length > 0 ? (
-                <div className="flex gap-6 overflow-x-auto pb-4">
+                <div className="flex gap-6 overflow-x-auto pb-4 after:content-[''] after:min-w-[1rem]">
                     {projects.map(project => (
                         <ProjectCard key={project.id} project={project} />
                     ))}

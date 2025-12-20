@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { Installer } from '../types';
 import { toast } from 'react-hot-toast';
-import { Trash2 } from 'lucide-react';
+import { Trash2, X, HardHat } from 'lucide-react';
 
 interface EditInstallerModalProps {
   isOpen: boolean;
@@ -19,7 +19,7 @@ const initialFormState = {
   type: 'Managed' as 'Managed' | 'Unmanaged'
 };
 
-const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose, installer, initialData }) => {
+const AddEditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose, installer, initialData }) => {
   const { addInstaller, updateInstaller, deleteInstaller } = useData();
   const [formData, setFormData] = useState(initialFormState);
   const [isSaving, setIsSaving] = useState(false);
@@ -99,11 +99,21 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md border border-border">
-        <h2 className="text-2xl font-bold mb-6 text-text-primary">{installer ? 'Edit Installer' : 'Add Installer'}</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
+      {/* Mobile: Full Screen, Desktop: Modal Card */}
+      <div className="bg-surface w-full h-full md:h-auto md:max-w-md md:rounded-lg shadow-2xl flex flex-col border border-border">
+        
+        {/* Header */}
+        <div className="p-4 border-b border-border flex justify-between items-center bg-background md:rounded-t-lg">
+            <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                <HardHat className="text-primary" />
+                {installer ? 'Edit Installer' : 'New Installer'}
+            </h2>
+            <button onClick={onClose} className="p-2 hover:bg-surface rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col h-full md:h-auto">
+          <div className="p-6 space-y-4 flex-grow overflow-y-auto">
             <input 
                 type="text" 
                 name="installerName" 
@@ -125,6 +135,8 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
                 <option value="Unmanaged">Unmanaged Installer (Sub)</option>
             </select>
 
+            {/* Contact Info */}
+            <div className="space-y-4 pt-2">
             <input 
                 type="email" 
                 name="contactEmail" 
@@ -141,18 +153,24 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
                 onChange={handleInputChange} 
                 className="w-full p-2 bg-background border border-border rounded text-text-primary placeholder-text-secondary" 
             />
-            <div className="flex items-center gap-4">
-                <label htmlFor="color" className="text-text-secondary">Calendar Color:</label>
-                <input 
-                    type="color" 
-                    name="color" 
-                    value={formData.color} 
-                    onChange={handleInputChange} 
-                    className="h-10 w-16 p-1 bg-background border border-border rounded cursor-pointer" 
-                />
+            </div>
+            
+            <div className="pt-4 border-t border-border mt-4">
+                <div className="flex items-center justify-between">
+                    <label htmlFor="color" className="text-sm font-medium text-text-secondary">Calendar Color</label>
+                    <input 
+                        type="color" 
+                        name="color" 
+                        value={formData.color} 
+                        onChange={handleInputChange} 
+                        className="h-10 w-20 p-1 bg-background border border-border rounded cursor-pointer" 
+                    />
+                </div>
             </div>
           </div>
-          <div className="flex items-center justify-end space-x-4 mt-6">
+
+          {/* Footer Actions */}
+          <div className="p-4 border-t border-border bg-background md:rounded-b-lg flex justify-end gap-3 shrink-0">
             {installer && (
                 <button
                   type="button"
@@ -164,14 +182,6 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
                   {isDeleting ? 'Deleting...' : 'Delete'}
                 </button>
             )}
-            <button 
-                type="button" 
-                onClick={onClose} 
-                className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary" 
-                disabled={isSaving || isDeleting}
-            >
-              Cancel
-            </button>
             <button 
                 type="submit" 
                 className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary" 
@@ -186,4 +196,4 @@ const EditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose
   );
 };
 
-export default EditInstallerModal;
+export default AddEditInstallerModal;

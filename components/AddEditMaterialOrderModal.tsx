@@ -206,7 +206,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             setLineItems([]);
             setNotes('');
         }
-    }, [editingOrder, isOpen, initialProjectId, products, vendors, fetchMaterialOrderHistory, prefillData, pricingSettings, purchaserType]);
+    }, [editingOrder, isOpen, initialProjectId, products, vendors, fetchMaterialOrderHistory, prefillData, pricingSettings]);
 
 
     const handleSupplierSelect = (vendorId: number) => {
@@ -238,6 +238,29 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
     const handleSelectSearchItem = (product: Product, variant: ProductVariant) => {
         setSelectedSearchItem({ product, variant });
         setSearchTerm(formatVariantName(product.name, variant.name, variant.size));
+    };
+
+    // NEW: Handle switching purchaser type and recalculating prices
+    const handlePurchaserChange = (type: 'Customer' | 'Installer') => {
+        setPurchaserType(type);
+
+        if (pricingSettings && lineItems.length > 0) {
+            setLineItems(prev => prev.map(item => {
+                // Only recalculate if we have a base cost to work from
+                if (item.variant.unitCost) {
+                    const vendorId = item.product.supplierId || item.product.manufacturerId;
+                    const vendor = vendors.find(v => v.id === vendorId);
+                    
+                    const rules = getActivePricingRules(vendor, pricingSettings, type);
+                    const newPrice = calculatePrice(Number(item.variant.unitCost), rules.percentage, rules.method);
+                    const newPriceStr = newPrice.toFixed(2);
+                    const qty = parseFloat(item.quantity) || 0;
+
+                    return { ...item, unitSellPrice: newPriceStr, totalCost: (qty * newPrice).toFixed(2) };
+                }
+                return item;
+            }));
+        }
     };
 
     // --- Add Line Item Logic ---
@@ -388,18 +411,20 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
         : `Create Material Order ${currentProject?.projectName ? `for ${currentProject.projectName}` : ''}`;
 
     return (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
-            <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-border">
+        <div className="fixed inset-0 z-[60] bg-black/75 overflow-y-auto">
+            <div className="block w-full h-full lg:flex lg:items-center lg:justify-center lg:p-4 lg:min-h-full">
+            <div className="bg-surface w-full min-h-full lg:min-h-0 lg:h-auto lg:max-h-[90vh] lg:max-w-4xl lg:rounded-lg shadow-2xl flex flex-col border border-border relative">
                 {/* Header */}
-                <div className="flex justify-between items-center mb-6 border-b border-border pb-4">
+                <div className="p-4 md:p-6 border-b border-border flex justify-between items-center bg-background lg:rounded-t-lg sticky top-0 z-10">
                     <h2 className="text-2xl font-bold text-text-primary flex items-center gap-2">
                         <PackageIcon className="text-primary" />
                         {titleText}
                     </h2>
-                    <button onClick={onClose} className="text-text-secondary hover:text-text-primary"><X size={24} /></button>
+                    <button onClick={onClose} className="p-2 hover:bg-surface rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
                 </div>
 
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
+                    <div className="p-6 overflow-y-auto flex-grow">
                     {/* Project Selector */}
                     {!initialProjectId && !editingOrder && (
                         <div className="mb-6">
@@ -438,8 +463,8 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Purchaser</label>
                             <div className="flex bg-background p-1 rounded-lg border border-border">
-                                <button type="button" onClick={() => setPurchaserType('Customer')} className={`flex-1 py-1 px-3 rounded text-sm font-medium transition-colors ${purchaserType === 'Customer' ? 'bg-accent text-on-accent' : 'text-text-secondary hover:text-text-primary'}`}>Customer</button>
-                                <button type="button" onClick={() => setPurchaserType('Installer')} className={`flex-1 py-1 px-3 rounded text-sm font-medium transition-colors ${purchaserType === 'Installer' ? 'bg-primary text-on-primary' : 'text-text-secondary hover:text-text-primary'}`}>Installer</button>
+                                <button type="button" onClick={() => handlePurchaserChange('Customer')} className={`flex-1 py-1 px-3 rounded text-sm font-medium transition-colors ${purchaserType === 'Customer' ? 'bg-accent text-on-accent' : 'text-text-secondary hover:text-text-primary'}`}>Customer</button>
+                                <button type="button" onClick={() => handlePurchaserChange('Installer')} className={`flex-1 py-1 px-3 rounded text-sm font-medium transition-colors ${purchaserType === 'Installer' ? 'bg-primary text-on-primary' : 'text-text-secondary hover:text-text-primary'}`}>Installer</button>
                             </div>
                         </div>
                         <div className="md:col-span-2">
@@ -459,18 +484,18 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                                 const uom = item.variant.uom || 'SF';
                                 
                                 return (
-                                    <div key={item.variant.id} className="bg-surface border border-border p-2 rounded mb-2">
-                                        <div className="grid grid-cols-[1.5fr,1fr,auto,auto,auto,auto,auto] items-end gap-2">
+                                    <div key={item.variant.id} className="bg-surface border border-border p-3 rounded mb-3 relative">
+                                        <div className="grid grid-cols-2 md:grid-cols-[1.5fr,1fr,auto,auto,auto,auto,auto] items-end gap-3 md:gap-2">
                                             {/* Product Name */}
-                                            <div className="flex flex-col overflow-hidden">
+                                            <div className="flex flex-col overflow-hidden col-span-2 md:col-span-1 pr-6 md:pr-0">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">Product</label>
-                                                <span className="text-sm text-text-primary truncate font-medium" title={formatVariantName(item.product.name, item.variant.name, item.variant.size)}>
+                                                <span className="text-sm text-text-primary md:truncate font-medium leading-tight" title={formatVariantName(item.product.name, item.variant.name, item.variant.size)}>
                                                     {formatVariantName(item.product.name, item.variant.name, item.variant.size)}
                                                 </span>
                                             </div>
 
                                             {/* SKU Display */}
-                                            <div className="flex flex-col">
+                                            <div className="flex flex-col col-span-2 md:col-span-1">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">SKU</label>
                                                 <span className="text-sm text-text-secondary p-1 bg-background rounded border border-border truncate">
                                                     {item.variant.sku || '-'}
@@ -479,25 +504,25 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
 
                                             <div className="flex flex-col">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">Qty</label>
-                                                <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(index, 'quantity', e.target.value)} className="w-16 p-1 bg-background border-border rounded text-sm text-text-primary" />
+                                                <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(index, 'quantity', e.target.value)} className="w-full md:w-16 p-1 bg-background border-border rounded text-sm text-text-primary" />
                                             </div>
 
                                             <div className="flex flex-col">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">Unit</label>
-                                                <select value={item.unit} onChange={e => updateLineItem(index, 'unit', e.target.value as Unit)} className="p-1 bg-background border-border rounded text-sm appearance-none text-center w-16 text-text-primary">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
+                                                <select value={item.unit} onChange={e => updateLineItem(index, 'unit', e.target.value as Unit)} className="w-full md:w-16 p-1 bg-background border-border rounded text-sm appearance-none text-center text-text-primary">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
                                             </div>
                                             
                                             <div className="flex flex-col">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">Price</label>
-                                                <input type="number" step="0.01" placeholder="Price" value={item.unitSellPrice || ''} onChange={e => updateLineItem(index, 'unitSellPrice', e.target.value)} className="w-20 p-1 bg-background border-border rounded text-sm font-semibold text-green-400" />
+                                                <input type="number" step="0.01" placeholder="Price" value={item.unitSellPrice || ''} onChange={e => updateLineItem(index, 'unitSellPrice', e.target.value)} className="w-full md:w-20 p-1 bg-background border-border rounded text-sm font-semibold text-green-400" />
                                             </div>
 
                                             <div className="flex flex-col">
                                                 <label className="text-[9px] text-text-secondary uppercase mb-1">Total</label>
-                                                <input type="number" step="0.01" placeholder="Total" value={item.totalCost} onChange={e => updateLineItem(index, 'totalCost', e.target.value)} className="w-24 p-1 bg-background border-border rounded text-sm text-text-primary" />
+                                                <input type="number" step="0.01" placeholder="Total" value={item.totalCost} onChange={e => updateLineItem(index, 'totalCost', e.target.value)} className="w-full md:w-24 p-1 bg-background border-border rounded text-sm text-text-primary" />
                                             </div>
                                             
-                                            <button type="button" onClick={() => handleRemoveLineItem(item.variant.id)} className="text-red-400 hover:text-red-600 mb-1"><XCircle size={18}/></button>
+                                            <button type="button" onClick={() => handleRemoveLineItem(item.variant.id)} className="absolute top-2 right-2 md:static md:mb-1 text-red-400 hover:text-red-600"><XCircle size={20}/></button>
                                         </div>
 
                                         {/* Carton Calc */}
@@ -507,7 +532,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                                                     type="button" 
                                                     onClick={() => handleConvertToCartons(index)}
                                                     disabled={parseFloat(item.quantity) <= 0}
-                                                    className="flex items-center text-xs px-2 py-1 rounded text-accent hover:text-on-accent bg-accent/10 hover:bg-accent/20 cursor-pointer"
+                                                    className="flex items-center text-xs px-3 py-2 rounded-md font-bold text-on-accent bg-accent hover:bg-accent-hover shadow-sm transition-colors mt-2 md:mt-0"
                                                     title={`Click to convert ${item.quantity} ${item.unit} into full cartons`}
                                                 >
                                                     <Calculator size={12} className="mr-1" />
@@ -515,7 +540,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                                                         ? `Convert to ${Math.ceil(parseFloat(item.quantity) / cartonSize)} Cartons`
                                                         : "Convert to Cartons"
                                                     }
-                                                    <span className="text-text-secondary ml-1">({cartonSize} {uom}/box)</span>
+                                                    <span className="opacity-80 font-normal ml-1">({cartonSize} {uom}/box)</span>
                                                 </button>
                                             </div>
                                         )}
@@ -527,7 +552,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                         {/* Search Bar */}
                         <div className="flex gap-2">
                             <div className="relative flex-grow">
-                                <input type="text" placeholder="Search for product to add..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedSearchItem(null); }} className="w-full p-2 bg-background border-border rounded text-text-primary" />
+                                <input type="text" placeholder="Search for product to add..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedSearchItem(null); }} className="w-full p-2 bg-background border-2 border-primary/30 focus:border-primary rounded text-text-primary" />
                                 
                                 {searchTerm && !selectedSearchItem && (
                                     <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-60 overflow-y-auto shadow-xl">
@@ -557,12 +582,14 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
                             </CollapsibleSection>
                         </div>
                     )}
+                    </div>
 
-                    <div className="flex justify-end space-x-4 mt-8 border-t border-border pt-6">
-                        <button type="button" onClick={onClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button>
+                    <div className="p-4 md:p-6 border-t border-border bg-background lg:rounded-b-lg flex justify-end gap-4 shrink-0 sticky bottom-0 z-10 lg:static">
+                        <button type="button" onClick={onClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-medium">Cancel</button>
                         <button type="submit" disabled={isSaving || !selectedProjectId} className="py-2 px-4 bg-primary hover:bg-secondary rounded text-on-primary disabled:opacity-50">{isSaving ? 'Saving...' : (editingOrder ? 'Save Changes' : 'Create Order')}</button>
                     </div>
                 </form>
+            </div>
             </div>
             
             <AddEditVendorModal isOpen={isVendorModalOpen} onClose={() => setIsVendorModalOpen(false)} onSave={async (v) => { await addVendor(v); setIsVendorModalOpen(false); }} initialVendorType='Supplier' />

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { Customer } from '../types';
 import { toast } from 'react-hot-toast';
-import { Trash2 } from 'lucide-react';
+import { Trash2, X, User } from 'lucide-react';
 
 interface FormErrors {
   fullName?: string;
@@ -61,7 +61,7 @@ const validateForm = (
   return newErrors;
 };
 
-const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, customer, initialData, onSaveSuccess }) => {
+const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, customer, initialData, onSaveSuccess }) => {
   const { addCustomer, updateCustomer, deleteCustomer, currentUser } = useData();
   const [formData, setFormData] = useState(initialFormState);
   const [confirmEmail, setConfirmEmail] = useState('');
@@ -165,15 +165,19 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
   const isSaveDisabled = isSaving || isDeleting || Object.keys(errors).length > 0;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md border border-border">
+    <div className="fixed inset-0 bg-black/75 flex justify-center z-50 overflow-y-auto">
+      <div className="bg-surface w-full min-h-full md:min-h-0 md:h-auto md:max-h-[90vh] md:max-w-md md:rounded-lg shadow-2xl flex flex-col border border-border md:my-auto relative">
 
-        <h2 className="text-2xl font-bold mb-6 text-text-primary">
-          {isEditMode ? 'Edit Customer' : 'Add New Customer'}
-        </h2>
+        <div className="p-4 border-b border-border flex justify-between items-center bg-background md:rounded-t-lg">
+            <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                <User className="text-primary" />
+                {isEditMode ? 'Edit Customer' : 'New Customer'}
+            </h2>
+            <button onClick={onClose} className="p-2 hover:bg-surface rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
+        </div>
 
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full md:h-auto">
+          <div className="p-6 space-y-4 flex-grow overflow-y-auto">
             <div>
               <input
                 type="text"
@@ -235,7 +239,16 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
             />
           </div>
 
-          <div className="flex items-center justify-end space-x-4 mt-6">
+          <div className="p-4 border-t border-border bg-background md:rounded-b-lg flex justify-end gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-medium"
+              disabled={isSaving || isDeleting}
+            >
+              Cancel
+            </button>
+
             {/* DELETE Button - Now conditionally rendered for Admins only */}
             {isEditMode && isAdmin && (
               <button
@@ -248,15 +261,6 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             )}
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary"
-              disabled={isSaving || isDeleting}
-            >
-              Cancel
-            </button>
 
             <button
               type="submit"
@@ -272,4 +276,4 @@ const EditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, 
   );
 };
 
-export default EditCustomerModal;
+export default AddEditCustomerModal;

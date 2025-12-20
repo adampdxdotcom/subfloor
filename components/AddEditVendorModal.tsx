@@ -3,7 +3,7 @@ import { Vendor, PRODUCT_TYPES } from '../types';
 import { useData } from '../context/DataContext';
 import { useVendors } from '../hooks/useVendors';
 import { toast } from 'react-hot-toast';
-import { Trash2, Copy, Globe, Link as LinkIcon } from 'lucide-react';
+import { Trash2, Copy, Globe, Link as LinkIcon, Building, X } from 'lucide-react';
 
 interface AddEditVendorModalProps {
     isOpen: boolean;
@@ -193,11 +193,20 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60]">
-            <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-border">
-                <h2 className="text-2xl font-bold mb-6 text-text-primary">{vendorToEdit ? 'Edit Vendor' : 'Add New Vendor'}</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="fixed inset-0 bg-black/75 z-[60] overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-0 lg:p-4">
+            <div className="bg-surface w-full min-h-full lg:min-h-0 lg:h-auto lg:max-h-[90vh] lg:max-w-4xl lg:rounded-lg shadow-2xl flex flex-col border border-border relative">
+                
+                <div className="p-4 border-b border-border flex justify-between items-center bg-background lg:rounded-t-lg sticky top-0 z-10">
+                    <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                        <Building className="text-primary" />
+                        {vendorToEdit ? 'Edit Vendor' : 'New Vendor'}
+                    </h2>
+                    <button onClick={onClose} className="p-2 hover:bg-surface rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
+                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto flex-grow">
                         {/* Column 1: Core Info */}
                         <div className="space-y-4">
                             <h3 className="text-lg font-semibold text-text-primary border-b border-border pb-2">Contact Info</h3>
@@ -340,7 +349,7 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-end space-x-4 mt-8 pt-6 border-t border-border">
+                    <div className="p-4 border-t border-border bg-background lg:rounded-b-lg flex justify-end gap-3 shrink-0 sticky bottom-0 z-10 lg:static">
                         {vendorToEdit && currentUser?.roles?.includes('Admin') && (
                             <button
                                 type="button"
@@ -350,13 +359,15 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                                 style={{ marginRight: 'auto' }}
                             >
                                 <Trash2 size={16} />
-                                {isDeleting ? 'Deleting...' : 'Delete Vendor'}
+                                <span className="hidden md:inline">{isDeleting ? 'Deleting...' : 'Delete Vendor'}</span>
+                                <span className="md:hidden">Delete</span>
                             </button>
                         )}
-                        <button type="button" onClick={onClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button>
+                        <button type="button" onClick={onClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-medium">Cancel</button>
                         <button type="submit" className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary">{vendorToEdit ? 'Save Changes' : 'Create Vendor'}</button>
                     </div>
                 </form>
+            </div>
             </div>
         </div>
     );

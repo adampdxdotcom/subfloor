@@ -5,7 +5,7 @@ import { Edit, Check, X, History, FileText, Move, Save } from 'lucide-react';
 import ActivityHistory from './ActivityHistory';
 import ModalPortal from './ModalPortal'; 
 import { formatDate } from '../utils/dateUtils';
-import EditInstallerModal from './EditInstallerModal';
+import AddEditInstallerModal from './AddEditInstallerModal'; // Corrected Import
 
 interface QuotesSectionProps {
     project: Project;
@@ -323,7 +323,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
             )}
             {isInstallerModalOpen && (
                 <ModalPortal>
-                    <EditInstallerModal 
+                    <AddEditInstallerModal 
                         isOpen={isInstallerModalOpen} 
                         onClose={() => {
                             setIsInstallerModalOpen(false);
