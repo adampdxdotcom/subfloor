@@ -28,11 +28,9 @@ import ImportData from './pages/ImportData'; // NEW IMPORT
 import Messages from './pages/Messages'; // NEW IMPORT
 import SetupWizard from './pages/SetupWizard'; // NEW IMPORT
 import KnowledgeBase from './pages/KnowledgeBase'; // NEW IMPORT
+import ServerConnect from './pages/ServerConnect'; // NEW IMPORT
+import { getEndpoint, getBaseUrl } from './utils/apiConfig'; // NEW IMPORT
 import { Loader2 } from 'lucide-react';
-
-// --- DYNAMIC URL CONFIGURATION ---
-// Reads from .env in Prod, or defaults to empty (relative path) in Dev
-const API_URL = import.meta.env.VITE_APP_DOMAIN || "";
 
 // Helper to darken a hex color for hover states
 const darkenColor = (hex: string, percent: number) => {
@@ -73,7 +71,7 @@ const BrandingListener = () => {
       link.type = 'image/x-icon';
       link.rel = 'icon';
       // Ensure we handle full URLs vs relative paths correctly
-      const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+      const baseUrl = getBaseUrl();
       link.href = systemBranding.faviconUrl.startsWith('http') 
           ? systemBranding.faviconUrl 
           : `${baseUrl}${systemBranding.faviconUrl}`;
@@ -130,16 +128,32 @@ const BrandingListener = () => {
 
 function App() {
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
+  
+  // Let's check for the capacitor global object
+  const isCapacitor = (window as any).Capacitor !== undefined;
+  const hasServerUrl = !!localStorage.getItem('subfloor_server_url');
 
   useEffect(() => {
-    fetch('/api/setup/status')
+    // If on mobile and no URL, skip the fetch (we will render Connect screen)
+    if (isCapacitor && !hasServerUrl) {
+        setIsInitialized(null); 
+        return;
+    }
+
+    fetch(getEndpoint('/api/setup/status'))
       .then(res => res.json())
       .then(data => setIsInitialized(data.initialized))
       .catch(err => {
         console.error("Failed to check setup status", err);
-        setIsInitialized(true); // Fallback to app if check fails
+        // Fallback to app if check fails
+        setIsInitialized(true);
       });
-  }, []);
+  }, [isCapacitor, hasServerUrl]);
+
+  // 1. Mobile First Launch: Show Server Connect Screen
+  if (isCapacitor && !hasServerUrl) {
+      return <ServerConnect />;
+  }
 
   if (isInitialized === null) {
     return (
