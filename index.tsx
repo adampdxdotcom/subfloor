@@ -6,19 +6,23 @@ import SuperTokens, { SuperTokensWrapper } from 'supertokens-auth-react';
 import Session from 'supertokens-auth-react/recipe/session';
 import EmailPassword from 'supertokens-auth-react/recipe/emailpassword';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { getBaseUrl } from './utils/apiConfig';
 
 // --- DEBUG LOG ---
 console.log("✅ SuperTokens Config Loaded");
 
-// --- DYNAMIC DOMAIN CONFIGURATION (BROWSER BASED) ---
-// Ignore .env. Use whatever domain the user is currently visiting.
-const currentDomain = window.location.origin;
+// --- DYNAMIC DOMAIN CONFIGURATION ---
+// 1. If on Mobile (getBaseUrl returns a value), use that remote server.
+// 2. If on Web (getBaseUrl returns empty), use the current browser origin.
+const dynamicApiDomain = getBaseUrl() || window.location.origin;
+
+console.log("🔗 SuperTokens Connecting to:", dynamicApiDomain);
 
 SuperTokens.init({
   appInfo: {
     appName: "Subfloor",
-    apiDomain: currentDomain,
-    websiteDomain: currentDomain,
+    apiDomain: dynamicApiDomain,
+    websiteDomain: dynamicApiDomain,
     apiBasePath: "/api/auth",
     websiteBasePath: "/auth",
   },
