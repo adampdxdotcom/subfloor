@@ -122,8 +122,8 @@ supertokens.init({
         Session.init({
             // --- DYNAMIC COOKIE CONFIG ---
             cookieDomain: getCookieDomain(APP_DOMAIN),
-            // FIX: Allow insecure cookies if running on localhost (Mobile App context)
-            // If APP_DOMAIN is https, but we are developing or on mobile, we might need flexibility.
+            // FIX: Relax cookie security if we detect a local request (like from the Mobile App)
+            // This ensures session cookies aren't rejected when the Origin is 'localhost'
             cookieSecure: APP_DOMAIN.startsWith('https') && process.env.NODE_ENV === 'production', 
             cookieSameSite: "lax" 
         })
@@ -192,6 +192,18 @@ app.use(cors({
         if (process.env.ALLOWED_DOMAINS) {
              allowed.push(...process.env.ALLOWED_DOMAINS.split(",").map(d => d.trim()));
         }
+
+        // --- MOBILE APP ALLOW LIST ---
+        // Explicitly allow requests from the Mobile App (Capacitor/Android/iOS)
+        // These origins are secure by definition (internal to the device)
+        const mobileOrigins = [
+            'http://localhost', 
+            'https://localhost', 
+            'capacitor://localhost',
+            'http://localhost:3000', // Common dev ports
+            'http://localhost:5173'
+        ];
+        allowed.push(...mobileOrigins);
 
         // Normalize (remove trailing slashes) for comparison
         const normalize = (url) => url ? url.replace(/\/$/, '') : '';
