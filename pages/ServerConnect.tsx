@@ -63,7 +63,7 @@ export default function ServerConnect() {
                     <button
                         onClick={() => {
                             localStorage.removeItem(STORAGE_KEY_API_URL);
-                            window.location.reload();
+                            window.location.href = '/';
                         }}
                         className="mt-4 w-full text-gray-500 text-sm hover:text-gray-300"
                     >
