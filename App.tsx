@@ -24,12 +24,12 @@ import VendorList from './pages/VendorList';
 import VendorDetail from './pages/VendorDetail'; 
 import OrderDashboard from './pages/OrderDashboard';
 import Reports from './pages/Reports';
-import ImportData from './pages/ImportData'; // NEW IMPORT
-import Messages from './pages/Messages'; // NEW IMPORT
-import SetupWizard from './pages/SetupWizard'; // NEW IMPORT
-import KnowledgeBase from './pages/KnowledgeBase'; // NEW IMPORT
-import ServerConnect from './pages/ServerConnect'; // NEW IMPORT
-import { getEndpoint, getBaseUrl } from './utils/apiConfig'; // NEW IMPORT
+import ImportData from './pages/ImportData'; 
+import Messages from './pages/Messages'; 
+import SetupWizard from './pages/SetupWizard'; 
+import KnowledgeBase from './pages/KnowledgeBase'; 
+import ServerConnect from './pages/ServerConnect'; 
+import { getEndpoint, getBaseUrl } from './utils/apiConfig'; 
 import { Loader2 } from 'lucide-react';
 
 // Helper to darken a hex color for hover states
@@ -70,7 +70,6 @@ const BrandingListener = () => {
       const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
       link.type = 'image/x-icon';
       link.rel = 'icon';
-      // Ensure we handle full URLs vs relative paths correctly
       const baseUrl = getBaseUrl();
       link.href = systemBranding.faviconUrl.startsWith('http') 
           ? systemBranding.faviconUrl 
@@ -102,7 +101,6 @@ const BrandingListener = () => {
       root.style.setProperty('--color-on-accent', getContrastText(systemBranding.accentColor));
     }
     
-    // 3. Handle Base Theme (Optional, checks if they exist)
     if (systemBranding?.backgroundColor) {
         root.style.setProperty('--color-background', systemBranding.backgroundColor);
     }
@@ -115,9 +113,7 @@ const BrandingListener = () => {
     if (systemBranding?.textSecondaryColor) {
         root.style.setProperty('--color-text-secondary', systemBranding.textSecondaryColor);
     }
-    // We'll auto-calculate border from surface if needed, or just leave default for now
     if (systemBranding?.surfaceColor) {
-       // Simple hack: make border slightly lighter than surface for dark mode consistency
        root.style.setProperty('--color-border', darkenColor(systemBranding.surfaceColor, -10)); 
     }
     
@@ -128,13 +124,13 @@ const BrandingListener = () => {
 
 function App() {
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
-  
-  // Let's check for the capacitor global object
+  const [connectionError, setConnectionError] = useState(false); // NEW: Track connection failures
+
   const isCapacitor = (window as any).Capacitor !== undefined;
   const hasServerUrl = !!localStorage.getItem('subfloor_server_url');
 
   useEffect(() => {
-    // If on mobile and no URL, skip the fetch (we will render Connect screen)
+    // 1. If mobile and no URL, skip fetch (Connect Screen will render)
     if (isCapacitor && !hasServerUrl) {
         setIsInitialized(null); 
         return;
@@ -145,13 +141,23 @@ function App() {
       .then(data => setIsInitialized(data.initialized))
       .catch(err => {
         console.error("Failed to check setup status", err);
-        // Fallback to app if check fails
-        setIsInitialized(true);
+        
+        // 2. IF MOBILE and Fetch Fails -> It means URL is wrong or Server is down.
+        // Show Connect Screen so user can Reset/Change URL.
+        if (isCapacitor) {
+            setConnectionError(true);
+        } else {
+            // On Web, fall back to normal behavior
+            setIsInitialized(true);
+        }
       });
   }, [isCapacitor, hasServerUrl]);
 
-  // 1. Mobile First Launch: Show Server Connect Screen
-  if (isCapacitor && !hasServerUrl) {
+  // RENDER LOGIC:
+  // Show Connect Screen if:
+  // A. First time launch (no URL)
+  // B. Connection failed (URL might be wrong)
+  if ((isCapacitor && !hasServerUrl) || connectionError) {
       return <ServerConnect />;
   }
 
@@ -170,10 +176,8 @@ function App() {
       <BrandingListener />
       <Router>
         <Routes>
-          {/* This renders the auth UI routes like /auth, /auth/forgot-password, etc */}
           {getSuperTokensRoutesForReactRouterDom(reactRouterDom, [EmailPasswordPreBuiltUI])}
 
-          {/* This is our protected route. */}
           <Route
             path="/"
             element={
@@ -191,9 +195,8 @@ function App() {
             <Route path="import" element={<ImportData />} />
             <Route path="messages" element={<Messages />} />
             <Route path="messages/:partnerId" element={<Messages />} />
-            <Route path="kb" element={<KnowledgeBase />} /> {/* NEW KB ROUTE */}
+            <Route path="kb" element={<KnowledgeBase />} />
             <Route path="vendors" element={<VendorList />} />
-            {/* --- 2. ADD THIS NEW NESTED ROUTE --- */}
             <Route path="vendors/:vendorId" element={<VendorDetail />} />
             <Route path="orders" element={<OrderDashboard />} />
             <Route path="installers" element={<InstallerList />} />

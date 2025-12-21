@@ -12,6 +12,7 @@ const router = express.Router();
  * Used by the frontend to decide whether to show the Wizard or the App, and to display security warnings.
  */
 router.get('/status', (req, res) => {
+    console.log("✅ REACHED /api/setup/status handler!");
     const initialized = isSystemInitialized();
     res.json({ 
         initialized,
