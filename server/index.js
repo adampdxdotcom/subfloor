@@ -108,11 +108,12 @@ supertokens.init({
         }),
         Session.init({
             // --- DYNAMIC COOKIE CONFIG ---
-            // cookieDomain: getCookieDomain(APP_DOMAIN), // Disabled to allow localhost sharing
+            cookieDomain: getCookieDomain(APP_DOMAIN), // Disabled to allow localhost sharing
             
             // CRITICAL FIX: Allow localhost requests to set cookies
             cookieSecure: false, 
-            cookieSameSite: "lax" 
+            cookieSameSite: "lax",
+            olderCookieDomain: ".dumbleigh.com" 
         })
     ]
 });
