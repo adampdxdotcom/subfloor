@@ -8,36 +8,37 @@ import EmailPassword from 'supertokens-auth-react/recipe/emailpassword';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getBaseUrl } from './utils/apiConfig';
 
-// --- DEBUG LOG ---
 console.log("✅ SuperTokens Config Loaded");
 
-// --- DYNAMIC DOMAIN CONFIGURATION ---
-// 1. If on Mobile (getBaseUrl returns a value), use that remote server.
-// 2. If on Web (getBaseUrl returns empty), use the current browser origin.
-const dynamicApiDomain = getBaseUrl() || window.location.origin;
+// --- SPLIT DOMAIN CONFIGURATION ---
+// 1. API Domain: Where we send requests (Remote Server)
+const apiDomain = getBaseUrl() || window.location.origin;
 
-console.log("🔗 SuperTokens Connecting to:", dynamicApiDomain);
+// 2. Website Domain: Where the app lives (Localhost on Phone)
+// If we set this to the remote URL, SuperTokens redirects us out to Chrome!
+const websiteDomain = window.location.origin; 
+
+console.log("🔗 API Domain:", apiDomain);
+console.log("🏠 Website Domain:", websiteDomain);
 
 SuperTokens.init({
   appInfo: {
     appName: "Subfloor",
-    apiDomain: dynamicApiDomain,
-    websiteDomain: dynamicApiDomain,
+    apiDomain: apiDomain,
+    websiteDomain: websiteDomain, // <--- THIS KEEPS IT IN THE APP
     apiBasePath: "/api/auth",
     websiteBasePath: "/auth",
   },
   recipeList: [
     EmailPassword.init({
-      useShadowDom: false, // CRITICAL: Allows global CSS variables to work
+      useShadowDom: false,
       disableSignUp: true, 
-      
-      // --- STYLE OVERRIDES ---
       style: {
         container: {
             border: "1px solid var(--color-border)",
             backgroundColor: "var(--color-surface)",
-            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)", // shadow-lg
-            borderRadius: "0.5rem", // rounded-lg
+            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)", 
+            borderRadius: "0.5rem", 
             fontFamily: "inherit"
         },
         headerTitle: {
@@ -64,24 +65,12 @@ SuperTokens.init({
             color: "var(--color-accent)"
         },
         superTokensBranding: {
-            display: "none" // Optional: Hides "Powered by SuperTokens"
+            display: "none"
         }
       }
     }),   
     Session.init(),
   ],
-  languageTranslations: {
-    translations: {
-      en: {
-        "EMAIL_PASSWORD_SIGN_IN_HEADER_TITLE": "Welcome Back",
-        "EMAIL_PASSWORD_SIGN_IN_HEADER_SUBTITLE_START": "Log in to your account",
-        // These hide the "Sign Up" text if disableSignUp doesn't catch it
-        "EMAIL_PASSWORD_SIGN_IN_HEADER_SUBTITLE_SIGN_UP_LINK": "", 
-        "EMAIL_PASSWORD_SIGN_UP_FOOTER_START": "", 
-        "EMAIL_PASSWORD_SIGN_UP_FOOTER_SIGN_IN_LINK": ""
-      },
-    },
-  },
 });
 
 // --- REACT QUERY CLIENT ---
