@@ -3,6 +3,7 @@ import { Product, PricingSettings } from '../types';
 import { useData } from '../context/DataContext';
 import { ExternalLink, ChevronRight, CheckCircle2, Circle } from 'lucide-react';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
+import { getImageUrl } from '../utils/apiConfig';
 
 interface ProductCardProps {
     product: Product;
@@ -61,7 +62,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
             {/* Image Area */}
             <div className="w-full h-48 bg-background flex items-center justify-center relative">
                 {product.defaultThumbnailUrl || product.defaultImageUrl ? (
-                    <img src={product.defaultThumbnailUrl || product.defaultImageUrl || ''} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
+                    <img src={getImageUrl(product.defaultThumbnailUrl || product.defaultImageUrl)} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
                     <div className="text-center p-4">
                         <span className="text-4xl opacity-20 font-bold text-text-tertiary block mb-2">

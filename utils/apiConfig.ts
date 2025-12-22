@@ -31,3 +31,20 @@ export const getEndpoint = (path: string): string => {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     return `${base}${normalizedPath}`;
 };
+
+/**
+ * Converts a relative image path (e.g. /uploads/foo.jpg) to a full URL.
+ * Handles paths that are already full URLs correctly.
+ */
+export const getImageUrl = (path: string | null | undefined): string => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    
+    // Ensure path starts with /
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const base = getBaseUrl();
+    
+    // If base is empty (Web), relative path is fine.
+    // If base is set (Mobile), prepend it.
+    return `${base}${normalizedPath}`;
+};
