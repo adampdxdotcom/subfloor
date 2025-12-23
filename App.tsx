@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { App as CapacitorApp } from '@capacitor/app';
 
 // --- SuperTokens Imports ---
 import { SessionAuth } from 'supertokens-auth-react/recipe/session';
@@ -32,6 +31,45 @@ import KnowledgeBase from './pages/KnowledgeBase';
 import ServerConnect from './pages/ServerConnect'; 
 import { getEndpoint, getBaseUrl } from './utils/apiConfig'; 
 import { Loader2 } from 'lucide-react';
+import { App as CapacitorApp } from '@capacitor/app'; // NEW IMPORT
+
+// --- NEW COMPONENT: HANDLES ANDROID BACK BUTTON ---
+const BackButtonHandler = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Only run if we are in Capacitor
+    const isCapacitor = (window as any).Capacitor !== undefined;
+    if (!isCapacitor) return;
+
+    const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      // 1. Try to close any open modal first
+      // We look for a common close button class or overlay
+      // This is a "Best Effort" approach for local-state modals
+      const closeButton = document.querySelector('[aria-label="Close modal"]') as HTMLElement;
+      if (closeButton && closeButton.offsetParent !== null) { // Check if visible
+          closeButton.click();
+          return;
+      }
+
+      // 2. If at Root (Dashboard or Login), Exit App
+      if (location.pathname === '/' || location.pathname === '/auth') {
+        CapacitorApp.exitApp();
+      } 
+      // 3. Otherwise, Go Back in History
+      else {
+        navigate(-1);
+      }
+    });
+
+    return () => {
+      listener.then(handler => handler.remove());
+    };
+  }, [navigate, location]);
+
+  return null;
+};
 
 // Helper to darken a hex color for hover states
 const darkenColor = (hex: string, percent: number) => {
@@ -49,12 +87,16 @@ const darkenColor = (hex: string, percent: number) => {
     ).toString(16).slice(1);
 };
 
-// Helper to calculate best text color (Black or White) based on background contrast
+// NEW: Helper to calculate best text color (Black or White) based on background contrast
 const getContrastText = (hex: string) => {
     const r = parseInt(hex.substr(1, 2), 16);
     const g = parseInt(hex.substr(3, 2), 16);
     const b = parseInt(hex.substr(5, 2), 16);
+    
+    // YIQ equation from 24 Ways
     const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    
+    // If YIQ >= 128, it's a light color (use black text), otherwise dark (use white text)
     return yiq >= 128 ? '#000000' : '#ffffff';
 };
 
@@ -62,6 +104,7 @@ const BrandingListener = () => {
   const { systemBranding } = useData();
 
   React.useEffect(() => {
+    // 1. Handle Favicon
     if (systemBranding?.faviconUrl) {
       const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
       link.type = 'image/x-icon';
@@ -74,10 +117,12 @@ const BrandingListener = () => {
       document.getElementsByTagName('head')[0].appendChild(link);
     }
     
+    // 1.5 Handle Page Title
     if (systemBranding?.companyName) {
         document.title = `Subfloor for ${systemBranding.companyName}`;
     }
 
+    // 2. Handle Colors
     const root = document.documentElement;
     if (systemBranding?.primaryColor) {
       root.style.setProperty('--color-primary', systemBranding.primaryColor);
@@ -116,41 +161,15 @@ const BrandingListener = () => {
   return null;
 };
 
-// --- NEW COMPONENT: HANDLES BACK BUTTON ---
-const BackButtonHandler = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    const isCapacitor = (window as any).Capacitor !== undefined;
-    if (!isCapacitor) return;
-
-    const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-      // 1. If we are not at the home page and can go back, navigate back
-      if (location.pathname !== '/' && canGoBack) {
-        navigate(-1);
-      } else {
-        // 2. Otherwise, exit the app
-        CapacitorApp.exitApp();
-      }
-    });
-
-    return () => {
-      listener.then(handler => handler.remove());
-    };
-  }, [navigate, location]);
-
-  return null;
-};
-
 function App() {
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
-  const [connectionError, setConnectionError] = useState(false); 
+  const [connectionError, setConnectionError] = useState(false); // NEW: Track connection failures
 
   const isCapacitor = (window as any).Capacitor !== undefined;
   const hasServerUrl = !!localStorage.getItem('subfloor_server_url');
 
   useEffect(() => {
+    // 1. If mobile and no URL, skip fetch (Connect Screen will render)
     if (isCapacitor && !hasServerUrl) {
         setIsInitialized(null); 
         return;
@@ -161,14 +180,22 @@ function App() {
       .then(data => setIsInitialized(data.initialized))
       .catch(err => {
         console.error("Failed to check setup status", err);
+        
+        // 2. IF MOBILE and Fetch Fails -> It means URL is wrong or Server is down.
+        // Show Connect Screen so user can Reset/Change URL.
         if (isCapacitor) {
             setConnectionError(true);
         } else {
+            // On Web, fall back to normal behavior
             setIsInitialized(true);
         }
       });
   }, [isCapacitor, hasServerUrl]);
 
+  // RENDER LOGIC:
+  // Show Connect Screen if:
+  // A. First time launch (no URL)
+  // B. Connection failed (URL might be wrong)
   if ((isCapacitor && !hasServerUrl) || connectionError) {
       return <ServerConnect />;
   }
@@ -187,7 +214,7 @@ function App() {
     <DataProvider>
       <BrandingListener />
       <Router>
-        <BackButtonHandler />
+        <BackButtonHandler /> {/* <--- PLUG IN THE HANDLER HERE */}
         <Routes>
           {getSuperTokensRoutesForReactRouterDom(reactRouterDom, [EmailPasswordPreBuiltUI])}
 
