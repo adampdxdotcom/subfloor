@@ -1,37 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { createGravatarHash } from '../utils/cryptoUtils';
-import { LogOut, Settings, XCircle, Bell, Check } from 'lucide-react'; // Added icons
+import { LogOut, Settings, XCircle, Bell, Check } from 'lucide-react'; 
 import { signOut } from 'supertokens-auth-react/recipe/session';
 import { useLocation, Link } from 'react-router-dom'; 
-import * as notificationService from '../services/notificationService'; // Direct service access
+import * as notificationService from '../services/notificationService'; 
+import { getImageUrl } from '../utils/apiConfig'; // Added import
 
 const UserStatus = () => {
-  // --- MODIFIED: Get new state and functions from context ---
   const { currentUser, isLayoutEditMode, toggleLayoutEditMode, unreadCount, refreshNotifications } = useData();
-  const location = useLocation(); // Get the current URL path
+  const location = useLocation(); 
 
   const [gravatarUrl, setGravatarUrl] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [notifications, setNotifications] = useState<notificationService.Notification[]>([]); // Local state for list
+  const [notifications, setNotifications] = useState<notificationService.Notification[]>([]); 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // --- Check if the current page is one that supports layout editing ---
   const isEditablePage = location.pathname.startsWith('/projects/');
 
   useEffect(() => {
-    // PRIORITY 1: Use the uploaded avatar URL directly if it exists
+    // PRIORITY 1: Use the uploaded avatar URL (wrapped in getImageUrl to handle relative paths)
     if (currentUser?.avatarUrl) {
-      setGravatarUrl(currentUser.avatarUrl);
+      setGravatarUrl(getImageUrl(currentUser.avatarUrl));
     } 
     // PRIORITY 2: Fallback to Gravatar hash if no custom avatar
     else if (currentUser?.email) {
       const hash = createGravatarHash(currentUser.email);
       setGravatarUrl(`https://www.gravatar.com/avatar/${hash}?s=40&d=mp`);
     }
-  }, [currentUser, currentUser?.avatarUrl]); // Re-run if the uploaded URL changes
+  }, [currentUser, currentUser?.avatarUrl]); 
 
-  // Effect to close dropdown if clicking outside of it
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -44,11 +42,9 @@ const UserStatus = () => {
     };
   }, []);
 
-  // Load notifications when dropdown opens
   useEffect(() => {
       if (isDropdownOpen) {
           notificationService.getNotifications().then(setNotifications);
-          // Also refresh the global count to be safe
           refreshNotifications();
       }
   }, [isDropdownOpen, refreshNotifications]);
@@ -62,7 +58,6 @@ const UserStatus = () => {
     return null;
   }
 
-  // Use First Name if available, otherwise fall back to email
   const displayName = currentUser.firstName 
     ? `${currentUser.firstName} ${currentUser.lastName || ''}` 
     : currentUser.email;
@@ -77,7 +72,6 @@ const UserStatus = () => {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* --- MODIFIED: This is now the button to open the dropdown --- */}
       <button 
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         className="flex items-center space-x-3 text-text-primary p-1 rounded-md hover:bg-background transition-colors"
@@ -95,11 +89,9 @@ const UserStatus = () => {
         <span className="hidden sm:inline text-sm font-medium">{displayName}</span>
       </button>
 
-      {/* --- NEW: The Dropdown Menu --- */}
       {isDropdownOpen && (
         <div className="absolute right-0 mt-2 w-80 bg-surface rounded-md shadow-lg z-50 border border-border overflow-hidden">
           
-          {/* NOTIFICATION HEADER */}
           <div className="p-3 border-b border-border bg-background flex justify-between items-center">
               <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">Notifications</span>
               {unreadCount > 0 && (
@@ -112,7 +104,6 @@ const UserStatus = () => {
               )}
           </div>
 
-          {/* NOTIFICATION LIST */}
           <div className="max-h-60 overflow-y-auto">
               {notifications.length === 0 ? (
                   <div className="p-4 text-center text-text-secondary text-sm italic">No notifications</div>
@@ -126,7 +117,6 @@ const UserStatus = () => {
                       >
                           <div className="flex gap-3">
                               <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                  {/* Assuming Notification type has a property for initial/sender icon */}
                                   {n.senderInitial || '?'} 
                               </div>
                               <div>
@@ -139,15 +129,12 @@ const UserStatus = () => {
               )}
           </div>
 
-          {/* MENU ITEMS */}
           <div className="p-2 border-t border-border bg-background/50">
-            
-            {/* --- NEW: Edit Page Layout Button (conditional) --- */}
             {isEditablePage && (
               <button
                 onClick={() => {
                   toggleLayoutEditMode();
-                  setIsDropdownOpen(false); // Close dropdown on click
+                  setIsDropdownOpen(false); 
                 }}
                 className="w-full flex items-center px-3 py-2 text-sm text-text-primary rounded-md hover:bg-background transition-colors"
               >
@@ -165,7 +152,6 @@ const UserStatus = () => {
               </button>
             )}
 
-            {/* Logout Button (now a menu item) */}
             <button
               onClick={onLogout}
               className="w-full flex items-center px-3 py-2 text-sm text-text-primary rounded-md hover:bg-background transition-colors mt-1"
