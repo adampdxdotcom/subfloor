@@ -4,6 +4,7 @@ import { useProjectFiles, useFileMutations, ProjectFile } from '../hooks/usePhot
 import { Camera, Trash2, X, Maximize2, CheckCircle2, Move, ChevronLeft, ChevronRight, FileText, Download, File as FileIcon, Image as ImageIcon } from 'lucide-react';
 import { Project } from '../types';
 import { toast } from 'react-hot-toast';
+import { getImageUrl } from '../utils/apiConfig';
 
 interface ProjectFilesSectionProps {
     project: Project;
@@ -74,7 +75,7 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
             setLightboxIndex(index);
         } else {
             // For documents, open in new tab
-            window.open(file.url, '_blank');
+            window.open(getImageUrl(file.url), '_blank');
         }
     };
 
@@ -186,7 +187,7 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
                                     onClick={() => handlePhotoClick(file, index)}
                                     className={`relative aspect-square rounded overflow-hidden cursor-pointer group border-2 transition-all ${isSelected ? 'border-primary ring-2 ring-primary/50' : 'border-transparent hover:border-border'}`}
                                 >
-                                    <img src={file.thumbnailUrl || file.url} alt="Project Site" className="w-full h-full object-cover" loading="lazy" />
+                                    <img src={getImageUrl(file.thumbnailUrl || file.url)} alt="Project Site" className="w-full h-full object-cover" loading="lazy" />
                                     {isSelectMode && (
                                         <div className={`absolute top-1 right-1 rounded-full bg-white p-0.5 ${isSelected ? 'text-primary' : 'text-gray-300'}`}>
                                             <CheckCircle2 size={16} fill={isSelected ? "currentColor" : "none"} />
@@ -212,7 +213,7 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
                             return (
                                 <div 
                                     key={file.id}
-                                    onClick={() => isSelectMode ? toggleSelection(file.id) : window.open(file.url, '_blank')}
+                                    onClick={() => isSelectMode ? toggleSelection(file.id) : window.open(getImageUrl(file.url), '_blank')}
                                     className={`flex items-center p-3 rounded-lg border transition-all cursor-pointer ${
                                         isSelected ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/50'
                                     }`}
@@ -220,7 +221,7 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
                                     {/* Icon */}
                                     <div className="w-10 h-10 rounded bg-surface border border-border flex items-center justify-center mr-3 text-text-secondary shrink-0 overflow-hidden">
                                         {isImage ? (
-                                            <img src={file.thumbnailUrl || file.url} className="w-full h-full object-cover" />
+                                            <img src={getImageUrl(file.thumbnailUrl || file.url)} className="w-full h-full object-cover" />
                                         ) : (
                                             <FileIcon size={20} className={isPdf ? 'text-red-500' : 'text-blue-500'} />
                                         )}
@@ -258,7 +259,7 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
                     <button className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors" onClick={() => setLightboxIndex(null)}><X size={24} /></button>
                     {photosOnly.length > 1 && <button className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full" onClick={handlePrev}><ChevronLeft size={32} /></button>}
                     
-                    <img src={photosOnly[lightboxIndex].url} alt="Full View" className="max-w-full max-h-full rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />
+                    <img src={getImageUrl(photosOnly[lightboxIndex].url)} alt="Full View" className="max-w-full max-h-full rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />
                     
                     {photosOnly.length > 1 && <button className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full" onClick={handleNext}><ChevronRight size={32} /></button>}
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/50 text-sm">{lightboxIndex + 1} / {photosOnly.length}</div>

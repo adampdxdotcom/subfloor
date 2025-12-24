@@ -5,6 +5,7 @@ import RichTextEditor from '../components/kb/RichTextEditor';
 import { useData } from '../context/DataContext';
 import { toast } from 'react-hot-toast';
 import ArticleHistoryView from '../components/kb/ArticleHistoryView';
+import { getEndpoint, getImageUrl } from '../utils/apiConfig';
 import { readStyles } from '../components/kb/kbStyles';
 
 // Simple Modal for creating categories
@@ -139,6 +140,14 @@ export default function KnowledgeBase() {
                 const container = document.querySelector('.kb-read-content');
                 if (!container) return;
 
+                // Fix Image Sources for Mobile
+                container.querySelectorAll('img').forEach((img: any) => {
+                    const currentSrc = img.getAttribute('src');
+                    if (currentSrc && !currentSrc.startsWith('http')) {
+                        img.src = getImageUrl(currentSrc);
+                    }
+                });
+
                 container.querySelectorAll('img[data-caption]').forEach((img: any) => {
                     // Skip if already wrapped (prevents double wrapping on re-renders)
                     if (img.parentElement.tagName === 'FIGURE') return;
@@ -170,7 +179,7 @@ export default function KnowledgeBase() {
 
     const fetchCategories = async () => {
         try {
-            const res = await axios.get('/api/kb/categories');
+            const res = await axios.get(getEndpoint('/api/kb/categories'), { withCredentials: true });
             setCategories(res.data);
             // Auto-select first category if none selected and categories exist
             if (!activeCategory && res.data.length > 0) {
@@ -181,19 +190,19 @@ export default function KnowledgeBase() {
 
     const fetchArticles = async (catId: number | null, query?: string) => {
         try {
-            let url = '/api/kb/search';
-            if (query) url += `?q=${encodeURIComponent(query)}`;
-            else if (catId) url += `?cat=${catId}`;
+            let path = '/api/kb/search';
+            if (query) path += `?q=${encodeURIComponent(query)}`;
+            else if (catId) path += `?cat=${catId}`;
             else return;
             
-            const res = await axios.get(url); 
+            const res = await axios.get(getEndpoint(path), { withCredentials: true }); 
             setArticles(res.data);
         } catch (e) { console.error(e); }
     };
 
     const handleCreateCategory = async (name: string) => {
         try {
-            await axios.post('/api/kb/categories', { name });
+            await axios.post(getEndpoint('/api/kb/categories'), { name }, { withCredentials: true });
             toast.success("Category created");
             fetchCategories();
             setIsCatModalOpen(false);
@@ -218,7 +227,7 @@ export default function KnowledgeBase() {
         // using the OLD article data with the NEW anchor.
         setCurrentArticle(null);
         
-        axios.get(`/api/kb/articles/${article.id}`).then(res => {
+        axios.get(getEndpoint(`/api/kb/articles/${article.id}`), { withCredentials: true }).then(res => {
             setCurrentArticle(res.data);
             setToc(extractHeaders(res.data.content)); // Build TOC
             setView('read');
@@ -251,11 +260,11 @@ export default function KnowledgeBase() {
             };
             
             if (currentArticle?.id) {
-                const res = await axios.put(`/api/kb/articles/${currentArticle.id}`, payload);
+                const res = await axios.put(getEndpoint(`/api/kb/articles/${currentArticle.id}`), payload, { withCredentials: true });
                 toast.success("Article updated");
                 setCurrentArticle({ ...currentArticle, id: currentArticle?.id, title: editTitle, content: contentWithIds, tags: editTags, updated_at: res.data.updated_at });
             } else {
-                const res = await axios.post('/api/kb/articles', payload);
+                const res = await axios.post(getEndpoint('/api/kb/articles'), payload, { withCredentials: true });
                 toast.success("Article created");
                 setCurrentArticle({ ...res.data, author_name: currentUser?.firstName, title: editTitle, content: contentWithIds, tags: editTags }); 
             }
