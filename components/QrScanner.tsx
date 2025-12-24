@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Html5Qrcode, Html5QrcodeError, Html5QrcodeResult } from 'html5-qrcode';
-// --- MODIFICATION: Import RefreshCw for the new button ---
-import { CameraOff, AlertTriangle, RefreshCw } from 'lucide-react';
+import { CameraOff, AlertTriangle, RefreshCw, Zap, ZapOff } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface QrScannerProps {
   onScanSuccess: (decodedText: string) => void;
@@ -13,6 +13,10 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   // --- NEW: A key to force re-mounting of the scanner element ---
   const [remountKey, setRemountKey] = useState(0);
+  
+  // --- NEW: Torch support ---
+  const [hasTorch, setHasTorch] = useState(false);
+  const [isTorchOn, setIsTorchOn] = useState(false);
 
   useEffect(() => {
     // This effect will now re-run whenever remountKey changes.
@@ -26,7 +30,12 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
     // Clear previous errors when we try to start
     setError(null);
 
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+    // Optimized constraints for Mobile
+    const config = { 
+        fps: 20, 
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0 
+    };
 
     const handleScanSuccess = (decodedText: string, decodedResult: Html5QrcodeResult) => {
       if (html5QrCode.isScanning) {
@@ -38,41 +47,44 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
 
     const handleScanError = (errorMessage: string, error: Html5QrcodeError) => { /* Ignore */ };
 
-    const startScanner = () => {
-        Html5Qrcode.getCameras()
-          .then(devices => {
-            if (devices && devices.length) {
-              let cameraId = devices[0].id;
-              const backCamera = devices.find(device => device.label.toLowerCase().includes('back'));
-              if (backCamera) {
-                cameraId = backCamera.id;
-              }
-              
-              html5QrCode.start(
-                cameraId,
+    const startScanner = async () => {
+        try {
+            // Use facingMode: environment for best rear camera selection on mobile
+            await html5QrCode.start(
+                { facingMode: "environment" },
                 config,
                 handleScanSuccess,
                 handleScanError
-              ).catch(err => {
-                  setError("Failed to start the camera. Please ensure it's not in use by another application.");
-                  console.error("Failed to start scanner:", err);
-              });
-            } else {
-              setError("No cameras found on this device.");
+            );
+
+            // Check for Torch capability
+            const track = html5QrCode.getRunningTrack();
+            const capabilities: any = track.getCapabilities();
+            if (capabilities.torch) {
+                setHasTorch(true);
             }
-          })
-          .catch(err => {
-            setError("Could not get camera permissions. Please enable camera access for this site in your browser settings.");
-            console.error("Permission error:", err);
-          });
+        } catch (err) {
+            setError("Failed to start the camera. Please ensure permissions are granted.");
+            console.error("Scanner error:", err);
+        }
     };
     
     startScanner();
 
     // Cleanup function
     return () => {
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().catch(err => console.error("Failed to stop scanner cleanly.", err));
+      if (html5QrCode) {
+        const stopAndClear = async () => {
+            if (html5QrCode.isScanning) {
+                await html5QrCode.stop();
+            }
+            try {
+                html5QrCode.clear();
+            } catch (e) {
+                // Ignore clear errors on unmount
+            }
+        };
+        stopAndClear();
       }
     };
   }, [remountKey, onScanSuccess, onClose]); // --- MODIFICATION: Add remountKey to dependency array ---
@@ -82,9 +94,29 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
       {/* --- MODIFICATION: Added a key to the reader div --- */}
       <div id="qr-reader" key={remountKey} className="rounded-lg overflow-hidden"></div>
       
+      {/* Flashlight Toggle */}
+      {hasTorch && (
+        <button 
+            onClick={async () => {
+                const nextState = !isTorchOn;
+                try {
+                    await scannerRef.current?.applyVideoConstraints({
+                        advanced: [{ torch: nextState }] as any
+                    });
+                    setIsTorchOn(nextState);
+                } catch (e) { toast.error("Flashlight not available"); }
+            }}
+            className={`absolute top-6 left-6 z-10 p-3 rounded-full shadow-lg transition-colors ${isTorchOn ? 'bg-yellow-400 text-black' : 'bg-black/50 text-white'}`}
+        >
+            {isTorchOn ? <ZapOff size={24} /> : <Zap size={24} />}
+        </button>
+      )}
+
       {!error && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-[280px] h-[280px] border-4 border-accent rounded-lg shadow-lg" style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}></div>
+            <div className="w-[280px] h-[280px] border-4 border-accent rounded-lg shadow-lg relative" style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}>
+                <div className="scan-laser"></div>
+            </div>
         </div>
       )}
 
