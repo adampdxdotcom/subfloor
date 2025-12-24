@@ -46,7 +46,7 @@ export const getImageUrl = (path: string | null | undefined): string => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
     
-    // Ensure path starts with /uploads/ if it doesn't already
+    // Ensure path starts with /uploads/ if it's a relative local file
     let cleanPath = path.startsWith('/') ? path : `/${path}`;
     if (!cleanPath.startsWith('/uploads/') && !cleanPath.startsWith('/api/')) {
         cleanPath = `/uploads${cleanPath}`;

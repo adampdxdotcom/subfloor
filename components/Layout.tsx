@@ -6,19 +6,18 @@ import UserStatus from './UserStatus';
 import NavigationListener from './NavigationListener'; // <-- NEW: Import the listener
 import SystemStatusTicker from './SystemStatusTicker';
 import { useData } from '../context/DataContext';
+import { getImageUrl } from '../utils/apiConfig';
 
 const Layout: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { systemBranding } = useData();
     
-    const API_URL = "";
-
     const SidebarContent = () => (
         <>
             <div className="mb-8 flex items-center h-12 px-2">
                 {systemBranding?.logoUrl ? (
                     <img 
-                        src={systemBranding.logoUrl.startsWith('http') ? systemBranding.logoUrl : `${API_URL}${systemBranding.logoUrl}`} 
+                        src={getImageUrl(systemBranding.logoUrl)} 
                         alt="Company Logo" 
                         className="max-h-12 max-w-full object-contain"
                     />
