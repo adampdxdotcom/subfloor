@@ -10,16 +10,11 @@ import { getBaseUrl } from './utils/apiConfig';
 
 console.log("✅ SuperTokens Config Loaded");
 
-// --- SPLIT DOMAIN CONFIGURATION ---
-// 1. API Domain: Where we send requests (Remote Server)
-const apiDomain = getBaseUrl() || window.location.origin;
+// --- DYNAMIC DOMAIN CONFIGURATION ---
+// With CapacitorHttp enabled, we treat the app as a remote client.
+const dynamicApiDomain = getBaseUrl() || window.location.origin;
 
-// 2. Website Domain: Where the app lives (Localhost on Phone)
-// If we set this to the remote URL, SuperTokens redirects us out to Chrome!
-const websiteDomain = window.location.origin; 
-
-console.log("🔗 API Domain:", apiDomain);
-console.log("🏠 Website Domain:", websiteDomain);
+console.log("🔗 SuperTokens Connecting to:", dynamicApiDomain);
 
 SuperTokens.init({
   appInfo: {
