@@ -11,26 +11,17 @@ interface QrScannerProps {
 const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  // --- NEW: A key to force re-mounting of the scanner element ---
-  const [remountKey, setRemountKey] = useState(0);
+  const isStartingRef = useRef(false);
   
   // --- NEW: Torch support ---
   const [hasTorch, setHasTorch] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
 
   useEffect(() => {
-    // This effect will now re-run whenever remountKey changes.
-    
-    // --- MODIFICATION: Only initialize if not already initialized ---
     if (!scannerRef.current) {
         scannerRef.current = new Html5Qrcode("qr-reader");
     }
-    const html5QrCode = scannerRef.current;
 
-    // Clear previous errors when we try to start
-    setError(null);
-
-    // Optimized constraints for Mobile
     const config = { 
         fps: 20, 
         qrbox: { width: 250, height: 250 },
@@ -38,8 +29,8 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
     };
 
     const handleScanSuccess = (decodedText: string, decodedResult: Html5QrcodeResult) => {
-      if (html5QrCode.isScanning) {
-        html5QrCode.stop();
+      if (scannerRef.current?.isScanning) {
+        scannerRef.current.stop();
       }
       onScanSuccess(decodedText);
       onClose();
@@ -48,34 +39,44 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
     const handleScanError = (errorMessage: string, error: Html5QrcodeError) => { /* Ignore */ };
 
     const startScanner = async () => {
-        // If the scanner is already in a 'starting' or 'running' state, don't try again
-        if (html5QrCode.isScanning) return;
+        if (isStartingRef.current || scannerRef.current?.isScanning) return;
+        isStartingRef.current = true;
+        setError(null);
 
         try {
             // Use facingMode: environment for best rear camera selection on mobile
-            await html5QrCode.start(
+            const qrCode = scannerRef.current;
+            if (!qrCode) return;
+
+            await qrCode.start(
                 { facingMode: "environment" },
                 config,
                 handleScanSuccess,
                 handleScanError
             );
 
-            // Clear any previous errors once we successfully start
-            setError(null);
-
-            // Check for Torch capability
-            const track = html5QrCode.getRunningTrack();
-            const capabilities: any = track.getCapabilities();
-            if (capabilities.torch) {
-                setHasTorch(true);
+            // --- SAFE TORCH DETECTION ---
+            // Wrap this in a separate try/catch so if the method is missing, the scanner still works
+            try {
+                if (typeof qrCode.getRunningTrack === 'function') {
+                    const track = qrCode.getRunningTrack();
+                    const capabilities: any = track?.getCapabilities?.() || {};
+                    if (capabilities?.torch) setHasTorch(true);
+                }
+            } catch (torchErr) {
+                console.warn("Torch not supported or error detecting it:", torchErr);
             }
+
+            // Success! Clear errors only after we are fully up and running
+            setError(null);
         } catch (err) {
-            // Only show the error if the scanner isn't actually running.
-            // html5-qrcode often throws an error if called twice, even if the 1st worked.
-            if (!html5QrCode.isScanning) {
+            // Only show error if we didn't actually manage to start
+            if (!scannerRef.current?.isScanning) {
                 setError("Failed to start the camera. Please ensure permissions are granted.");
                 console.error("Scanner error:", err);
             }
+        } finally {
+            isStartingRef.current = false;
         }
     };
     
@@ -83,26 +84,17 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
 
     // Cleanup function
     return () => {
-      if (html5QrCode) {
-        const stopAndClear = async () => {
-            if (html5QrCode.isScanning) {
-                await html5QrCode.stop();
-            }
-            try {
-                html5QrCode.clear();
-            } catch (e) {
-                // Ignore clear errors on unmount
-            }
-        };
-        stopAndClear();
+      if (scannerRef.current) {
+          if (scannerRef.current.isScanning) {
+              scannerRef.current.stop().catch(() => {});
+          }
       }
     };
-  }, [remountKey, onScanSuccess, onClose]); // --- MODIFICATION: Add remountKey to dependency array ---
+  }, [onScanSuccess, onClose]); 
 
   return (
     <div className="bg-black p-4 rounded-lg relative">
-      {/* --- MODIFICATION: Added a key to the reader div --- */}
-      <div id="qr-reader" key={remountKey} className="rounded-lg overflow-hidden"></div>
+      <div id="qr-reader" className="rounded-lg overflow-hidden"></div>
       
       {/* Flashlight Toggle */}
       {hasTorch && (
@@ -137,7 +129,7 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
             <p className="text-sm text-gray-300 mb-6">{error}</p>
             {/* --- NEW: The 'Try Again' button --- */}
             <button
-                onClick={() => setRemountKey(prev => prev + 1)} // This triggers the useEffect to re-run
+                onClick={() => window.location.reload()} 
                 className="w-full flex items-center justify-center gap-2 p-3 bg-accent hover:bg-blue-700 rounded-lg text-white font-semibold mb-3"
             >
                 <RefreshCw size={20} />
