@@ -11,9 +11,8 @@ import VariantGeneratorModal from './VariantGeneratorModal';
 import VariantImageModal from './VariantImageModal';
 import { PrintableLabel } from './PrintableLabel';
 import { useReactToPrint } from 'react-to-print';
+import { getImageUrl } from '../utils/apiConfig';
 import PrintQueueModal from './PrintQueueModal';
-
-const API_URL = "";
 
 interface ProductDetailModalProps {
     isOpen: boolean;
@@ -98,9 +97,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     if (!isOpen) return null;
     
     const resolveImageUrl = (path?: string | null) => {
-        if (!path) return null;
-        if (path.startsWith('http')) return path;
-        return `${API_URL}${path}`;
+        return getImageUrl(path);
     };
 
     const handleSaveParent = async (formData: FormData) => {

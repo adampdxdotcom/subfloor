@@ -196,7 +196,7 @@ function App() {
   // Show Connect Screen if:
   // A. First time launch (no URL)
   // B. Connection failed (URL might be wrong)
-  if ((isCapacitor && !hasServerUrl) || connectionError) {
+  if (isCapacitor && (!hasServerUrl || connectionError)) {
       return <ServerConnect />;
   }
 

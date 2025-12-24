@@ -11,6 +11,12 @@ export const STORAGE_KEY_API_URL = 'subfloor_server_url';
  *    handle relative paths (standard web behavior).
  */
 export const getBaseUrl = (): string => {
+    const isCapacitor = (window as any).Capacitor !== undefined;
+
+    // On standard Web, always use relative paths. 
+    // This prevents browser users from being intercepted by the "Connect" screen.
+    if (!isCapacitor) return '';
+
     const storedUrl = localStorage.getItem(STORAGE_KEY_API_URL);
     
     if (storedUrl) {
