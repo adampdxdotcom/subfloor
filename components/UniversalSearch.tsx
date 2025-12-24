@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, User, Briefcase, Layers, HardHat } from 'lucide-react';
+import { getEndpoint } from '../utils/apiConfig';
 
 // --- MODIFIED: SearchResult types for the new grouped structure ---
 interface SearchResultItem {
@@ -45,7 +46,7 @@ const UniversalSearch: React.FC = () => {
 
         setIsLoading(true);
         const timer = setTimeout(() => {
-            fetch(`/api/search?q=${query}`)
+            fetch(getEndpoint(`/api/search?q=${query}`), { credentials: 'include' })
                 .then(res => res.json())
                 .then((data: GroupedSearchResults) => {
                     setResults(data);
