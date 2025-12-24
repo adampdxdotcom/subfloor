@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import * as eventService from '../services/eventService';
 import { Event as ApiEvent, Installer, User } from '../types';
 import { formatDate } from '../utils/dateUtils';
+import { getEndpoint } from '../utils/apiConfig';
 import { fromZonedTime } from 'date-fns-tz';
 import MentionInput from '../components/MentionInput';
 import SmartMessage from '../components/SmartMessage'; // Assuming this exists from Chat feature
@@ -110,7 +111,9 @@ const CalendarView: React.FC = () => {
         if (userIds.length > 0) params.append('users', userIds.join(','));
         
         try {
-            const response = await fetch(`/api/calendar/events?${params.toString()}`);
+            const response = await fetch(getEndpoint(`/api/calendar/events?${params.toString()}`), { 
+                credentials: 'include' 
+            });
             if (!response.ok) throw new Error('Failed to fetch calendar events');
             const data: CalendarEvent[] = await response.json();
             setEvents(data);
@@ -687,10 +690,11 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
         if (!event) return;
         try {
             // Assuming eventService has this new method
-            const res = await fetch(`/api/events/${event.id}/respond`, {
+            const res = await fetch(getEndpoint(`/api/events/${event.id}/respond`), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status })
+                body: JSON.stringify({ status }),
+                credentials: 'include'
             });
             if (!res.ok) throw new Error("Failed");
             toast.success(`Invitation ${status}`);
