@@ -5,6 +5,7 @@ import { Edit2, Trash2, Save, X, RotateCcw, Calendar, Tag, MapPin, Phone, User a
 import { useData } from '../context/DataContext'; 
 import { createGravatarHash } from '../utils/cryptoUtils';
 import { formatDate } from '../utils/dateUtils';
+import { getImageUrl } from '../utils/apiConfig';
 
 const getStatusColor = (status: ProjectStatus): string => {
     switch (status) {
@@ -234,7 +235,7 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
                         </h3>
                         <div className="flex items-center gap-3">
                             {projectLead.avatarUrl ? (
-                                <img src={projectLead.avatarUrl} alt="Lead" className="w-8 h-8 rounded-full object-cover shadow-sm" />
+                                <img src={getImageUrl(projectLead.avatarUrl)} alt="Lead" className="w-8 h-8 rounded-full object-cover shadow-sm" />
                             ) : (
                                 <div className="w-8 h-8 rounded-full bg-accent text-on-accent flex items-center justify-center font-bold text-xs">
                                     {projectLead.firstName?.[0]}{projectLead.lastName?.[0]}

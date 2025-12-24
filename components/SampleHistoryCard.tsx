@@ -2,6 +2,7 @@ import React from 'react';
 import { SampleCheckout } from '../types';
 import { Layers, Calendar, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
+import { getImageUrl } from '../utils/apiConfig';
 
 interface CustomerSampleCardProps {
     sample: SampleCheckout;
@@ -22,7 +23,7 @@ const CustomerSampleCard: React.FC<CustomerSampleCardProps> = ({ sample, onStart
             {/* Image */}
             <div className="w-20 h-20 bg-background rounded-md border border-border flex items-center justify-center shrink-0 overflow-hidden relative">
                 {imageUrl ? (
-                    <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
+                    <img src={getImageUrl(imageUrl)} alt={title} className="w-full h-full object-cover" />
                 ) : (
                     <Layers className="text-text-tertiary w-8 h-8" />
                 )}
