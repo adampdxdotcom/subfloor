@@ -24,8 +24,8 @@ console.log("🏠 Website Domain:", websiteDomain);
 SuperTokens.init({
   appInfo: {
     appName: "Subfloor",
-    apiDomain: dynamidApiDomain,
-    websiteDomain: domainApiDomain,
+    apiDomain: dynamicApiDomain,
+    websiteDomain: dynamicApiDomain,
     apiBasePath: "/api/auth",
     websiteBasePath: "/auth",
   },
