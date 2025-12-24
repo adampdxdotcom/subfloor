@@ -20,10 +20,10 @@ interface GroupedSearchResults {
 
 const getResultIcon = (type: keyof GroupedSearchResults) => {
     switch (type) {
-        case 'customers': return <User className="w-5 h-5 text-gray-400" />;
-        case 'projects': return <Briefcase className="w-5 h-5 text-gray-400" />;
-        case 'installers': return <HardHat className="w-5 h-5 text-gray-400" />;
-        case 'samples': return <Layers className="w-5 h-5 text-gray-400" />;
+        case 'customers': return <User className="w-6 h-6 text-gray-400" />;
+        case 'projects': return <Briefcase className="w-6 h-6 text-gray-400" />;
+        case 'installers': return <HardHat className="w-6 h-6 text-gray-400" />;
+        case 'samples': return <Layers className="w-6 h-6 text-gray-400" />;
         default: return null;
     }
 };
@@ -96,15 +96,18 @@ const UniversalSearch: React.FC = () => {
                 </div>
                 
                 {isDropdownOpen && (
-                    <div className="absolute top-full mt-2 w-full md:w-96 bg-surface rounded-lg shadow-lg border border-border z-50 max-h-96 overflow-y-auto">
+                    <div className="fixed inset-x-0 bottom-0 top-[72px] md:absolute md:top-full md:mt-2 w-full md:w-96 bg-surface md:rounded-lg shadow-lg border-t md:border border-border z-50 overflow-y-auto">
                         {isLoading ? (
-                            <div className="p-4 text-center text-gray-400">Searching...</div>
+                            <div className="p-8 text-center text-gray-400 flex flex-col items-center gap-2">
+                                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                <span>Searching...</span>
+                            </div>
                         ) : totalResults > 0 && results ? (
                             <div>
                                 {Object.entries(results).map(([groupName, groupResults]) => (
                                     groupResults.length > 0 && (
                                         <div key={groupName}>
-                                            <h3 className="text-xs font-bold uppercase text-text-secondary px-3 pt-3 pb-1 border-b border-border">
+                                            <h3 className="text-sm font-bold uppercase text-text-secondary px-4 pt-4 pb-2 border-b border-border bg-background/50">
                                                 {groupName}
                                             </h3>
                                             <ul>
@@ -114,24 +117,24 @@ const UniversalSearch: React.FC = () => {
                                                             <Link
                                                                 to={`/samples?open=${result.id}`}
                                                                 onClick={resetSearch}
-                                                                className="flex items-center gap-4 p-3 hover:bg-background transition-colors"
+                                                                className="flex items-center gap-4 p-5 md:p-3 hover:bg-background transition-colors border-b border-border/50"
                                                             >
                                                                 {getResultIcon(groupName as keyof GroupedSearchResults)}
                                                                 <div>
-                                                                    <p className="font-semibold text-text-primary">{result.title}</p>
-                                                                    {result.subtitle && <p className="text-xs text-text-secondary">{result.subtitle}</p>}
+                                                                    <p className="font-bold text-lg md:text-base text-text-primary">{result.title}</p>
+                                                                    {result.subtitle && <p className="text-sm md:text-xs text-text-secondary">{result.subtitle}</p>}
                                                                 </div>
                                                             </Link>
                                                         ) : (
                                                             <Link 
                                                                 to={result.path}
                                                                 onClick={resetSearch}
-                                                                className="flex items-center gap-4 p-3 hover:bg-background transition-colors"
+                                                                className="flex items-center gap-4 p-5 md:p-3 hover:bg-background transition-colors border-b border-border/50"
                                                             >
                                                                 {getResultIcon(groupName as keyof GroupedSearchResults)}
                                                                 <div>
-                                                                    <p className="font-semibold text-text-primary">{result.title}</p>
-                                                                    {result.subtitle && <p className="text-xs text-text-secondary">{result.subtitle}</p>}
+                                                                    <p className="font-bold text-lg md:text-base text-text-primary">{result.title}</p>
+                                                                    {result.subtitle && <p className="text-sm md:text-xs text-text-secondary">{result.subtitle}</p>}
                                                                 </div>
                                                             </Link>
                                                         )}
