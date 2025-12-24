@@ -1579,3 +1579,42 @@ Accomplishments
         Images: We fixed broken images by creating a getImageUrl helper that prepends the server domain to relative paths.
 
         Back Button: We implemented a Native Back Button handler in App.tsx so the physical button navigates history instead of closing the app.
+
+SESSION 32.5 SUMMARY: The Mobile Native Leap
+
+This session was a targeted "Sprint" to bridge the final gap between a functional web application and a stable, high-performance native Android experience. We resolved the "Redirect-to-Chrome" hurdle, performed a system-wide "Image Scrub," and transformed the UI to feel native rather than just "responsive."
+1. Advanced Authentication & Navigation Stability
+
+We resolved a critical Capacitor limitation where SuperTokens would inadvertently kick the user out to a mobile browser after login.
+
+    Split-Domain Architecture: Refactored index.tsx to distinguish between apiDomain (the remote server) and websiteDomain (the local localhost origin). This keeps the auth flow contained within the app’s webview.
+
+    Native Whitelisting: Updated capacitor.config.ts with allowNavigation to prevent the OS from treating internal redirects as external links.
+
+    CORS Hardening: Updated server/index.js to allow a broader range of localhost origins, ensuring the mobile app and development environment can communicate securely with the production server.
+
+2. The "System-Wide Image Scrub"
+
+We solved the "Broken Image" problem across the entire application, ensuring that site photos, product thumbnails, and branding logos appear correctly on Android.
+
+    Path Normalization: Updated the getImageUrl utility in apiConfig.ts to be "bomb-proof." It now automatically detects if a path is missing the /uploads/ prefix and injects it, correcting legacy database inconsistencies on the fly.
+
+    Absolute Mapping: Implemented getImageUrl in over 10 critical components, including ProductCard, SampleHistoryCard, ProjectFilesSection, UserStatus, Layout, and the Knowledge Base.
+
+3. Native UI & Touch Optimization
+
+We moved away from "shrinking desktop layouts" to implementing true native mobile patterns.
+
+    Full-Screen Navigation: Redesigned the Layout.tsx sidebar from a narrow drawer into a full-screen mobile menu. We increased icon sizes, font scaling, and vertical padding to create large, thumb-friendly hit areas.
+
+    Search Overlay V2: Rebuilt UniversalSearch.tsx to use a full-screen overlay for results. This maximizes screen real estate and provides large, descriptive result rows that are easy to tap while in the field.
+
+    Viewport Hardening: Refined App.tsx and apiConfig.ts to strictly detect the isNativePlatform(). This ensures that web users never see the "Server Connect" screen intended only for mobile devices.
+
+4. Full-Stack Mobile Networking
+
+We performed a deep-clean of the data-fetching layer to solve "Invisible Data" issues on Android.
+
+    Credentialed Fetching: Updated CalendarView.tsx, KnowledgeBase.tsx, and UniversalSearch.tsx to use getEndpoint() and withCredentials: 'include'. This ensures that SuperTokens cookies are passed through the Capacitor bridge, allowing the phone to stay logged in.
+
+    JSON Safety: Added array-type guard clauses to ProjectPhotosSection.tsx to prevent the application from crashing if the server returns an HTML 404 page instead of JSON data.

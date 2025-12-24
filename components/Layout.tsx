@@ -100,6 +100,7 @@ const Layout: React.FC = () => {
             {isSidebarOpen && (
                 <>
                     <div 
+                        id="sidebar-overlay"
                         className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden" 
                         onClick={() => setIsSidebarOpen(false)}
                     ></div>

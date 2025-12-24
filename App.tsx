@@ -45,19 +45,24 @@ const BackButtonHandler = () => {
 
     const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
       // 1. Try to close any open modal first
-      // We look for a common close button class or overlay
-      // This is a "Best Effort" approach for local-state modals
-      const closeButton = document.querySelector('[aria-label="Close modal"]') as HTMLElement;
-      if (closeButton && closeButton.offsetParent !== null) { // Check if visible
-          closeButton.click();
+      const modalClose = document.querySelector('[aria-label="Close modal"]') as HTMLElement;
+      if (modalClose && modalClose.offsetParent !== null) {
+          modalClose.click();
           return;
       }
 
-      // 2. If at Root (Dashboard or Login), Exit App
+      // 2. Try to close the Sidebar overlay
+      const sidebarOverlay = document.getElementById('sidebar-overlay');
+      if (sidebarOverlay) {
+          sidebarOverlay.click();
+          return;
+      }
+
+      // 3. If at Root (Dashboard or Login), Exit App
       if (location.pathname === '/' || location.pathname === '/auth') {
         CapacitorApp.exitApp();
       } 
-      // 3. Otherwise, Go Back in History
+      // 4. Otherwise, Go Back in History
       else {
         navigate(-1);
       }
