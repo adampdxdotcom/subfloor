@@ -48,6 +48,9 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
     const handleScanError = (errorMessage: string, error: Html5QrcodeError) => { /* Ignore */ };
 
     const startScanner = async () => {
+        // If the scanner is already in a 'starting' or 'running' state, don't try again
+        if (html5QrCode.isScanning) return;
+
         try {
             // Use facingMode: environment for best rear camera selection on mobile
             await html5QrCode.start(
@@ -57,6 +60,9 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
                 handleScanError
             );
 
+            // Clear any previous errors once we successfully start
+            setError(null);
+
             // Check for Torch capability
             const track = html5QrCode.getRunningTrack();
             const capabilities: any = track.getCapabilities();
@@ -64,8 +70,12 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScanSuccess, onClose }) => {
                 setHasTorch(true);
             }
         } catch (err) {
-            setError("Failed to start the camera. Please ensure permissions are granted.");
-            console.error("Scanner error:", err);
+            // Only show the error if the scanner isn't actually running.
+            // html5-qrcode often throws an error if called twice, even if the 1st worked.
+            if (!html5QrCode.isScanning) {
+                setError("Failed to start the camera. Please ensure permissions are granted.");
+                console.error("Scanner error:", err);
+            }
         }
     };
     
