@@ -46,11 +46,13 @@ export const getImageUrl = (path: string | null | undefined): string => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
     
-    // Ensure path starts with /
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    // Ensure path starts with /uploads/ if it doesn't already
+    let cleanPath = path.startsWith('/') ? path : `/${path}`;
+    if (!cleanPath.startsWith('/uploads/') && !cleanPath.startsWith('/api/')) {
+        cleanPath = `/uploads${cleanPath}`;
+    }
+
     const base = getBaseUrl();
     
-    // If base is empty (Web), relative path is fine.
-    // If base is set (Mobile), prepend it.
-    return `${base}${normalizedPath}`;
+    return `${base}${cleanPath}`;
 };

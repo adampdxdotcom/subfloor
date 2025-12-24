@@ -29,7 +29,7 @@ import Messages from './pages/Messages';
 import SetupWizard from './pages/SetupWizard'; 
 import KnowledgeBase from './pages/KnowledgeBase'; 
 import ServerConnect from './pages/ServerConnect'; 
-import { getEndpoint, getBaseUrl } from './utils/apiConfig'; 
+import { getEndpoint, getBaseUrl, getImageUrl } from './utils/apiConfig'; 
 import { Loader2 } from 'lucide-react';
 import { App as CapacitorApp } from '@capacitor/app'; // NEW IMPORT
 
@@ -109,10 +109,7 @@ const BrandingListener = () => {
       const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
       link.type = 'image/x-icon';
       link.rel = 'icon';
-      const baseUrl = getBaseUrl();
-      link.href = systemBranding.faviconUrl.startsWith('http') 
-          ? systemBranding.faviconUrl 
-          : `${baseUrl}${systemBranding.faviconUrl}`;
+      link.href = getImageUrl(systemBranding.faviconUrl);
           
       document.getElementsByTagName('head')[0].appendChild(link);
     }

@@ -20,7 +20,8 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Filter list based on active tab
-    const displayedFiles = allFiles.filter((f: ProjectFile) => {
+    // Safety check: Ensure allFiles is an array before filtering
+    const displayedFiles = (Array.isArray(allFiles) ? allFiles : []).filter((f: ProjectFile) => {
         const cat = f.category || 'SITE'; // Default to SITE for old data
         return cat === activeTab;
     });
