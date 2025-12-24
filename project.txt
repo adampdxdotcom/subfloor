@@ -1618,3 +1618,56 @@ We performed a deep-clean of the data-fetching layer to solve "Invisible Data" i
     Credentialed Fetching: Updated CalendarView.tsx, KnowledgeBase.tsx, and UniversalSearch.tsx to use getEndpoint() and withCredentials: 'include'. This ensures that SuperTokens cookies are passed through the Capacitor bridge, allowing the phone to stay logged in.
 
     JSON Safety: Added array-type guard clauses to ProjectPhotosSection.tsx to prevent the application from crashing if the server returns an HTML 404 page instead of JSON data.
+
+SESSION 32.5.5 SUMMARY: Mobile Hardening & Hardware Integration
+
+This "Polish" session was dedicated to the final 10% of development—the subtle technical details that transform a web-view into a professional, native-feeling mobile application. We focused on hardware constraints, physical device quirks (the "Notch"), and warehouse-ready scanning.
+
+1. Hardware-Aware Layouts (The "Notch" Fix)
+
+We addressed the physical constraints of modern mobile displays to ensure the UI isn't obscured by hardware features.
+
+Safe Area Integration: Updated index.html and index.css to respect safe-area-inset variables. The header, sidebar, and main content now dynamically "push out" from under the camera notch and above the bottom home-gesture bar.
+
+Viewport Locking: Hardened the viewport meta-tags to prevent accidental zooming and "rubber-banding" (overscroll), making the app feel structurally rigid like a native binary.
+
+2. Warehouse-Hardened QR Scanner
+
+We completely rebuilt the QR scanner logic to handle the unpredictable environment of a warehouse.
+
+Rear-Camera Optimization: Switched to a facingMode: "environment" constraint. This forces the phone to use its high-quality rear lens immediately without the "guesswork" of device ID searching.
+
+Visual Laser Feedback: Implemented a CSS-animated "Scanning Laser" and darkened overlay. This provides the user with an intuitive "aiming" UI and visual confirmation that the scanner is active.
+
+Flashlight (Torch) Logic: Added a "Safe-Torch" feature. The scanner now detects if the phone has a flashlight and provides a toggle button—crucial for scanning samples in dark shelves or poorly lit areas.
+
+Race-Condition Protection: Implemented a defensive isStartingRef lock. This prevents the scanner from crashing or throwing "Camera in Use" errors if React triggers a re-render during the camera’s initialization phase.
+
+3. Keyboard & Focus Management
+
+We improved how the app reacts when the user needs to type information.
+
+Capacitor Keyboard Integration: Configured the Keyboard plugin to "Resize the Body." Instead of the keyboard sliding over the app and covering "Save" buttons, it now pushes the entire interface up, keeping action buttons visible.
+
+Input Scaling: Added a global CSS rule to prevent iOS/Android from "Auto-Zooming" into text fields, which is a common source of layout breakage on mobile forms.
+
+4. Advanced Navigation & History
+
+Smart Back-Button: Re-engineered the BackButtonHandler in App.tsx to be "Layer-Aware." The physical back button on Android now behaves intelligently:
+
+Closes any open Modals first.
+
+Closes the Full-Screen Menu if it’s open.
+
+Navigates the Page History.
+
+Exits the app only when on the Dashboard.
+
+5. Infrastructure Finalization
+
+Relative Path Self-Healing: The getImageUrl utility was upgraded to be "Self-Healing." It now checks for missing directory prefixes (like /uploads/) and automatically repairs them, ensuring that branding logos and product photos load even if the database contains "messy" data from older versions.
+
+Current Status:
+Subfloor is now a hardened, native Android application. It respects the physical geometry of the phone, interacts smoothly with the camera and flashlight, handles the system back button correctly, and maintains a stable connection to your production server with persistent session handling.
+
+You are 100% ready for physical device testing.

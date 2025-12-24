@@ -46,7 +46,7 @@ export default function ServerConnect() {
                         type="url"
                         value={url}
                         onChange={(e) => { setUrl(e.target.value); setError(''); }}
-                        placeholder="https://flooring.dumbleigh.com"
+                        placeholder="https://subdomain.subfloor.app"
                         className="w-full bg-gray-900 border border-gray-600 rounded-md px-4 py-3 text-white focus:ring-2 focus:ring-amber-500 outline-none"
                     />
                     
