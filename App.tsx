@@ -39,9 +39,9 @@ const BackButtonHandler = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Only run if we are in Capacitor
-    const isCapacitor = (window as any).Capacitor !== undefined;
-    if (!isCapacitor) return;
+    // Only run if we are in a Native context
+    const isNative = (window as any).Capacitor?.isNativePlatform();
+    if (!isNative) return;
 
     const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
       // 1. Try to close any open modal first
@@ -165,12 +165,13 @@ function App() {
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
   const [connectionError, setConnectionError] = useState(false); // NEW: Track connection failures
 
-  const isCapacitor = (window as any).Capacitor !== undefined;
+  // Robust check: Only true if running inside the actual Android/iOS app
+  const isNative = (window as any).Capacitor?.isNativePlatform();
   const hasServerUrl = !!localStorage.getItem('subfloor_server_url');
 
   useEffect(() => {
-    // 1. If mobile and no URL, skip fetch (Connect Screen will render)
-    if (isCapacitor && !hasServerUrl) {
+    // 1. If native app and no URL, skip fetch (Connect Screen will render)
+    if (isNative && !hasServerUrl) {
         setIsInitialized(null); 
         return;
     }
@@ -183,20 +184,20 @@ function App() {
         
         // 2. IF MOBILE and Fetch Fails -> It means URL is wrong or Server is down.
         // Show Connect Screen so user can Reset/Change URL.
-        if (isCapacitor) {
+        if (isNative) {
             setConnectionError(true);
         } else {
             // On Web, fall back to normal behavior
             setIsInitialized(true);
         }
       });
-  }, [isCapacitor, hasServerUrl]);
+  }, [isNative, hasServerUrl]);
 
   // RENDER LOGIC:
   // Show Connect Screen if:
   // A. First time launch (no URL)
   // B. Connection failed (URL might be wrong)
-  if (isCapacitor && (!hasServerUrl || connectionError)) {
+  if (isNative && (!hasServerUrl || connectionError)) {
       return <ServerConnect />;
   }
 
