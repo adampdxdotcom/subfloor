@@ -4,6 +4,7 @@ import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { Clock, Undo2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { getImageUrl } from '../utils/apiConfig';
 
 // Helper to find product/variant data from a checkout
 const useCheckoutDetails = (checkout: SampleCheckout) => {
@@ -73,7 +74,7 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
         <div className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer w-80 flex-shrink-0" onClick={() => onClick(product)}>
             <div className="w-full h-40 bg-background flex items-center justify-center text-text-secondary relative">
                 {displayImage ? (
-                    <img src={displayImage} alt={displayName} className="w-full h-full object-cover" />
+                    <img src={getImageUrl(displayImage)} alt={displayName} className="w-full h-full object-cover" />
                 ) : (
                     <span className="text-sm">No Image</span>
                 )}
