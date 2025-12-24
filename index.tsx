@@ -11,16 +11,20 @@ import { getBaseUrl } from './utils/apiConfig';
 console.log("✅ SuperTokens Config Loaded");
 
 // --- DYNAMIC DOMAIN CONFIGURATION ---
-// With CapacitorHttp enabled, we treat the app as a remote client.
-const dynamicApiDomain = getBaseUrl() || window.location.origin;
+const apiDomain = getBaseUrl() || window.location.origin;
 
-console.log("🔗 SuperTokens Connecting to:", dynamicApiDomain);
+// The websiteDomain MUST be the local origin (localhost) for Capacitor 
+// so that redirects stay inside the app instead of opening the browser.
+const websiteDomain = window.location.origin;
+
+console.log("🔗 SuperTokens API:", apiDomain);
+console.log("🏠 SuperTokens Website:", websiteDomain);
 
 SuperTokens.init({
   appInfo: {
     appName: "Subfloor",
-    apiDomain: dynamicApiDomain,
-    websiteDomain: dynamicApiDomain,
+    apiDomain: apiDomain,
+    websiteDomain: websiteDomain,
     apiBasePath: "/api/auth",
     websiteBasePath: "/auth",
   },

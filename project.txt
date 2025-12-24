@@ -33,6 +33,7 @@ Please don't make code for files you haven't seen.
 │   │   ├── ProductReportTable.tsx
 │   │   └── ReportCharts.tsx
 │   ├── ActivityHistory.tsx
+│   ├── AddEditCustomerModal.tsx
 │   ├── AddEditInstallerModal.tsx
 │   ├── AddEditMaterialOrderModal.tsx
 │   ├── AddEditVendorModal.tsx
@@ -48,7 +49,6 @@ Please don't make code for files you haven't seen.
 │   ├── CustomerSelector.tsx
 │   ├── DashboardEmailSettings.tsx
 │   ├── EditChangeOrderModal.tsx
-│   ├── EditCustomerModal.tsx
 │   ├── EditProjectModal.tsx
 │   ├── FinalizeJobSection.tsx
 │   ├── GlobalProjectSelector.tsx
@@ -141,6 +141,7 @@ Please don't make code for files you haven't seen.
 │   ├── QuoteDetail.tsx
 │   ├── Reports.tsx
 │   ├── SampleLibrary.tsx
+│   ├── ServerConnect.tsx
 │   ├── Settings.tsx
 │   ├── SetupWizard.tsx
 │   ├── VendorDetail.tsx
@@ -219,6 +220,7 @@ Please don't make code for files you haven't seen.
 │   ├── useSampleCheckouts.ts
 │   └── vendorService.ts
 ├── utils
+│   ├── apiConfig.ts
 │   ├── changeFormatter.ts
 │   ├── cryptoUtils.ts
 │   ├── csvUtils.ts
@@ -226,6 +228,7 @@ Please don't make code for files you haven't seen.
 │   └── pricingUtils.ts
 ├── androidPlan.txt
 ├── App.tsx
+├── capacitor.config.ts
 ├── docker-compose.dev.yml
 ├── docker-compose.yml
 ├── Dockerfile
@@ -243,6 +246,14 @@ Please don't make code for files you haven't seen.
 ├── schema.sql
 ├── tailwind.config.js
 ├── todo.txt
+├── tree.sh
+├── tree.txt
+├── tsconfig.json
+├── types.ts
+├── userauditplan.txt
+└── vite.config.ts
+
+16 directories, 223 files
 
 
 
@@ -1535,3 +1546,36 @@ Files Updated:
     src/pages/CalendarView.tsx
 
     src/components/CalendarFilter.tsx
+
+Session 32
+
+Here is the summary of this session. It was a grueling battle against the specific constraints of Android networking, but the infrastructure is now fundamentally transformed.
+Accomplishments
+
+    Full-Stack "Disconnect" Architecture
+
+        We refactored the entire frontend service layer (src/services/*) to stop assuming the API is "local."
+
+        We built a Dynamic Configuration engine (apiConfig.ts) that allows the app to connect to any self-hosted URL, not just a hardcoded one.
+
+        We built a Server Connect UI that intercepts the user on first launch (or connection failure) to set their server address.
+
+    Native Android Wrapper (Capacitor)
+
+        We successfully initialized the Android project, downgrading versions to match your server's Node 20 environment.
+
+        We solved the "Java 21 vs Gradle" build errors.
+
+        We configured the Android Manifest with permissions for Internet, Camera, and File Storage.
+
+    Backend Security & Networking
+
+        We updated the Node server (server/index.js) to whitelist localhost (the phone) in CORS.
+
+        We reconfigured SuperTokens to allow Cross-Domain Cookies (SameSite: none, Secure: true), enabling the phone to maintain a session with the server.
+
+    Native Features & Polish
+
+        Images: We fixed broken images by creating a getImageUrl helper that prepends the server domain to relative paths.
+
+        Back Button: We implemented a Native Back Button handler in App.tsx so the physical button navigates history instead of closing the app.

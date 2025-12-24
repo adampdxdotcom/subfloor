@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'Subfloor',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    allowNavigation: ['flooring.dumbleigh.com']
   },
 
   plugins: {
