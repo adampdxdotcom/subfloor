@@ -16,8 +16,11 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 
-Dockerfile.prod
+Dockerfile.dev
+docker-compose.dev.yml
+todo.txt
 tree.txt
+tree.sh
 project_1old.txt
 project.txt
 androidPlan.txt
