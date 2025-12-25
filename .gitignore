@@ -16,15 +16,6 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 
-Dockerfile.dev
-docker-compose.dev.yml
-todo.txt
-tree.txt
-tree.sh
-project_1old.txt
-project.txt
-androidPlan.txt
-
 # IDE and OS files
 .DS_Store
 .idea/
