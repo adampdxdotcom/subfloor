@@ -224,6 +224,7 @@ CREATE TABLE user_preferences (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL UNIQUE,
     preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
+    calendar_token VARCHAR(255) UNIQUE, -- Added for iCal Feed Auth
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

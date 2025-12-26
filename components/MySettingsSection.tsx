@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { UserCog, Palette, Camera, Save, Trash2 } from 'lucide-react';
+import { UserCog, Palette, Camera, Save, Trash2, Calendar, Copy, RefreshCw, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../context/DataContext';
 import * as userService from '../services/userService';
+import { getEndpoint } from '../utils/apiConfig';
 
 const MySettingsSection: React.FC = () => {
     const { currentUser, saveCurrentUserPreferences, updateCurrentUserProfile, uploadCurrentUserAvatar, deleteCurrentUserAvatar } = useData();
@@ -11,8 +12,26 @@ const MySettingsSection: React.FC = () => {
     const [lastName, setLastName] = useState('');
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    
+    // Calendar Sync State
+    const [calendarToken, setCalendarToken] = useState<string | null>(null);
+    const [isCopied, setIsCopied] = useState(false);
 
     useEffect(() => {
+        // Fetch Calendar Token
+        const fetchToken = async () => {
+            try {
+                const res = await fetch(getEndpoint('/api/preferences/calendar-token'), { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    setCalendarToken(data.token);
+                }
+            } catch (err) {
+                console.error("Failed to fetch calendar token", err);
+            }
+        };
+        fetchToken();
+
         // FIX: Read directly from 'calendarColor' to match backend query
         if (currentUser?.preferences?.calendarColor) {
             setColor(currentUser.preferences.calendarColor as string);
@@ -39,6 +58,38 @@ const MySettingsSection: React.FC = () => {
         toast.success("Color preference saved!");
     };
     
+    const handleGenerateToken = async () => {
+        try {
+            const res = await fetch(getEndpoint('/api/preferences/calendar-token'), { 
+                method: 'POST',
+                credentials: 'include' 
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setCalendarToken(data.token);
+                toast.success("Calendar link generated!");
+            }
+        } catch (err) {
+            toast.error("Failed to generate link");
+        }
+    };
+
+    const handleCopyLink = () => {
+        if (!currentUser || !calendarToken) return;
+        
+        // We need the absolute URL for the external calendar app
+        const apiBase = getEndpoint('').replace(/\/$/, ''); // Remove trailing slash if any
+        // Check if apiBase is relative (starts with /)
+        const baseUrl = apiBase.startsWith('http') ? apiBase : window.location.origin;
+        
+        const feedUrl = `${baseUrl}/api/calendar/feed/${currentUser.id}/${calendarToken}`;
+        
+        navigator.clipboard.writeText(feedUrl);
+        setIsCopied(true);
+        toast.success("Link copied to clipboard!");
+        setTimeout(() => setIsCopied(false), 2000);
+    };
+
     const handleProfileSave = async () => {
         await updateCurrentUserProfile(firstName, lastName);
     };
@@ -154,6 +205,50 @@ const MySettingsSection: React.FC = () => {
                     <button onClick={handleColorSave} className="flex items-center gap-2 py-2 px-4 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded">
                         <Save size={16}/> Save Calendar Color
                     </button>
+                </div>
+
+                <h3 className="text-lg font-medium text-text-primary border-b border-gray-700 pb-2 pt-4">Calendar Sync</h3>
+                <div className="bg-background rounded-md border border-border p-4">
+                    <div className="flex items-start gap-3 mb-4">
+                        <Calendar className="w-10 h-10 text-accent shrink-0" />
+                        <div>
+                            <h4 className="font-bold text-text-primary">Sync to Phone</h4>
+                            <p className="text-sm text-text-secondary">
+                                See your jobs and appointments in Google Calendar, Apple Calendar, or Outlook.
+                            </p>
+                        </div>
+                    </div>
+
+                    {!calendarToken ? (
+                        <button 
+                            onClick={handleGenerateToken}
+                            className="w-full py-2 bg-primary hover:bg-primary-hover text-white rounded font-medium transition-colors"
+                        >
+                            Generate Sync Link
+                        </button>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={handleCopyLink}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-surface hover:bg-surface-hover border border-border text-text-primary rounded transition-colors"
+                                >
+                                    {isCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                                    {isCopied ? "Copied!" : "Copy Link"}
+                                </button>
+                                <button 
+                                    onClick={() => { if(confirm("Resetting this link will disconnect all current devices. Continue?")) handleGenerateToken() }}
+                                    className="px-3 py-2 bg-red-900/20 hover:bg-red-900/40 text-red-500 border border-red-900/50 rounded transition-colors"
+                                    title="Reset Link"
+                                >
+                                    <RefreshCw size={16} />
+                                </button>
+                            </div>
+                            <p className="text-xs text-text-tertiary">
+                                Paste this link into your calendar app's "Subscribe by URL" or "Add Calendar from Internet" section.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         </section>

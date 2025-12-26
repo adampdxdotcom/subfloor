@@ -27,6 +27,43 @@ router.get('/', verifySession(), async (req, res) => {
     }
 });
 
+// POST /api/preferences/calendar-token - Generate or Reset iCal Token
+router.post('/calendar-token', verifySession(), async (req, res) => {
+    const userId = req.session.getUserId();
+    
+    // Generate a simple random token (UUID-like)
+    const crypto = await import('crypto');
+    const token = crypto.randomBytes(16).toString('hex');
+
+    try {
+        await pool.query(
+            `UPDATE user_preferences 
+             SET calendar_token = $1 
+             WHERE user_id = $2`,
+            [token, userId]
+        );
+        res.json({ token });
+    } catch (err) {
+        console.error('Error generating calendar token:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// GET /api/preferences/calendar-token - Get current token
+router.get('/calendar-token', verifySession(), async (req, res) => {
+    const userId = req.session.getUserId();
+    try {
+        const result = await pool.query(
+            `SELECT calendar_token FROM user_preferences WHERE user_id = $1`,
+            [userId]
+        );
+        res.json({ token: result.rows[0]?.calendar_token || null });
+    } catch (err) {
+        console.error('Error fetching calendar token:', err.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 router.put('/', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
     const preferencesPayload = req.body;

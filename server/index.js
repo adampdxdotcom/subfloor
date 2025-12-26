@@ -45,6 +45,7 @@ import jobNotesRoutes from './routes/jobNotes.js';
 import messageRoutes from './routes/messages.js';
 import setupRoutes from './routes/setup.js';
 import kbRoutes from './routes/kb.js';
+import calendarFeedRoutes from './routes/calendarFeed.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -227,6 +228,7 @@ app.use(async (req, res, next) => {
 
 // --- API ENDPOINTS ---
 app.get('/api', (req, res) => res.json({ message: 'Backend is running!' }));
+app.use('/api/calendar/feed', calendarFeedRoutes); // Public iCal Feed
 app.use('/api/customers', customerRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/sample-checkouts', sampleCheckoutRoutes);
