@@ -2,7 +2,9 @@ import React, { useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { Project, ProjectStatus, SampleCheckout } from '../types';
-import { ChevronRight, Bell, Clock, Undo2 } from 'lucide-react';
+import { ChevronRight, Bell, Clock, Undo2, Calendar, HardHat, Layers } from 'lucide-react';
+import { formatDate } from '../utils/dateUtils';
+import { getImageUrl } from '../utils/apiConfig';
 
 // --- NEW: Helper to find Product Variant Name ---
 const getCheckoutDisplayName = (checkout: SampleCheckout, products: any[]) => {
@@ -45,10 +47,56 @@ const getOverdueAlert = (project: Project, sampleCheckouts: SampleCheckout[]): {
 };
 
 const ProjectCard = ({ project }: { project: Project }) => {
-    const { customers, sampleCheckouts, products, updateSampleCheckout, extendSampleCheckout } = useData();
+    const { customers, sampleCheckouts, products, updateSampleCheckout, extendSampleCheckout, jobs, installers } = useData();
     const customer = customers.find(c => c.id === project.customerId);
     const statusColor = getStatusColor(project.status);
     const overdueAlert = getOverdueAlert(project, sampleCheckouts);
+
+    // --- Logistics Info (Dates & Installer) ---
+    const scheduleInfo = useMemo(() => {
+        const job = jobs.find(j => j.projectId === project.id);
+        const appointments = job?.appointments || [];
+        
+        if (appointments.length === 0) return null;
+
+        // Sort appointments to find earliest start and latest end
+        const sorted = [...appointments].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+        const start = sorted[0].startDate;
+        const end = sorted[sorted.length - 1].endDate;
+        
+        // Find Installer (Grab from first appointment)
+        const installerId = sorted[0].installerId;
+        const installer = installers.find(i => i.id === installerId);
+        
+        // Format Date Range
+        const startDateString = formatDate(start);
+        const endDateString = formatDate(end);
+        const dateString = startDateString === endDateString ? startDateString : `${startDateString} - ${endDateString}`;
+
+        return {
+            dateString,
+            installerName: installer?.installerName || (installer as any)?.name || 'Assigned Installer'
+        };
+    }, [jobs, project.id, installers]);
+
+    // --- Selections (Thumbnails) ---
+    const selectedImages = useMemo(() => {
+        const selected = sampleCheckouts.filter(sc => sc.projectId === project.id && sc.isSelected);
+        return selected.slice(0, 4).map(sc => {
+            // Find the product/variant image
+            for (const p of products) {
+                // Check Interest Variant First (The specific color)
+                if (sc.interestVariantId) {
+                    const v = p.variants.find((v: any) => String(v.id) === String(sc.interestVariantId));
+                    if (v) return { url: v.thumbnailUrl || v.imageUrl || p.defaultThumbnailUrl || p.defaultImageUrl, name: v.name };
+                }
+                // Fallback to Board Variant
+                const v = p.variants.find((v: any) => String(v.id) === String(sc.variantId));
+                if (v) return { url: v.thumbnailUrl || v.imageUrl || p.defaultThumbnailUrl || p.defaultImageUrl, name: v.name };
+            }
+            return null;
+        }).filter(Boolean); // Remove nulls
+    }, [sampleCheckouts, products, project.id]);
 
     const activeCheckouts = useMemo(() => {
         return sampleCheckouts.filter(sc => sc.projectId === project.id && sc.actualReturnDate === null);
@@ -63,15 +111,29 @@ const ProjectCard = ({ project }: { project: Project }) => {
     return (
         <Link to={`/projects/${project.id}`} className="block bg-surface p-4 rounded-lg shadow-md hover:shadow-lg hover:bg-gray-700 transition-all duration-300 w-96 flex-shrink-0">
             <div className="flex justify-between items-start">
-                <div>
+                <div className="min-w-0 pr-2">
                     <h3 className="font-bold text-lg text-text-primary truncate">{project.projectName}</h3>
                     <p className="text-sm text-text-secondary truncate">{customer?.fullName}</p>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 shrink-0">
                     {overdueAlert && (<div title={overdueAlert.text}><Bell className={`w-5 h-5 ${overdueAlert.color}`} /></div>)}
                     <div className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor}`}>{project.status}</div>
                 </div>
             </div>
+
+            {/* Logistics Block */}
+            {scheduleInfo && (
+                <div className="mt-3 flex items-start gap-4 text-sm text-text-secondary">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <Calendar className="w-4 h-4 text-primary shrink-0" />
+                        <span className="truncate">{scheduleInfo.dateString}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <HardHat className="w-4 h-4 text-primary shrink-0" />
+                        <span className="truncate">{scheduleInfo.installerName}</span>
+                    </div>
+                </div>
+            )}
 
             {activeCheckouts.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-border">
@@ -90,6 +152,23 @@ const ProjectCard = ({ project }: { project: Project }) => {
                             );
                         })}
                     </div>
+                </div>
+            )}
+
+            {/* Selected Variants (Thumbnails) */}
+            {selectedImages.length > 0 && (
+                <div className="mt-3 flex gap-2">
+                    {selectedImages.map((img, idx) => (
+                        <div key={idx} className="w-8 h-8 rounded bg-background border border-border overflow-hidden shrink-0" title={img?.name}>
+                            {img?.url ? (
+                                <img src={getImageUrl(img.url)} alt={img?.name || 'Selected variant'} className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-text-tertiary">
+                                    <Layers size={14} />
+                                </div>
+                            )}
+                        </div>
+                    ))}
                 </div>
             )}
 

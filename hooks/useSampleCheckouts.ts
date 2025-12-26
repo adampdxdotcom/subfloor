@@ -39,5 +39,11 @@ export const useSampleCheckoutMutations = () => {
                 queryClient.invalidateQueries({ queryKey: ['sampleCheckouts'] });
             },
         }),
+        extendSampleCheckout: useMutation({
+            mutationFn: sampleCheckoutService.extendSampleCheckout,
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['sampleCheckouts'] });
+            },
+        }),
     };
 };

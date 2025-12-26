@@ -9,7 +9,7 @@ const getApiUrl = () => getEndpoint('/api/sample-checkouts');
 export const getSampleCheckouts = async (projectId?: number): Promise<SampleCheckout[]> => {
     const baseUrl = getApiUrl();
     const url = projectId ? `${baseUrl}?projectId=${projectId}` : baseUrl;
-    const response = await fetch(url);
+    const response = await fetch(url, { credentials: 'include' });
     if (!response.ok) {
         throw new Error('Failed to fetch sample checkouts.');
     }
@@ -17,7 +17,7 @@ export const getSampleCheckouts = async (projectId?: number): Promise<SampleChec
 };
 
 export const getCheckoutsByCustomer = async (customerId: number): Promise<SampleCheckout[]> => {
-    const response = await fetch(`${getApiUrl()}?customerId=${customerId}`);
+    const response = await fetch(`${getApiUrl()}?customerId=${customerId}`, { credentials: 'include' });
     if (!response.ok) {
         throw new Error('Failed to fetch customer samples.');
     }
@@ -25,7 +25,7 @@ export const getCheckoutsByCustomer = async (customerId: number): Promise<Sample
 };
 
 export const getCheckoutsByInstaller = async (installerId: number): Promise<SampleCheckout[]> => {
-    const response = await fetch(`${getApiUrl()}?installerId=${installerId}`);
+    const response = await fetch(`${getApiUrl()}?installerId=${installerId}`, { credentials: 'include' });
     if (!response.ok) {
         throw new Error('Failed to fetch installer samples.');
     }
@@ -39,7 +39,8 @@ export const addSampleCheckout = async (checkoutData: any): Promise<SampleChecko
     const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(checkoutData)
+        body: JSON.stringify(checkoutData),
+        credentials: 'include'
     });
     if (!response.ok) {
         throw new Error('Failed to check out sample.');
@@ -54,7 +55,8 @@ export const returnSampleCheckout = async (checkout: SampleCheckout): Promise<Sa
     const response = await fetch(`${getApiUrl()}/${checkout.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}) 
+        body: JSON.stringify({}),
+        credentials: 'include'
     });
     if (!response.ok) {
         throw new Error('Failed to return sample.');
@@ -70,9 +72,25 @@ export const patchSampleCheckout = async (checkoutId: number, data: { expectedRe
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
+        credentials: 'include'
     });
     if (!response.ok) {
         throw new Error('Failed to update sample checkout.');
+    }
+    return response.json();
+};
+
+/**
+ * Extends the due date of a checkout by 2 days from NOW.
+ */
+export const extendSampleCheckout = async (checkoutId: number): Promise<SampleCheckout> => {
+    const response = await fetch(`${getApiUrl()}/${checkoutId}/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+    });
+    if (!response.ok) {
+        throw new Error('Failed to extend sample checkout.');
     }
     return response.json();
 };
@@ -84,6 +102,7 @@ export const transferCheckoutsToProject = async (checkoutIds: number[], projectI
     await fetch(`${getApiUrl()}/transfer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ checkoutIds, projectId })
+        body: JSON.stringify({ checkoutIds, projectId }),
+        credentials: 'include'
     });
 };

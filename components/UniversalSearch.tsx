@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, User, Briefcase, Layers, HardHat } from 'lucide-react';
-import { getEndpoint } from '../utils/apiConfig';
+import { Search, User, Briefcase, Layers, HardHat, ArrowRight } from 'lucide-react';
+import { getEndpoint, getImageUrl } from '../utils/apiConfig';
 
 // --- MODIFIED: SearchResult types for the new grouped structure ---
 interface SearchResultItem {
@@ -9,6 +9,7 @@ interface SearchResultItem {
     title: string;
     subtitle: string | null;
     path: string;
+    image?: string | null;
 }
 
 interface GroupedSearchResults {
@@ -25,6 +26,17 @@ const getResultIcon = (type: keyof GroupedSearchResults) => {
         case 'installers': return <HardHat className="w-6 h-6 text-gray-400" />;
         case 'samples': return <Layers className="w-6 h-6 text-gray-400" />;
         default: return null;
+    }
+};
+
+const getViewAllPath = (type: string, query: string) => {
+    const encodedQuery = encodeURIComponent(query);
+    switch (type) {
+        case 'customers': return `/customers?search=${encodedQuery}`;
+        case 'installers': return `/installers?search=${encodedQuery}`;
+        case 'samples': return `/samples?search=${encodedQuery}`;
+        case 'projects': return `/dashboard?search=${encodedQuery}`;
+        default: return '#';
     }
 };
 
@@ -77,7 +89,7 @@ const UniversalSearch: React.FC = () => {
     };
 
     const totalResults = results 
-        ? Object.values(results).reduce((acc, val) => acc + val.length, 0) 
+        ? Object.values(results).reduce((acc, val) => acc + (Array.isArray(val) ? val.length : 0), 0) 
         : 0;
 
     return (
@@ -96,7 +108,7 @@ const UniversalSearch: React.FC = () => {
                 </div>
                 
                 {isDropdownOpen && (
-                    <div className="fixed inset-x-0 bottom-0 top-[72px] md:absolute md:top-full md:mt-2 w-full md:w-96 bg-surface md:rounded-lg shadow-lg border-t md:border border-border z-50 overflow-y-auto">
+                    <div className="fixed inset-x-0 bottom-0 top-[72px] md:absolute md:top-full md:bottom-auto md:mt-2 w-full md:w-96 bg-surface md:rounded-lg shadow-lg border-t md:border border-border z-50 overflow-y-auto">
                         {isLoading ? (
                             <div className="p-8 text-center text-gray-400 flex flex-col items-center gap-2">
                                 <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -104,14 +116,19 @@ const UniversalSearch: React.FC = () => {
                             </div>
                         ) : totalResults > 0 && results ? (
                             <div>
-                                {Object.entries(results).map(([groupName, groupResults]) => (
-                                    groupResults.length > 0 && (
+                                {Object.entries(results).map(([groupName, groupResults]) => {
+                                    if (!Array.isArray(groupResults) || groupResults.length === 0) return null;
+                                    
+                                    const visibleResults = groupResults.slice(0, 3);
+                                    const hasMore = groupResults.length > 3;
+
+                                    return (
                                         <div key={groupName}>
                                             <h3 className="text-sm font-bold uppercase text-text-secondary px-4 pt-4 pb-2 border-b border-border bg-background/50">
                                                 {groupName}
                                             </h3>
                                             <ul>
-                                                {groupResults.map((result) => (
+                                                {visibleResults.map((result) => (
                                                     <li key={`${groupName}-${result.id}`}>
                                                         {groupName === 'samples' ? (
                                                             <Link
@@ -119,7 +136,13 @@ const UniversalSearch: React.FC = () => {
                                                                 onClick={resetSearch}
                                                                 className="flex items-center gap-4 p-5 md:p-3 hover:bg-background transition-colors border-b border-border/50"
                                                             >
-                                                                {getResultIcon(groupName as keyof GroupedSearchResults)}
+                                                                {result.image ? (
+                                                                    <div className="w-10 h-10 rounded-md bg-background border border-border shrink-0 overflow-hidden">
+                                                                        <img src={getImageUrl(result.image)} alt={result.title} className="w-full h-full object-cover" />
+                                                                    </div>
+                                                                ) : (
+                                                                    getResultIcon(groupName as keyof GroupedSearchResults)
+                                                                )}
                                                                 <div>
                                                                     <p className="font-bold text-lg md:text-base text-text-primary">{result.title}</p>
                                                                     {result.subtitle && <p className="text-sm md:text-xs text-text-secondary">{result.subtitle}</p>}
@@ -141,9 +164,18 @@ const UniversalSearch: React.FC = () => {
                                                     </li>
                                                 ))}
                                             </ul>
+                                            {hasMore && (
+                                                <Link
+                                                    to={getViewAllPath(groupName, query)}
+                                                    onClick={resetSearch}
+                                                    className="flex items-center justify-center gap-2 p-3 text-sm font-bold text-primary hover:bg-background/50 transition-colors border-b border-border/50"
+                                                >
+                                                    View All {groupName} <ArrowRight className="w-4 h-4" />
+                                                </Link>
+                                            )}
                                         </div>
-                                    )
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
                             <div className="p-4 text-center text-gray-400">No results found for "{query}".</div>

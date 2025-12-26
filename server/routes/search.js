@@ -17,15 +17,22 @@ router.get('/', verifySession(), async (req, res) => {
     try {
         // --- NEW: Product Search (Inventory 2.0) ---
         // We use DISTINCT ON to avoid returning the same product 10 times if 10 variants match
+        // We order by match quality so if a variant matches specifically, that variant's image/subtitle is used.
         const productsQuery = `
             SELECT DISTINCT ON (p.id)
                 'product' AS type,
                 p.id, -- UUID
                 p.name AS title,
-                v.name AS subtitle,
-                -- If the search matched a specific variant SKU or name, we could try to highlight that,
-                -- but for a simple search, pointing to the parent Product is correct.
-                '/samples' AS path -- Logic on frontend will open the modal
+                CASE 
+                    WHEN (LOWER(pv.name) LIKE $1 OR LOWER(pv.sku) LIKE $1) THEN pv.name 
+                    ELSE v.name 
+                END AS subtitle,
+                CASE 
+                    WHEN (LOWER(pv.name) LIKE $1 OR LOWER(pv.sku) LIKE $1) 
+                    THEN COALESCE(pv.thumbnail_url, pv.image_url)
+                    ELSE COALESCE(p.default_thumbnail_url, p.default_image_url)
+                END AS image,
+                '/samples' AS path
             FROM products p
             LEFT JOIN vendors v ON p.manufacturer_id = v.id
             LEFT JOIN product_variants pv ON p.id = pv.product_id
@@ -36,19 +43,22 @@ router.get('/', verifySession(), async (req, res) => {
                     LOWER(pv.name) LIKE $1 OR
                     LOWER(pv.sku) LIKE $1
                 )
-            LIMIT 10;
+            ORDER BY p.id, (CASE WHEN (LOWER(pv.name) LIKE $1 OR LOWER(pv.sku) LIKE $1) THEN 0 ELSE 1 END)
+            LIMIT 6;
         `;
         
         const customersQuery = `
             SELECT 'customer' AS type, id, full_name AS title, email AS subtitle, '/customers/' || id as path
             FROM customers
-            WHERE LOWER(full_name) LIKE $1 OR LOWER(email) LIKE $1;
+            WHERE LOWER(full_name) LIKE $1 OR LOWER(email) LIKE $1
+            LIMIT 6;
         `;
 
         const installersQuery = `
             SELECT 'installer' AS type, id, installer_name AS title, contact_email AS subtitle, '/installers/' || id as path
             FROM installers
-            WHERE LOWER(installer_name) LIKE $1;
+            WHERE LOWER(installer_name) LIKE $1
+            LIMIT 6;
         `;
 
         const projectsQuery = `
@@ -60,7 +70,8 @@ router.get('/', verifySession(), async (req, res) => {
             SELECT 'project' AS type, p.id, p.project_name AS title, 'PO: ' || j.po_number AS subtitle, '/projects/' || p.id as path
             FROM jobs j
             JOIN projects p ON j.project_id = p.id
-            WHERE LOWER(j.po_number) LIKE $1;
+            WHERE LOWER(j.po_number) LIKE $1
+            LIMIT 6;
         `;
 
         const [
@@ -76,7 +87,7 @@ router.get('/', verifySession(), async (req, res) => {
         ]);
 
         const results = {
-            products: productsResult.rows, // Renamed from samples
+            samples: productsResult.rows, // Mapped to 'samples' to match frontend icon logic
             customers: customersResult.rows,
             installers: installersResult.rows,
             projects: projectsResult.rows,

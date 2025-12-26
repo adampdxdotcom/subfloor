@@ -57,9 +57,6 @@ router.post('/', verifySession(), async (req, res) => {
         expectedReturnDate
     } = req.body;
 
-    // Ensure that at least one of projectId, customerId, or installerId is provided,
-    // though the frontend logic should enforce this.
-
     const result = await client.query(
         `INSERT INTO sample_checkouts (project_id, customer_id, installer_id, variant_id, interest_variant_id, sample_type, quantity, expected_return_date)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
@@ -100,6 +97,23 @@ router.put('/:id', verifySession(), async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     client.release();
+  }
+});
+
+// POST /api/sample-checkouts/:id/extend (Extend due date by 2 days from NOW)
+router.post('/:id/extend', verifySession(), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `UPDATE sample_checkouts 
+       SET expected_return_date = CURRENT_TIMESTAMP + INTERVAL '2 days' 
+       WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    res.json(toCamelCase(result.rows[0]));
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -50,11 +50,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [users, setUsers] = useState<User[]>([]);
   const [isLayoutEditMode, setIsLayoutEditMode] = useState(false);
 
-  // --- REMOVED: The standalone uiPreferences state is no longer needed ---
-  // const [uiPreferences, setUiPreferences] = useState<UiPreferences | null>(null);
-
   // --- REACT QUERY: Notification Polling ---
-  // Replaces the manual useEffect/setInterval loop below
   const { data: unreadCount = 0 } = useUnreadNotificationCount(!!currentUser);
 
   // --- REACT QUERY: Products (Inventory) ---
@@ -97,7 +93,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const { data: sampleCheckouts = [], isLoading: sampleCheckoutsLoading } = useSampleCheckouts(!!currentUser);
   const sampleCheckoutMutations = useSampleCheckoutMutations();
   
-  // --- NEW: History Hook (Replaces ~60 lines of code) ---
+  // --- NEW: History Hook ---
   const {
     customerHistory, fetchCustomerHistory,
     projectHistory, fetchProjectHistory,
@@ -113,14 +109,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLayoutEditMode(prevMode => !prevMode);
   };
 
-  // --- THIS IS THE FIX (RENAMED & IMPLEMENTED DEEP MERGE/FUNCTIONAL UPDATE) ---
   const saveCurrentUserPreferences = useCallback(
     debounce((newPreferences: Partial<UserPreferences>) => {
-      // Use a functional update with setCurrentUser to get the most recent state
       setCurrentUser(prevUser => {
         if (!prevUser) return null;
 
-        // Perform a deep merge to handle nested objects
         const mergedPreferences = {
           ...prevUser.preferences,
           ...newPreferences,
@@ -136,7 +129,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           projectLayouts: newPreferences.projectLayouts || prevUser.preferences?.projectLayouts,
         };
 
-        // Fire off the save request
         preferenceService.savePreferences(mergedPreferences)
           .then(() => toast.success("Preferences saved!"))
           .catch(error => {
@@ -144,11 +136,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             toast.error("Could not save your preferences.");
           });
         
-        // Return the new state for optimistic update
         return { ...prevUser, preferences: mergedPreferences as UserPreferences };
       });
     }, 1000), 
-    [] // No dependencies, ensures function uses latest state via functional update
+    []
   );
 
 
@@ -156,7 +147,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const user = await userService.getCurrentUser();
       const prefs = await preferenceService.getPreferences();
-      // Attach preferences directly to the user object upon fetching
       setCurrentUser({ ...user, preferences: prefs });
     } catch (error) {
       console.error("Failed to fetch current user:", error);
@@ -166,7 +156,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const refreshBranding = useCallback(async () => {
     try {
-      // We assume this method exists or will be added to preferenceService
       const branding = await preferenceService.getSystemPreference('branding');
       setSystemBranding(branding);
     } catch (error) {
@@ -174,22 +163,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  // --- THEME ENGINE: Apply Branding to CSS Variables ---
   useEffect(() => {
       if (systemBranding) {
           const root = document.documentElement;
-          // Brand Colors
           if (systemBranding.primaryColor) root.style.setProperty('--color-primary', systemBranding.primaryColor);
           
           if (systemBranding.secondaryColor) {
               root.style.setProperty('--color-secondary', systemBranding.secondaryColor);
-              // FORCE the border variable to update immediately
               root.style.setProperty('--color-border', systemBranding.secondaryColor);
           }
           
           if (systemBranding.accentColor) root.style.setProperty('--color-accent', systemBranding.accentColor);
           
-          // Theme Colors
           if (systemBranding.backgroundColor) root.style.setProperty('--color-background', systemBranding.backgroundColor);
           if (systemBranding.surfaceColor) root.style.setProperty('--color-surface', systemBranding.surfaceColor);
           if (systemBranding.textPrimaryColor) root.style.setProperty('--color-text-primary', systemBranding.textPrimaryColor);
@@ -210,22 +195,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-        const [] = await Promise.all([
+        await Promise.all([
             refreshBranding()
         ]);
         setData({
-            customers: [], // Handled by React Query
-            projects: [], // Handled by React Query
-            samples: [], // Deprecated, kept for AppData consistency until full migration
-            products: [], // Data now handled by React Query, kept here for type safety if needed initially
-            sampleCheckouts: [], // Handled by React Query
-            installers: [], // Handled by React Query
-            quotes: [], // Handled by React Query
-            jobs: [], // Handled by React Query
-            changeOrders: [], // Handled by React Query
-            materialOrders: [], // Handled by React Query
-            vendors: [], // Handled by React Query
-            users: [], // users are fetched separately
+            customers: [],
+            projects: [],
+            samples: [],
+            products: [],
+            sampleCheckouts: [],
+            installers: [],
+            quotes: [],
+            jobs: [],
+            changeOrders: [],
+            materialOrders: [],
+            vendors: [],
+            users: [],
         });
         
     } catch (error) {
@@ -260,7 +245,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [vendorMutations.addVendor]);
   
   const updateVendor = useCallback(async (vendor: Vendor): Promise<void> => {
-      // Use object destructuring to separate id from the rest
       const { id, ...data } = vendor;
       await vendorMutations.updateVendor.mutateAsync({ id, data });
   }, [vendorMutations.updateVendor]);
@@ -269,10 +253,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await vendorMutations.deleteVendor.mutateAsync(vendorId);
   }, [vendorMutations.deleteVendor]);
 
-  // ------------------------------------
-  // --- PRODUCT / INVENTORY V2 CRUD ---
-  // ------------------------------------
-  
     const fetchProducts = async () => {
         await queryClient.invalidateQueries({ queryKey: ['products'] });
     };
@@ -323,11 +303,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
     
-    // --- NEW: Batch Add Variants (Fixes "Live Update" for Generator) ---
     const addVariantsBatch = useCallback(async (productId: string, variantsData: any[]) => {
         try {
             const newVariants = await productMutations.addVariantsBatch.mutateAsync({ productId, variants: variantsData });
-            
             toast.success(`Generated ${newVariants.length} variants successfully`);
         } catch (error: any) {
             console.error("Failed to batch add variants", error);
@@ -359,9 +337,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
     
-    // --- TEMPORARY DEPRECATED SAMPLE API FUNCTIONS (for old UI compatibility) ---
-    // These functions now operate on the `products` state in a backwards-compatible manner.
-    
     const fetchSamples = fetchProducts; // Alias
     
     const addSample = useCallback(async (sample: any): Promise<any> => {
@@ -380,7 +355,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const deleteSample = useCallback(async (sampleId: number): Promise<void> => {
         toast.error("Deprecated function called: Use deleteProduct.");
     }, []);
-    // ------------------------------------
 
   const addInstaller = useCallback(async (installer: Omit<Installer, 'id' | 'jobs'>): Promise<Installer> => {
     try {
@@ -477,14 +451,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const deleteProject = useCallback(async (projectId: number): Promise<void> => {
     try {
       await projectMutations.deleteProject.mutateAsync(projectId);
-      // Update legacy state stores until they are migrated
-      setChangeOrders(prevData => (prevData.filter(co => co.projectId !== projectId)));
-      setMaterialOrders(prevData => (prevData.filter(mo => mo.projectId !== projectId)));
     } catch (error) {
       console.error(`Error deleting project ${projectId}:`, error);
       throw error;
     }
-  }, [projectMutations.deleteProject, queryClient]); // Removed unused quote/job mutations from dependency array
+  }, [projectMutations.deleteProject]);
 
   const addSampleCheckout = useCallback(async (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>): Promise<void> => {
     try {
@@ -511,23 +482,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const extendSampleCheckout = useCallback(async (checkout: SampleCheckout): Promise<void> => {
     try {
-        const currentDueDate = new Date(checkout.expectedReturnDate);
-        currentDueDate.setDate(currentDueDate.getDate() + 2);
-        const newReturnDate = currentDueDate.toISOString();
-
-        await sampleCheckoutMutations.patchSampleCheckout.mutateAsync({
-            id: checkout.id,
-            data: { expectedReturnDate: newReturnDate }
-        });
+        await sampleCheckoutMutations.extendSampleCheckout.mutateAsync(checkout.id);
         toast.success('Checkout extended by 2 days!');
     } catch (error) {
         console.error("Error extending sample checkout:", error);
         toast.error((error as Error).message);
         throw error;
     }
-  }, [sampleCheckoutMutations.patchSampleCheckout]);
+  }, [sampleCheckoutMutations.extendSampleCheckout]);
 
-  // --- NEW: Toggle "Selected" status for Design Board ---
   const toggleSampleSelection = useCallback(async (checkout: SampleCheckout): Promise<void> => {
       try {
           await sampleCheckoutMutations.patchSampleCheckout.mutateAsync({
@@ -545,7 +508,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       await quoteMutations.addQuote.mutateAsync(quote);
       toast.success('Quote added successfully!');
-      // Project status update is handled by invalidation in the hook
     } catch (error) { 
       console.error("Error adding quote:", error); 
       toast.error((error as Error).message);
@@ -672,7 +634,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [materialOrderMutations.reportMaterialOrderDamage]);
 
-  // Compatibility: Manually update React Query cache for local updates
   const updateJob = useCallback((updatedJob: Job) => { 
       queryClient.setQueryData(['jobs'], (oldJobs: Job[] | undefined) => {
           if (!oldJobs) return [updatedJob];
@@ -719,7 +680,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const providerValue: DataContextType = {
     customers,
     projects,
-    samples: [], // Deprecated, replaced by products
+    samples: [], 
     sampleCheckouts,
     installers,
     quotes,
@@ -729,7 +690,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     vendors,
     users,
     
-    // NEW INVENTORY V2
     products, 
 
     isLoading: isLoading || productsLoading || customersLoading || projectsLoading || installersLoading || vendorsLoading || quotesLoading || jobsLoading || changeOrdersLoading || materialOrdersLoading || sampleCheckoutsLoading, 
@@ -743,7 +703,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     uploadCurrentUserAvatar,
     deleteCurrentUserAvatar,
 
-    // --- CORRECTED: Expose the correctly named function ---
     saveCurrentUserPreferences: saveCurrentUserPreferences,
 
     customerHistory,
@@ -761,19 +720,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     materialOrderHistory,
     fetchMaterialOrderHistory,
 
-    fetchSamples, // Alias to fetchProducts
-    addSample, // Deprecated stub
-    updateSample, // Deprecated stub
-    deleteSample, // Deprecated stub
-    toggleSampleDiscontinued, // Deprecated stub
+    fetchSamples,
+    addSample,
+    updateSample,
+    deleteSample,
+    toggleSampleDiscontinued,
     
-    // NEW PRODUCT CRUD
     fetchProducts,
     addProduct,
     updateProduct,
     deleteProduct,
     addVariant,
-    addVariantsBatch, // Expose it
+    addVariantsBatch,
     updateVariant,
     deleteVariant,
 
@@ -789,7 +747,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addSampleCheckout, 
     updateSampleCheckout,
     extendSampleCheckout,
-    toggleSampleSelection, // Expose new function
+    toggleSampleSelection,
     addQuote, 
     updateQuote,
     acceptQuote,
@@ -806,8 +764,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateVendor,
     deleteVendor,
     updateJob,
-    unreadCount, // Expose count
-    refreshNotifications: async () => queryClient.invalidateQueries({ queryKey: ['notifications', 'unreadCount'] }) // Helper
+    unreadCount,
+    refreshNotifications: async () => queryClient.invalidateQueries({ queryKey: ['notifications', 'unreadCount'] })
   };
 
   return (

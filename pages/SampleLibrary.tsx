@@ -27,16 +27,24 @@ const SampleLibrary: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
   
+  // Sync URL changes to local state (e.g. Navigation from Universal Search)
   useEffect(() => {
-    // Only update if the URL actually needs changing to avoid loops/races
-    const currentSearch = searchParams.get('search') || '';
-    if (searchTerm !== currentSearch) {
-      const newParams = new URLSearchParams(searchParams);
-      if (searchTerm) newParams.set('search', searchTerm);
-      else newParams.delete('search');
-      setSearchParams(newParams, { replace: true });
+    const urlQuery = searchParams.get('search') || '';
+    if (urlQuery !== searchTerm) {
+      setSearchTerm(urlQuery);
     }
-  }, [searchTerm, searchParams, setSearchParams]);
+  }, [searchParams]);
+
+  // Handle typing: update state AND URL
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchTerm(val);
+    
+    const newParams = new URLSearchParams(searchParams);
+    if (val) newParams.set('search', val);
+    else newParams.delete('search');
+    setSearchParams(newParams, { replace: true });
+  };
   
   const [viewMode, setViewMode] = useState<'active' | 'discontinued'>('active');
 
@@ -187,7 +195,13 @@ const SampleLibrary: React.FC = () => {
         </div>
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={18} />
-          <input type="text" placeholder="Search by style, color, manufacturer, type, or SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all shadow-inner" />
+          <input 
+            type="text" 
+            placeholder="Search by style, color, manufacturer, type, or SKU..." 
+            value={searchTerm} 
+            onChange={handleSearchChange} 
+            className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all shadow-inner" 
+          />
         </div>
       </div>
 
@@ -211,7 +225,7 @@ const SampleLibrary: React.FC = () => {
         <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const startIndex = virtualRow.index * columns;
-            const rowItems = filteredProducts.slice(startIndex, startIndex + columns);
+            const rowItems = productsLoading ? [] : filteredProducts.slice(startIndex, startIndex + columns);
 
             return (
                 <div

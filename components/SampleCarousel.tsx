@@ -2,9 +2,10 @@ import React from 'react';
 import { SampleCheckout, Product } from '../types';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
-import { Clock, Undo2, AlertCircle } from 'lucide-react';
+import { Clock, Undo2, AlertCircle, Calendar } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getImageUrl } from '../utils/apiConfig';
+import { formatDate } from '../utils/dateUtils';
 
 // Helper to find product/variant data from a checkout
 const useCheckoutDetails = (checkout: SampleCheckout) => {
@@ -58,13 +59,25 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
     today.setHours(0, 0, 0, 0);
     const dueDate = new Date(checkout.expectedReturnDate);
     dueDate.setHours(0, 0, 0, 0);
+    const outDate = new Date(checkout.checkoutDate);
     
+    // Calculate duration in days to detect "Extended" status
+    // Standard checkout is ~2 days. If > 3 days, it's likely been extended.
+    const durationDays = Math.ceil((dueDate.getTime() - outDate.getTime()) / (1000 * 60 * 60 * 24));
+    const isExtended = durationDays > 3;
+
     if (dueDate < today) {
         statusColor = 'text-red-500 font-bold';
         statusText = 'OVERDUE';
     } else if (dueDate.getTime() === today.getTime()) {
         statusColor = 'text-orange-400 font-bold';
         statusText = 'Due Today';
+    } else if (isExtended) {
+        statusColor = 'text-blue-500 font-bold';
+        statusText = 'Extended';
+    } else {
+        statusColor = 'text-text-primary font-medium';
+        statusText = 'On Time';
     }
 
     const displayImage = variant.imageUrl || product.defaultImageUrl;
@@ -86,6 +99,18 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
                 <div className="flex-grow" />
                 
                 <div className="mt-3 text-xs">
+                    {/* Date Grid */}
+                    <div className="grid grid-cols-2 gap-2 mb-3 bg-background/50 p-2 rounded border border-border/50">
+                        <div>
+                            <span className="text-[10px] uppercase text-text-tertiary block mb-0.5">Checked Out</span>
+                            <span className="text-text-secondary font-medium block truncate">{formatDate(checkout.checkoutDate)}</span>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] uppercase text-text-tertiary block mb-0.5">Due Date</span>
+                            <span className={`block truncate ${statusColor}`}>{formatDate(checkout.expectedReturnDate)}</span>
+                        </div>
+                    </div>
+
                     <div className={`${statusColor} mb-2 flex justify-between items-center`}>
                         <span className="font-bold uppercase tracking-wider">{statusText}</span>
                         {statusText === 'OVERDUE' && <AlertCircle size={14} />}
