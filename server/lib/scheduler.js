@@ -210,7 +210,16 @@ export const initializeScheduler = async () => {
     reminderTask = cron.schedule(cronSchedule, async () => {
         console.log('🕒 Cron Job: Running Customer Sample Due Reminder task...');
         try {
-            // ... (Query remains same)
+            // FIX: Check System Preferences First!
+            const settingsResult = await pool.query(`SELECT settings FROM system_preferences WHERE key = 'email'`);
+            const dueTomorrowPrefs = settingsResult.rows[0]?.settings?.dueTomorrowReminders;
+            
+            // If the setting doesn't exist or is explicitly disabled, abort.
+            if (!dueTomorrowPrefs || !dueTomorrowPrefs.isEnabled) {
+                console.log('Skipping Sample Due Reminder (Disabled in Settings)');
+                return;
+            }
+
             const query = `
                 SELECT
                     COALESCE(c_proj.full_name, c_direct.full_name, i.installer_name) as recipient_name,
@@ -265,7 +274,6 @@ export const initializeScheduler = async () => {
     pastDueTask = cron.schedule(cronSchedule, async () => {
         console.log('🕒 Cron Job: Running Customer PAST DUE Sample Reminder task...');
         try {
-            // ... (Same query logic as before) ...
             const settingsResult = await pool.query(`SELECT settings FROM system_preferences WHERE key = 'email'`);
             const pastDuePrefs = settingsResult.rows[0]?.settings?.pastDueReminders;
             if (!pastDuePrefs || !pastDuePrefs.isEnabled) return;
@@ -334,10 +342,6 @@ export const initializeScheduler = async () => {
             const sysPrefsRes = await pool.query(`SELECT settings->'upcomingJobReminders'->>'isEnabled' as enabled FROM system_preferences WHERE key = 'email'`);
             const customerEmailsEnabled = sysPrefsRes.rows[0]?.enabled === 'true';
 
-            // COMPLEX QUERY:
-            // 1. Find Jobs starting on Target Date
-            // 2. Join Project Lead (Manager) & Customer
-            // 3. Join User Preferences to see if Manager wants email
             const query = `
                 SELECT 
                     j.id as job_id,

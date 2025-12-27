@@ -309,6 +309,7 @@ export interface JobNote {
   authorAvatar?: string | null;
   authorEmail?: string; // NEW
   createdAt: string;
+  isPinned: boolean;
 }
 
 export interface ChangeOrder {
@@ -578,4 +579,13 @@ export interface DataContextType extends AppData {
   deleteVariant: (variantId: string, productId: string) => Promise<void>;
 
   toggleSampleDiscontinued: (sampleId: number, isDiscontinued: boolean) => Promise<void>;
+}
+
+export interface EmailTemplate {
+  key: string;
+  subject: string;
+  body_content: string | null;
+  description: string;
+  available_variables: string[];
+  updated_at?: string;
 }

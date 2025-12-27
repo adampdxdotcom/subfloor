@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Save, Mail, Lock, Eye, EyeOff, Clock, Send, Globe, Calendar } from 'lucide-react';
+import { Save, Mail, Lock, Eye, EyeOff, Clock, Send, Globe, Calendar, FileEdit } from 'lucide-react';
 import * as preferenceService from '../services/preferenceService';
+import { emailTemplateService } from '../services/emailTemplateService'; // New Service
+import { EmailTemplateModal } from './settings/EmailTemplateModal'; // New Modal
+import { EmailTemplate } from '../types'; // Type
 
 // Define the shape of our system-wide email settings
 type SystemEmailSettingsData = {
@@ -38,6 +41,8 @@ const SystemEmailSettings: React.FC = () => {
     const [credentials, setCredentials] = useState({ emailUser: '', emailPass: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+    const [editingTemplateKey, setEditingTemplateKey] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchSystemSettings = async () => {
@@ -76,7 +81,17 @@ const SystemEmailSettings: React.FC = () => {
             }
         };
         fetchSystemSettings();
+        fetchTemplates();
     }, []);
+
+    const fetchTemplates = async () => {
+        try {
+            const data = await emailTemplateService.getAll();
+            setTemplates(data);
+        } catch (error) {
+            console.error("Failed to fetch email templates:", error);
+        }
+    };
 
     const handleSettingChange = (field: string, value: any) => {
         // Helper to update nested state safely
@@ -279,11 +294,50 @@ const SystemEmailSettings: React.FC = () => {
                 </div>
             </div>
 
+            {/* 3. EMAIL TEMPLATES (NEW SECTION) */}
+            <div className="space-y-6 border-t border-border pt-6">
+                <h3 className="text-lg font-medium text-text-primary -mb-2 flex items-center gap-2">
+                    <FileEdit className="w-4 h-4" /> Message Templates
+                </h3>
+                <p className="text-sm text-text-secondary">
+                    Customize the automated emails sent by the system.
+                </p>
+                
+                <div className="grid grid-cols-1 gap-3">
+                    {templates.map(template => (
+                        <div key={template.key} className="flex items-center justify-between p-4 bg-background border border-border rounded-lg hover:border-primary/50 transition-colors">
+                            <div>
+                                <div className="font-medium text-text-primary">{template.description}</div>
+                                <div className="text-xs text-text-secondary mt-0.5">Subject: {template.subject}</div>
+                            </div>
+                            <button 
+                                onClick={() => setEditingTemplateKey(template.key)}
+                                className="px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded transition-colors"
+                            >
+                                Edit
+                            </button>
+                        </div>
+                    ))}
+                    {templates.length === 0 && (
+                        <div className="text-sm text-text-secondary italic p-4 text-center">No templates loaded.</div>
+                    )}
+                </div>
+            </div>
+
             <div className="mt-8 flex justify-end">
                 <button onClick={handleSave} className="flex items-center gap-2 py-2 px-6 text-base bg-primary hover:bg-primary-hover text-on-primary rounded font-semibold">
                     <Save size={18}/> Save System Settings
                 </button>
             </div>
+
+            {/* Template Editor Modal */}
+            {editingTemplateKey && (
+                <EmailTemplateModal 
+                    templateKey={editingTemplateKey}
+                    onClose={() => setEditingTemplateKey(null)}
+                    onSave={fetchTemplates}
+                />
+            )}
         </section>
     );
 };

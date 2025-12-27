@@ -401,3 +401,13 @@ CREATE TABLE IF NOT EXISTS kb_article_sections (
 );
 
 CREATE INDEX IF NOT EXISTS idx_kb_sections_search ON kb_article_sections(header_text);
+
+CREATE TABLE IF NOT EXISTS email_templates (
+  key VARCHAR(255) PRIMARY KEY,
+  subject VARCHAR(255) NOT NULL,
+  body_content TEXT, -- Nullable: If NULL, use the system file fallback
+  description VARCHAR(255),
+  available_variables JSONB DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_by VARCHAR(255) -- SuperTokens User ID
+);
