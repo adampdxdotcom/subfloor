@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import ical from 'ical-generator';
+import { getSystemConfig } from '../lib/setupService.js';
 
 // Simple Hex to closest Emoji Matcher
 const getEmojiForColor = (hex) => {
@@ -57,9 +58,13 @@ router.get('/:userId/:token', async (req, res) => {
         }
 
         // 2. Initialize iCal Feed
+        // Fetch the actual Public URL from system config
+        const config = getSystemConfig();
+        const baseUrl = (config.publicUrl || 'https://subfloor.app').replace(/\/$/, '');
+
         const calendar = ical({
             name: 'Subfloor Schedule',
-            url: 'https://subfloor.app',
+            url: baseUrl,
             ttl: 60 * 60, // 1 hour cache hint
         });
 
@@ -93,9 +98,9 @@ router.get('/:userId/:token', async (req, res) => {
                 start: job.start_date,
                 end: job.end_date,
                 summary: `${emoji} ${job.appointment_name} - ${job.installer_name || 'Unassigned'}`,
-                description: `Project: ${job.project_name}\nCustomer: ${job.customer_name}\nLink: https://subfloor.app/projects/${job.project_id}`,
+                description: `Project: ${job.project_name}\nCustomer: ${job.customer_name}\nLink: ${baseUrl}/projects/${job.project_id}`,
                 location: job.customer_address || job.customer_name || '', 
-                url: `https://subfloor.app/projects/${job.project_id}`
+                url: `${baseUrl}/projects/${job.project_id}`
             });
         });
 
@@ -125,7 +130,7 @@ router.get('/:userId/:token', async (req, res) => {
                 allDay: true,
                 summary: `📦 Delivery: ${mo.supplier_name}`,
                 description: `Project: ${mo.project_name}\nSupplier: ${mo.supplier_name}`,
-                url: `https://subfloor.app/projects/${mo.project_id}`
+                url: `${baseUrl}/projects/${mo.project_id}`
             });
         });
 
