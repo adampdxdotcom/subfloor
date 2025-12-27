@@ -1,20 +1,19 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-exports.up = async (sql) => {
-  // Create the email_templates table
-  await sql`
+/* eslint-disable camelcase */
+
+exports.shorthands = undefined;
+
+exports.up = pgm => {
+  pgm.sql(`
     CREATE TABLE IF NOT EXISTS email_templates (
-      key VARCHAR(255) PRIMARY KEY, -- e.g., 'customer_reminder', 'order_received'
+      key VARCHAR(255) PRIMARY KEY,
       subject VARCHAR(255) NOT NULL,
-      body_content TEXT, -- If NULL, the system uses the default HTML file
-      description VARCHAR(255), -- Human readable name for the UI
-      available_variables JSONB DEFAULT '[]'::jsonb, -- List of variables users can insert like {{name}}
+      body_content TEXT,
+      description VARCHAR(255),
+      available_variables JSONB DEFAULT '[]'::jsonb,
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
       updated_by VARCHAR(255)
     );
-  `;
 
-  // Seed the table with the KNOWN templates so they appear in the UI immediately.
-  await sql`
     INSERT INTO email_templates (key, subject, description, available_variables)
     VALUES 
     (
@@ -42,9 +41,9 @@ exports.up = async (sql) => {
       '["invite_link", "role", "company_name"]'::jsonb
     )
     ON CONFLICT (key) DO NOTHING;
-  `;
+  `);
 };
 
-exports.down = async (sql) => {
-  await sql`DROP TABLE IF EXISTS email_templates`;
+exports.down = pgm => {
+  pgm.sql('DROP TABLE IF EXISTS email_templates;');
 };
