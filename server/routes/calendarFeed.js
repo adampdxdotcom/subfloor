@@ -88,7 +88,12 @@ router.get('/:userId/:token', async (req, res) => {
         });
 
         // 5. Serve the file
-        calendar.serve(res);
+        // FIX: Updated for ical-generator v3+ which removed .serve()
+        res.writeHead(200, {
+            'Content-Type': 'text/calendar; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="calendar.ics"'
+        });
+        res.end(calendar.toString());
 
     } catch (err) {
         console.error('Calendar Feed Error:', err);
