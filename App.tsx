@@ -11,6 +11,7 @@ import * as reactRouterDom from "react-router-dom";
 import { DataProvider, useData } from './context/DataContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
+import { VersionManager } from './components/VersionManager';
 import CustomerList from './pages/CustomerList';
 import CustomerDetail from './pages/CustomerDetail';
 import ProjectDetail from './pages/ProjectDetail';
@@ -31,7 +32,8 @@ import KnowledgeBase from './pages/KnowledgeBase';
 import ServerConnect from './pages/ServerConnect'; 
 import { getEndpoint, getBaseUrl, getImageUrl } from './utils/apiConfig'; 
 import { Loader2 } from 'lucide-react';
-import { App as CapacitorApp } from '@capacitor/app'; // NEW IMPORT
+import { App as CapacitorApp } from '@capacitor/app';
+
 
 // --- NEW COMPONENT: HANDLES ANDROID BACK BUTTON ---
 const BackButtonHandler = () => {
@@ -215,9 +217,10 @@ function App() {
 
   return (
     <DataProvider>
+      <VersionManager />
       <BrandingListener />
       <Router>
-        <BackButtonHandler /> {/* <--- PLUG IN THE HANDLER HERE */}
+        <BackButtonHandler />
         <Routes>
           {getSuperTokensRoutesForReactRouterDom(reactRouterDom, [EmailPasswordPreBuiltUI])}
 

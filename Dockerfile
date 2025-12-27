@@ -37,6 +37,9 @@ COPY migrations/ ./migrations/
 COPY schema.sql /schema.sql
 COPY schema.sql ./schema.sql
 
+# 5b. Copy Version Metadata
+COPY metadata.json ./metadata.json
+
 # 6. Copy Frontend Build from Stage 1
 # (We put it in 'public' because index.js usually serves static files from there)
 COPY --from=frontend-builder /app/dist ./public
