@@ -308,6 +308,7 @@ CREATE TABLE IF NOT EXISTS job_notes (
     job_id INT REFERENCES jobs(id) ON DELETE CASCADE,
     user_id VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
+    is_pinned BOOLEAN DEFAULT FALSE NOT NULL, -- Added for Calendar Sync
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 

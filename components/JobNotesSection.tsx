@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Job, JobNote } from '../types';
 import { useData } from '../context/DataContext';
-import { Send, MessageSquare, User, Move } from 'lucide-react';
+import { Send, MessageSquare, User, Move, Pin } from 'lucide-react';
 import * as jobNotesService from '../services/jobNotesService';
 import { toast } from 'react-hot-toast';
-import { createGravatarHash } from '../utils/cryptoUtils'; // Import Hash util
-import SmartMessage from './SmartMessage'; // NEW
-import MentionInput from './MentionInput'; // NEW
+import { createGravatarHash } from '../utils/cryptoUtils';
+import SmartMessage from './SmartMessage';
+import MentionInput from './MentionInput';
 
 interface JobNotesSectionProps {
     job: Job;
@@ -47,8 +47,6 @@ const JobNotesSection: React.FC<JobNotesSectionProps> = ({ job }) => {
     }, [job.id]); // Re-run if job ID changes
 
     // Auto-scroll to bottom when notes change
-    // Only scroll if we were already near bottom, or if it's the first load?
-    // For simplicity, we scroll on new message.
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -79,6 +77,16 @@ const JobNotesSection: React.FC<JobNotesSectionProps> = ({ job }) => {
         }
     };
 
+    const handleTogglePin = async (noteId: number) => {
+        try {
+            await jobNotesService.toggleNotePin(noteId);
+            setNotes(prev => prev.map(n => n.id === noteId ? { ...n, isPinned: !n.isPinned } : n));
+            toast.success("Note updated");
+        } catch (err) {
+            toast.error("Failed to pin note");
+        }
+    };
+
     return (
         <div className="bg-surface rounded-lg shadow-md flex flex-col h-full border border-border overflow-hidden">
             {/* Header */}
@@ -103,25 +111,22 @@ const JobNotesSection: React.FC<JobNotesSectionProps> = ({ job }) => {
                     notes.map((note) => {
                         const isMe = note.userId === currentUser?.userId;
                         return (
-                            <div key={note.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
+                            <div key={note.id} className={`flex gap-3 group ${isMe ? 'flex-row-reverse' : ''}`}>
                                 {/* Avatar */}
                                 <div className="flex-shrink-0 mt-1">
                                     {note.authorAvatar ? (
                                         <img src={note.authorAvatar} alt={note.authorName} className="w-8 h-8 rounded-full object-cover border border-border" />
                                     ) : (
-                                        // --- NEW: Better Fallback Logic (Matches UserStatus) ---
                                         <>
                                             <img 
                                                 src={`https://www.gravatar.com/avatar/${createGravatarHash(note.authorEmail || note.authorName)}?s=40&d=mp`} 
                                                 alt={note.authorName} 
                                                 className="w-8 h-8 rounded-full border border-border object-cover"
                                                 onError={(e) => {
-                                                    // If Gravatar fails, hide image and show initials
                                                     (e.target as HTMLImageElement).style.display = 'none';
                                                     (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
                                                 }}
                                             />
-                                            {/* --- NEW: Text Initials Fallback (Hidden unless img error) --- */}
                                             <div className="hidden w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold border border-border">
                                                 {note.authorName ? note.authorName.charAt(0).toUpperCase() : '?'}
                                             </div>
@@ -138,8 +143,20 @@ const JobNotesSection: React.FC<JobNotesSectionProps> = ({ job }) => {
                                                 ? new Date(note.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                                                 : 'Unknown Date'}
                                         </span>
+                                        
+                                        {/* Pin Button */}
+                                        <button 
+                                            onClick={() => handleTogglePin(note.id)}
+                                            className={`transition-opacity ${note.isPinned ? 'opacity-100 text-yellow-500' : 'opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-text-primary'}`}
+                                            title={note.isPinned ? "Unpin from Calendar" : "Pin to Calendar"}
+                                        >
+                                            <Pin size={14} fill={note.isPinned ? "currentColor" : "none"} />
+                                        </button>
                                     </div>
-                                    <div className={`p-3 rounded-lg text-sm whitespace-pre-wrap shadow-sm ${
+                                    
+                                    <div className={`p-3 rounded-lg text-sm whitespace-pre-wrap shadow-sm relative ${
+                                        note.isPinned ? 'ring-2 ring-yellow-500/50' : ''
+                                    } ${
                                         isMe 
                                             ? 'bg-primary text-on-primary rounded-tr-none' 
                                             : 'bg-surface border border-border text-text-primary rounded-tl-none'
@@ -155,20 +172,22 @@ const JobNotesSection: React.FC<JobNotesSectionProps> = ({ job }) => {
 
             {/* Input Area */}
             <div className="p-3 bg-surface border-t border-border flex-shrink-0">
-                <form onSubmit={handleSendNote} className="relative">
-                    <MentionInput
-                        value={newNoteContent}
-                        onChange={setNewNoteContent}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Type a note... (Enter to send)"
-                        minHeight={44}
-                    />
+                <form onSubmit={handleSendNote} className="flex items-end gap-2">
+                    <div className="flex-1">
+                        <MentionInput
+                            value={newNoteContent}
+                            onChange={setNewNoteContent}
+                            onKeyDown={handleKeyDown}
+                            placeholder="Type a note..."
+                            minHeight={40}
+                        />
+                    </div>
                     <button 
                         type="submit" 
                         disabled={!newNoteContent.trim() || isSending}
-                        className="absolute right-2 bottom-2 p-1.5 bg-primary hover:bg-primary-hover text-on-primary rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="flex-shrink-0 h-[42px] w-[42px] flex items-center justify-center bg-primary hover:bg-primary-hover text-on-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                     >
-                        <Send size={16} />
+                        <Send size={18} />
                     </button>
                 </form>
             </div>

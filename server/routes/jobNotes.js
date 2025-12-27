@@ -12,6 +12,7 @@ router.get('/:id/notes', verifySession(), async (req, res) => {
         const query = `
             SELECT 
                 jn.id, jn.content, 
+                jn.is_pinned, -- NEW: Include pin status
                 -- Ensure a valid date is always returned
                 COALESCE(jn.created_at, NOW()) as "createdAt", 
                 jn.user_id,
@@ -131,6 +132,21 @@ router.post('/:id/notes', verifySession(), async (req, res) => {
     } catch (err) {
         console.error('Error adding job note:', err.message);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// PATCH /api/jobs/notes/:noteId/pin (Toggle Pin Status)
+router.patch('/notes/:noteId/pin', verifySession(), async (req, res) => {
+    const { noteId } = req.params;
+    try {
+        const result = await pool.query(
+            `UPDATE job_notes SET is_pinned = NOT is_pinned WHERE id = $1 RETURNING *`,
+            [noteId]
+        );
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 

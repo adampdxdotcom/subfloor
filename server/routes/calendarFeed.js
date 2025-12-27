@@ -80,12 +80,19 @@ router.get('/:userId/:token', async (req, res) => {
                 c.address as customer_address,
                 i.installer_name,
                 i.color as installer_color,
-                j.project_id
+                j.project_id,
+                jn.pinned_notes
             FROM job_appointments ja
             JOIN jobs j ON ja.job_id = j.id
             JOIN projects p ON j.project_id = p.id
             LEFT JOIN customers c ON p.customer_id = c.id
             LEFT JOIN installers i ON ja.installer_id = i.id
+            LEFT JOIN (
+                SELECT job_id, STRING_AGG('📌 ' || content, E'\n') as pinned_notes 
+                FROM job_notes 
+                WHERE is_pinned = true 
+                GROUP BY job_id
+            ) jn ON j.id = jn.job_id
             WHERE ja.start_date > NOW() - INTERVAL '3 months'
         `;
         
@@ -93,12 +100,20 @@ router.get('/:userId/:token', async (req, res) => {
         
         jobsResult.rows.forEach(job => {
             const emoji = getEmojiForColor(job.installer_color);
+
+            // Build Description
+            let description = `Project: ${job.project_name}\nCustomer: ${job.customer_name}`;
+            if (job.pinned_notes) {
+                description += `\n\n📝 NOTES:\n${job.pinned_notes}`;
+            }
+            description += `\n\nLink: ${baseUrl}/projects/${job.project_id}`;
+
             calendar.createEvent({
                 id: `job-${job.id}`,
                 start: job.start_date,
                 end: job.end_date,
                 summary: `${emoji} ${job.appointment_name} - ${job.installer_name || 'Unassigned'}`,
-                description: `Project: ${job.project_name}\nCustomer: ${job.customer_name}\nLink: ${baseUrl}/projects/${job.project_id}`,
+                description: description,
                 location: job.customer_address || job.customer_name || '', 
                 url: `${baseUrl}/projects/${job.project_id}`
             });
