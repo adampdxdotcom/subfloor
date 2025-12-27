@@ -2,6 +2,42 @@ import express from 'express';
 import pool from '../db.js';
 import ical from 'ical-generator';
 
+// Simple Hex to closest Emoji Matcher
+const getEmojiForColor = (hex) => {
+    if (!hex) return '👷'; // Default if no color
+    
+    // Convert hex to RGB
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+
+    const colors = [
+        { emoji: '🔴', r: 255, g: 0, b: 0 },
+        { emoji: '🟠', r: 255, g: 165, b: 0 },
+        { emoji: '🟡', r: 255, g: 255, b: 0 },
+        { emoji: '🟢', r: 0, g: 128, b: 0 },
+        { emoji: '🔵', r: 0, g: 0, b: 255 },
+        { emoji: '🟣', r: 128, g: 0, b: 128 },
+        { emoji: '🟤', r: 165, g: 42, b: 42 },
+        { emoji: '⚫', r: 0, g: 0, b: 0 },
+        { emoji: '⚪', r: 255, g: 255, b: 255 },
+    ];
+
+    // Find closest (Euclidean distance)
+    let closest = colors[0];
+    let minDist = Infinity;
+
+    colors.forEach(c => {
+        const dist = Math.sqrt(Math.pow(c.r - r, 2) + Math.pow(c.g - g, 2) + Math.pow(c.b - b, 2));
+        if (dist < minDist) {
+            minDist = dist;
+            closest = c;
+        }
+    });
+
+    return closest.emoji;
+};
+
 const router = express.Router();
 
 // GET /api/calendar/feed/:userId/:token
@@ -21,7 +57,6 @@ router.get('/:userId/:token', async (req, res) => {
         }
 
         // 2. Initialize iCal Feed
-        // We set the URL to your generic app domain for now
         const calendar = ical({
             name: 'Subfloor Schedule',
             url: 'https://subfloor.app',
@@ -37,27 +72,60 @@ router.get('/:userId/:token', async (req, res) => {
                 ja.end_date, 
                 p.project_name, 
                 c.full_name as customer_name,
+                c.address as customer_address,
                 i.installer_name,
+                i.color as installer_color,
                 j.project_id
             FROM job_appointments ja
             JOIN jobs j ON ja.job_id = j.id
             JOIN projects p ON j.project_id = p.id
             LEFT JOIN customers c ON p.customer_id = c.id
             LEFT JOIN installers i ON ja.installer_id = i.id
-            WHERE ja.start_date > NOW() - INTERVAL '3 months' -- Sync recent history and future
+            WHERE ja.start_date > NOW() - INTERVAL '3 months'
         `;
         
         const jobsResult = await pool.query(jobsQuery);
         
         jobsResult.rows.forEach(job => {
+            const emoji = getEmojiForColor(job.installer_color);
             calendar.createEvent({
                 id: `job-${job.id}`,
                 start: job.start_date,
                 end: job.end_date,
-                summary: `👷 ${job.appointment_name} (${job.installer_name || 'Unassigned'})`,
-                description: `Project: ${job.project_name}\nCustomer: ${job.customer_name}`,
-                location: job.customer_name || '', 
+                summary: `${emoji} ${job.appointment_name} - ${job.installer_name || 'Unassigned'}`,
+                description: `Project: ${job.project_name}\nCustomer: ${job.customer_name}\nLink: https://subfloor.app/projects/${job.project_id}`,
+                location: job.customer_address || job.customer_name || '', 
                 url: `https://subfloor.app/projects/${job.project_id}`
+            });
+        });
+
+        // 3.5 Fetch Material Orders (Deliveries)
+        const moQuery = `
+            SELECT 
+                mo.id,
+                mo.eta_date,
+                p.project_name,
+                v.name as supplier_name,
+                mo.project_id
+            FROM material_orders mo
+            JOIN projects p ON mo.project_id = p.id
+            LEFT JOIN vendors v ON mo.supplier_id = v.id
+            WHERE mo.eta_date IS NOT NULL 
+              AND mo.eta_date > CURRENT_DATE - INTERVAL '1 month'
+              AND mo.status != 'Received'
+        `;
+        
+        const moResult = await pool.query(moQuery);
+        
+        moResult.rows.forEach(mo => {
+            // Material Orders are usually All Day
+            calendar.createEvent({
+                id: `mo-${mo.id}`,
+                start: mo.eta_date,
+                allDay: true,
+                summary: `📦 Delivery: ${mo.supplier_name}`,
+                description: `Project: ${mo.project_name}\nSupplier: ${mo.supplier_name}`,
+                url: `https://subfloor.app/projects/${mo.project_id}`
             });
         });
 
@@ -88,7 +156,6 @@ router.get('/:userId/:token', async (req, res) => {
         });
 
         // 5. Serve the file
-        // FIX: Updated for ical-generator v3+ which removed .serve()
         res.writeHead(200, {
             'Content-Type': 'text/calendar; charset=utf-8',
             'Content-Disposition': 'attachment; filename="calendar.ics"'
