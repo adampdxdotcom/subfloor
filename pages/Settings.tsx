@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { DownloadCloud, Users, FileSliders, UserCog, Bell, Mail, DollarSign, Brush, Settings as SettingsIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { DownloadCloud, Users, FileSliders, UserCog, Bell, Mail, DollarSign, Brush, Settings as SettingsIcon, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
-// Import refactored components
+// Import components
 import UserManagementSection from '../components/UserManagementSection';
 import BrandingSettingsSection from '../components/BrandingSettingsSection';
 import BackupRestoreSection from '../components/BackupRestoreSection';
@@ -11,9 +11,10 @@ import SizeManagement from '../components/SizeManagement';
 import UserNotificationSettings from '../components/UserNotificationSettings';
 import SystemEmailSettings from '../components/SystemEmailSettings';
 import PricingConfigurationSection from '../components/PricingConfigurationSection';
+import { ChangelogViewer } from '../components/ChangelogViewer'; // New Import
 
 // Tab Configuration Types
-type TabId = 'mySettings' | 'notifications' | 'users' | 'data' | 'email' | 'backup' | 'pricing' | 'branding';
+type TabId = 'mySettings' | 'notifications' | 'users' | 'data' | 'email' | 'backup' | 'pricing' | 'branding' | 'changelog';
 
 interface TabDef {
     id: TabId; 
@@ -28,7 +29,6 @@ interface CategoryDef {
     tabs: TabDef[];
 }
 
-// Two-Tier Navigation Structure
 const SETTINGS_STRUCTURE: CategoryDef[] = [
     {
         id: 'personal',
@@ -59,7 +59,8 @@ const SETTINGS_STRUCTURE: CategoryDef[] = [
         tabs: [
             { id: 'branding', label: 'Branding', icon: Brush, adminOnly: true },
             { id: 'users', label: 'Users', icon: Users, adminOnly: true },
-            { id: 'backup', label: 'Backup', icon: DownloadCloud, adminOnly: true }
+            { id: 'backup', label: 'Backup', icon: DownloadCloud, adminOnly: true },
+            { id: 'changelog', label: "What's New", icon: Sparkles, adminOnly: false } // New Tab
         ]
     }
 ];
@@ -70,18 +71,14 @@ const Settings: React.FC = () => {
     
     const [activeTab, setActiveTab] = useState<TabId>('mySettings');
 
-    // Flatten tabs for easy lookup and permission checking
     const allTabs = SETTINGS_STRUCTURE.flatMap(cat => cat.tabs);
     
-    // Determine current active category based on activeTab
     const activeCategory = SETTINGS_STRUCTURE.find(cat => 
         cat.tabs.some(t => t.id === activeTab)
     ) || SETTINGS_STRUCTURE[0];
 
-    // Mobile state: Track which category accordion is open
     const [expandedCategoryMobile, setExpandedCategoryMobile] = useState<string>(activeCategory.id);
 
-    // Security check: redirect if user is on an admin tab but loses admin status
     useEffect(() => {
         const currentTabObj = allTabs.find(t => t.id === activeTab);
         if (currentTabObj?.adminOnly && !isAdmin) {
@@ -99,6 +96,7 @@ const Settings: React.FC = () => {
             case 'users': return <UserManagementSection />;
             case 'data': return <SizeManagement />;
             case 'backup': return <BackupRestoreSection />;
+            case 'changelog': return <ChangelogViewer />; // Added Case
             default: return null;
         }
     };
@@ -108,8 +106,7 @@ const Settings: React.FC = () => {
     };
 
     return (
-        <div>
-            {/* HEADER & NAVIGATION CARD */}
+        <div className="max-w-7xl mx-auto">
             <div className="bg-surface p-6 rounded-lg shadow-md mb-8 border border-border">
                 <div className="flex items-center mb-6">
                     <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mr-6 flex-shrink-0">
@@ -122,17 +119,12 @@ const Settings: React.FC = () => {
 
                 <div className="border-t border-border my-6 hidden md:block"></div>
 
-                {/* ==============================================
-                    DESKTOP NAVIGATION (Horizontal Tabs + Pills)
-                   ============================================== */}
+                {/* DESKTOP NAVIGATION */}
                 <div className="hidden md:block">
-                    {/* LEVEL 1: Main Categories */}
                     <div className="flex border-b border-border mb-6 overflow-x-auto">
                         {SETTINGS_STRUCTURE.map((cat) => {
-                            // Only render category if at least one tab is visible to current user
                             const visibleTabs = cat.tabs.filter(t => !t.adminOnly || isAdmin);
                             if (visibleTabs.length === 0) return null;
-
                             const isCategoryActive = activeCategory.id === cat.id;
                             
                             return (
@@ -151,11 +143,9 @@ const Settings: React.FC = () => {
                         })}
                     </div>
 
-                    {/* LEVEL 2: Sub-Tabs (Pills) */}
                     <div className="flex flex-wrap gap-2">
                         {activeCategory.tabs.map((tab) => {
                             if (tab.adminOnly && !isAdmin) return null;
-                            
                             const isActive = activeTab === tab.id;
                             const Icon = tab.icon;
 
@@ -178,22 +168,17 @@ const Settings: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ==============================================
-                    MOBILE NAVIGATION (Vertical Accordion)
-                   ============================================== */}
+                {/* MOBILE NAVIGATION */}
                 <div className="md:hidden">
                     <div className="space-y-2">
                         {SETTINGS_STRUCTURE.map((cat) => {
-                            // Only show categories the user has access to
                             const visibleTabs = cat.tabs.filter(t => !t.adminOnly || isAdmin);
                             if (visibleTabs.length === 0) return null;
-
                             const isExpanded = expandedCategoryMobile === cat.id;
                             const Chevron = isExpanded ? ChevronUp : ChevronDown;
 
                             return (
                                 <div key={cat.id} className="border border-border rounded-lg overflow-hidden">
-                                    {/* Level 1: Category Header */}
                                     <button
                                         onClick={() => toggleCategory(cat.id)}
                                         className={`flex justify-between items-center w-full p-4 text-left font-semibold transition-colors 
@@ -204,19 +189,16 @@ const Settings: React.FC = () => {
                                         <Chevron className="w-5 h-5 opacity-70" />
                                     </button>
 
-                                    {/* Level 2: Sub-Tabs (Accordion Content) */}
                                     {isExpanded && (
                                         <nav className="border-t border-border bg-background">
                                             {visibleTabs.map((tab) => {
                                                 const isActive = activeTab === tab.id;
                                                 const Icon = tab.icon;
-                                                
                                                 return (
                                                     <button
                                                         key={tab.id}
                                                         onClick={() => {
                                                             setActiveTab(tab.id);
-                                                            // Keep the category expanded when a tab inside it is selected
                                                             setExpandedCategoryMobile(cat.id);
                                                         }}
                                                         className={`w-full flex items-center px-6 py-3 text-sm transition-colors border-l-4 
@@ -239,7 +221,6 @@ const Settings: React.FC = () => {
                 </div>
             </div>
 
-            {/* CONTENT AREA */}
             <div className="bg-surface rounded-lg shadow-md p-6 overflow-hidden border border-border">
                 <ActiveComponent />
             </div>
