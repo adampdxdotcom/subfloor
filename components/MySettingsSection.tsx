@@ -75,14 +75,20 @@ const MySettingsSection: React.FC = () => {
     };
 
     const handleCopyLink = () => {
-        if (!currentUser || !calendarToken) return;
-        
+        // Fallback: Check both .id and .userId (depending on how your User type is defined)
+        const userId = currentUser?.id || currentUser?.userId;
+
+        if (!currentUser || !userId || !calendarToken) {
+            toast.error("User ID not found. Please refresh.");
+            return;
+        }
+
         // We need the absolute URL for the external calendar app
         const apiBase = getEndpoint('').replace(/\/$/, ''); // Remove trailing slash if any
         // Check if apiBase is relative (starts with /)
         const baseUrl = apiBase.startsWith('http') ? apiBase : window.location.origin;
         
-        const feedUrl = `${baseUrl}/api/calendar/feed/${currentUser.id}/${calendarToken}`;
+        const feedUrl = `${baseUrl}/api/calendar/feed/${userId}/${calendarToken}`;
         
         navigator.clipboard.writeText(feedUrl);
         setIsCopied(true);
