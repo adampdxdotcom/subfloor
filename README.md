@@ -94,7 +94,16 @@ You must have Docker and Docker Compose installed on your machine.
     cp .env.example .env
     ```
     
-    *Optional:* Open the new `.env` file in your text editor and adjust settings if necessary (e.g., changing the default database password or timezone).
+    Open the new `.env` file in your text editor and adjust settings before first run.
+
+    ```sh
+    # .env
+    PORT=5075
+    DB_USER=postgres
+    DB_PASSWORD=secure_password_here
+    DB_NAME=subfloor
+    SUPERTOKENS_API_KEY=some-long-random-string
+    ```
 
 3.  **Build and Run the Application:**
     This command will build the necessary Docker images and start all services (`app`, `server`, `db`) in the background. The `--build` flag is important for the first run to ensure all dependencies are installed correctly.
