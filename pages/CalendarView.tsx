@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon, Clock, Check, XCircle, Globe, Lock, Edit2, Trash2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon, Clock, Check, XCircle, Globe, Lock, Edit2, Trash2, Plus, MapPin, ArrowRight, FileText, Package } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useInstallers } from '../hooks/useInstallers';
 import CalendarFilter from '../components/CalendarFilter';
@@ -9,7 +9,7 @@ import { toast } from 'react-hot-toast';
 import * as eventService from '../services/eventService';
 import { Event as ApiEvent, Installer, User } from '../types';
 import { formatDate } from '../utils/dateUtils';
-import { getEndpoint } from '../utils/apiConfig';
+import { getEndpoint, getImageUrl } from '../utils/apiConfig';
 import { fromZonedTime } from 'date-fns-tz';
 import MentionInput from '../components/MentionInput';
 import SmartMessage from '../components/SmartMessage'; // Assuming this exists from Chat feature
@@ -21,12 +21,12 @@ interface CalendarEvent {
     type: 'appointment' | 'material_order_eta' | 'user_appointment';
     start: string;
     end: string;
-    fullEvent: ApiEvent | null;
+    fullEvent: any; // Relaxed type to accept the new rich data
     customerName: string;
     backgroundColor: string | null;
     isOnHold: boolean;
-    projectStatus?: string; // ADDED
-    poNumber?: string;      // ADDED
+    projectStatus?: string; 
+    poNumber?: string;      
 }
 
 interface AttendeeOption {
@@ -75,6 +75,30 @@ const getContrastingTextColor = (hexColor: string | null): string => {
     return luminance > 0.5 ? '#000000' : '#FFFFFF';
 };
 
+// Helper hook to resolve event color consistently across Grid and Modal
+const useEventColor = (event: CalendarEvent, users: User[], installers: Installer[], currentUser: any) => {
+    if (event.type !== 'user_appointment') return event.backgroundColor || '#6b7280';
+
+    const fullEvent = event.fullEvent;
+    if (fullEvent && fullEvent.attendees && fullEvent.attendees.length === 1) {
+        const singleAttendee = fullEvent.attendees[0];
+        if ((singleAttendee as any).color) {
+            return (singleAttendee as any).color;
+        } else if (singleAttendee.attendeeType === 'user') {
+            if (currentUser && currentUser.userId === singleAttendee.attendeeId) {
+                return currentUser.preferences?.calendarColor || '#3B82FF';
+            } else {
+                const user = (users || []).find(u => u.userId === singleAttendee.attendeeId);
+                return user?.color || '#3B82FF';
+            }
+        } else {
+            const installer = (installers || []).find(i => String(i.id) === singleAttendee.attendeeId);
+            return installer?.color || '#3B82FF';
+        }
+    }
+    return '#3B82FF'; 
+};
+
 const CalendarView: React.FC = () => {
     const { users, currentUser, systemBranding } = useData(); 
     const { data: installers = [] } = useInstallers();
@@ -90,6 +114,9 @@ const CalendarView: React.FC = () => {
     const [editingEvent, setEditingEvent] = useState<ApiEvent | null>(null); 
     const [newlySelectedDate, setNewlySelectedDate] = useState<Date | null>(null);
     const [dayViewDate, setDayViewDate] = useState<Date | null>(null);
+
+    // NEW: State for the Job Preview Card
+    const [previewEvent, setPreviewEvent] = useState<CalendarEvent | null>(null);
 
     useEffect(() => {
         if (installers && installers.length > 0) {
@@ -217,6 +244,7 @@ const CalendarView: React.FC = () => {
         setIsAppointmentModalOpen(false);
         setEditingEvent(null);
         setNewlySelectedDate(null);
+        setPreviewEvent(null); // Clear preview too
     };
 
     const isToday = (date: Date) => {
@@ -251,29 +279,8 @@ const CalendarView: React.FC = () => {
 
         labelText = stripMentions(labelText);
 
-        let eventColor = event.backgroundColor || '#6b7280';
-        if (isUserAppointment) {
-            const fullEvent = event.fullEvent;
-            if (fullEvent && fullEvent.attendees && fullEvent.attendees.length === 1) {
-                const singleAttendee = fullEvent.attendees[0];
-                if ((singleAttendee as any).color) {
-                    eventColor = (singleAttendee as any).color;
-                } else if (singleAttendee.attendeeType === 'user') {
-                    if (currentUser && currentUser.userId === singleAttendee.attendeeId) {
-                        eventColor = currentUser.preferences?.calendarColor || '#3B82FF';
-                    } else {
-                        const user = (users || []).find(u => u.userId === singleAttendee.attendeeId);
-                        eventColor = user?.color || '#3B82FF';
-                    }
-                } else {
-                    const installer = (installers || []).find(i => String(i.id) === singleAttendee.attendeeId);
-                    eventColor = installer?.color || '#3B82FF';
-                }
-            } else {
-                eventColor = '#3B82FF'; 
-            }
-        }
-        
+        // Use the shared helper to ensure grid matches modal
+        const eventColor = useEventColor(event, users || [], installers || [], currentUser);
         const textColor = getContrastingTextColor(eventColor);
         
         let classNames = 'block text-xs p-1 truncate relative overflow-hidden mb-1';
@@ -318,17 +325,17 @@ const CalendarView: React.FC = () => {
                 </div>
             );
         } else {
+            // Updated: Click opens Preview Modal instead of Link
             return (
-                <Link 
-                    to={`/projects/${event.id}`} 
+                <div 
                     key={event.appointmentId} 
-                    className={classNames}
+                    className={`${classNames} cursor-pointer hover:brightness-110`}
                     style={itemStyle}
                     title={labelText}
-                    onClick={(e) => e.stopPropagation()} 
+                    onClick={(e) => { e.stopPropagation(); setPreviewEvent(event); }} 
                 >
                     {showLabel ? labelText : '\u00A0'}
-                </Link>
+                </div>
             );
         }
     };
@@ -342,10 +349,6 @@ const CalendarView: React.FC = () => {
     return (
         <div className="flex flex-col h-full gap-4 md:gap-6">
             <div className="bg-surface p-4 md:p-6 rounded-lg shadow-md border border-border flex flex-col md:flex-row justify-between md:items-center gap-4">
-                
-                {/* Mobile Layout: Title on top, then controls row */}
-                {/* Desktop Layout: Title Left, Month Nav Left-Center, Filter Right */}
-                
                 <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6 w-full md:w-auto">
                     {/* Title */}
                     <div className="flex items-center gap-2">
@@ -357,7 +360,6 @@ const CalendarView: React.FC = () => {
                     <div className="h-10 w-px bg-border hidden md:block"></div>
 
                     {/* Month Nav & Filter Container */}
-                    {/* On Mobile: This row sits under title. On Desktop: Sits next to title/filter. */}
                     <div className="flex flex-row items-center justify-between gap-4 w-full md:w-auto">
                         {/* Month Nav */}
                         <div className="flex items-center bg-background rounded-lg border border-border p-1 shadow-sm flex-shrink-0">
@@ -527,6 +529,147 @@ const CalendarView: React.FC = () => {
                     onSaveSuccess={refetchEvents}
                 />
             )}
+
+            {/* NEW: Job Preview Popover */}
+            {previewEvent && (
+                <JobPreviewModal 
+                    event={previewEvent} 
+                    onClose={() => setPreviewEvent(null)} 
+                    users={users || []}
+                    installers={installers || []}
+                    currentUser={currentUser}
+                />
+            )}
+        </div>
+    );
+};
+
+// --- NEW COMPONENT: Job Preview Modal (Google Style) ---
+const JobPreviewModal: React.FC<{ 
+    event: CalendarEvent; 
+    onClose: () => void;
+    users: User[];
+    installers: Installer[];
+    currentUser: any;
+}> = ({ event, onClose, users, installers, currentUser }) => {
+    
+    // Resolve Color using the same logic as the grid
+    const color = useEventColor(event, users, installers, currentUser);
+    const fe = event.fullEvent || {};
+
+    const startDate = new Date(event.start);
+    const endDate = new Date(event.end);
+    const dateRange = startDate.toDateString() === endDate.toDateString()
+        ? startDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+        : `${startDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]" onClick={onClose}>
+            <div className="bg-surface rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+                {/* Header Bar */}
+                <div className="h-2 w-full" style={{ backgroundColor: color }}></div>
+                
+                <div className="p-5">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-4 h-4 rounded mt-1.5 shrink-0" style={{ backgroundColor: color }}></div>
+                            <div>
+                                <h3 className="text-xl font-bold text-text-primary leading-tight">{event.title}</h3>
+                                <p className="text-sm text-text-secondary mt-1">{dateRange}</p>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="text-text-tertiary hover:text-text-primary p-1 rounded-full hover:bg-background">
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    <div className="space-y-4 pl-7">
+                        
+                        {/* --- MATERIAL ORDER LAYOUT --- */}
+                        {event.type === 'material_order_eta' ? (
+                            <div className="space-y-3">
+                                <div className="flex items-start gap-3 text-sm text-text-secondary">
+                                    <Package size={18} className="text-text-tertiary shrink-0 mt-0.5" />
+                                    <div>
+                                        <p><span className="font-medium text-text-primary">Supplier:</span> {fe.supplierName}</p>
+                                        <p><span className="font-medium text-text-primary">Status:</span> {fe.status}</p>
+                                    </div>
+                                </div>
+                                
+                                {fe.items && Array.isArray(fe.items) && (
+                                    <div className="space-y-2 mt-2">
+                                        {fe.items.map((item: any, idx: number) => (
+                                            <div key={idx} className="flex gap-3 p-2 bg-background rounded border border-border/50">
+                                                <div className="w-10 h-10 bg-surface rounded border border-border shrink-0 overflow-hidden">
+                                                    {item.image ? (
+                                                        <img src={getImageUrl(item.image)} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-text-tertiary">
+                                                            <Package size={14} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="text-sm overflow-hidden">
+                                                    <p className="font-medium text-text-primary truncate" title={item.name}>{item.name}</p>
+                                                    <p className="text-xs text-text-secondary">{item.quantity} {item.unit}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            /* --- JOB / APPOINTMENT LAYOUT --- */
+                            <>
+                                {/* Address */}
+                                {fe.address && (
+                                    <div className="flex items-start gap-3 text-sm">
+                                        <MapPin size={18} className="text-text-tertiary shrink-0 mt-0.5" />
+                                        <a 
+                                            href={`https://maps.google.com/?q=${encodeURIComponent(fe.address)}`} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            className="text-text-primary hover:underline hover:text-primary"
+                                        >
+                                            {fe.address}
+                                        </a>
+                                    </div>
+                                )}
+
+                                {/* Project / Customer */}
+                                <div className="flex items-start gap-3 text-sm text-text-secondary">
+                                    <FileText size={18} className="text-text-tertiary shrink-0 mt-0.5" />
+                                    <div>
+                                        <p><span className="font-medium text-text-primary">Project:</span> {fe.projectName}</p>
+                                        <p><span className="font-medium text-text-primary">Customer:</span> {event.customerName}</p>
+                                        {fe.installerName && <p><span className="font-medium text-text-primary">Installer:</span> {fe.installerName}</p>}
+                                    </div>
+                                </div>
+
+                                {/* Pinned Notes */}
+                                {fe.pinnedNotes && (
+                                    <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-md text-sm text-text-primary">
+                                        <p className="text-xs font-bold text-yellow-600 mb-1 flex items-center gap-1">
+                                            📌 IMPORTANT NOTES
+                                        </p>
+                                        <SmartMessage content={fe.pinnedNotes} />
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Action Link */}
+                        <div className="pt-2 border-t border-border mt-2">
+                            <Link 
+                                to={`/projects/${event.id}`} 
+                                className="inline-flex items-center gap-2 text-primary hover:text-primary-hover font-semibold text-sm"
+                            >
+                                Open Project Details <ArrowRight size={16} />
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
@@ -545,13 +688,7 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
     const systemTimezone = systemBranding?.systemTimezone;
 
     // Determine Mode: CREATE vs VIEW vs EDIT
-    // New Event -> Edit Mode
-    // Existing Event -> View Mode (default) -> Edit Mode (if owner)
-    
-    // We check ownership using the createdByUserId
     const isOwner = !event || (currentUser && event.createdByUserId === currentUser.userId);
-    
-    // Default to View Mode if event exists, else Edit Mode
     const [isEditMode, setIsEditMode] = useState(!event); 
 
     // Form State
@@ -586,7 +723,7 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
             setStartTime(start.toTimeString().substring(0, 5));
             setEndTime(end.toTimeString().substring(0, 5));
             setIsAllDay(event.isAllDay || false);
-            setIsPublic(event.isPublic || false); // Backend must return this now!
+            setIsPublic(event.isPublic || false); 
             
             if (event.attendees) {
                 const selectedAttendees = event.attendees.map(att => {
@@ -603,7 +740,6 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                 setAttendees(selectedAttendees);
             }
         } else if (selectedDate) {
-            // Defaults for new event
             setTitle('');
             setNotes('');
             const dateStr = formatDateForInput(selectedDate);
@@ -622,8 +758,6 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
             } else { setAttendees([]); }
         }
     }, [event, selectedDate, users, installers, currentUser]);
-
-    // --- ACTIONS ---
 
     const handleSave = async () => {
         if (!title) { toast.error("Title is required."); return; }
@@ -689,7 +823,6 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
     const handleRespond = async (status: 'accepted' | 'declined') => {
         if (!event) return;
         try {
-            // Assuming eventService has this new method
             const res = await fetch(getEndpoint(`/api/events/${event.id}/respond`), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -698,16 +831,13 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
             });
             if (!res.ok) throw new Error("Failed");
             toast.success(`Invitation ${status}`);
-            onSaveSuccess(); // Refresh to show new status
+            onSaveSuccess(); 
             onClose();
         } catch (e) { toast.error("Could not update status"); }
     };
 
-    // --- RENDER ---
-
     if (!isOpen) return null;
 
-    // My Status Logic
     const myAttendeeRecord = event?.attendees?.find(a => a.attendeeType === 'user' && a.attendeeId === currentUser?.userId);
     const myStatus = (myAttendeeRecord as any)?.status || 'pending';
     const isPendingInvite = !!event && !isOwner && myAttendeeRecord && myStatus === 'pending';
@@ -715,8 +845,6 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
             <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-lg relative">
-                
-                {/* Header Actions */}
                 <div className="flex justify-between items-start mb-6">
                     <h2 className="text-2xl font-bold text-text-primary">
                         {!event ? 'New Appointment' : isEditMode ? 'Edit Appointment' : 'Appointment Details'}
@@ -733,10 +861,8 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                     </div>
                 </div>
 
-                {/* --- VIEW MODE --- */}
                 {!isEditMode && event ? (
                     <div className="space-y-6">
-                        {/* Title & Time */}
                         <div>
                             <h3 className="text-xl font-semibold text-text-primary mb-1">
                                 <span dangerouslySetInnerHTML={{__html: stripMentions(event.title)}} />
@@ -754,12 +880,10 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                             )}
                         </div>
 
-                        {/* Smart Notes */}
                         <div className="bg-background p-4 rounded-md border border-border max-h-60 overflow-y-auto">
                             <SmartMessage content={event.notes || 'No notes provided.'} />
                         </div>
 
-                        {/* Attendees List */}
                         <div>
                             <h4 className="text-sm font-semibold text-text-secondary mb-2">Attendees</h4>
                             <div className="flex flex-wrap gap-2">
@@ -769,7 +893,6 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                                         ? users.find(u => u.userId === att.attendeeId)?.email 
                                         : installers.find(i => String(i.id) === att.attendeeId)?.installerName;
                                     
-                                    // Status Icon
                                     let Icon = Clock;
                                     let colorClass = 'text-yellow-500';
                                     if (att.status === 'accepted') { Icon = Check; colorClass = 'text-green-500'; }
@@ -785,7 +908,6 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                             </div>
                         </div>
 
-                        {/* Action Bar (For Invitees) */}
                         {isPendingInvite && (
                             <div className="flex justify-end gap-3 pt-4 border-t border-border">
                                 <span className="text-sm text-text-secondary self-center mr-auto">You are invited:</span>
@@ -795,16 +917,12 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                         )}
                     </div>
                 ) : (
-                    /* --- EDIT MODE --- */
                     <div className="space-y-4">
-                        
-                        {/* Title */}
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Title</label>
                             <MentionInput value={title} onChange={setTitle} placeholder="Event Title..." singleLine />
                         </div>
 
-                        {/* Dates */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary">Start</label>
@@ -818,7 +936,6 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                             </div>
                         </div>
 
-                        {/* Toggles */}
                         <div className="flex justify-between">
                             <div className="flex items-center space-x-2">
                                 <input type="checkbox" id="isAllDay" checked={isAllDay} onChange={e => setIsAllDay(e.target.checked)} className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary" />
@@ -833,19 +950,16 @@ const AddEditEventModal: React.FC<AddEditEventModalProps> = ({ isOpen, onClose, 
                             </div>
                         </div>
 
-                        {/* Attendees */}
                         <div>
                             <label className="block text-sm font-medium text-text-secondary">Attendees</label>
                             <Select isMulti options={attendeeOptions} value={attendees} onChange={setAttendees} className="react-select-container mt-1" classNamePrefix="react-select" styles={{ control: (base) => ({ ...base, backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)' }), input: (base) => ({ ...base, color: 'var(--color-text-primary)' }), multiValue: (base) => ({ ...base, backgroundColor: 'var(--color-surface)' }), multiValueLabel: (base) => ({ ...base, color: 'var(--color-text-primary)' }), menu: (base) => ({ ...base, backgroundColor: 'var(--color-background)' }), option: (base, { isFocused, isSelected }) => ({ ...base, backgroundColor: isSelected ? 'var(--color-primary)' : isFocused ? 'var(--color-surface)' : undefined, color: isSelected ? 'var(--color-on-primary)' : 'var(--color-text-primary)' }) }} />
                         </div>
 
-                        {/* Notes */}
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Notes</label>
                             <MentionInput value={notes} onChange={setNotes} placeholder="Add notes..." minHeight={80} />
                         </div>
 
-                        {/* Buttons */}
                         <div className="mt-6 flex justify-end gap-4">
                             {event && (
                                 <button type="button" onClick={handleDelete} disabled={isDeleting} className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold mr-auto">

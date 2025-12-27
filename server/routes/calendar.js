@@ -58,16 +58,28 @@ router.get('/events', verifySession(), async (req, res) => {
                 c.full_name AS "customerName",
                 i.color AS "backgroundColor",
                 j.is_on_hold AS "isOnHold",
-                p.status AS "projectStatus", -- ADDED: For hashed completed jobs
-                q.po_number AS "poNumber",   -- ADDED: Linked PO Number
+                p.status AS "projectStatus",
+                q.po_number AS "poNumber",
                 'appointment' AS "type",
-                jsonb_build_object('isJobComplete', j.final_payment_received) AS "fullEvent"
+                jsonb_build_object(
+                    'isJobComplete', j.final_payment_received,
+                    'address', c.address,
+                    'projectName', p.project_name,
+                    'installerName', i.installer_name,
+                    'pinnedNotes', jn.pinned_notes
+                ) AS "fullEvent"
             FROM job_appointments ja
             JOIN jobs j ON ja.job_id = j.id
             JOIN projects p ON j.project_id = p.id
             JOIN customers c ON p.customer_id = c.id
             JOIN installers i ON ja.installer_id = i.id
-            LEFT JOIN quotes q ON ja.quote_id = q.id -- ADDED: Link to Quote for PO
+            LEFT JOIN quotes q ON ja.quote_id = q.id
+            LEFT JOIN (
+                SELECT job_id, STRING_AGG(content, E'\n') as pinned_notes 
+                FROM job_notes 
+                WHERE is_pinned = true 
+                GROUP BY job_id
+            ) jn ON j.id = jn.job_id
             WHERE 
                 ja.installer_id IS NOT NULL
                 AND p.status != 'Cancelled' -- FIX: Hide cancelled jobs
@@ -87,13 +99,30 @@ router.get('/events', verifySession(), async (req, res) => {
                 NULL AS "projectStatus",
                 NULL AS "poNumber",
                 'material_order_eta' AS "type",
-                jsonb_build_object('status', mo.status) AS "fullEvent"
+                jsonb_build_object(
+                    'status', mo.status,
+                    'supplierName', v.name,
+                    'items', items.list
+                ) AS "fullEvent"
             FROM material_orders mo
             JOIN projects p ON mo.project_id = p.id
             JOIN customers c ON p.customer_id = c.id
+            LEFT JOIN vendors v ON mo.supplier_id = v.id
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(jsonb_build_object(
+                    'name', p_prod.name || ' ' || pv.name,
+                    'quantity', oli.quantity,
+                    'unit', oli.unit,
+                    'image', COALESCE(pv.thumbnail_url, pv.image_url, p_prod.default_thumbnail_url, p_prod.default_image_url)
+                )) as list
+                FROM order_line_items oli
+                JOIN product_variants pv ON oli.variant_id = pv.id
+                JOIN products p_prod ON pv.product_id = p_prod.id
+                WHERE oli.order_id = mo.id
+            ) items ON true
             WHERE
                 mo.eta_date IS NOT NULL
-                AND p.status != 'Cancelled' -- FIX: Hide orders for cancelled jobs
+                AND p.status != 'Cancelled'
             
             UNION ALL
 
