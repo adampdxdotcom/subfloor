@@ -2,13 +2,25 @@
 
 ![Subfloor Dashboard](placeholder-dashboard.png)
 
-> A comprehensive, full-stack web application designed as a management tool for small contracting businesses, such as flooring installers. Subfloor provides a single, centralized platform to track the entire lifecycle of a job, from initial customer inquiry to final completion and payment.
+> A comprehensive, full-stack web application designed as a management tool for small contracting businesses, such as flooring installers. Subfloor provides a single, centralized platform to track the entire lifecycle of a job, from initial customer inquiry to final completion.
 
 ## About The Project
+
+Subfloor is one-hundred percent written by Google Gemini 2.5 and 3.0. The project was started in late October of 2025. I am not a coder, but I know enough to coax a viable product from Gemini. Although AI wrote the code, I designed every aspect of the project. And to be clear, there is no AI used in the program itself.  The images in the demo app are from Nano Banana and Sora 2.
+
+The program was designed to tackle some basic job tracking, sample checkouts, and customer communication. It bloomed into valuable tool for company knowledge, commnunication and much more.
 
 For small contracting businesses, managing jobs, customers, materials, and schedules often involves a messy combination of spreadsheets, notebooks, and text messages. Subfloor was built to solve this problem by providing a modern, intuitive, and all-in-one solution tailored to the real-world workflows of the trade.
 
 The application is built on a robust, containerized architecture, ensuring a stable and reproducible environment for both development and deployment. It is fully responsive and **Mobile-Native Ready**, designed to be used by installers in the field as easily as admins in the office.
+
+## Can You Trust This Project
+
+This project runs completely on your hardware. The code is all here to evaluate. I think that you can trust this project as much as you can trust any other project, but use judgement and evaluate the program as you would any other.
+
+## Can I Contribute?
+
+I'm not sure. Feel free to open issues, but I'm not sure of the future of this project. I'll work on it for the time being, but this is completely a learning experience and I'm not sure if I want to integrate other features I might not be able to real world test.  Feel free to go fork yourself and make all the changes you desire.
 
 ---
 
