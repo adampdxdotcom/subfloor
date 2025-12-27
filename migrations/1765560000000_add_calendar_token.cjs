@@ -1,21 +1,17 @@
-const { sql } = require('drizzle-orm'); 
-// Note: Even if not using drizzle ORM directly in these scripts, 
-// we stick to the project's migration pattern. 
-// If your custom runner just takes raw SQL:
+/* eslint-disable camelcase */
 
-exports.up = async (client) => {
-    await client.query(`
-        ALTER TABLE user_preferences 
-        ADD COLUMN IF NOT EXISTS calendar_token VARCHAR(255) UNIQUE;
-    `);
-    
-    // Optional: Backfill existing preferences with a token if you want immediate access,
-    // but usually better to generate on demand via UI to avoid "dead" tokens.
+exports.shorthands = undefined;
+
+exports.up = pgm => {
+  pgm.addColumns('user_preferences', {
+    calendar_token: {
+      type: 'varchar(255)',
+      unique: true,
+      default: null,
+    },
+  });
 };
 
-exports.down = async (client) => {
-    await client.query(`
-        ALTER TABLE user_preferences 
-        DROP COLUMN IF EXISTS calendar_token;
-    `);
+exports.down = pgm => {
+  pgm.dropColumns('user_preferences', ['calendar_token']);
 };
