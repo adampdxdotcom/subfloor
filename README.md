@@ -119,12 +119,26 @@ You must have Docker and Docker Compose installed on your machine.
 
 ---
 
-## Roadmap
+### Updating
 
-- [ ] **Push Notifications:** Native mobile push notifications for job assignments.
-- [ ] **QuickBooks Integration:** Two-way sync for Invoices and Payments.
-- [ ] **Interactive Maps:** Route planning view for daily installer manifests.
-- [ ] **Customer Portal:** A read-only link for customers to view their job status and photos.
+1. **Backup Your Database and Images**
+    Backups are free and only take a few minutes. 
+
+2.  **Update the Code**
+    Pull the new files from Git from your instance root.
+    ```sh
+    git pull
+    ```    
+3.  **Update Your Containers**
+    Gracefully close the containers and rebuild the image.
+    ```sh
+    docker compose down && docker compose up --build -d
+    ```
+4.  **Check the Program**
+    Hard-refresh your browser and/or check your logs
+    ```sh
+    docker logs --tail 50 subfloor-app
+    ```
 
 ---
 
