@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { App as CapacitorApp } from '@capacitor/app';
-import { api } from '../utils/apiConfig';
+import { getEndpoint } from '../utils/apiConfig';
 import { ForceUpdateModal } from './ForceUpdateModal'; // New
-import localMetadata from '../../metadata.json'; 
+import localMetadata from '../metadata.json'; 
 
 export const VersionManager: React.FC = () => {
     const [forceUpdate, setForceUpdate] = useState<{ required: number; current: number; url: string } | null>(null);
@@ -12,7 +12,10 @@ export const VersionManager: React.FC = () => {
         const checkVersion = async () => {
             try {
                 // 1. Get Server Info
-                const { data: serverInfo } = await api.get('/system/info');
+                const response = await fetch(getEndpoint('/api/system/info'));
+                if (!response.ok) return; // Silent fail on network error
+                const serverInfo = await response.json();
+                
                 const isNative = (window as any).Capacitor?.isNativePlatform();
 
                 // 2. CHECK MOBILE (Native Only)

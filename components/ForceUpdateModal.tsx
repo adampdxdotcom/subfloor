@@ -1,6 +1,6 @@
 import React from 'react';
 import { DownloadCloud, AlertTriangle } from 'lucide-react';
-import { ModalPortal } from './ModalPortal';
+import ModalPortal from './ModalPortal';
 
 interface ForceUpdateModalProps {
     currentBuild: number;

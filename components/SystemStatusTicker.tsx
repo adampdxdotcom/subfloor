@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToaster, Toast, toast } from 'react-hot-toast';
 import { Activity, CheckCircle, AlertCircle, Clock, ChevronDown, X, Info, DownloadCloud } from 'lucide-react';
-import { api } from '../utils/apiConfig';
+import { getEndpoint } from '../utils/apiConfig';
 import { useData } from '../context/DataContext';
 
 const MAX_HISTORY = 20;
@@ -23,12 +23,15 @@ const SystemStatusTicker: React.FC = () => {
 
         const checkUpdate = async () => {
             try {
-                const { data } = await api.get('/system/check-remote');
-                if (data.isUpdateAvailable) {
-                    setUpdateAvailable({
-                        version: data.latestVersion,
-                        url: data.releaseNotesUrl
-                    });
+                const response = await fetch(getEndpoint('/api/system/check-remote'), { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.isUpdateAvailable) {
+                        setUpdateAvailable({
+                            version: data.latestVersion,
+                            url: data.releaseNotesUrl
+                        });
+                    }
                 }
             } catch (e) {
                 console.error("Failed to check for updates:", e);
