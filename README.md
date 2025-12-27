@@ -1,66 +1,70 @@
-# Joblogger - Contracting Business Management Suite
+# Subfloor - Contracting Business Management Suite
 
-![Joblogger Dashboard](placeholder-dashboard.png)
+![Subfloor Dashboard](placeholder-dashboard.png)
 
-> A comprehensive, full-stack web application designed as a management tool for small contracting businesses, such as flooring installers. Joblogger provides a single, centralized platform to track the entire lifecycle of a job, from initial customer inquiry to final completion and payment.
+> A comprehensive, full-stack web application designed as a management tool for small contracting businesses, such as flooring installers. Subfloor provides a single, centralized platform to track the entire lifecycle of a job, from initial customer inquiry to final completion and payment.
 
 ## About The Project
 
-For small contracting businesses, managing jobs, customers, materials, and schedules often involves a messy combination of spreadsheets, notebooks, and text messages. Joblogger was built to solve this problem by providing a modern, intuitive, and all-in-one solution tailored to the real-world workflows of the trade.
+For small contracting businesses, managing jobs, customers, materials, and schedules often involves a messy combination of spreadsheets, notebooks, and text messages. Subfloor was built to solve this problem by providing a modern, intuitive, and all-in-one solution tailored to the real-world workflows of the trade.
 
-The application is built on a robust, containerized architecture, ensuring a stable and reproducible environment for both development and deployment.
+The application is built on a robust, containerized architecture, ensuring a stable and reproducible environment for both development and deployment. It is fully responsive and **Mobile-Native Ready**, designed to be used by installers in the field as easily as admins in the office.
 
 ---
 
 ## Key Features
 
+✨ **Logistics & Scheduling (Major Feature):**
+- **Smart Calendar:** A unified view of all Installations, Measurements, and Personal Appointments.
+- **Google/Apple Calendar Sync:** Generate secure, private iCal subscription links to sync your work schedule to your personal phone automatically.
+- **Logic-Aware:** The calendar visualizes Material Order ETAs alongside job start dates to prevent scheduling conflicts.
+
 ✨ **Customer Relationship Management (CRM):**
-- Create, view, edit, and delete a complete list of customers.
-- View all projects associated with a specific customer.
+- Track leads, active customers, and project history.
+- **Universal Search:** Instantly find Customers, Projects, Installers, or specific Sample Variants (e.g., "12x24") from a global command bar.
 
 ✨ **Project & Job Tracking:**
-- Manage individual jobs for each customer.
-- Intelligent project statuses (`New`, `Quoting`, `Scheduled`, `Completed`) that update automatically based on user actions.
-- Create and manage detailed quotes with breakdowns for materials and labor.
-- Track change orders and automatically calculate their impact on the final balance.
+- Intelligent status workflow (`New` -> `Quoting` -> `Scheduled` -> `Completed`).
+- **Job Notes Chat:** A timeline-based chat system for each project. **Pin important notes** (like Gate Codes) to automatically promote them to the calendar event description.
+- Financial tracking with detailed Quotes, Change Orders, and PO management.
 
 ✨ **Sample & Inventory Management:**
-- Maintain a central "Sample Library" of materials with images and details.
-- Robust, multi-step checkout and return process for samples on a per-project basis.
-- **QR Code System:** Generate and print unique QR codes for each physical sample.
-- **Live QR Scanning:** Use a device's camera to scan samples for a "Quick Checkout" workflow directly from the dashboard.
+- **Inventory 2.0:** Track products by Variant (Color, Size, Finish) with specific packaging data (Cartons/SF).
+- **QR Code System:** Generate QR codes for samples. Scan them with the built-in mobile camera for instant "Check In/Check Out".
+- **Visual Tracking:** See exactly which samples are Overdue, Extended, or Due Today with smart color-coded indicators.
 
-✨ **Installer & Schedule Management:**
-- Manage a list of installers and their contact information.
-- Assign installers to jobs via quotes.
-- View all scheduled jobs on a color-coded, interactive calendar to prevent conflicts and manage workloads.
+✨ **Knowledge Base (Wiki):**
+- A built-in, rich-text documentation system for SOPs, safety guides, and employee handbooks.
+- Mobile-optimized reading mode for field staff.
 
-✨ **Backup & Restore:**
-- **UI-Driven Backups:** Generate and download separate ZIP backups of the entire database and all uploaded images directly from a "Settings" page.
-- **Disaster Recovery:** A secure, UI-driven restore process to fully recover all application data from backup files in case of data loss.
+✨ **Communication Hub:**
+- **Automated Emails:** System automatically sends "Upcoming Job" reminders to customers and "Daily Manifests" to installers.
+- **Internal Messaging:** Direct messaging between users and threaded project discussions.
 
 ---
 
 ## Technology Stack
 
-This project is built with a modern, full-stack architecture.
+This project is built with a modern, full-stack architecture designed for scale and reliability.
 
 *   **Frontend:**
-    *   [React](https://reactjs.org/) (with TypeScript)
+    *   [React](https://reactjs.org/) (TypeScript)
     *   [Vite](https://vitejs.dev/)
     *   [Tailwind CSS](https://tailwindcss.com/)
-    *   [Lucide Icons](https://lucide.dev/)
+    *   [TanStack Query](https://tanstack.com/query/latest) (State Management)
+    *   [Capacitor](https://capacitorjs.com/) (Native Android Wrapper)
 
 *   **Backend:**
-    *   [Node.js](https://nodejs.org/)
-    *   [Express.js](https://expressjs.com/)
+    *   [Node.js](https://nodejs.org/) & [Express.js](https://expressjs.com/)
+    *   [SuperTokens](https://supertokens.com/) (Authentication & RBAC)
+    *   [ical-generator](https://github.com/sebbo2002/ical-generator) (Calendar Feeds)
 
 *   **Database:**
-    *   [PostgreSQL](https://www.postgresql.org/)
+    *   [PostgreSQL](https://www.postgresql.org/) (Persistent Data)
 
-*   **DevOps & Tooling:**
+*   **DevOps:**
     *   [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
-    *   [Gitea](https://gitea.io/) (or any Git provider)
+    *   Self-Healing Architecture (Auto-migrations, Health checks)
 
 ---
 
@@ -78,21 +82,22 @@ You must have Docker and Docker Compose installed on your machine.
 
 1.  **Clone the repository:**
     ```sh
-    git clone <your-repository-url>
-    cd joblogger
+    git clone https://github.com/adampdxdotcom/subfloor.git
+    cd subfloor
     ```
 
-2.  **Create the Environment File:**
-    Create a `.env` file in the root of the project. This file stores your database credentials. Make sure the values match the `environment` section of the `db` service in your `docker-compose.yml` file.
-    ```env
-    # .env
-    POSTGRES_USER=user
-    POSTGRES_PASSWORD=password
-    POSTGRES_DB=joblogger
+2.  **Configure Environment Variables:**
+    The application relies on environment variables for database credentials, timezone settings, and API keys. We provide an example file to get you started.
+    
+    Copy the example file to a real `.env` file:
+    ```sh
+    cp .env.example .env
     ```
+    
+    *Optional:* Open the new `.env` file in your text editor and adjust settings if necessary (e.g., changing the default database password or timezone).
 
 3.  **Build and Run the Application:**
-    This command will build the necessary Docker images and start all three services (`app`, `server`, `db`) in the background. The `--build` flag is important for the first run to ensure all dependencies are installed correctly.
+    This command will build the necessary Docker images and start all services (`app`, `server`, `db`) in the background. The `--build` flag is important for the first run to ensure all dependencies are installed correctly.
     ```sh
     docker-compose up --build -d
     ```
@@ -101,27 +106,19 @@ You must have Docker and Docker Compose installed on your machine.
     Open your web browser and navigate to:
     **[http://localhost:5173](http://localhost:5173)**
 
-The application should be fully functional. The database will be initialized automatically from the `schema.sql` file.
+    The application will launch a "Zero-Config" setup wizard on the first run to help you create your Admin account and configure your company details.
 
 ---
 
 ## Roadmap
 
-While the core functionality is robust, there are several features planned for future development:
-
-- [ ] **Editing & Deleting:** Add the ability to edit and delete Material Orders.
-- [ ] **File Uploads:** Implement file uploads for "Signed Paperwork" on the Job Details page.
-- [ ] **Advanced Business Logic:**
-    -   UI warnings for Material ETA vs. Job Start Date conflicts.
-    -   Drag-and-drop rescheduling on the calendar.
-- [ ] **Authentication & Users:** Implement a full multi-user system with login and permissions.
-
-See the open issues for a full list of proposed features (and known issues).
+- [ ] **Push Notifications:** Native mobile push notifications for job assignments.
+- [ ] **QuickBooks Integration:** Two-way sync for Invoices and Payments.
+- [ ] **Interactive Maps:** Route planning view for daily installer manifests.
+- [ ] **Customer Portal:** A read-only link for customers to view their job status and photos.
 
 ---
 
 ## License
 
 Distributed under the MIT License. See `LICENSE.txt` for more information.
-
----
