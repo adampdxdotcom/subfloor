@@ -18,7 +18,9 @@ The application is built on a robust, containerized architecture, ensuring a sta
 
 This project runs completely on your hardware. The code is all here to evaluate. I think that you can trust this project as much as you can trust any other project, but use judgement and evaluate the program as you would any other.
 
-## Can I Contribute?
+I think the most important thing to keep in mind that there is no support offered for this software. And I might at any time decide to stop development no matter the state of the program.  
+
+## Can You Contribute
 
 I'm not sure. Feel free to open issues, but I'm not sure of the future of this project. I'll work on it for the time being, but this is completely a learning experience and I'm not sure if I want to integrate other features I might not be able to real world test.  Feel free to go fork yourself and make all the changes you desire.
 
