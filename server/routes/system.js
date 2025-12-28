@@ -65,7 +65,7 @@ router.get('/check-remote', async (req, res) => {
 
     // 2. Fetch Remote Version Beacon
     // This points to the version.json file in the main branch
-    const REMOTE_BEACON_URL = 'https://raw.githubusercontent.com/adampdxcom/subfloor/main/version.json';
+    const REMOTE_BEACON_URL = 'https://raw.githubusercontent.com/adampdxdotcom/subfloor/refs/heads/main/version.json';
     
     const { data: remoteData } = await axios.get(REMOTE_BEACON_URL, { timeout: 5000 });
 
