@@ -63,7 +63,7 @@ router.get('/check-remote', async (req, res) => {
 
     // 2. Fetch Remote Beacon (metadata.json)
     // This points to the metadata.json file in the main branch
-    const REMOTE_BEACON_URL = 'https://raw.githubusercontent.com/adampdx/subfloor/main/metadata.json';
+    const REMOTE_BEACON_URL = 'https://subfloor.app/metadata.json';
     
     const { data: remoteData } = await axios.get(`${REMOTE_BEACON_URL}?t=${Date.now()}`, { timeout: 5000 });
 

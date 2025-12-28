@@ -5,7 +5,7 @@
   "version": "2.00",
   "mobileBuild": 2,
   "minMobileBuild": 2,
-  "apkDownloadUrl": "https://github.com/adampdx/subfloor/releases/latest/download/app-release.apk",
+  "apkDownloadUrl": "https://github.com/adampdxdotcom/subfloor/releases/download/Android/subfloor-2.00.apk",
   "releaseNotesUrl": "https://subfloor.app/update",
   "critical": false
 }
