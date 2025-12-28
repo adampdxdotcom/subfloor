@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 
 export const changelogData: ChangelogEntry[] = [
     {
+        version: "Version 2.0",
+        date: "December 27, 2026",
+        title: "Establish Update Notifications",
+        type: "feature",
+        changes: [
+            "Created a system that checks in to a central location to determine if an update is available.",
+            "Users are presented with a link to update instructions."
+        ]
+    }
+    {
         version: "Session 34",
         date: "Current",
         title: "System Email Customization",
