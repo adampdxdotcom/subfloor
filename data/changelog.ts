@@ -15,7 +15,7 @@ export const changelogData: ChangelogEntry[] = [
         changes: [
             "Created a system that checks in to a central location to determine if an update is available.",
             "Users are presented with a link to update instructions.",
-            "Image downloads from Github".
+            "Image downloads from Github."
         ]
     },
     {
