@@ -9,7 +9,7 @@ export interface ChangelogEntry {
 export const changelogData: ChangelogEntry[] = [
     {
         version: "Version 2.0",
-        date: "December 27, 2026",
+        date: "December 27, 2025",
         title: "Establish Update Notifications",
         type: "feature",
         changes: [
