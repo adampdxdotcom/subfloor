@@ -3,6 +3,9 @@
   "description": "A web-based job management application for a flooring store to track a customer's journey from initial sample checkout through quoting, scheduling, and final job closure.",
   "requestFramePermissions": [],
   "version": "2.00",
-  "mobileBuild": 10,
-  "minMobileBuild": 10
+  "mobileBuild": 1,
+  "minMobileBuild": 1,
+  "apkDownloadUrl": "https://github.com/adampdx/subfloor/releases/latest/download/app-release.apk",
+  "releaseNotesUrl": "https://subfloor.app/update",
+  "critical": false
 }

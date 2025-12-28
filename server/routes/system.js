@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pool from '../db.js';
-import axios from 'axios'; // Added from diff
+import axios from 'axios';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -34,14 +34,12 @@ const getAppMetadata = () => {
 // GET /api/system/info
 router.get('/info', async (req, res) => {
   try {
+    // 1. Get Static Version Info from JSON
     const metadata = getAppMetadata();
 
-    let apkDownloadUrl = '';
-    const dbRes = await pool.query("SELECT settings FROM system_preferences WHERE key = 'mobile_settings'");
-    
-    if (dbRes.rows.length > 0) {
-      apkDownloadUrl = dbRes.rows[0].settings.apkDownloadUrl || '';
-    }
+    // 2. Get Config from Metadata (Developer Controlled)
+    // Fallback to empty string if not set
+    let apkDownloadUrl = metadata.apkDownloadUrl || '';
 
     res.json({
       version: metadata.version || '0.00',
@@ -63,14 +61,14 @@ router.get('/check-remote', async (req, res) => {
     const localMetadata = getAppMetadata();
     const currentVersion = localMetadata.version || '0.00';
 
-    // 2. Fetch Remote Version Beacon
-    // This points to the version.json file in the main branch
-    const REMOTE_BEACON_URL = 'https://raw.githubusercontent.com/adampdxdotcom/subfloor/refs/heads/main/version.json';
+    // 2. Fetch Remote Beacon (metadata.json)
+    // This points to the metadata.json file in the main branch
+    const REMOTE_BEACON_URL = 'https://raw.githubusercontent.com/adampdx/subfloor/main/metadata.json';
     
-    const { data: remoteData } = await axios.get(REMOTE_BEACON_URL, { timeout: 5000 });
+    const { data: remoteData } = await axios.get(`${REMOTE_BEACON_URL}?t=${Date.now()}`, { timeout: 5000 });
 
     // 3. Compare (Simple string comparison works for standard versioning)
-    const latestVersion = remoteData.latestVersion || '0.00';
+    const latestVersion = remoteData.version || '0.00'; // Note: using .version now
     const isUpdateAvailable = latestVersion > currentVersion;
 
     res.json({
