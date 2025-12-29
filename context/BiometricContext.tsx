@@ -14,99 +14,132 @@ interface BiometricContextType {
 
 const BiometricContext = createContext<BiometricContextType>({} as BiometricContextType);
 
-// Config: Lock after this many milliseconds of inactivity (e.g., 5 minutes)
-const INACTIVITY_LIMIT = 5 * 60 * 1000; 
+// CONFIG: 5 Minutes in Milliseconds
+const LOCK_TIME_MS = 5 * 60 * 1000; 
+const PREF_KEY_ENABLED = 'biometrics_enabled';
+const PREF_KEY_LAST_ACTIVE = 'bio_last_active_timestamp';
 
 export const BiometricProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useData();
   const [isLocked, setIsLocked] = useState(false);
   const [isEnabled, setIsEnabled] = useState(false); 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Ref to hold the in-memory timer (for "Screen On" idling)
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 0. LOAD PREFERENCE ON STARTUP
+  // --- 1. INITIALIZATION (Run Once on Boot) ---
   useEffect(() => {
-    const loadSettings = async () => {
-      const { value } = await Preferences.get({ key: 'biometrics_enabled' });
-      if (value === 'true') {
-        setIsEnabled(true);
+    const init = async () => {
+      // A. Load "Enabled" Preference
+      const { value: enabledVal } = await Preferences.get({ key: PREF_KEY_ENABLED });
+      const shouldEnable = enabledVal === 'true';
+      setIsEnabled(shouldEnable);
+
+      // B. Check if we should lock IMMEDIATELY (Fresh Boot after delay)
+      if (shouldEnable) {
+        const { value: lastActiveStr } = await Preferences.get({ key: PREF_KEY_LAST_ACTIVE });
+        if (lastActiveStr) {
+          const lastActive = parseInt(lastActiveStr, 10);
+          const diff = Date.now() - lastActive;
+          if (diff > LOCK_TIME_MS) {
+            console.log(`[Bio] Boot Lock: Inactive for ${Math.round(diff/1000)}s`);
+            setIsLocked(true);
+          }
+        }
       }
     };
-    loadSettings();
+    init();
   }, []);
 
-  // 1. Inactivity Timer Logic
-  const resetTimer = () => {
-    if (!isEnabled || !user) return;
-    
-    if (timerRef.current) clearTimeout(timerRef.current);
-    
-    timerRef.current = setTimeout(() => {
-      console.log('User inactive for too long. Locking app.');
-      setIsLocked(true);
-    }, INACTIVITY_LIMIT);
-  };
 
-  // 2. Set up Activity Listeners (Touches, Keypresses)
-  useEffect(() => {
-    if (!isEnabled || !user) return;
-
-    const handleActivity = () => resetTimer();
-
-    window.addEventListener('touchstart', handleActivity);
-    window.addEventListener('click', handleActivity);
-    window.addEventListener('keypress', handleActivity);
-    
-    // Start the timer immediately
-    resetTimer();
-
-    return () => {
-      window.removeEventListener('touchstart', handleActivity);
-      window.removeEventListener('click', handleActivity);
-      window.removeEventListener('keypress', handleActivity);
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [isEnabled, user]);
-
-
-  // 3. Background/Foreground Listener
+  // --- 2. BACKGROUND / FOREGROUND HANDLER ---
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    const listener = App.addListener('appStateChange', ({ isActive }) => {
-      if (!isActive && isEnabled && user) {
-        // App went to background -> Immediate Lock
-        setIsLocked(true);
+    const listener = App.addListener('appStateChange', async ({ isActive }) => {
+      if (!isEnabled) return;
+
+      if (!isActive) {
+        // APP WENT TO BACKGROUND: Save the current time
+        // This acts as our "Anchor" for when we come back.
+        await Preferences.set({ key: PREF_KEY_LAST_ACTIVE, value: Date.now().toString() });
+      } 
+      else {
+        // APP CAME TO FOREGROUND: Check the difference
+        const { value: lastActiveStr } = await Preferences.get({ key: PREF_KEY_LAST_ACTIVE });
+        if (lastActiveStr) {
+          const diff = Date.now() - parseInt(lastActiveStr, 10);
+          if (diff > LOCK_TIME_MS) {
+            console.log(`[Bio] Resume Lock: Inactive for ${Math.round(diff/1000)}s`);
+            setIsLocked(true);
+          }
+        }
       }
     });
 
+    return () => { listener.then(l => l.remove()); };
+  }, [isEnabled]);
+
+
+  // --- 3. IN-APP IDLE TIMER (Screen stays on) ---
+  const resetIdleTimer = () => {
+    if (!isEnabled || isLocked) return;
+
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    
+    idleTimerRef.current = setTimeout(() => {
+      console.log('[Bio] Idle Lock: Screen left on too long');
+      setIsLocked(true);
+    }, LOCK_TIME_MS);
+
+    // Also update the disk timestamp periodically so if the battery dies 
+    // right now, we know when the user was last active.
+    // (Optimization: We could throttle this, but doing it on interaction is safest for now)
+    Preferences.set({ key: PREF_KEY_LAST_ACTIVE, value: Date.now().toString() });
+  };
+
+  useEffect(() => {
+    if (!isEnabled) return;
+
+    window.addEventListener('touchstart', resetIdleTimer);
+    window.addEventListener('click', resetIdleTimer);
+    window.addEventListener('keypress', resetIdleTimer);
+    
+    resetIdleTimer(); // Start clock
+
     return () => {
-        listener.then(h => h.remove());
+      window.removeEventListener('touchstart', resetIdleTimer);
+      window.removeEventListener('click', resetIdleTimer);
+      window.removeEventListener('keypress', resetIdleTimer);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
-  }, [isEnabled, user]);
+  }, [isEnabled, isLocked]);
 
 
-  // 4. The Unlock Function
+  // --- 4. ACTIONS ---
+
   const performBiometricScan = async () => {
     try {
-      const result = await NativeBiometric.verifyIdentity({
+      // NOTE: This throws an error if failed/cancelled
+      await NativeBiometric.verifyIdentity({
         reason: "Unlock Subfloor",
         title: "Verify Identity",
-        subtitle: "Use Face ID or Fingerprint",
-        description: "Verify your identity to access the application",
+        subtitle: "Unlock App",
+        description: "Please authenticate to continue",
       });
 
-      if (result) {
-        setIsLocked(false);
-        resetTimer();
-      }
+      // Success
+      setIsLocked(false);
+      resetIdleTimer();
+      // Update timestamp so we don't immediately re-lock if we switch apps
+      Preferences.set({ key: PREF_KEY_LAST_ACTIVE, value: Date.now().toString() });
+
     } catch (error) {
-      console.error("Biometric verification failed", error);
-      // We don't unlock. User remains on Lock Screen.
+      console.error("[Bio] Scan failed or cancelled", error);
+      // Do nothing -> Stay locked
     }
   };
 
-
-  // 5. Exposed Methods for Settings
   const enableBiometrics = async () => {
     try {
       const check = await NativeBiometric.isAvailable();
@@ -115,8 +148,10 @@ export const BiometricProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return false;
       }
       
-      // Save to Disk
-      await Preferences.set({ key: 'biometrics_enabled', value: 'true' });
+      // Save enabled state AND current time (to prevent immediate lockout)
+      await Preferences.set({ key: PREF_KEY_ENABLED, value: 'true' });
+      await Preferences.set({ key: PREF_KEY_LAST_ACTIVE, value: Date.now().toString() });
+      
       setIsEnabled(true);
       return true;
     } catch (e) {
@@ -126,13 +161,12 @@ export const BiometricProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const disableBiometrics = async () => {
-    // Remove from Disk
-    await Preferences.set({ key: 'biometrics_enabled', value: 'false' });
+    await Preferences.set({ key: PREF_KEY_ENABLED, value: 'false' });
     setIsEnabled(false);
     setIsLocked(false);
   };
 
-  // 6. Auto-Trigger Scan when Locked
+  // Trigger scan when locked
   useEffect(() => {
     if (isLocked) {
       performBiometricScan();
