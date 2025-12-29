@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { NativeBiometrics } from '@capacitor-community/native-biometrics';
+import { NativeBiometric } from 'capacitor-native-biometric';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import LockScreen from '../components/security/LockScreen';
-import { useAuth } from './DataContext';
+import { useData } from './DataContext';
 
 interface BiometricContextType {
   isEnabled: boolean;
@@ -17,7 +17,7 @@ const BiometricContext = createContext<BiometricContextType>({} as BiometricCont
 const INACTIVITY_LIMIT = 5 * 60 * 1000; 
 
 export const BiometricProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useData();
   const [isLocked, setIsLocked] = useState(false);
   
   // In a real app, this would be loaded from localStorage or user_preferences
@@ -64,26 +64,30 @@ export const BiometricProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    App.addListener('appStateChange', ({ isActive }) => {
+    const listener = App.addListener('appStateChange', ({ isActive }) => {
       if (!isActive && isEnabled && user) {
         // App went to background -> Immediate Lock
         setIsLocked(true);
       }
     });
+
+    return () => {
+        listener.then(h => h.remove());
+    };
   }, [isEnabled, user]);
 
 
   // 4. The Unlock Function
   const performBiometricScan = async () => {
     try {
-      const result = await NativeBiometrics.verifyIdentity({
+      const result = await NativeBiometric.verifyIdentity({
         reason: "Unlock Subfloor",
         title: "Verify Identity",
         subtitle: "Use Face ID or Fingerprint",
         description: "Verify your identity to access the application",
       });
 
-      if (result.isVerified) {
+      if (result) {
         setIsLocked(false);
         resetTimer();
       }
@@ -97,7 +101,7 @@ export const BiometricProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // 5. Exposed Methods for Settings
   const enableBiometrics = async () => {
     try {
-      const check = await NativeBiometrics.isAvailable();
+      const check = await NativeBiometric.isAvailable();
       if (!check.isAvailable) {
         alert("Biometrics not available on this device");
         return false;

@@ -1,14 +1,17 @@
 import React from 'react';
 import { Fingerprint, LogOut } from 'lucide-react';
-import { useAuth } from '../../context/DataContext';
+import { signOut } from "supertokens-auth-react/recipe/session";
 
 interface LockScreenProps {
   onUnlock: () => void;
 }
 
 const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
-  const { logout } = useAuth();
-  
+  const handleLogout = async () => {
+    await signOut();
+    window.location.href = "/auth";
+  };
+
   // Get the company name from the window title or default
   const appName = document.title || 'Subfloor';
 
@@ -32,7 +35,7 @@ const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
       </button>
 
       <button
-        onClick={() => logout()}
+        onClick={handleLogout}
         className="text-slate-400 hover:text-white flex items-center gap-2 py-4"
       >
         <LogOut className="w-4 h-4" />

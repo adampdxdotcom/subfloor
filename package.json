@@ -24,6 +24,7 @@
     "@tiptap/react": "^3.13.0",
     "@tiptap/starter-kit": "^3.13.0",
     "axios": "^1.7.2",
+    "capacitor-native-biometric": "^4.2.2",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "html5-qrcode": "^2.3.8",
