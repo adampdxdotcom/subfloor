@@ -9,6 +9,7 @@ import * as reactRouterDom from "react-router-dom";
 
 // --- Our App Imports ---
 import { DataProvider, useData } from './context/DataContext';
+import { BiometricProvider } from './context/BiometricContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import { VersionManager } from './components/VersionManager';
@@ -219,40 +220,42 @@ function App() {
     <DataProvider>
       <VersionManager />
       <BrandingListener />
-      <Router>
-        <BackButtonHandler />
-        <Routes>
-          {getSuperTokensRoutesForReactRouterDom(reactRouterDom, [EmailPasswordPreBuiltUI])}
+      <BiometricProvider>
+        <Router>
+          <BackButtonHandler />
+          <Routes>
+            {getSuperTokensRoutesForReactRouterDom(reactRouterDom, [EmailPasswordPreBuiltUI])}
 
-          <Route
-            path="/"
-            element={
-              <SessionAuth>
-                <Layout />
-              </SessionAuth>
-            }
-          >
-            <Route index element={<Dashboard />} />
-            <Route path="customers" element={<CustomerList />} />
-            <Route path="customers/:customerId" element={<CustomerDetail />} />
-            <Route path="projects/:projectId" element={<ProjectDetail />} />
-            <Route path="samples" element={<SampleLibrary />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="import" element={<ImportData />} />
-            <Route path="messages" element={<Messages />} />
-            <Route path="messages/:partnerId" element={<Messages />} />
-            <Route path="kb" element={<KnowledgeBase />} />
-            <Route path="vendors" element={<VendorList />} />
-            <Route path="vendors/:vendorId" element={<VendorDetail />} />
-            <Route path="orders" element={<OrderDashboard />} />
-            <Route path="installers" element={<InstallerList />} />
-            <Route path="installers/:installerId" element={<InstallerDetail />} />
-            <Route path="quotes/:quoteId" element={<QuoteDetail />} />
-            <Route path="calendar" element={<CalendarView />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </Router>
+            <Route
+              path="/"
+              element={
+                <SessionAuth>
+                  <Layout />
+                </SessionAuth>
+              }
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="customers" element={<CustomerList />} />
+              <Route path="customers/:customerId" element={<CustomerDetail />} />
+              <Route path="projects/:projectId" element={<ProjectDetail />} />
+              <Route path="samples" element={<SampleLibrary />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="import" element={<ImportData />} />
+              <Route path="messages" element={<Messages />} />
+              <Route path="messages/:partnerId" element={<Messages />} />
+              <Route path="kb" element={<KnowledgeBase />} />
+              <Route path="vendors" element={<VendorList />} />
+              <Route path="vendors/:vendorId" element={<VendorDetail />} />
+              <Route path="orders" element={<OrderDashboard />} />
+              <Route path="installers" element={<InstallerList />} />
+              <Route path="installers/:installerId" element={<InstallerDetail />} />
+              <Route path="quotes/:quoteId" element={<QuoteDetail />} />
+              <Route path="calendar" element={<CalendarView />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </Router>
+      </BiometricProvider>
     </DataProvider>
   );
 }
