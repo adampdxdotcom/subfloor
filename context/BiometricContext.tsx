@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { NativeBiometric } from 'capacitor-native-biometric';
 import { App } from '@capacitor/app';
+import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 import LockScreen from '../components/security/LockScreen';
 import { useData } from './DataContext';
@@ -8,7 +9,7 @@ import { useData } from './DataContext';
 interface BiometricContextType {
   isEnabled: boolean;
   enableBiometrics: () => Promise<boolean>;
-  disableBiometrics: () => void;
+  disableBiometrics: () => Promise<void>;
 }
 
 const BiometricContext = createContext<BiometricContextType>({} as BiometricContextType);
@@ -19,12 +20,19 @@ const INACTIVITY_LIMIT = 5 * 60 * 1000;
 export const BiometricProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useData();
   const [isLocked, setIsLocked] = useState(false);
-  
-  // In a real app, this would be loaded from localStorage or user_preferences
-  // For now, we default to FALSE so we don't lock you out while developing
   const [isEnabled, setIsEnabled] = useState(false); 
-
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 0. LOAD PREFERENCE ON STARTUP
+  useEffect(() => {
+    const loadSettings = async () => {
+      const { value } = await Preferences.get({ key: 'biometrics_enabled' });
+      if (value === 'true') {
+        setIsEnabled(true);
+      }
+    };
+    loadSettings();
+  }, []);
 
   // 1. Inactivity Timer Logic
   const resetTimer = () => {
@@ -106,6 +114,9 @@ export const BiometricProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         alert("Biometrics not available on this device");
         return false;
       }
+      
+      // Save to Disk
+      await Preferences.set({ key: 'biometrics_enabled', value: 'true' });
       setIsEnabled(true);
       return true;
     } catch (e) {
@@ -114,7 +125,9 @@ export const BiometricProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const disableBiometrics = () => {
+  const disableBiometrics = async () => {
+    // Remove from Disk
+    await Preferences.set({ key: 'biometrics_enabled', value: 'false' });
     setIsEnabled(false);
     setIsLocked(false);
   };
