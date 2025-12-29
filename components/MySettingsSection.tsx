@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { UserCog, Palette, Camera, Save, Trash2, Calendar, Copy, RefreshCw, Check } from 'lucide-react';
+import { UserCog, Palette, Camera, Save, Trash2, Calendar, Copy, RefreshCw, Check, Fingerprint } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Capacitor } from '@capacitor/core';
 import { useData } from '../context/DataContext';
+import { useBiometrics } from '../context/BiometricContext';
 import * as userService from '../services/userService';
 import { getEndpoint } from '../utils/apiConfig';
 
 const MySettingsSection: React.FC = () => {
     const { currentUser, saveCurrentUserPreferences, updateCurrentUserProfile, uploadCurrentUserAvatar, deleteCurrentUserAvatar } = useData();
+    const { isEnabled: isBioEnabled, enableBiometrics, disableBiometrics } = useBiometrics();
     const [color, setColor] = useState('#ffffff');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -127,6 +130,18 @@ const MySettingsSection: React.FC = () => {
         }
     };
 
+    const toggleBiometrics = async () => {
+        if (isBioEnabled) {
+            if (window.confirm("Disable biometric security?")) {
+                disableBiometrics();
+                toast.success("Biometrics disabled");
+            }
+        } else {
+            const success = await enableBiometrics();
+            if (success) toast.success("Biometrics enabled!");
+        }
+    };
+
     return (
         <section className="bg-surface p-6 rounded-lg shadow-md border border-border">
             <h2 className="text-2xl font-semibold text-text-primary mb-4">
@@ -198,6 +213,36 @@ const MySettingsSection: React.FC = () => {
                          <button onClick={handlePasswordChange} className="py-2 px-4 text-sm bg-red-600 text-white rounded hover:bg-red-700">Change Password</button>
                     </div>
                 </div>
+
+                {/* BIOMETRIC SETTINGS (MOBILE ONLY) */}
+                {Capacitor.isNativePlatform() && (
+                    <>
+                        <h3 className="text-lg font-medium text-text-primary border-b border-gray-700 pb-2 pt-4">App Security</h3>
+                        <div className="flex items-center justify-between p-4 bg-background rounded-md border border-border">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-full ${isBioEnabled ? 'bg-green-900/30 text-green-500' : 'bg-surface text-text-secondary'}`}>
+                                    <Fingerprint size={24} />
+                                </div>
+                                <div>
+                                    <h4 className="font-medium text-text-primary">Biometric Lock</h4>
+                                    <p className="text-xs text-text-secondary">Require Face ID / Fingerprint after 5m inactivity</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={toggleBiometrics}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                                    isBioEnabled ? 'bg-green-600' : 'bg-gray-700'
+                                }`}
+                            >
+                                <span
+                                    className={`${
+                                        isBioEnabled ? 'translate-x-6' : 'translate-x-1'
+                                    } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                                />
+                            </button>
+                        </div>
+                    </>
+                )}
 
                 <h3 className="text-lg font-medium text-text-primary border-b border-gray-700 pb-2 pt-4">Preferences</h3>
                 <div className="flex items-center gap-4 p-4 bg-background rounded-md border border-border">
