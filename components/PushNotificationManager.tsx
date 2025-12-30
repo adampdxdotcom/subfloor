@@ -9,88 +9,93 @@ const PushNotificationManager: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 1. Guard Clause: Only run on Native Android/iOS
     if (!Capacitor.isNativePlatform()) return;
 
     const registerPush = async () => {
-      // 2. Request Permission
-      const permStatus = await PushNotifications.checkPermissions();
-
-      let currentStatus = permStatus.receive;
-
-      if (currentStatus === 'prompt') {
-        const newStatus = await PushNotifications.requestPermissions();
-        currentStatus = newStatus.receive;
-      }
-
-      if (currentStatus !== 'granted') {
-        // User denied permissions
-        return;
-      }
-
-      // 3. Register with Apple/Google
-      await PushNotifications.register();
-    };
-
-    registerPush();
-
-    // 4. Listeners
-    
-    // A. Registration Success -> Send Token to Backend
-    const regListener = PushNotifications.addListener('registration', async (token: Token) => {
-      console.log('Push Registration Success:', token.value);
       try {
-        await fetch(getEndpoint('/api/notifications/register-device'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                token: token.value, 
-                platform: 'android',
-                model: (window as any).navigator.userAgent // Simple user agent for now
-            }),
-            credentials: 'include'
-        });
-      } catch (e) {
-        console.error('Failed to send token to server', e);
-      }
-    });
+        // DEBUG: Tell us we started
+        // toast('Checking Push Permissions...', { icon: '🔍' });
 
-    // B. Registration Error
-    const errListener = PushNotifications.addListener('registrationError', (error: any) => {
-      console.error('Push Registration Error: ', error);
-    });
+        const permStatus = await PushNotifications.checkPermissions();
+        
+        // DEBUG: Tell us current status
+        // toast(`Current Status: ${permStatus.receive}`);
 
-    // C. Message Received (While App is Open)
-    const msgListener = PushNotifications.addListener('pushNotificationReceived', (notification: any) => {
-      // Show a toast so the user knows something happened
-      toast(notification.title || 'New Notification', {
-        icon: '🔔',
-        duration: 4000
-      });
-    });
+        let currentStatus = permStatus.receive;
 
-    // D. Action Performed (User Tapped Notification)
-    const actionListener = PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
-        const data = notification.notification.data;
-        // Deep linking logic
-        if (data.url) {
-            navigate(data.url);
-        } else if (data.projectId) {
-            navigate(`/projects/${data.projectId}`);
+        if (currentStatus === 'prompt') {
+          const newStatus = await PushNotifications.requestPermissions();
+          currentStatus = newStatus.receive;
+          // DEBUG: Result of request
+          // toast(`New Status: ${currentStatus}`);
         }
-    });
 
-    // Cleanup listeners on unmount
-    return () => {
-        regListener.then(l => l.remove());
-        errListener.then(l => l.remove());
-        msgListener.then(l => l.remove());
-        actionListener.then(l => l.remove());
+        if (currentStatus !== 'granted') {
+          toast.error('Push Notifications Denied');
+          return;
+        }
+
+        // Register
+        await PushNotifications.register();
+      } catch (e: any) {
+        toast.error(`Push Setup Failed: ${e.message}`);
+      }
     };
+
+    // Listeners
+    const addListeners = async () => {
+      await PushNotifications.removeAllListeners();
+
+      await PushNotifications.addListener('registration', async (token: Token) => {
+        // DEBUG: Success!
+        // toast.success('Push Registered!'); 
+        console.log('Push Token:', token.value);
+        
+        try {
+          const res = await fetch(getEndpoint('/api/notifications/register-device'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                  token: token.value, 
+                  platform: 'android',
+                  model: (window as any).navigator.userAgent
+              }),
+              credentials: 'include'
+          });
+          
+          if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(txt);
+          }
+          // toast.success("Server Linked");
+        } catch (e: any) {
+          console.error(e);
+          toast.error(`Server Link Failed: ${e.message}`);
+        }
+      });
+
+      await PushNotifications.addListener('registrationError', (error: any) => {
+        // THIS IS THE KEY ONE TO WATCH FOR:
+        toast.error(`Reg Error: ${JSON.stringify(error)}`);
+      });
+
+      await PushNotifications.addListener('pushNotificationReceived', (notification: any) => {
+        toast(notification.title || 'New Notification', { icon: '🔔' });
+      });
+
+      await PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
+          const data = notification.notification.data;
+          if (data.url) navigate(data.url);
+          else if (data.projectId) navigate(`/projects/${data.projectId}`);
+      });
+    };
+
+    addListeners();
+    registerPush();
 
   }, [navigate]);
 
-  return null; // Headless component, renders nothing
+  return null;
 };
 
 export default PushNotificationManager;
