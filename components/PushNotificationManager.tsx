@@ -1,55 +1,56 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications, Token, ActionPerformed } from '@capacitor/push-notifications';
 import { getEndpoint } from '../utils/apiConfig';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
 
 const PushNotificationManager: React.FC = () => {
   const navigate = useNavigate();
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+
+  const addLog = (msg: string) => {
+    setDebugLog(prev => [msg, ...prev].slice(0, 5)); // Keep last 5 logs
+  };
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
+    // 1. Force it to run and tell us if it thinks it is native
+    const isNative = Capacitor.isNativePlatform();
+    addLog(`Is Native? ${isNative}`);
+
+    if (!isNative) return;
 
     const registerPush = async () => {
       try {
-        // DEBUG: Tell us we started
-        toast('Checking Push Permissions...', { icon: '🔍' });
-
+        addLog('Checking Perms...');
         const permStatus = await PushNotifications.checkPermissions();
-        
-        // DEBUG: Tell us current status
-        toast(`Current Status: ${permStatus.receive}`);
+        addLog(`Perm Status: ${permStatus.receive}`);
 
         let currentStatus = permStatus.receive;
 
         if (currentStatus === 'prompt') {
+          addLog('Requesting Prompt...');
           const newStatus = await PushNotifications.requestPermissions();
           currentStatus = newStatus.receive;
-          // DEBUG: Result of request
-          toast(`New Status: ${currentStatus}`);
+          addLog(`New Status: ${currentStatus}`);
         }
 
         if (currentStatus !== 'granted') {
-          toast.error('Push Notifications Denied');
+          addLog('DENIED.');
           return;
         }
 
-        // Register
+        addLog('Registering...');
         await PushNotifications.register();
       } catch (e: any) {
-        toast.error(`Push Setup Failed: ${e.message}`);
+        addLog(`ERR: ${e.message}`);
       }
     };
 
-    // Listeners
     const addListeners = async () => {
       await PushNotifications.removeAllListeners();
 
       await PushNotifications.addListener('registration', async (token: Token) => {
-        // DEBUG: Success!
-        toast.success('Push Registered!'); 
-        console.log('Push Token:', token.value);
+        addLog(`GOT TOKEN! ${token.value.substring(0, 5)}...`);
         
         try {
           const res = await fetch(getEndpoint('/api/notifications/register-device'), {
@@ -58,35 +59,23 @@ const PushNotificationManager: React.FC = () => {
               body: JSON.stringify({ 
                   token: token.value, 
                   platform: 'android',
-                  model: (window as any).navigator.userAgent
+                  model: navigator.userAgent
               }),
               credentials: 'include'
           });
           
           if (!res.ok) {
             const txt = await res.text();
-            throw new Error(txt);
+            throw new Error(`HTTP ${res.status}: ${txt}`);
           }
-          toast.success("Server Linked");
+          addLog("SERVER SAVED OK!");
         } catch (e: any) {
-          console.error(e);
-          toast.error(`Server Link Failed: ${e.message}`);
+          addLog(`API FAIL: ${e.message}`);
         }
       });
 
       await PushNotifications.addListener('registrationError', (error: any) => {
-        // THIS IS THE KEY ONE TO WATCH FOR:
-        toast.error(`Reg Error: ${JSON.stringify(error)}`);
-      });
-
-      await PushNotifications.addListener('pushNotificationReceived', (notification: any) => {
-        toast(notification.title || 'New Notification', { icon: '🔔' });
-      });
-
-      await PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
-          const data = notification.notification.data;
-          if (data.url) navigate(data.url);
-          else if (data.projectId) navigate(`/projects/${data.projectId}`);
+        addLog(`REG ERROR: ${JSON.stringify(error)}`);
       });
     };
 
@@ -95,7 +84,15 @@ const PushNotificationManager: React.FC = () => {
 
   }, [navigate]);
 
-  return null;
+  // RENDER A VISIBLE DEBUG BOX
+  return (
+    <div className="fixed top-12 left-0 right-0 bg-red-600 text-white text-xs font-mono p-2 z-[99999] opacity-90 pointer-events-none">
+        <p className="font-bold border-b border-white mb-1">PUSH DEBUGGER</p>
+        {debugLog.map((log, i) => (
+            <div key={i}>{log}</div>
+        ))}
+    </div>
+  );
 };
 
 export default PushNotificationManager;
