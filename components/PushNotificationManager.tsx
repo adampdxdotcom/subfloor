@@ -14,12 +14,12 @@ const PushNotificationManager: React.FC = () => {
     const registerPush = async () => {
       try {
         // DEBUG: Tell us we started
-        // toast('Checking Push Permissions...', { icon: '🔍' });
+        toast('Checking Push Permissions...', { icon: '🔍' });
 
         const permStatus = await PushNotifications.checkPermissions();
         
         // DEBUG: Tell us current status
-        // toast(`Current Status: ${permStatus.receive}`);
+        toast(`Current Status: ${permStatus.receive}`);
 
         let currentStatus = permStatus.receive;
 
@@ -27,7 +27,7 @@ const PushNotificationManager: React.FC = () => {
           const newStatus = await PushNotifications.requestPermissions();
           currentStatus = newStatus.receive;
           // DEBUG: Result of request
-          // toast(`New Status: ${currentStatus}`);
+          toast(`New Status: ${currentStatus}`);
         }
 
         if (currentStatus !== 'granted') {
@@ -48,7 +48,7 @@ const PushNotificationManager: React.FC = () => {
 
       await PushNotifications.addListener('registration', async (token: Token) => {
         // DEBUG: Success!
-        // toast.success('Push Registered!'); 
+        toast.success('Push Registered!'); 
         console.log('Push Token:', token.value);
         
         try {
@@ -67,7 +67,7 @@ const PushNotificationManager: React.FC = () => {
             const txt = await res.text();
             throw new Error(txt);
           }
-          // toast.success("Server Linked");
+          toast.success("Server Linked");
         } catch (e: any) {
           console.error(e);
           toast.error(`Server Link Failed: ${e.message}`);

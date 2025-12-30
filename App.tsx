@@ -34,6 +34,7 @@ import KnowledgeBase from './pages/KnowledgeBase';
 import ServerConnect from './pages/ServerConnect'; 
 import { getEndpoint, getBaseUrl, getImageUrl } from './utils/apiConfig'; 
 import { Loader2 } from 'lucide-react';
+import { Toaster } from 'react-hot-toast'; 
 import { App as CapacitorApp } from '@capacitor/app';
 
 
@@ -219,6 +220,7 @@ function App() {
 
   return (
     <DataProvider>
+      <Toaster position="bottom-center" />
       <VersionManager />
       <BrandingListener />
       <BiometricProvider>
