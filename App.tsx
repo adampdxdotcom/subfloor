@@ -170,7 +170,16 @@ const BrandingListener = () => {
 
 function App() {
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
-  const [connectionError, setConnectionError] = useState(false); // NEW: Track connection failures
+  const [connectionError, setConnectionError] = useState(false); 
+  
+  // 1. Initialize Toasts & Push Manager IMMEDIATELY
+  // This ensures they run even if the app is stuck on "Loading..."
+  const globalComponents = (
+    <>
+      <Toaster position="bottom-center" />
+      <PushNotificationManager />
+    </>
+  );
 
   // Robust check: Only true if running inside the actual Android/iOS app
   const isNative = (window as any).Capacitor?.isNativePlatform();
@@ -201,16 +210,19 @@ function App() {
   }, [isNative, hasServerUrl]);
 
   // RENDER LOGIC:
-  // Show Connect Screen if:
-  // A. First time launch (no URL)
-  // B. Connection failed (URL might be wrong)
   if (isNative && (!hasServerUrl || connectionError)) {
-      return <ServerConnect />;
+      return (
+        <>
+            {globalComponents}
+            <ServerConnect />
+        </>
+      );
   }
 
   if (isInitialized === null) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-950">
+        {globalComponents}
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
       </div>
     );
@@ -220,12 +232,12 @@ function App() {
 
   return (
     <DataProvider>
-      <Toaster position="bottom-center" />
+      {globalComponents}
       <VersionManager />
       <BrandingListener />
       <BiometricProvider>
         <Router>
-          <PushNotificationManager />
+          {/* Manager moved to globalComponents */}
           <BackButtonHandler />
           <Routes>
             {getSuperTokensRoutesForReactRouterDom(reactRouterDom, [EmailPasswordPreBuiltUI])}
