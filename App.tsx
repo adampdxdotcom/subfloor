@@ -10,6 +10,7 @@ import * as reactRouterDom from "react-router-dom";
 // --- Our App Imports ---
 import { DataProvider, useData } from './context/DataContext';
 import { BiometricProvider } from './context/BiometricContext';
+import PushNotificationManager from './components/PushNotificationManager';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import { VersionManager } from './components/VersionManager';
@@ -222,6 +223,7 @@ function App() {
       <BrandingListener />
       <BiometricProvider>
         <Router>
+          <PushNotificationManager />
           <BackButtonHandler />
           <Routes>
             {getSuperTokensRoutesForReactRouterDom(reactRouterDom, [EmailPasswordPreBuiltUI])}

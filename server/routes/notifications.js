@@ -5,6 +5,31 @@ import { toCamelCase } from '../utils.js';
 
 const router = express.Router();
 
+// POST /api/notifications/register-device - Register FCM Token
+router.post('/register-device', verifySession(), async (req, res) => {
+    const userId = req.session.getUserId();
+    const { token, platform, model } = req.body;
+
+    if (!token) return res.status(400).json({ error: 'Token is required' });
+
+    try {
+        const query = `
+            INSERT INTO user_devices (user_id, token, platform, device_model, last_active)
+            VALUES ($1, $2, $3, $4, NOW())
+            ON CONFLICT (token) 
+            DO UPDATE SET 
+                user_id = EXCLUDED.user_id,
+                last_active = NOW(),
+                device_model = COALESCE(EXCLUDED.device_model, user_devices.device_model)
+        `;
+        await pool.query(query, [userId, token, platform, model || 'Unknown']);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // GET /api/notifications - Get recent notifications for current user
 router.get('/', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();

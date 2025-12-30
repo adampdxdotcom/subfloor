@@ -313,7 +313,7 @@ CREATE TABLE IF NOT EXISTS import_profiles (
 );
 
 -- =================================================================
--- NOTIFICATIONS
+-- NOTIFICATIONS & PUSH DEVICES
 -- =================================================================
 CREATE TABLE notifications (
     id SERIAL PRIMARY KEY,
@@ -329,6 +329,16 @@ CREATE TABLE notifications (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_notifications_recipient_id ON notifications(recipient_id);
+
+CREATE TABLE user_devices (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL, -- Match SuperTokens ID convention
+    token TEXT NOT NULL UNIQUE,
+    platform VARCHAR(20) NOT NULL,
+    device_model TEXT,
+    last_active TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_user_devices_user_id ON user_devices(user_id);
 
 -- =================================================================
 -- MESSAGING
@@ -402,7 +412,7 @@ CREATE TABLE IF NOT EXISTS email_templates (
 );
 
 -- =================================================================
--- SEARCH INDEXES & SEED DATA (APPLIED FROM DIFF)
+-- SEARCH INDEXES & SEED DATA
 -- =================================================================
 
 -- Full text search for customers
