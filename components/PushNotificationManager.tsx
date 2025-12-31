@@ -1,96 +1,92 @@
 import React, { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { PushNotifications, Token, ActionPerformed } from '@capacitor/push-notifications';
 import { getEndpoint } from '../utils/apiConfig';
-import { useNavigate } from 'react-router-dom';
+// NOTE: No top-level import of '@capacitor/push-notifications' here!
 
 const PushNotificationManager: React.FC = () => {
-  const navigate = useNavigate();
-  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [logs, setLogs] = useState<string[]>([]);
 
-  const addLog = (msg: string) => {
-    setDebugLog(prev => [msg, ...prev].slice(0, 5)); // Keep last 5 logs
+  const log = (msg: string) => {
+    // Keep a small log history for debugging
+    setLogs(prev => [msg, ...prev].slice(0, 4));
   };
 
   useEffect(() => {
-    // 1. Force it to run and tell us if it thinks it is native
-    const isNative = Capacitor.isNativePlatform();
-    addLog(`Is Native? ${isNative}`);
+    // 1. WEB GUARD: Stop immediately if on browser
+    if (!Capacitor.isNativePlatform()) return;
 
-    if (!isNative) return;
-
-    const registerPush = async () => {
+    const init = async () => {
       try {
-        addLog('Checking Perms...');
-        const permStatus = await PushNotifications.checkPermissions();
-        addLog(`Perm Status: ${permStatus.receive}`);
+        // 2. DYNAMIC IMPORT: Load the library ONLY now
+        const { PushNotifications } = await import('@capacitor/push-notifications');
 
-        let currentStatus = permStatus.receive;
-
-        if (currentStatus === 'prompt') {
-          addLog('Requesting Prompt...');
-          const newStatus = await PushNotifications.requestPermissions();
-          currentStatus = newStatus.receive;
-          addLog(`New Status: ${currentStatus}`);
+        log("Checking Perms...");
+        const status = await PushNotifications.checkPermissions();
+        
+        if (status.receive !== 'granted') {
+            const req = await PushNotifications.requestPermissions();
+            if (req.receive !== 'granted') {
+                log("User DENIED");
+                return;
+            }
         }
 
-        if (currentStatus !== 'granted') {
-          addLog('DENIED.');
-          return;
-        }
-
-        addLog('Registering...');
+        log("Registering...");
         await PushNotifications.register();
-      } catch (e: any) {
-        addLog(`ERR: ${e.message}`);
+
+        // 3. LISTENERS
+        await PushNotifications.removeAllListeners();
+
+        await PushNotifications.addListener('registration', async (token: any) => {
+            log(`TOKEN: ${token.value.substring(0,6)}...`);
+            try {
+                 await fetch(getEndpoint('/api/notifications/register-device'), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                      token: token.value, 
+                      platform: 'android',
+                      model: navigator.userAgent
+                  }),
+                  credentials: 'include'
+              });
+              log("SERVER SENT OK");
+            } catch(e: any) {
+                log(`API FAIL: ${e.message}`);
+            }
+        });
+
+        await PushNotifications.addListener('registrationError', (err: any) => {
+            log(`REG FAIL: ${JSON.stringify(err)}`);
+        });
+
+      } catch (err: any) {
+        console.error("Push Init Failed:", err);
+        log(`INIT ERR: ${err.message}`);
       }
     };
 
-    const addListeners = async () => {
-      await PushNotifications.removeAllListeners();
+    init();
+  }, []);
 
-      await PushNotifications.addListener('registration', async (token: Token) => {
-        addLog(`GOT TOKEN! ${token.value.substring(0, 5)}...`);
-        
-        try {
-          const res = await fetch(getEndpoint('/api/notifications/register-device'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                  token: token.value, 
-                  platform: 'android',
-                  model: navigator.userAgent
-              }),
-              credentials: 'include'
-          });
-          
-          if (!res.ok) {
-            const txt = await res.text();
-            throw new Error(`HTTP ${res.status}: ${txt}`);
-          }
-          addLog("SERVER SAVED OK!");
-        } catch (e: any) {
-          addLog(`API FAIL: ${e.message}`);
-        }
-      });
+  // Debug Box (Only shows if there are logs, effectively hiding it on Web)
+  if (logs.length === 0) return null;
 
-      await PushNotifications.addListener('registrationError', (error: any) => {
-        addLog(`REG ERROR: ${JSON.stringify(error)}`);
-      });
-    };
-
-    addListeners();
-    registerPush();
-
-  }, [navigate]);
-
-  // RENDER A VISIBLE DEBUG BOX
   return (
-    <div className="fixed top-12 left-0 right-0 bg-red-600 text-white text-xs font-mono p-2 z-[99999] opacity-90 pointer-events-none">
-        <p className="font-bold border-b border-white mb-1">PUSH DEBUGGER</p>
-        {debugLog.map((log, i) => (
-            <div key={i}>{log}</div>
-        ))}
+    <div style={{
+        position: 'fixed', 
+        top: 60, 
+        left: 10, 
+        zIndex: 999999, 
+        backgroundColor: 'rgba(200, 0, 0, 0.8)', 
+        color: 'white', 
+        padding: 8,
+        fontSize: 10,
+        fontWeight: 'bold',
+        pointerEvents: 'none',
+        borderRadius: 4
+    }}>
+        {logs.map((l, i) => <div key={i}>{l}</div>)}
     </div>
   );
 };
