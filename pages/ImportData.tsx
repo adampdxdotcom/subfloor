@@ -71,76 +71,75 @@ const ImportData: React.FC = () => {
     };
 
     return (
-        // Removed max-w-6xl mx-auto to allow full width like CustomerList
-        <div>
+        <div className="space-y-8">
             
-            {/* SECTION 1: HEADER BOX */}
-            <div className="bg-surface p-6 rounded-lg shadow-md mb-8 border border-border">
+            {/* SECTION 1: HEADER BOX - De-boxed MD3 Style */}
+            <div className="bg-surface-container-high p-8 rounded-xl shadow-sm border border-outline/10">
                 <div>
-                    <h1 className="text-3xl font-bold text-text-primary">Import Inventory</h1>
-                    <p className="text-text-secondary mt-1">Upload vendor price lists to update products in bulk.</p>
+                    <h1 className="text-4xl font-bold text-text-primary tracking-tight">Import Inventory</h1>
+                    <p className="text-text-secondary mt-1 font-medium">Upload vendor price lists to update products in bulk.</p>
                 </div>
             </div>
 
             {/* SECTION 2: WORKSPACE (Steps + Content) */}
-            <div className="bg-surface rounded-lg shadow-md border border-border overflow-hidden">
+            <div className="bg-surface-container-high rounded-xl shadow-sm border border-outline/10 overflow-hidden">
                 {/* Progress Bar (Integrated into top of card) */}
-                <div className="bg-background border-b border-border p-6">
+                <div className="bg-surface-container-low border-b border-outline/10 p-8">
                     <div className="flex items-center justify-between max-w-3xl mx-auto">
-                {/* Step 1 */}
-                <div className={`flex flex-col items-center transition-colors ${step >= 1 ? 'text-primary' : 'text-text-secondary'}`}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step >= 1 ? 'bg-primary/10' : 'bg-surface border border-border'}`}>
-                        {step > 1 ? <CheckCircle2 size={24} /> : '1'}
+                        {/* Step 1 */}
+                        <div className={`flex flex-col items-center transition-colors ${step >= 1 ? 'text-primary' : 'text-text-secondary'}`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step >= 1 ? 'bg-primary-container text-primary' : 'bg-surface-container-highest text-text-tertiary border border-outline/10'}`}>
+                                {step > 1 ? <CheckCircle2 size={24} /> : '1'}
+                            </div>
+                            <span className="text-sm font-medium">Upload & Clean</span>
+                        </div>
+                        <div className={`flex-1 h-0.5 mx-4 transition-colors ${step > 1 ? 'bg-primary' : 'bg-outline/20'}`}></div>
+                        
+                        {/* Step 2 */}
+                        <div className={`flex flex-col items-center transition-colors ${step >= 2 ? 'text-primary' : 'text-text-secondary'}`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step >= 2 ? 'bg-primary-container text-primary' : 'bg-surface-container-highest text-text-tertiary border border-outline/10'}`}>
+                                {step > 2 ? <CheckCircle2 size={24} /> : '2'}
+                            </div>
+                            <span className="text-sm font-medium">Map Columns</span>
+                        </div>
+                        <div className={`flex-1 h-0.5 mx-4 transition-colors ${step > 2 ? 'bg-primary' : 'bg-outline/20'}`}></div>
+
+                        {/* Step 3 */}
+                        <div className={`flex flex-col items-center transition-colors ${step >= 3 ? 'text-primary' : 'text-text-secondary'}`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step >= 3 ? 'bg-primary-container text-primary' : 'bg-surface-container-highest text-text-tertiary border border-outline/10'}`}>
+                                3
+                            </div>
+                            <span className="text-sm font-medium">Review & Import</span>
+                        </div>
                     </div>
-                    <span className="text-sm font-medium">Upload & Clean</span>
-                </div>
-                <div className={`flex-1 h-0.5 mx-4 transition-colors ${step > 1 ? 'bg-primary' : 'bg-border'}`}></div>
-                
-                {/* Step 2 */}
-                <div className={`flex flex-col items-center transition-colors ${step >= 2 ? 'text-primary' : 'text-text-secondary'}`}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step >= 2 ? 'bg-primary/10' : 'bg-surface border border-border'}`}>
-                        {step > 2 ? <CheckCircle2 size={24} /> : '2'}
-                    </div>
-                    <span className="text-sm font-medium">Map Columns</span>
-                </div>
-                <div className={`flex-1 h-0.5 mx-4 transition-colors ${step > 2 ? 'bg-primary' : 'bg-border'}`}></div>
-
-                {/* Step 3 */}
-                <div className={`flex flex-col items-center transition-colors ${step >= 3 ? 'text-primary' : 'text-text-secondary'}`}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step >= 3 ? 'bg-primary/10' : 'bg-surface border border-border'}`}>
-                        3
-                    </div>
-                    <span className="text-sm font-medium">Review & Import</span>
-                </div>
-            </div>
                 </div>
 
-            {/* CONTENT AREA */}
-            <div className="p-6">
-                {step === 1 && (
-                    <FileUploader onDataLoaded={handleDataLoaded} />
-                )}
+                {/* CONTENT AREA */}
+                <div className="p-8">
+                    {step === 1 && (
+                        <FileUploader onDataLoaded={handleDataLoaded} />
+                    )}
 
-                {step === 2 && (
-                    <ColumnMapper 
-                        rawData={rawData || []} 
-                        fileName={fileName || 'Unknown File'} 
-                        onBack={() => setStep(1)}
-                        onComplete={handleMappingComplete}
-                        isGeneratingPreview={isProcessing}
-                        onDefaultsChange={setImportDefaults} 
-                    />
-                )}
+                    {step === 2 && (
+                        <ColumnMapper 
+                            rawData={rawData || []} 
+                            fileName={fileName || 'Unknown File'} 
+                            onBack={() => setStep(1)}
+                            onComplete={handleMappingComplete}
+                            isGeneratingPreview={isProcessing}
+                            onDefaultsChange={setImportDefaults} 
+                        />
+                    )}
 
-                {step === 3 && (
-                    <ImportReview 
-                        results={previewResults}
-                        onExecute={handleExecuteImport}
-                        isExecuting={isProcessing}
-                        onBack={() => setStep(2)}
-                    />
-                )}
-            </div>
+                    {step === 3 && (
+                        <ImportReview 
+                            results={previewResults}
+                            onExecute={handleExecuteImport}
+                            isExecuting={isProcessing}
+                            onBack={() => setStep(2)}
+                        />
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -4,12 +4,10 @@ import { Vendor } from '../types';
 import AddEditVendorModal from '../components/AddEditVendorModal';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
-// --- MODIFIED: Removed Edit and Trash2 as they are no longer used here ---
 import { PlusCircle, Building, Truck, Search, Layers, Globe, Link as LinkIcon } from 'lucide-react';
-import { useData } from '../context/DataContext'; // Import useData to get the full vendor list for lookup
+import { useData } from '../context/DataContext';
 
 const VendorList: React.FC = () => {
-    // We use useVendors for the list, and useData to get the list for the supplier lookup (which is always up-to-date)
     const { data: vendors = [] } = useVendors(); 
     const { vendors: allVendors } = useData();
     const vendorMutations = useVendorMutations();
@@ -44,7 +42,6 @@ const VendorList: React.FC = () => {
                 await vendorMutations.updateVendor.mutateAsync({ id, data });
                 toast.success('Vendor updated successfully!');
             } else {
-                // Cast is safe here because if 'id' is missing, it matches the add signature
                 await vendorMutations.addVendor.mutateAsync(vendorData as Omit<Vendor, 'id'>);
                 toast.success('Vendor added successfully!');
             }
@@ -57,36 +54,36 @@ const VendorList: React.FC = () => {
     
     return (
         <div className="container mx-auto">
-            <div className="bg-surface p-6 rounded-lg shadow-md mb-6 border border-border">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                    <h1 className="text-3xl font-bold text-text-primary">Vendor Directory</h1>
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors shadow-md"
-                    >
-                        <PlusCircle size={20} />
-                        Add Vendor
-                    </button>
-                </div>
-                
-                <div className="relative w-full">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search by vendor name or rep name..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all shadow-inner"
-                    />
-                </div>
+            {/* Header & Controls - De-boxed MD3 Style */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-1 mb-8">
+                <h1 className="text-4xl font-bold text-text-primary tracking-tight">Vendor Directory</h1>
+                <button
+                    onClick={() => handleOpenModal()}
+                    className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-on-primary font-semibold py-3 px-6 rounded-full transition-all shadow-lg hover:shadow-xl"
+                >
+                    <PlusCircle size={20} />
+                    Add Vendor
+                </button>
+            </div>
+            
+            {/* Floating Search Bar */}
+            <div className="relative w-full max-w-2xl mb-8">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" size={20} />
+                <input
+                    type="text"
+                    placeholder="Search by vendor name or rep name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-6 py-4 bg-surface-container-high border-none rounded-full text-text-primary focus:ring-2 focus:ring-primary/50 outline-none transition-shadow shadow-sm hover:shadow-md placeholder:text-text-tertiary"
+                />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredVendors.map(vendor => (
-                    <Link to={`/vendors/${vendor.id}`} key={vendor.id} className="bg-surface rounded-lg shadow-md border border-border p-5 flex flex-col justify-between hover:border-accent transition-colors duration-200 group">
+                    <Link to={`/vendors/${vendor.id}`} key={vendor.id} className="bg-surface-container-high rounded-xl shadow-sm border border-outline/10 p-6 flex flex-col justify-between hover:shadow-md transition-all duration-200 group">
                         <div>
                             <div className="flex justify-between items-start">
-                                <h2 className="text-xl font-semibold text-text-primary mb-2 group-hover:text-accent truncate flex-1 pr-2">{vendor.name}</h2>
+                                <h2 className="text-xl font-bold text-text-primary mb-2 group-hover:text-primary truncate flex-1 pr-2 transition-colors">{vendor.name}</h2>
                                 <div className="flex gap-1">
                                     {vendor.portalUrl && (
                                         <a 
@@ -94,7 +91,7 @@ const VendorList: React.FC = () => {
                                             target="_blank" 
                                             rel="noopener noreferrer" 
                                             onClick={(e) => e.stopPropagation()} 
-                                            className="p-1 text-text-tertiary hover:text-primary hover:bg-background rounded"
+                                            className="p-1.5 text-text-tertiary hover:text-primary hover:bg-primary-container rounded-full transition-colors"
                                             title="Open Dealer Portal"
                                         >
                                             <LinkIcon size={16} />
@@ -106,7 +103,7 @@ const VendorList: React.FC = () => {
                                             target="_blank" 
                                             rel="noopener noreferrer" 
                                             onClick={(e) => e.stopPropagation()} 
-                                            className="p-1 text-text-tertiary hover:text-primary hover:bg-background rounded"
+                                            className="p-1.5 text-text-tertiary hover:text-primary hover:bg-primary-container rounded-full transition-colors"
                                             title="Open Website"
                                         >
                                             <Globe size={16} />
@@ -114,21 +111,21 @@ const VendorList: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-sm text-text-secondary mb-4">
+                            <div className="flex items-center flex-wrap gap-2 text-sm text-text-secondary mb-5">
                                 {(vendor.vendorType === 'Manufacturer' || vendor.vendorType === 'Both') && 
-                                    <span className="flex items-center gap-1.5"><Building size={14}/> Manufacturer</span>}
+                                    <span className="flex items-center gap-1.5 bg-surface-container px-2 py-1 rounded-md border border-outline/10"><Building size={14}/> Manufacturer</span>}
                                 {(vendor.vendorType === 'Supplier' || vendor.vendorType === 'Both') && 
-                                    <span className="flex items-center gap-1.5"><Truck size={14}/> Supplier</span>}
+                                    <span className="flex items-center gap-1.5 bg-surface-container px-2 py-1 rounded-md border border-outline/10"><Truck size={14}/> Supplier</span>}
                                 
                                 {(vendor.vendorType === 'Manufacturer' || vendor.vendorType === 'Both') && (
-                                    <span className="flex items-center gap-1.5 bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full text-xs font-semibold">
+                                    <span className="flex items-center gap-1.5 bg-primary-container text-primary px-2 py-0.5 rounded-full text-xs font-bold ml-auto">
                                         <Layers size={12} /> {vendor.sampleCount || 0} Samples
                                     </span>
                                 )}
                             </div>
 
                             {vendor.defaultSupplierId && (
-                                <div className="mb-3 text-sm text-text-secondary">
+                                <div className="mb-4 text-sm text-text-secondary bg-surface-container-low p-3 rounded-lg border border-outline/5">
                                     Distributor: <span className="font-medium text-text-primary">{allVendors.find(v => v.id === vendor.defaultSupplierId)?.name}</span>
                                 </div>
                             )}
@@ -137,7 +134,7 @@ const VendorList: React.FC = () => {
                             <p className="text-sm text-text-secondary">{vendor.phone}</p>
                             
                             {(vendor.repName || vendor.repPhone) && (
-                                <div className="mt-4 pt-4 border-t border-border">
+                                <div className="mt-4 pt-4 border-t border-outline/10">
                                     <p className="font-semibold text-text-primary">{vendor.repName}</p>
                                     <p className="text-sm text-text-secondary">{vendor.repPhone}</p>
                                 </div>

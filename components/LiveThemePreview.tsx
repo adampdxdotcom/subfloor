@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Users, Settings, Bell, Search, Menu } from 'lucide-react';
+import { Home, Users, Settings, Bell, Search } from 'lucide-react';
 
 interface LiveThemePreviewProps {
     primary: string;
@@ -7,12 +7,10 @@ interface LiveThemePreviewProps {
     accent: string;
     background: string;
     surface: string;
-    textPrimary: string;
-    textSecondary: string;
 }
 
 const LiveThemePreview: React.FC<LiveThemePreviewProps> = ({
-    primary, secondary, accent, background, surface, textPrimary, textSecondary
+    primary, secondary, accent, background, surface
 }) => {
     // We inject the colors as CSS variables scoped specifically to this container
     const previewStyle = {
@@ -21,9 +19,6 @@ const LiveThemePreview: React.FC<LiveThemePreviewProps> = ({
         '--preview-accent': accent,
         '--preview-bg': background,
         '--preview-surface': surface,
-        '--preview-text-main': textPrimary,
-        '--preview-text-sub': textSecondary,
-        '--preview-border': secondary, // Explicit Secondary Color for Borders
     } as React.CSSProperties;
 
     return (
@@ -39,7 +34,7 @@ const LiveThemePreview: React.FC<LiveThemePreviewProps> = ({
             <div className="flex flex-1 overflow-hidden font-sans text-xs">
                 
                 {/* 1. MOCK SIDEBAR */}
-                <div style={{ backgroundColor: 'var(--preview-surface)', borderRight: '1px solid var(--preview-border)' }} className="w-16 sm:w-48 flex flex-col p-3 gap-4">
+                <div style={{ backgroundColor: 'color-mix(in srgb, var(--preview-surface), var(--preview-bg) 50%)' }} className="w-16 sm:w-48 flex flex-col p-3 gap-4">
                     {/* Logo Area */}
                     <div className="h-8 w-8 sm:w-32 bg-gray-500/20 rounded mb-2 animate-pulse"></div>
                     
@@ -47,24 +42,22 @@ const LiveThemePreview: React.FC<LiveThemePreviewProps> = ({
                     <div className="flex flex-col gap-1">
                         {/* Active Link (Primary Text + Accent Bg Low Opacity) */}
                         <div 
-                            style={{ backgroundColor: 'var(--preview-primary)', opacity: 0.9, color: '#ffffff' }} 
-                            className="p-2 rounded-md flex items-center gap-2 font-medium shadow-sm"
+                            style={{ backgroundColor: 'color-mix(in srgb, var(--preview-primary), var(--preview-surface) 85%)', color: 'var(--preview-primary)' }} 
+                            className="p-2 rounded-full flex items-center gap-2 font-bold"
                         >
                             <Home size={14} /> <span className="hidden sm:inline">Dashboard</span>
                         </div>
                         
                         {/* Inactive Link */}
                         <div 
-                            style={{ color: 'var(--preview-text-sub)' }} 
-                            className="p-2 rounded-md flex items-center gap-2 hover:bg-black/5"
+                            className="p-2 rounded-full flex items-center gap-2 hover:bg-black/5 text-gray-400"
                         >
                             <Users size={14} /> <span className="hidden sm:inline">Customers</span>
                         </div>
 
                          {/* Inactive Link */}
                          <div 
-                            style={{ color: 'var(--preview-text-sub)' }} 
-                            className="p-2 rounded-md flex items-center gap-2 hover:bg-black/5"
+                            className="p-2 rounded-full flex items-center gap-2 hover:bg-black/5 text-gray-400"
                         >
                             <Settings size={14} /> <span className="hidden sm:inline">Settings</span>
                         </div>
@@ -75,14 +68,15 @@ const LiveThemePreview: React.FC<LiveThemePreviewProps> = ({
                 <div style={{ backgroundColor: 'var(--preview-bg)' }} className="flex-1 flex flex-col relative">
                     
                     {/* Mock Header */}
-                    <div style={{ backgroundColor: 'var(--preview-surface)', borderBottom: '1px solid var(--preview-border)' }} className="h-12 flex items-center justify-between px-4">
-                        <Menu size={14} style={{ color: 'var(--preview-secondary)' }} />
+                    <div className="h-12 flex items-center justify-between px-4 mt-2">
+                        <h1 className="font-bold text-lg" style={{ color: 'white' }}>Dashboard</h1>
                         <div className="flex gap-3">
-                            <Search size={14} style={{ color: 'var(--preview-secondary)' }} />
-                            <div className="relative">
-                                <Bell size={14} style={{ color: 'var(--preview-secondary)' }} />
-                                {/* Notification Dot (Accent) */}
-                                <div style={{ backgroundColor: 'var(--preview-accent)' }} className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-black"></div>
+                            <div style={{ backgroundColor: 'color-mix(in srgb, var(--preview-surface) 90%, #fff)', color: 'gray' }} className="h-8 w-8 rounded-full flex items-center justify-center">
+                                <Search size={14} />
+                            </div>
+                            <div style={{ backgroundColor: 'color-mix(in srgb, var(--preview-surface) 90%, #fff)', color: 'gray' }} className="h-8 w-8 rounded-full flex items-center justify-center relative">
+                                <Bell size={14} />
+                                <div style={{ backgroundColor: 'var(--preview-accent)' }} className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white"></div>
                             </div>
                         </div>
                     </div>
@@ -90,32 +84,27 @@ const LiveThemePreview: React.FC<LiveThemePreviewProps> = ({
                     {/* Content Body */}
                     <div className="p-4 space-y-4 overflow-hidden">
                         
-                        {/* Headlines */}
-                        <div>
-                            <h3 style={{ color: 'var(--preview-text-main)' }} className="text-lg font-bold">Theme Preview</h3>
-                            <p style={{ color: 'var(--preview-text-sub)' }}>Adjust colors to verify contrast.</p>
-                        </div>
-
                         {/* Cards Row */}
                         <div className="grid grid-cols-2 gap-3">
                             {/* Card 1 */}
-                            <div style={{ backgroundColor: 'var(--preview-surface)', borderColor: 'var(--preview-border)' }} className="p-3 rounded-lg border shadow-sm">
-                                <div style={{ color: 'var(--preview-text-sub)' }} className="mb-1 text-[10px] uppercase tracking-wider">Total Sales</div>
-                                <div style={{ color: 'var(--preview-text-main)' }} className="text-xl font-bold">$12,450</div>
-                                <div style={{ color: 'var(--preview-accent)' }} className="text-[10px] font-medium mt-1">+12% from last month</div>
+                            <div style={{ backgroundColor: 'color-mix(in srgb, var(--preview-surface) 90%, #fff)' }} className="p-4 rounded-xl shadow-sm">
+                                <div className="mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Jobs</div>
+                                <div style={{ color: 'white' }} className="text-2xl font-bold">12</div>
+                                <div style={{ color: 'var(--preview-primary)', backgroundColor: 'color-mix(in srgb, var(--preview-primary), var(--preview-surface) 85%)' }} className="text-[10px] font-bold mt-2 px-2 py-0.5 rounded-full w-fit">On Track</div>
                             </div>
                             
                             {/* Card 2 */}
-                             <div style={{ backgroundColor: 'var(--preview-surface)', borderColor: 'var(--preview-border)' }} className="p-3 rounded-lg border shadow-sm">
-                                <div style={{ color: 'var(--preview-text-sub)' }} className="mb-1 text-[10px] uppercase tracking-wider">New Users</div>
-                                <div style={{ color: 'var(--preview-text-main)' }} className="text-xl font-bold">24</div>
+                             <div style={{ backgroundColor: 'color-mix(in srgb, var(--preview-surface) 90%, #fff)' }} className="p-4 rounded-xl shadow-sm">
+                                <div className="mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Pending</div>
+                                <div style={{ color: 'white' }} className="text-2xl font-bold">5</div>
+                                <div style={{ color: 'var(--preview-accent)', backgroundColor: 'color-mix(in srgb, var(--preview-accent), var(--preview-surface) 85%)' }} className="text-[10px] font-bold mt-2 px-2 py-0.5 rounded-full w-fit">Action Needed</div>
                             </div>
                         </div>
 
                         {/* Buttons Row */}
-                        <div className="flex gap-2">
-                            <button style={{ backgroundColor: 'var(--preview-primary)', color: '#fff' }} className="px-3 py-1.5 rounded shadow-sm font-medium">Primary Action</button>
-                            <button style={{ borderColor: 'var(--preview-border)', color: 'var(--preview-text-main)', backgroundColor: 'var(--preview-surface)', borderStyle: 'solid', borderWidth: '1px' }} className="px-3 py-1.5 rounded shadow-sm font-medium">Cancel</button>
+                        <div className="flex gap-2 mt-4">
+                            <button style={{ backgroundColor: 'var(--preview-primary)', color: '#fff' }} className="px-4 py-2 rounded-full shadow-md font-bold">Save</button>
+                            <button style={{ color: 'gray', backgroundColor: 'color-mix(in srgb, var(--preview-surface) 90%, #fff)' }} className="px-4 py-2 rounded-full shadow-sm font-medium">Cancel</button>
                         </div>
 
                     </div>

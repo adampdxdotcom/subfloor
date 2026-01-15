@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, ProductVariant, PricingSettings, UNITS } from '../types';
-import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks, Star, Archive, RotateCcw, CopyPlus } from 'lucide-react';
+import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks, Star, Archive, RotateCcw, CopyPlus, ArrowLeft } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '../context/DataContext';
 import { useProductMutations } from '../hooks/useProducts'; 
 import { getPricingSettings } from '../services/preferenceService';
+import { deleteVariant as deleteVariantService } from '../services/productService';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
 import { toast } from 'react-hot-toast';
 import ProductForm from './ProductForm'; 
@@ -21,7 +23,7 @@ interface ProductDetailModalProps {
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose, product }) => {
-    const { products, vendors, updateProduct, deleteProduct, addVariant, updateVariant, deleteVariant } = useData();
+    const { products, vendors, updateProduct, deleteProduct, addVariant, updateVariant } = useData();
     const { batchUpdateVariants, duplicateProduct } = useProductMutations();
 
     const activeProduct = products.find(p => p.id === product.id) || product;
@@ -54,6 +56,20 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     const printRef = useRef<HTMLDivElement>(null);
     const [printData, setPrintData] = useState<{ data: any, qrUrl: string } | null>(null);
 
+    const queryClient = useQueryClient();
+
+    const { mutate: deleteVariantMutate } = useMutation({
+        mutationFn: deleteVariantService,
+        onSuccess: () => {
+            toast.success("Variant deleted.");
+            queryClient.invalidateQueries({ queryKey: ['products'] });
+            queryClient.invalidateQueries({ queryKey: ['discontinuedProducts'] });
+        },
+        onError: (error: any) => {
+            toast.error(error.message || "Failed to delete variant.");
+        },
+    });
+
     const triggerPrint = useReactToPrint({
         contentRef: printRef, 
         documentTitle: `Label_${activeProduct.name}`,
@@ -69,7 +85,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     // Trigger print when data is ready
     useEffect(() => {
         if (printData && printRef.current) {
-            // FIX: Add delay to allow Image to load and DOM to paint before capturing
             const timer = setTimeout(() => {
                 triggerPrint();
             }, 500);
@@ -81,18 +96,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     const getVariantLabels = () => {
         const type = activeProduct.productType;
         if (type === 'Carpet' || type === 'Sheet Product') {
-            // Carpet usually doesn't have carton packing, and "Size" is usually Width
             return { color: 'Color / Style', size: 'Width', showPackaging: false, showTechSpecs: false };
         }
         if (type === 'LVP' || type === 'LVT' || type === 'Laminate' || type === 'Hardwood') {
             return { color: 'Color', size: 'Plank Size', showPackaging: true, showTechSpecs: true };
         }
-        // Default (Tile, Quartz, etc)
         return { color: 'Color', size: 'Size', showPackaging: true, showTechSpecs: false };
     };
 
     const labels = getVariantLabels();
-
 
     if (!isOpen) return null;
     
@@ -114,7 +126,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         }
     };
     
-    // --- NEW HANDLER FOR DISCONTINUE/RESTORE ---
     const handleToggleDiscontinued = async () => {
         const newStatus = !activeProduct.isDiscontinued;
         const action = newStatus ? "Discontinue" : "Restore";
@@ -125,7 +136,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 formData.append('isDiscontinued', String(newStatus));
                 await updateProduct(activeProduct.id, formData);
                 toast.success(`Product ${newStatus ? 'discontinued' : 'restored'}.`);
-                // If discontinuing, close the modal as it might disappear from the main list view
                 if (newStatus) onClose(); 
             } catch (e) { 
                 console.error(e); 
@@ -147,7 +157,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         }
     };
 
-    // --- SELECTION HELPERS ---
     const toggleRowSelection = (id: string) => {
         setSelectedRowIds(prev => {
             const next = new Set(prev);
@@ -173,14 +182,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         });
     };
 
-    // --- UNIFIED PRINT HANDLER ---
     const handlePrint = (type: 'product' | 'variant' | 'batch', variantId?: string) => {
         let itemsToPrint: Product[] = [];
-
         if (type === 'product') {
             itemsToPrint = [activeProduct];
         } else if (type === 'variant' && variantId) {
-            // Single Variant: Construct a mock product with ONLY this variant
             const variant = activeProduct.variants.find(v => v.id === variantId);
             if (variant) {
                 itemsToPrint = [{ ...activeProduct, variants: [variant] }];
@@ -191,44 +197,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 variants: activeProduct.variants.filter(v => selectedRowIds.has(v.id))
             }];
         }
-
         if (itemsToPrint.length > 0) {
             setProductsToPrint(itemsToPrint);
             setShowPrintModal(true);
         }
     };
 
-    // --- PRINT HANDLERS (LEGACY - still used by single print functionality) ---
-    const handlePrintQr = (id: string, type: 'product' | 'variant', name: string, variantData?: ProductVariant) => {
-        const data = {
-            id,
-            name,
-            subName: variantData?.name,
-            sku: variantData?.sku,
-            size: variantData?.size,
-            manufacturer: activeProduct.manufacturerName,
-            retailPrice: variantData?.retailPrice,
-            uom: variantData?.uom,
-            pricingUnit: variantData?.pricingUnit, // PASSED for correct labeling
-            cartonSize: variantData?.cartonSize,
-            isVariant: type === 'variant'
-        };
-        const qrUrl = `/api/products/${type === 'product' ? '' : 'variants/'}${id}/qr`;
-        setPrintData({ data, qrUrl });
-    };
-
-    const handleBatchPrint = () => {
-        const filteredProduct = {
-            ...activeProduct,
-            variants: activeProduct.variants.filter(v => selectedRowIds.has(v.id))
-        };
-        setProductsToPrint([filteredProduct]);
-        setShowPrintModal(true); // Changed from setShowBatchPrint to setShowPrintModal
-    };
-
     const handleSetPrimaryImage = async (variantImageUrl: string | null) => {
         if (!variantImageUrl) return;
-        
         try {
             const formData = new FormData();
             formData.append('defaultImageUrl', variantImageUrl);
@@ -240,17 +216,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         }
     };
 
-    // --- VARIANT HANDLERS ---
     const handleAddRow = () => {
         const tempId = 'NEW_' + Date.now();
         setEditingVariantId(tempId);
         setIsSelectionMode(false); 
-        setSelectedRowIds(new Set()); // NEW: Clear selection on Add
-        // Default UOM to SF, pricingUnit to SF
+        setSelectedRowIds(new Set()); 
         setNewVariant({ 
             name: '', size: '', sku: '', 
             unitCost: 0, retailPrice: 0, 
-            wearLayer: '', thickness: '', // NEW
+            wearLayer: '', thickness: '', 
             hasSample: false, cartonSize: 0, 
             uom: 'SF', pricingUnit: 'SF' 
         });
@@ -261,7 +235,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         setNewVariant({
             name: variant.name, size: variant.size, sku: variant.sku,
             unitCost: variant.unitCost, retailPrice: variant.retailPrice,
-            wearLayer: variant.wearLayer, thickness: variant.thickness, // NEW
+            wearLayer: variant.wearLayer, thickness: variant.thickness,
             hasSample: variant.hasSample, cartonSize: variant.cartonSize, 
             uom: variant.uom, pricingUnit: variant.pricingUnit
         });
@@ -269,20 +243,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         const initialPreview = resolveImageUrl(variant.imageUrl);
         setPendingImage({ file: null, url: null, preview: initialPreview || null });
         setIsSelectionMode(false); 
-        setSelectedRowIds(new Set()); // NEW: Clear selection on Edit
+        setSelectedRowIds(new Set()); 
     };
 
     const handleCancelEdit = () => {
         setEditingVariantId(null);
         setNewVariant({});
         setPendingImage({ file: null, url: null, preview: null });
-        setSelectedRowIds(new Set()); // NEW: Clear selection on Cancel
+        setSelectedRowIds(new Set());
     };
     
-    const handleDeleteVariant = async (variantId: string) => {
+    const handleDeleteVariant = (variantId: string) => {
         if(!confirm("Delete this variant?")) return;
-        try { await deleteVariant(variantId); toast.success("Variant deleted."); } 
-        catch(e) { toast.error("Failed to delete variant."); }
+        deleteVariantMutate(variantId);
     };
 
     const handleCostChange = (costInput: string) => {
@@ -325,7 +298,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
             if (editingVariantId && !editingVariantId.startsWith('NEW_')) {
                 await updateVariant(editingVariantId, formData);
                 
-                // Reuse selection for Batch Update if editing
                 if (isSelectionMode && selectedRowIds.size > 0) {
                     const updates: any = {};
                     const safeVal = (val: any) => (val === undefined ? null : val);
@@ -349,7 +321,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 toast.success("Variant created.");
             }
             handleCancelEdit();
-            setSelectedRowIds(new Set()); // NEW: Double ensure clear on Save
+            setSelectedRowIds(new Set());
         } catch (e: any) { console.error(e); toast.error(e.message || "Failed to save."); }
     };
 
@@ -359,9 +331,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     };
 
     const renderColumnHeader = (label: string, fieldKey: string, widthClass?: string) => {
-        // Only show copy checkbox if editing AND in selection mode
         if (!editingVariantId || !isSelectionMode) return <th className={`p-3 ${widthClass || ''}`}>{label}</th>;
-        
         const isChecked = selectedColumns.has(fieldKey);
         return (
             <th className={`p-3 ${widthClass || ''}`}>
@@ -376,53 +346,53 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-scrim/80 flex items-center justify-center z-50 p-0 lg:p-4">
             
-            {/* HIDDEN PRINT CONTAINER (Robust Hide) */}
             <div style={{ position: 'absolute', top: -10000, left: -10000 }}>
                 <div ref={printRef} className="p-4 w-[3.5in] h-[2in]"> 
                     {printData && <PrintableLabel data={printData.data} qrUrl={printData.qrUrl} />}
                 </div>
             </div>
 
-            {/* FIX: Increased width to 95vw to accommodate extra columns */}
-            <div className="bg-surface w-full max-w-[95vw] xl:max-w-7xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="bg-surface-container-high w-full h-full lg:max-w-[95vw] xl:max-w-7xl lg:max-h-[90vh] lg:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 lg:border border-outline/20">
                 {/* HEADER */}
-                <div className="p-4 border-b border-border flex justify-between items-center bg-background">
-                    <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                <div className="p-4 border-b border-outline/10 flex items-center">
+                    {/* Mobile-only Back Button */}
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container-highest text-text-secondary hover:text-text-primary lg:hidden mr-2">
+                        <ArrowLeft size={24} />
+                    </button>
+                    <h2 className="text-xl font-bold text-text-primary flex items-center gap-2 flex-grow">
                         {isEditingParent ? 'Edit Product Line' : activeProduct.name}
-                        {/* APPLYING THE FIX: Changed from bg-red-900/50 to bg-secondary */}
-                        {!isEditingParent && activeProduct.isDiscontinued && <span className="text-xs font-bold bg-secondary text-on-secondary px-2 py-0.5 rounded">DISCONTINUED</span>}
+                        {!isEditingParent && activeProduct.isDiscontinued && <span className="text-xs font-bold bg-error-container text-on-error-container px-2 py-0.5 rounded-full">DISCONTINUED</span>}
                     </h2>
                     <div className="flex items-center gap-2">
                         {isEditingParent ? (
                             <>
-                                {/* Toggle Discontinued Status */}
                                 <button 
                                     onClick={handleToggleDiscontinued}
                                     className={`p-2 rounded border transition-colors ${
                                         activeProduct.isDiscontinued 
-                                        ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-900/50' 
-                                        : 'bg-surface hover:bg-red-900/20 text-text-secondary hover:text-red-400 border-border'
+                                        ? 'bg-tertiary-container text-on-tertiary-container border-tertiary-container/50' 
+                                        : 'bg-surface-container-highest hover:bg-error-container/50 text-text-secondary hover:text-error border-outline/20'
                                     }`}
                                     title={activeProduct.isDiscontinued ? "Restore to Active Library" : "Archive / Discontinue"}
                                 >
                                     {activeProduct.isDiscontinued ? <RotateCcw size={20} /> : <Archive size={20} />}
                                 </button>
 
-                                <button onClick={handleDuplicate} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-primary" title="Duplicate Product Line">
+                                <button onClick={handleDuplicate} className="p-2 hover:bg-surface-container-highest rounded-full text-text-secondary hover:text-primary" title="Duplicate Product Line">
                                     <CopyPlus size={20} />
                                 </button>
 
-                                <button onClick={handleDeleteParent} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-red-500" title="Permanently Delete">
+                                <button onClick={handleDeleteParent} className="p-2 hover:bg-surface-container-highest rounded-full text-text-secondary hover:text-error" title="Permanently Delete">
                                     <Trash2 size={24} />
                                 </button>
                             </>
                         ) : (
-                            <button onClick={() => setIsEditingParent(true)} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-primary"><Edit2 size={24} /></button>
+                            <button onClick={() => setIsEditingParent(true)} className="p-2 hover:bg-surface-container-highest rounded-full text-text-secondary hover:text-primary"><Edit2 size={24} /></button>
                         )}
                         
-                        <button onClick={onClose} className="p-2 hover:bg-surface rounded text-text-secondary hover:text-text-primary"><X size={24} /></button>
+                        <button onClick={onClose} className="p-2 hover:bg-surface-container-highest rounded-full text-text-secondary hover:text-text-primary hidden lg:block"><X size={24} /></button>
                     </div>
                 </div>
 
@@ -434,10 +404,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                         <div className="space-y-8">
                             {/* 1. PARENT INFO CARD */}
                             <div className="flex flex-col md:flex-row gap-6">
-                                <div className="w-48 h-48 bg-black/20 rounded-lg flex-shrink-0 overflow-hidden border border-border">
+                                <div className="w-48 h-48 bg-surface-container rounded-lg flex-shrink-0 overflow-hidden border border-outline/20">
                                     {activeProduct.defaultImageUrl ? (
                                         <img src={resolveImageUrl(activeProduct.defaultImageUrl)!} className="w-full h-full object-cover" />
-                                    ) : <div className="w-full h-full flex items-center justify-center text-text-tertiary">No Image</div>}
+                                    ) : <div className="w-full h-full flex items-center justify-center text-text-tertiary"><ImageIcon size={48} className="opacity-50"/></div>}
                                 </div>
                                 <div className="flex-1 space-y-2">
                                     <div className="flex justify-between items-start">
@@ -446,9 +416,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                             <span className="font-medium text-text-primary">{activeProduct.manufacturerName}</span>
                                         </div>
                                         <div className="flex gap-2">
-                                            {/* PARENT PRINT BUTTON */}
-                                            {/* Changed to unified handlePrint */}
-                                            <button onClick={() => handlePrint('product')} className="p-2 bg-surface hover:bg-background border border-border rounded text-text-secondary" title="Print Line Label"><QrCode size={16} /></button>
+                                            <button onClick={() => handlePrint('product')} className="p-2 bg-surface-container-highest hover:bg-surface-variant/30 border border-outline/20 rounded-full text-text-secondary" title="Print Line Label"><QrCode size={16} /></button>
                                         </div>
                                     </div>
                                     <p className="text-text-primary mt-1 text-sm">{activeProduct.description || 'No description provided.'}</p>
@@ -461,53 +429,45 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                     <h3 className="text-lg font-bold text-text-primary">Product Variants</h3>
                                     {!editingVariantId && (
                                       <div className="flex gap-2">
-                                        {/* BATCH PRINT BUTTON - Visible if items selected */}
                                         {selectedRowIds.size > 0 && (
                                             <button 
-                                                onClick={() => handlePrint('batch')} // Changed to unified handlePrint
-                                                className="text-sm flex items-center gap-2 bg-primary text-on-primary px-3 py-1.5 rounded font-bold animate-in fade-in"
+                                                onClick={() => handlePrint('batch')} 
+                                                className="text-sm flex items-center gap-2 bg-primary text-on-primary px-3 py-1.5 rounded-full font-bold animate-in fade-in"
                                             >
                                                 <Printer size={16} /> Print Labels ({selectedRowIds.size})
                                             </button>
                                         )}
                                         
-                                        <div className="w-px h-6 bg-border mx-2"></div>
+                                        <div className="w-px h-6 bg-outline/20 mx-2"></div>
 
-                                        <button onClick={() => setShowGenerator(true)} className="text-sm flex items-center gap-2 bg-surface border border-primary text-primary px-3 py-1.5 rounded"><Calculator size={16} /> Batch Generator</button>
-                                        <button onClick={handleAddRow} className="text-sm flex items-center gap-2 bg-secondary text-on-secondary px-3 py-1.5 rounded"><Plus size={16} /> Add Variant</button>
+                                        <button onClick={() => setShowGenerator(true)} className="text-sm flex items-center gap-2 bg-surface-container-highest border border-primary-container text-primary px-3 py-1.5 rounded-full"><Calculator size={16} /> Batch Generator</button>
+                                        <button onClick={handleAddRow} className="text-sm flex items-center gap-2 bg-secondary-container text-on-secondary-container px-3 py-1.5 rounded-full"><Plus size={16} /> Add Variant</button>
                                       </div>
                                     )}
                                 </div>
 
-                                {/* FIX: Added overflow-x-auto to allow horizontal scrolling for wide tables */}
-                                <div className="bg-background rounded-lg border border-border overflow-x-auto">
+                                <div className="bg-surface-container rounded-lg border border-outline/10 overflow-x-auto">
                                     <table className="w-full text-sm text-left whitespace-nowrap">
-                                        <thead className="bg-surface text-text-secondary border-b border-border">
+                                        <thead className="bg-surface-container-highest text-text-secondary border-b border-outline/10">
                                             <tr>
                                                 <th className="p-3 w-12 text-center">Img</th>
                                                 <th className="p-3">{labels.color}</th>
                                                 {renderColumnHeader(labels.size, "size")}
-                                                
-                                                {/* TECH SPECS COLUMNS */}
                                                 {labels.showTechSpecs && renderColumnHeader("Wear Layer", "wearLayer")}
                                                 {labels.showTechSpecs && renderColumnHeader("Thickness", "thickness")}
-                                                
                                                 {renderColumnHeader("SKU", "sku")}
                                                 {labels.showPackaging && renderColumnHeader("Packaging", "cartonSize")}
                                                 {renderColumnHeader("Cost", "unitCost", "text-right")}
-                                                {/* Reordered: Pricing Unit after Cost */}
                                                 {renderColumnHeader("Pricing Unit", "pricingUnit", "text-center w-24")}
                                                 {renderColumnHeader("Retail", "retailPrice", "text-right")}
                                                 <th className="p-3 text-center">Sample?</th>
                                                 <th className="p-3 text-center">Status</th>
-                                                
-                                                {/* TOGGLE COLUMN: QR vs Checkbox */}
                                                 <th className="p-3 w-24 text-center">
                                                     {isSelectionMode ? (
                                                         <div className="flex justify-center items-center gap-1">
                                                             <button 
                                                                 onClick={toggleAllRows}
-                                                                className="p-1 rounded text-primary hover:bg-primary/10"
+                                                                className="p-1 rounded-md text-primary hover:bg-primary-container/30"
                                                                 title="Select All"
                                                             >
                                                                 <CheckSquare size={18} />
@@ -517,7 +477,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                                     setIsSelectionMode(false);
                                                                     setSelectedRowIds(new Set());
                                                                 }}
-                                                                className="p-1 rounded text-text-secondary hover:text-red-500 hover:bg-red-50"
+                                                                className="p-1 rounded-md text-text-secondary hover:text-error hover:bg-error-container/30"
                                                                 title="Cancel Selection"
                                                             >
                                                                 <X size={18} />
@@ -526,95 +486,75 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                     ) : (
                                                         <button 
                                                             onClick={() => setIsSelectionMode(true)}
-                                                            className="p-1 rounded text-text-secondary hover:text-primary transition-colors"
+                                                            className="p-1 rounded-md text-text-secondary hover:text-primary transition-colors"
                                                             title="Select Multiple"
                                                         >
                                                             <ListChecks size={18} />
                                                         </button>
                                                     )}
                                                 </th>
-                                                
                                                 <th className="p-3 w-20 text-center">Actions</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-border">
-                                            {/* ROWS */}
+                                        <tbody className="divide-y divide-outline/10">
                                             {activeProduct.variants.map(v => (
                                                 editingVariantId === v.id ? (
-                                                    // EDIT MODE
                                                     <tr key={v.id} className="bg-primary/5 border-l-4 border-primary">
-                                                        <td className="p-2 text-center"><button onClick={() => setShowImageModal(true)} className="w-8 h-8 rounded border bg-white flex items-center justify-center"><ImageIcon size={14}/></button></td>
-                                                        <td className="p-2"><input type="text" placeholder={labels.color} className="w-full p-1 border border-primary rounded font-bold" value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
-                                                        <td className="p-2"><input type="text" placeholder={labels.size} className="w-full p-1 border border-primary rounded" value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
-                                                        
-                                                        {/* EDIT INPUTS FOR TECH SPECS */}
+                                                        <td className="p-2 text-center"><button type="button" onClick={() => setShowImageModal(true)} className="w-8 h-8 rounded border bg-white flex items-center justify-center"><ImageIcon size={14}/></button></td>
+                                                        <td className="p-2"><input type="text" placeholder={labels.color} className="w-full p-1 border border-primary rounded-md font-bold bg-surface-container" value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
+                                                        <td className="p-2"><input type="text" placeholder={labels.size} className="w-full p-1 border border-primary rounded-md bg-surface-container" value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
                                                         {labels.showTechSpecs && (
-                                                            <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.wearLayer || ''} onChange={e => setNewVariant({...newVariant, wearLayer: e.target.value})} placeholder="20mil" /></td>
+                                                            <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded-md bg-surface-container" value={newVariant.wearLayer || ''} onChange={e => setNewVariant({...newVariant, wearLayer: e.target.value})} placeholder="20mil" /></td>
                                                         )}
                                                         {labels.showTechSpecs && (
-                                                            <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.thickness || ''} onChange={e => setNewVariant({...newVariant, thickness: e.target.value})} placeholder="5mm" /></td>
+                                                            <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded-md bg-surface-container" value={newVariant.thickness || ''} onChange={e => setNewVariant({...newVariant, thickness: e.target.value})} placeholder="5mm" /></td>
                                                         )}
-
-                                                        <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
-                                                        
-                                                        {/* PACKAGING */}
+                                                        <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded-md bg-surface-container" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
                                                         {labels.showPackaging && (
                                                             <td className="p-2 flex gap-1">
-                                                                <input type="number" className="w-16 p-1 border border-primary rounded" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
-                                                                <select className="p-1 border border-primary rounded text-xs bg-white" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
+                                                                <input type="number" className="w-16 p-1 border border-primary rounded-md bg-surface-container" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
+                                                                <select className="p-1 border border-primary rounded-md text-xs bg-surface-container" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
                                                                     {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                                                 </select>
                                                             </td>
                                                         )}
-                                                        
-                                                        <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded text-right" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
-                                                        
-                                                        {/* PRICING UNIT (Reordered) */}
+                                                        <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
                                                         <td className="p-2">
-                                                            <select className="w-full p-1 border border-primary rounded text-xs bg-white" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
+                                                            <select className="w-full p-1 border border-primary rounded-md text-xs bg-surface-container" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
                                                                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                                             </select>
                                                         </td>
-                                                        
-                                                        <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded text-right" value={newVariant.retailPrice || ''} onChange={e => setNewVariant({...newVariant, retailPrice: Number(e.target.value)})} /></td>
-                                                        <td className="p-2 text-center"><input type="checkbox" checked={newVariant.hasSample ?? v.hasSample} onChange={e => setNewVariant({...newVariant, hasSample: e.target.checked})} /></td>
+                                                        <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded-md text-right bg-surface-container" value={newVariant.retailPrice || ''} onChange={e => setNewVariant({...newVariant, retailPrice: Number(e.target.value)})} /></td>
+                                                        <td className="p-2 text-center"><input type="checkbox" className="form-checkbox h-4 w-4 text-primary bg-surface-container-low border-outline/50 rounded" checked={newVariant.hasSample ?? v.hasSample} onChange={e => setNewVariant({...newVariant, hasSample: e.target.checked})} /></td>
                                                         <td className="p-2 text-center text-xs font-bold text-primary">EDITING</td>
-                                                        
-                                                        {/* EDITING - BATCH TOGGLE */}
                                                         <td className="p-2 text-center">
                                                             <button 
+                                                                type="button"
                                                                 onClick={() => {
                                                                     setIsSelectionMode(!isSelectionMode);
-                                                                    // Don't clear selection in Edit Mode so we can copy
                                                                 }} 
-                                                                className={`p-1.5 rounded ${isSelectionMode ? 'bg-purple-100 text-purple-600' : 'text-text-tertiary'}`} 
+                                                                className={`p-1.5 rounded-md ${isSelectionMode ? 'bg-secondary-container text-on-secondary-container' : 'text-text-tertiary'}`} 
                                                                 title="Copy to selected"
                                                             >
                                                                 <Copy size={16} />
                                                             </button>
                                                         </td>
-                                                        
                                                         <td className="p-2 flex justify-center items-center gap-2">
-                                                            <button onClick={handleSaveVariant} className="p-1.5 rounded bg-green-600 text-white"><Save size={16} /></button>
-                                                            <button onClick={handleCancelEdit} className="p-1 text-red-500"><X size={16} /></button>
+                                                            <button type="button" onClick={handleSaveVariant} className="p-1.5 rounded-md bg-tertiary text-on-tertiary"><Save size={16} /></button>
+                                                            <button type="button" onClick={handleCancelEdit} className="p-1.5 rounded-md text-error"><X size={16} /></button>
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    <tr key={v.id} className={`hover:bg-surface/50 transition-colors ${selectedRowIds.has(v.id) ? 'bg-primary/5' : ''}`}>
-                                                        {/* IMAGE */}
+                                                    <tr key={v.id} className={`hover:bg-surface-container-highest transition-colors ${selectedRowIds.has(v.id) ? 'bg-primary-container/30' : ''}`}>
                                                         <td className="p-2 text-center">
-                                                            <div className="w-10 h-10 bg-black/20 rounded overflow-hidden mx-auto border border-border">
+                                                            <div className="w-10 h-10 bg-surface-variant rounded overflow-hidden mx-auto border border-outline/10">
                                                                 {v.imageUrl ? <img src={resolveImageUrl(v.imageUrl)!} className="w-full h-full object-cover"/> : null}
                                                             </div>
                                                         </td>
-                                                        
                                                         <td className="p-3 font-medium text-text-primary">{v.name}</td>
                                                         <td className="p-3 text-text-secondary">{v.size || '-'}</td>
-                                                        
-                                                        {/* READ ONLY TECH SPECS */}
                                                         {labels.showTechSpecs && <td className="p-3 text-text-secondary">{v.wearLayer || '-'}</td>}
                                                         {labels.showTechSpecs && <td className="p-3 text-text-secondary">{v.thickness || '-'}</td>}
-
                                                         <td className="p-3 text-text-secondary">{v.sku || '-'}</td>
                                                         {labels.showPackaging && <td className="p-3 text-text-secondary text-xs font-mono">{v.cartonSize ? `${v.cartonSize} ${v.uom}` : '-'}</td>}
                                                         <td className="p-3 text-right text-text-secondary">{v.unitCost ? `$${Number(v.unitCost).toFixed(2)}` : '-'}</td>
@@ -622,8 +562,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                         <td className="p-3 text-right text-text-secondary font-medium">{v.retailPrice ? `$${Number(v.retailPrice).toFixed(2)}` : '-'}</td>
                                                         <td className="p-3 text-center"><div className={`w-3 h-3 rounded-full mx-auto ${v.hasSample ? 'bg-green-500' : 'bg-gray-300'}`} /></td>
                                                         <td className="p-3 text-center text-xs text-text-tertiary">{v.hasSample ? 'Available' : 'Order Only'}</td>
-                                                        
-                                                        {/* QR / SELECT TOGGLE COLUMN */}
                                                         <td className="p-3 text-center">
                                                             {isSelectionMode ? (
                                                                 <input 
@@ -633,62 +571,51 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                                     onChange={() => toggleRowSelection(v.id)}
                                                                 />
                                                             ) : (
-                                                                <button onClick={() => handlePrint('variant', v.id)} className="text-text-secondary hover:text-primary"><QrCode size={18} /></button>
+                                                                <button type="button" onClick={() => handlePrint('variant', v.id)} className="text-text-secondary hover:text-primary"><QrCode size={18} /></button>
                                                             )}
                                                         </td>
-                                                        
                                                         <td className="p-3 flex justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
                                                             {v.imageUrl && (
                                                                 <button 
-                                                                    onClick={() => handleSetPrimaryImage(v.imageUrl)} 
+                                                                    type="button" onClick={() => handleSetPrimaryImage(v.imageUrl)} 
                                                                     className="text-text-secondary hover:text-yellow-500" 
                                                                     title="Set as Main Image"
                                                                 >
                                                                     <Star size={16} />
                                                                 </button>
                                                             )}
-                                                            <button onClick={() => handleEditVariant(v)} className="text-text-secondary hover:text-primary"><Edit2 size={16} /></button>
-                                                            <button onClick={() => handleDeleteVariant(v.id)} className="text-text-secondary hover:text-red-500"><Trash2 size={16} /></button>
+                                                            <button type="button" onClick={() => handleEditVariant(v)} className="text-text-secondary hover:text-primary"><Edit2 size={16} /></button>
+                                                            <button type="button" onClick={() => handleDeleteVariant(v.id)} className="text-text-secondary hover:text-red-500"><Trash2 size={16} /></button>
                                                         </td>
                                                     </tr>
                                                 )
                                             ))}
-                                            {/* NEW ROW INPUT */}
                                             {editingVariantId?.startsWith('NEW_') && (
                                                 <tr className="bg-primary/5 animate-in fade-in">
-                                                    <td className="p-2"><button onClick={() => setShowImageModal(true)} className="w-10 h-10 border rounded flex items-center justify-center bg-white"><ImageIcon size={14} /></button></td>
-                                                    <td className="p-2"><input autoFocus type="text" className="w-full p-1 border rounded" placeholder={labels.color} value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
-                                                    <td className="p-2"><input type="text" className="w-full p-1 border rounded" placeholder={labels.size} value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
-                                                    
-                                                    {/* NEW ROW TECH SPECS */}
-                                                    {labels.showTechSpecs && <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.wearLayer || ''} onChange={e => setNewVariant({...newVariant, wearLayer: e.target.value})} placeholder="Wear Layer" /></td>}
-                                                    {labels.showTechSpecs && <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.thickness || ''} onChange={e => setNewVariant({...newVariant, thickness: e.target.value})} placeholder="Thickness" /></td>}
-
-                                                    <td className="p-2"><input type="text" className="w-full p-1 border rounded" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
-                                                    
-                                                    {/* PACKAGING */}
+                                                    <td className="p-2"><button type="button" onClick={() => setShowImageModal(true)} className="w-10 h-10 border rounded-md flex items-center justify-center bg-white"><ImageIcon size={14} /></button></td>
+                                                    <td className="p-2"><input autoFocus type="text" className="w-full p-1 border rounded-md bg-surface-container" placeholder={labels.color} value={newVariant.name || ''} onChange={e => setNewVariant({...newVariant, name: e.target.value})} /></td>
+                                                    <td className="p-2"><input type="text" className="w-full p-1 border rounded-md bg-surface-container" placeholder={labels.size} value={newVariant.size || ''} onChange={e => setNewVariant({...newVariant, size: e.target.value})} /></td>
+                                                    {labels.showTechSpecs && <td className="p-2"><input type="text" className="w-full p-1 border rounded-md bg-surface-container" value={newVariant.wearLayer || ''} onChange={e => setNewVariant({...newVariant, wearLayer: e.target.value})} placeholder="Wear Layer" /></td>}
+                                                    {labels.showTechSpecs && <td className="p-2"><input type="text" className="w-full p-1 border rounded-md bg-surface-container" value={newVariant.thickness || ''} onChange={e => setNewVariant({...newVariant, thickness: e.target.value})} placeholder="Thickness" /></td>}
+                                                    <td className="p-2"><input type="text" className="w-full p-1 border rounded-md bg-surface-container" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
                                                     {labels.showPackaging && (
                                                         <td className="p-2 flex gap-1">
-                                                            <input type="number" className="w-16 p-1 border rounded" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
-                                                            <select className="p-1 border rounded text-xs bg-white" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
+                                                            <input type="number" className="w-16 p-1 border rounded-md bg-surface-container" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
+                                                            <select className="p-1 border rounded-md text-xs bg-surface-container" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
                                                                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                                             </select>
                                                         </td>
                                                     )}
-
-                                                    <td className="p-2"><input type="number" className="w-full p-1 border rounded text-right" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
-
-                                                    {/* PRICING UNIT (Reordered) */}
+                                                    <td className="p-2"><input type="number" className="w-full p-1 border rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
                                                     <td className="p-2">
-                                                        <select className="w-full p-1 border rounded text-xs bg-white" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
+                                                        <select className="w-full p-1 border border-primary rounded-md text-xs bg-surface-container" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
                                                             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                                         </select>
                                                     </td>
-
-                                                    <td className="p-2"><input type="number" className="w-full p-1 border rounded text-right" value={newVariant.retailPrice || ''} onChange={e => setNewVariant({...newVariant, retailPrice: Number(e.target.value)})} /></td>
-                                                    <td className="p-2 text-center"><input type="checkbox" checked={newVariant.hasSample ?? true} onChange={e => setNewVariant({...newVariant, hasSample: e.target.checked})} /></td>
+                                                    <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded-md text-right bg-surface-container" value={newVariant.retailPrice || ''} onChange={e => setNewVariant({...newVariant, retailPrice: Number(e.target.value)})} /></td>
+                                                    <td className="p-2 text-center"><input type="checkbox" className="form-checkbox h-4 w-4 text-primary bg-surface-container-low border-outline/50 rounded" checked={newVariant.hasSample ?? true} onChange={e => setNewVariant({...newVariant, hasSample: e.target.checked})} /></td>
                                                     <td className="p-2 text-center text-xs font-bold text-green-600">NEW</td>
-                                                    <td colSpan={2} className="p-2 flex justify-center gap-1"><button onClick={handleSaveVariant} className="p-1 text-green-500"><Save size={18} /></button><button onClick={handleCancelEdit} className="p-1 text-red-500"><X size={18} /></button></td>
+                                                    <td colSpan={2} className="p-2 flex justify-center gap-1"><button type="button" onClick={handleSaveVariant} className="p-1 text-tertiary"><Save size={18} /></button><button type="button" onClick={handleCancelEdit} className="p-1 text-error"><X size={18} /></button></td>
                                                 </tr>
                                             )}
                                         </tbody>

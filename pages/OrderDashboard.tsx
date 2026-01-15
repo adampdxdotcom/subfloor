@@ -72,8 +72,6 @@ const OrderDashboard: React.FC = () => {
                 project.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 projOrders.some(o => o.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()));
 
-            // Only show active projects that have orders, OR active projects if searching
-            // Note: In a real app, you'd filter out Completed/Cancelled projects here.
             if (projOrders.length > 0 && matchesSearch) {
                 groups.push({
                     project,
@@ -101,14 +99,12 @@ const OrderDashboard: React.FC = () => {
         setIsAddOrderModalOpen(true);
     };
 
-    // New: Global Add Order
     const handleGlobalAddOrder = () => {
-        setActiveProjectForAdd(null); // User will select project in modal
+        setActiveProjectForAdd(null); 
         setIsAddOrderModalOpen(true);
     };
 
     // --- MUTATION WRAPPERS ---
-    // Adapts React Query's single-object argument to the Modal's (id, data) signature
     const handleReceiveWrapper = async (orderId: number, data: any) => {
         await materialOrderMutations.receiveMaterialOrder.mutateAsync({ id: orderId, data });
     };
@@ -117,46 +113,43 @@ const OrderDashboard: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            
-            {/* Header Card */}
-            <div className="bg-surface p-6 rounded-lg shadow-md border border-border">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-                    <div>
-                        <h1 className="text-3xl font-bold text-text-primary flex items-center gap-3">
-                            <Truck className="text-primary w-8 h-8" /> Order Dashboard
-                        </h1>
-                        <p className="text-text-secondary text-sm mt-1 ml-11">Track, receive, and manage material orders.</p>
-                    </div>
-                    
-                    <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto mt-4 md:mt-0">
-                        <button 
-                            onClick={() => setShowReceived(!showReceived)}
-                            className="w-full md:w-auto justify-center bg-background border border-border hover:bg-surface text-text-secondary font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors"
-                        >
-                            {showReceived ? <EyeOff size={20} /> : <Eye size={20} />}
-                            {showReceived ? 'Hide Received' : 'Show Received'}
-                        </button>
-                        <button 
-                            onClick={handleGlobalAddOrder}
-                            className="w-full md:w-auto justify-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg flex items-center gap-2 shadow-md transition-colors"
-                        >
-                            <Plus size={20} /> New Order
-                        </button>
-                    </div>
+        <div className="space-y-8">
+            {/* Header & Controls - MD3 De-boxed Style */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-1">
+                <div>
+                    <h1 className="text-4xl font-bold text-text-primary tracking-tight flex items-center gap-3">
+                        <Truck className="text-primary w-8 h-8" /> Order Dashboard
+                    </h1>
+                    <p className="text-text-secondary text-sm mt-1 ml-11 font-medium">Track, receive, and manage material orders.</p>
                 </div>
+                
+                <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto mt-4 md:mt-0">
+                    <button 
+                        onClick={() => setShowReceived(!showReceived)}
+                        className="w-full md:w-auto justify-center bg-surface-container-high border border-outline/10 hover:bg-surface-container-highest text-text-secondary font-medium py-3 px-6 rounded-full flex items-center gap-2 transition-colors"
+                    >
+                        {showReceived ? <EyeOff size={20} /> : <Eye size={20} />}
+                        {showReceived ? 'Hide Received' : 'Show Received'}
+                    </button>
+                    <button 
+                        onClick={handleGlobalAddOrder}
+                        className="w-full md:w-auto justify-center bg-primary hover:bg-primary-hover text-on-primary font-semibold py-3 px-6 rounded-full flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                    >
+                        <Plus size={20} /> New Order
+                    </button>
+                </div>
+            </div>
 
-                {/* Search Bar */}
-                <div className="relative w-full">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary" size={18} />
-                    <input 
-                        type="text" 
-                        placeholder="Search projects or suppliers..." 
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all shadow-inner"
-                    />
-                </div>
+            {/* Floating Search Bar */}
+            <div className="relative w-full max-w-2xl">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-text-secondary" size={20} />
+                <input 
+                    type="text" 
+                    placeholder="Search projects or suppliers..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-6 py-4 bg-surface-container-high border-none rounded-full text-text-primary focus:ring-2 focus:ring-primary/50 outline-none transition-shadow shadow-sm hover:shadow-md placeholder:text-text-tertiary"
+                />
             </div>
 
             {/* Grid */}
@@ -170,24 +163,20 @@ const OrderDashboard: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {groupedOrders.map(({ project, orders }) => {
                         const isExpanded = expandedProjects.has(project.id);
-                        // Show all if expanded, otherwise show first 2
                         const visibleOrders = isExpanded ? orders : orders.slice(0, 2);
                         const hiddenCount = orders.length - visibleOrders.length;
 
-                        // Extract Header Data from the first order (shared by all in project)
                         const firstOrder = orders[0];
                         const poNumber = firstOrder?.poNumber || 'No PO';
-                        
-                        // Get Last Name only
                         const customerName = firstOrder?.customerName || '';
                         const lastName = customerName.split(' ').pop() || customerName;
                         const headerTitle = `#${poNumber} - ${lastName}`;
 
                         return (
-                            <div key={project.id} className="bg-surface border border-border rounded-lg shadow-sm flex flex-col transition-all duration-200">
+                            <div key={project.id} className="bg-surface-container-high border border-outline/10 rounded-xl shadow-sm flex flex-col transition-all duration-200 hover:shadow-md">
                                 
                                 {/* Card Header */}
-                                <div className="p-4 border-b border-border flex justify-between items-start bg-surface rounded-t-lg">
+                                <div className="p-5 border-b border-outline/10 flex justify-between items-start bg-surface-container-low rounded-t-xl">
                                     <div className="min-w-0 pr-2">
                                         <Link 
                                             to={`/projects/${project.id}`}
@@ -200,7 +189,7 @@ const OrderDashboard: React.FC = () => {
                                     </div>
                                     <button 
                                         onClick={() => handleOpenAddOrder(project)}
-                                        className="flex-shrink-0 p-2 bg-background hover:bg-primary/10 text-primary rounded-full transition-colors"
+                                        className="flex-shrink-0 p-2 bg-surface-container-highest hover:bg-primary-container text-primary rounded-full transition-colors"
                                         title="Add Order"
                                     >
                                         <Plus size={18} />
@@ -208,27 +197,26 @@ const OrderDashboard: React.FC = () => {
                                 </div>
 
                                 {/* Orders List */}
-                                <div className="p-4 space-y-6 flex-grow">
+                                <div className="p-5 space-y-6 flex-grow">
                                     {visibleOrders.map(order => (
                                         <div key={order.id} className={`relative border-l-4 pl-3 py-1 ${
-                                            order.status === 'Received' ? 'border-green-500' : 
-                                            order.status === 'Damage Replacement' ? 'border-red-500' : 'border-primary'
+                                            order.status === 'Received' ? 'border-success' : 
+                                            order.status === 'Damage Replacement' ? 'border-error' : 'border-primary'
                                         }`}>
                                             <div className="flex justify-between items-start mb-2">
                                                 <span className="font-semibold text-text-primary text-sm truncate max-w-[60%]">{order.supplierName || 'Unknown Supplier'}</span>
                                                 <div className="flex items-center">
                                                     {order.status === 'Received' ? (
-                                                        <span className="text-xs font-bold text-green-500 flex items-center gap-1"><CheckCircle size={10} /> Received</span>
+                                                        <span className="text-xs font-bold text-success flex items-center gap-1"><CheckCircle size={12} /> Received</span>
                                                     ) : order.status === 'Damage Replacement' ? (
-                                                        <span className="text-xs font-bold text-red-500 flex items-center gap-1"><AlertTriangle size={10} /> Replacement</span>
+                                                        <span className="text-xs font-bold text-error flex items-center gap-1"><AlertTriangle size={12} /> Replacement</span>
                                                     ) : (
-                                                        <span className="text-xs font-bold text-primary flex items-center gap-1"><Clock size={10} /> Ordered</span>
+                                                        <span className="text-xs font-bold text-primary flex items-center gap-1"><Clock size={12} /> Ordered</span>
                                                     )}
                                                     
-                                                    {/* EDIT BUTTON */}
                                                     <button 
                                                         onClick={() => setEditingOrder(order)}
-                                                        className="p-1 text-text-tertiary hover:text-primary hover:bg-background rounded transition-colors ml-2"
+                                                        className="p-1.5 text-text-tertiary hover:text-primary hover:bg-surface-container-highest rounded-full transition-colors ml-2"
                                                         title="Edit Order Details"
                                                     >
                                                         <Edit2 size={12} />
@@ -236,20 +224,19 @@ const OrderDashboard: React.FC = () => {
                                                 </div>
                                             </div>
                                             
-                                            {/* ENHANCED DATE DISPLAY */}
                                             <div className="flex gap-4 mb-3">
                                                 <div>
-                                                    <span className="text-[10px] uppercase tracking-wide text-text-tertiary block">Ordered</span>
+                                                    <span className="text-[10px] uppercase tracking-wide text-text-tertiary block font-bold">Ordered</span>
                                                     <span className="text-sm font-medium text-text-primary">
                                                         {new Date(order.orderDate.split('T')[0] + 'T12:00:00').toLocaleDateString()}
                                                     </span>
                                                 </div>
                                                 {order.etaDate && (
                                                     <div>
-                                                        <span className="text-[10px] uppercase tracking-wide text-text-tertiary block">ETA</span>
+                                                        <span className="text-[10px] uppercase tracking-wide text-text-tertiary block font-bold">ETA</span>
                                                         <span className={`text-sm font-medium ${
                                                             new Date(order.etaDate.split('T')[0] + 'T12:00:00') < new Date() && order.status !== 'Received' 
-                                                            ? 'text-red-500' 
+                                                            ? 'text-error font-bold' 
                                                             : 'text-text-primary'
                                                         }`}>
                                                             {new Date(order.etaDate.split('T')[0] + 'T12:00:00').toLocaleDateString()}
@@ -259,7 +246,7 @@ const OrderDashboard: React.FC = () => {
                                             </div>
 
                                             {/* Mini Line Items */}
-                                            <ul className="text-xs text-text-secondary mb-3 bg-background p-2 rounded border border-border/50">
+                                            <ul className="text-xs text-text-secondary mb-3 bg-surface-container-low p-3 rounded-lg border border-outline/10">
                                                 {order.lineItems.slice(0, 3).map(item => (
                                                     <li key={item.id} className="flex justify-between">
                                                         <span className="truncate w-3/4">{item.quantity} {item.unit} - {item.style}</span>
@@ -272,7 +259,7 @@ const OrderDashboard: React.FC = () => {
                                             {order.status !== 'Received' && (
                                                 <button 
                                                     onClick={() => handleOpenReceive(order)}
-                                                    className="w-full py-4 md:py-1.5 bg-primary hover:bg-primary-hover text-on-primary text-lg md:text-xs font-bold md:font-medium rounded-lg md:rounded flex items-center justify-center gap-3 md:gap-2 transition-colors shadow-md md:shadow-none mt-2 md:mt-0"
+                                                    className="w-full py-4 md:py-2 bg-primary hover:bg-primary-hover text-on-primary text-lg md:text-xs font-bold md:font-semibold rounded-full md:rounded-full flex items-center justify-center gap-3 md:gap-2 transition-colors shadow-sm mt-3 md:mt-0"
                                                 >
                                                     <Package className="w-6 h-6 md:w-3.5 md:h-3.5" /> Receive Order
                                                 </button>
@@ -285,7 +272,7 @@ const OrderDashboard: React.FC = () => {
                                 {orders.length > 2 && (
                                     <button 
                                         onClick={() => toggleProjectExpanded(project.id)}
-                                        className="w-full py-3 border-t border-border flex items-center justify-center gap-1 text-xs font-semibold text-text-secondary hover:text-primary hover:bg-background transition-colors rounded-b-lg"
+                                        className="w-full py-3 border-t border-outline/10 flex items-center justify-center gap-1 text-xs font-semibold text-text-secondary hover:text-primary hover:bg-surface-container-highest transition-colors rounded-b-xl"
                                     >
                                         {isExpanded ? (
                                             <>Show Less <ChevronUp size={14} /></>
@@ -319,12 +306,11 @@ const OrderDashboard: React.FC = () => {
                         isOpen={isAddOrderModalOpen}
                         onClose={() => setIsAddOrderModalOpen(false)}
                         editingOrder={null}
-                        initialProjectId={activeProjectForAdd} // This might be null if using global add button
+                        initialProjectId={activeProjectForAdd}
                     />
                 </ModalPortal>
             )}
             
-            {/* EDIT Modal */}
             {editingOrder && (
                 <ModalPortal>
                     <AddEditMaterialOrderModal 

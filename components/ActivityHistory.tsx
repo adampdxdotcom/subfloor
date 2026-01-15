@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityLogEntry } from '../types';
-import { Clock, User, History as HistoryIcon, Move } from 'lucide-react'; // <-- IMPORT Move
+import { Clock, User, History as HistoryIcon, Move } from 'lucide-react';
 import { generateChangeDescriptions } from '../utils/changeFormatter';
 
 interface ActivityHistoryProps {
@@ -35,20 +35,18 @@ const ActivityHistory: React.FC<ActivityHistoryProps> = ({ history }) => {
   };
 
   return (
-    // --- MODIFIED: Add flexbox structure and h-full ---
-    <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
-      {/* --- MODIFIED: CARD HEADER - Make non-shrinkable --- */}
-      <div className="p-4 border-b border-border flex items-center gap-3 flex-shrink-0">
-          {/* --- NEW: Drag Handle --- */}
-          <Move className="drag-handle cursor-move text-text-tertiary hover:text-text-primary transition-colors" size={20} />
-          <HistoryIcon className="w-6 h-6 text-accent" />
+    <div className="flex flex-col h-full">
+      {/* CARD HEADER */}
+      <div className="p-4 border-b border-outline/10 flex items-center gap-3 flex-shrink-0">
+          <Move className="drag-handle cursor-move text-text-secondary hover:text-text-primary transition-colors" size={20} />
+          <HistoryIcon className="w-6 h-6 text-primary" />
           <h3 className="text-xl font-semibold text-text-primary">Change History</h3>
       </div>
 
-      {/* --- MODIFIED: CARD BODY - Now scrollable --- */}
-      <div className="p-4 overflow-y-auto flex-grow">
+      {/* CARD BODY */}
+      <div className="p-4 overflow-y-auto flex-grow bg-surface-container scrollbar-thin scrollbar-thumb-surface-container-highest">
         {!history || history.length === 0 ? (
-          <div className="text-center py-4 text-text-secondary">
+          <div className="text-center py-8 text-text-secondary">
             <p>No history available for this item.</p>
           </div>
         ) : (
@@ -59,9 +57,9 @@ const ActivityHistory: React.FC<ActivityHistoryProps> = ({ history }) => {
                 : [];
 
               return (
-                <div key={entry.id} className="flex items-start p-3 bg-background rounded-md shadow-sm">
+                <div key={entry.id} className="flex items-start p-3 bg-surface-container-high rounded-xl">
                   <div className="flex-shrink-0 mr-3 mt-1">
-                    <span className="flex items-center justify-center h-8 w-8 rounded-full bg-surface text-accent">
+                    <span className="flex items-center justify-center h-8 w-8 rounded-full bg-primary-container text-on-primary-container">
                       <User size={16} />
                     </span>
                   </div>
@@ -74,7 +72,7 @@ const ActivityHistory: React.FC<ActivityHistoryProps> = ({ history }) => {
                     </p>
 
                     {changes.length > 0 && (
-                      <ul className="mt-2 pl-5 list-disc space-y-1 text-sm text-text-secondary">
+                      <ul className="mt-2 pl-5 list-disc space-y-1 text-sm text-text-secondary marker:text-primary/50">
                         {changes.map((change, index) => (
                           <li key={index}>{change}</li>
                         ))}

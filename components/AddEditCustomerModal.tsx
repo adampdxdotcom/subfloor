@@ -69,9 +69,7 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  // --- ADDED: Admin check for deletion rights ---
   const isAdmin = currentUser?.roles.includes('Admin');
-
   const isEditMode = customer !== null;
 
   useEffect(() => {
@@ -166,14 +164,14 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
 
   return (
     <div className="fixed inset-0 bg-black/75 flex justify-center z-50 overflow-y-auto">
-      <div className="bg-surface w-full min-h-full md:min-h-0 md:h-auto md:max-h-[90vh] md:max-w-md md:rounded-lg shadow-2xl flex flex-col border border-border md:my-auto relative">
+      <div className="bg-surface-container-high w-full min-h-full md:min-h-0 md:h-auto md:max-h-[90vh] md:max-w-md md:rounded-xl shadow-2xl flex flex-col border border-outline/10 md:my-auto relative">
 
-        <div className="p-4 border-b border-border flex justify-between items-center bg-background md:rounded-t-lg">
+        <div className="p-4 border-b border-outline/10 flex justify-between items-center bg-surface-container-low md:rounded-t-xl">
             <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
                 <User className="text-primary" />
                 {isEditMode ? 'Edit Customer' : 'New Customer'}
             </h2>
-            <button onClick={onClose} className="p-2 hover:bg-surface rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
+            <button onClick={onClose} className="p-2 hover:bg-surface-container-highest rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full md:h-auto">
@@ -185,9 +183,9 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
                 placeholder="Full Name"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                className={`w-full p-2 bg-background border rounded text-text-primary placeholder-text-secondary ${errors.fullName ? 'border-red-500' : 'border-border'}`}
+                className={`w-full p-3 bg-surface-container-highest border-b-2 rounded-t-md text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors ${errors.fullName ? 'border-error' : 'border-transparent'}`}
               />
-              {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
+              {errors.fullName && <p className="text-error text-xs mt-1 ml-1 font-medium">{errors.fullName}</p>}
             </div>
 
             <div>
@@ -197,9 +195,9 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
                 placeholder="Email (Optional)"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`w-full p-2 bg-background border rounded text-text-primary placeholder-text-secondary ${errors.email ? 'border-red-500' : 'border-border'}`}
+                className={`w-full p-3 bg-surface-container-highest border-b-2 rounded-t-md text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors ${errors.email ? 'border-error' : 'border-transparent'}`}
               />
-              {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+              {errors.email && <p className="text-error text-xs mt-1 ml-1 font-medium">{errors.email}</p>}
             </div>
 
             {formData.email && (
@@ -210,9 +208,9 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
                   placeholder="Confirm Email"
                   value={confirmEmail}
                   onChange={(e) => setConfirmEmail(e.target.value)}
-                  className={`w-full p-2 bg-background border rounded text-text-primary placeholder-text-secondary ${errors.confirmEmail ? 'border-red-500' : 'border-border'}`}
+                  className={`w-full p-3 bg-surface-container-highest border-b-2 rounded-t-md text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors ${errors.confirmEmail ? 'border-error' : 'border-transparent'}`}
                 />
-                {errors.confirmEmail && <p className="text-red-500 text-sm mt-1">{errors.confirmEmail}</p>}
+                {errors.confirmEmail && <p className="text-error text-xs mt-1 ml-1 font-medium">{errors.confirmEmail}</p>}
               </div>
             )}
 
@@ -223,10 +221,10 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
                 placeholder="Phone Number"
                 value={formData.phoneNumber}
                 onChange={handleInputChange}
-                className={`w-full p-2 bg-background border rounded text-text-primary placeholder-text-secondary ${errors.phoneNumber ? 'border-red-500' : 'border-border'}`}
+                className={`w-full p-3 bg-surface-container-highest border-b-2 rounded-t-md text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors ${errors.phoneNumber ? 'border-error' : 'border-transparent'}`}
                 maxLength={14}
               />
-              {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
+              {errors.phoneNumber && <p className="text-error text-xs mt-1 ml-1 font-medium">{errors.phoneNumber}</p>}
             </div>
 
             <input
@@ -235,26 +233,25 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
               placeholder="Address"
               value={formData.address}
               onChange={handleInputChange}
-              className="w-full p-2 bg-background border border-border rounded text-text-primary placeholder-text-secondary"
+              className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors"
             />
           </div>
 
-          <div className="p-4 border-t border-border bg-background md:rounded-b-lg flex justify-end gap-3 shrink-0">
+          <div className="p-4 border-t border-outline/10 bg-surface-container-low md:rounded-b-xl flex justify-end gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-medium"
+              className="py-2 px-6 bg-surface hover:bg-surface-container-highest border border-outline/20 rounded-full text-text-primary font-medium transition-colors"
               disabled={isSaving || isDeleting}
             >
               Cancel
             </button>
 
-            {/* DELETE Button - Now conditionally rendered for Admins only */}
             {isEditMode && isAdmin && (
               <button
                 type="button"
                 onClick={handleDelete}
-                className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mr-auto"
+                className="py-2 px-6 bg-error-container hover:bg-error/20 text-error rounded-full font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mr-auto transition-colors"
                 disabled={isSaving || isDeleting}
               >
                 <Trash2 size={16} />
@@ -264,7 +261,7 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
 
             <button
               type="submit"
-              className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="py-2 px-6 bg-primary hover:bg-primary-hover rounded-full text-on-primary font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               disabled={isSaveDisabled}
             >
               {isSaving ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Add Customer')}

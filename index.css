@@ -42,6 +42,46 @@ html, body {
   --color-text-secondary: #d1d5db; 
   
   --color-border: var(--color-secondary); 
+
+  /* === MATERIAL DESIGN 3 - DYNAMIC TOKENS === */
+  /* These automatically adapt based on the colors above using color-mix */
+
+  /* Containers: Soft backgrounds for active states (e.g. Sidebar Pills) */
+  /* Mix Primary/Secondary with Surface to create a subtle tint */
+  --color-primary-container: color-mix(in srgb, var(--color-primary) 25%, var(--color-surface));
+  --color-on-primary-container: var(--color-text-primary);
+  --color-secondary-container: color-mix(in srgb, var(--color-secondary) 25%, var(--color-surface));
+  --color-on-secondary-container: var(--color-text-primary);
+
+  /* Surfaces: Depth hierarchy without borders */
+  --color-surface-container-low: var(--color-background);
+  --color-surface-container: var(--color-surface);
+  /* High: Lighter than surface (for Cards) */
+  --color-surface-container-high: color-mix(in srgb, var(--color-surface) 90%, #ffffff); 
+  /* Highest: Even lighter (for Modals/Dialogs) */
+  --color-surface-container-highest: color-mix(in srgb, var(--color-surface) 80%, #ffffff);
+
+  /* Outlines */
+  --color-outline: var(--color-text-secondary);
+  --color-outline-variant: var(--color-border);
+
+  /* Shapes (Radii) */
+  --radius-sm: 0.5rem;   /* 8px */
+  --radius-md: 0.75rem;  /* 12px */
+  --radius-lg: 1rem;     /* 16px */
+  --radius-xl: 1.75rem;  /* 28px - M3 Standard for Cards */
+  --radius-2xl: 2.5rem;  /* 40px */
+  --radius-3xl: 3rem;    /* 48px */
+  --radius-full: 9999px; /* Stadium/Pill */
+
+  /* === STATUS & ALERTS === */
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-success: #10b981;
+  
+  --color-error-container: color-mix(in srgb, var(--color-error) 15%, var(--color-surface));
+  --color-warning-container: color-mix(in srgb, var(--color-warning) 15%, var(--color-surface));
+  --color-success-container: color-mix(in srgb, var(--color-success) 15%, var(--color-surface));
 }
 
 /* === UTILITY CLASSES === */
@@ -61,6 +101,19 @@ html, body {
   
   .text-text-primary { color: var(--color-text-primary); }
   .text-text-secondary { color: var(--color-text-secondary); }
+  
+  /* M3 Utilities */
+  .bg-primary-container { background-color: var(--color-primary-container); }
+  .text-on-primary-container { color: var(--color-on-primary-container); }
+  .bg-surface-container-high { background-color: var(--color-surface-container-high); }
+
+  /* Status Utilities */
+  .text-error { color: var(--color-error); }
+  .bg-error-container { background-color: var(--color-error-container); }
+  .text-warning { color: var(--color-warning); }
+  .bg-warning-container { background-color: var(--color-warning-container); }
+  .text-success { color: var(--color-success); }
+  .bg-success-container { background-color: var(--color-success-container); }
   
   .border-border { border-color: var(--color-border); }
   

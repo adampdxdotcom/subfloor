@@ -38,7 +38,6 @@ interface Message {
 }
 
 const Messages: React.FC = () => {
-    // We use 'id' from params. It might be a UUID (Conversation) or a Legacy User ID
     const { partnerId: paramId } = useParams<{ partnerId: string }>(); 
     const navigate = useNavigate();
     const { currentUser, refreshNotifications } = useData();
@@ -51,17 +50,14 @@ const Messages: React.FC = () => {
     const [viewMode, setViewMode] = useState<'inbox' | 'archived'>('inbox');
     const [filter, setFilter] = useState('');
     
-    // Modal State for Privacy Warning
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-    const [pendingUsersToAdd, setPendingUsersToAdd] = useState<string[]>([]); // Names of users to add
+    const [pendingUsersToAdd, setPendingUsersToAdd] = useState<string[]>([]);
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // --- HELPER: CLEAN UP PREVIEW TEXT ---
     const formatMessagePreview = (content: string | null) => {
         if (!content) return 'No messages yet';
-        
-        // Regex to replace @[type:id|label] with just the label and an optional icon/prefix
         return content.replace(/@\[(\w+):[^|]+\|([^\]]+)\]/g, (match, type, label) => {
             if (type === 'user') return `@${label}`;
             if (type === 'project') return `📁 ${label}`;
@@ -72,33 +68,28 @@ const Messages: React.FC = () => {
         });
     };
 
-    // --- 1. RESOLVE URL PARAM (Legacy User ID vs New Conversation ID) ---
     useEffect(() => {
         if (!paramId) {
             setActiveConvId(null);
             return;
         }
 
-        // Regex to check if param is a UUID (Conversation)
         const isUuid = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/.test(paramId);
 
         if (isUuid) {
             setActiveConvId(paramId);
         } else {
-            // It's a User ID! We need to find/start the conversation for this user
             axios.post(`/api/messages/start/${paramId}`)
                 .then(res => {
-                    // Redirect to the real UUID URL
                     navigate(`/messages/${res.data.conversationId}`, { replace: true });
                 })
                 .catch(err => {
                     console.error("Failed to resolve conversation", err);
-                    navigate('/messages'); // Fallback
+                    navigate('/messages');
                 });
         }
-    }, [paramId]);
+    }, [paramId, navigate]);
 
-    // --- 2. FETCH CONVERSATIONS (Sidebar) ---
     const fetchConversations = async () => {
         try {
             const res = await axios.get(`/api/messages/conversations`, {
@@ -108,22 +99,18 @@ const Messages: React.FC = () => {
         } catch (e) { console.error("Failed to load conversations", e); }
     };
 
-    // --- 3. FETCH MESSAGES (Chat Window) ---
     const fetchMessages = async () => {
         if (!activeConvId) return;
         try {
             const res = await axios.get(`/api/messages/${activeConvId}`);
             setMessages(res.data);
-            
-            // Mark as read locally
             setConversations(prev => prev.map(c => 
                 c.conversationId === activeConvId ? { ...c, unreadCount: 0 } : c
             ));
-            refreshNotifications(); // Clear red dot
+            refreshNotifications();
         } catch (e) { console.error("Failed to load messages", e); }
     };
 
-    // --- POLLING ---
     useEffect(() => {
         fetchConversations();
         if (activeConvId) fetchMessages();
@@ -135,18 +122,14 @@ const Messages: React.FC = () => {
         return () => clearInterval(interval);
     }, [activeConvId, viewMode]);
 
-    // Auto-scroll
     useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }, [messages]);
-
-    // --- ACTIONS ---
 
     const handlePreSendCheck = (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!newMessage.trim() || !activeConvId) return;
 
-        // 1. Parse for Mentions @[user:ID|Name]
         const mentionRegex = /@\[user:([^|]+)\|([^\]]+)\]/g;
         let match;
         const mentionedIds = new Set<string>();
@@ -156,12 +139,10 @@ const Messages: React.FC = () => {
         }
 
         if (mentionedIds.size === 0) {
-            // No mentions, just send
             executeSend();
             return;
         }
 
-        // 2. Check if mentioned users are ALREADY in the chat
         const currentConv = conversations.find(c => c.conversationId === activeConvId);
         if (!currentConv) {
             executeSend(); 
@@ -169,10 +150,8 @@ const Messages: React.FC = () => {
         }
 
         const currentParticipantIds = new Set(currentConv.participants.map(p => p.userId));
-        // Add myself just in case (though I shouldn't mention myself)
         if (currentUser) currentParticipantIds.add(currentUser.userId);
 
-        // Find names of people NOT in the chat
         const newNames: string[] = [];
         let match2;
         const regex2 = /@\[user:([^|]+)\|([^\]]+)\]/g;
@@ -185,11 +164,9 @@ const Messages: React.FC = () => {
         }
 
         if (newNames.length > 0) {
-            // TRIGGER WARNING MODAL
             setPendingUsersToAdd(newNames);
             setShowPrivacyModal(true);
         } else {
-            // Everyone is already here
             executeSend();
         }
     };
@@ -202,7 +179,7 @@ const Messages: React.FC = () => {
             setShowPrivacyModal(false);
             setPendingUsersToAdd([]);
             fetchMessages(); 
-            fetchConversations(); // Update "Last Message" snippet
+            fetchConversations();
         } catch (e) { console.error(e); }
     };
 
@@ -215,11 +192,7 @@ const Messages: React.FC = () => {
 
         try {
             await axios.patch(`/api/messages/${activeConvId}/archive`, { isArchived: newState });
-            
-            // Optimistic update
             setConversations(prev => prev.filter(c => c.conversationId !== activeConvId));
-            
-            // If archiving, kick user back to list
             if (newState) { 
                 setActiveConvId(null);
                 navigate('/messages');
@@ -236,41 +209,37 @@ const Messages: React.FC = () => {
         }
     };
 
-    // --- DERIVED UI ---
-    const activeConv = conversations.find(c => c.conversationId === activeConvId) 
-        || (conversations.length > 0 ? null : null); // Placeholder logic
-
+    const activeConv = conversations.find(c => c.conversationId === activeConvId) || null;
     const filteredConversations = conversations.filter(c => 
         c.title.toLowerCase().includes(filter.toLowerCase())
     );
 
     return (
-        <div className="flex bg-surface rounded-lg shadow-md border border-border overflow-hidden h-full">
+        <div className="flex bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
             
             {/* --- SIDEBAR --- */}
             <div className={`
-                bg-surface border-r border-border flex-col 
+                bg-surface-container-low border-r border-outline/10 flex-col 
                 ${activeConvId ? 'hidden md:flex' : 'flex w-full'} 
                 md:w-80
             `}>
-                <div className="p-4 border-b border-border space-y-3">
+                <div className="p-4 border-b border-outline/10 space-y-4">
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
                             <MessageCircle className="w-5 h-5 text-primary" />
                             Messages
                         </h2>
-                        {/* Archive Toggle */}
-                        <div className="flex bg-background rounded-lg p-1 border border-border">
+                        <div className="flex bg-surface-container-high rounded-full p-1 border border-outline/10 shadow-sm">
                             <button 
                                 onClick={() => setViewMode('inbox')}
-                                className={`p-1.5 rounded transition-colors ${viewMode === 'inbox' ? 'bg-surface shadow text-primary' : 'text-text-tertiary hover:text-text-primary'}`}
+                                className={`p-1.5 rounded-full transition-colors ${viewMode === 'inbox' ? 'bg-primary-container text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
                                 title="Inbox"
                             >
                                 <Inbox size={16} />
                             </button>
                             <button 
                                 onClick={() => setViewMode('archived')}
-                                className={`p-1.5 rounded transition-colors ${viewMode === 'archived' ? 'bg-surface shadow text-primary' : 'text-text-tertiary hover:text-text-primary'}`}
+                                className={`p-1.5 rounded-full transition-colors ${viewMode === 'archived' ? 'bg-primary-container text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
                                 title="Archived"
                             >
                                 <Archive size={16} />
@@ -279,19 +248,18 @@ const Messages: React.FC = () => {
                     </div>
                     
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" size={16} />
                         <input 
                             type="text" 
-                            placeholder="Search conversations or people..." 
-                            className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-lg text-sm text-text-primary focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                            placeholder="Search..." 
+                            className="w-full pl-10 pr-4 py-2 bg-surface-container-highest border-none rounded-full text-sm text-text-primary focus:ring-2 focus:ring-primary/50 outline-none transition-shadow shadow-sm"
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
                         />
                     </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto">
-                    {/* 1. Existing Conversations */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
                     {filteredConversations.map(conv => {
                         const isActive = activeConvId === conv.conversationId;
                         const avatar = conv.participants[0]?.avatarUrl || 
@@ -302,33 +270,32 @@ const Messages: React.FC = () => {
                             <div 
                                 key={conv.conversationId}
                                 onClick={() => navigate(`/messages/${conv.conversationId}`)}
-                                className={`flex items-center gap-3 p-3 cursor-pointer border-l-4 transition-all ${
+                                className={`flex items-center gap-3 p-3 cursor-pointer rounded-xl transition-all ${
                                     isActive 
-                                        ? 'bg-primary/10 border-primary' 
-                                        : 'border-transparent hover:bg-background'
+                                        ? 'bg-primary-container text-on-primary-container' 
+                                        : 'hover:bg-surface-container-highest text-text-secondary'
                                 }`}
                             >
                                 <div className="relative">
-                                    <img src={avatar} className="w-10 h-10 rounded-full bg-background object-cover border border-border" />
+                                    <img src={avatar} className="w-10 h-10 rounded-full bg-surface-container-highest object-cover border border-outline/10" />
                                     {isGroup && (
-                                        <div className="absolute -bottom-1 -right-1 bg-surface rounded-full p-0.5 border border-border">
+                                        <div className="absolute -bottom-1 -right-1 bg-surface-container rounded-full p-0.5 border border-outline/10 shadow-sm">
                                             <Users size={12} className="text-text-secondary" />
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center">
-                                        <p className={`font-medium truncate text-sm ${isActive ? 'text-primary' : 'text-text-primary'}`}>
+                                        <p className={`font-bold truncate text-sm ${isActive ? 'text-primary' : 'text-text-primary'}`}>
                                             {conv.title}
                                         </p>
                                         {conv.unreadCount > 0 && (
-                                            <span className="bg-accent text-on-accent text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-sm">
+                                            <span className="bg-error-container text-error text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-sm">
                                                 {conv.unreadCount}
                                             </span>
                                         )}
                                     </div>
-                                    {/* FIX: Use formatMessagePreview to clean up the snippet */}
-                                    <p className={`text-xs truncate ${conv.unreadCount > 0 ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
+                                    <p className={`text-xs truncate ${conv.unreadCount > 0 ? 'text-text-primary font-bold' : 'opacity-80'}`}>
                                         {formatMessagePreview(conv.lastMessage)}
                                     </p>
                                 </div>
@@ -336,7 +303,6 @@ const Messages: React.FC = () => {
                         );
                     })}
 
-                    {/* 2. Global User Search Results */}
                     {filter.length > 1 && (
                         <UserSearchResults query={filter} navigate={navigate} />
                     )}
@@ -351,7 +317,7 @@ const Messages: React.FC = () => {
 
             {/* --- CHAT WINDOW --- */}
             <div className={`
-                flex-col bg-background relative 
+                flex-col bg-surface relative 
                 ${!activeConvId ? 'hidden md:flex' : 'flex w-full'} 
                 flex-1
             `}>
@@ -359,8 +325,7 @@ const Messages: React.FC = () => {
 
                 {activeConvId ? (
                     <>
-                        {/* Header */}
-                        <div className="p-4 border-b border-border flex items-center justify-between bg-surface shadow-sm z-10">
+                        <div className="p-4 border-b border-outline/10 flex items-center justify-between bg-surface-container-high shadow-sm z-10">
                             <div className="flex items-center gap-3">
                                 <button 
                                     onClick={() => navigate('/messages')} 
@@ -369,7 +334,6 @@ const Messages: React.FC = () => {
                                     <ArrowLeft size={20} />
                                 </button>
 
-                                {/* Title */}
                                 <div>
                                     <h3 className="font-bold text-text-primary text-lg leading-tight">
                                         {activeConv?.title || 'Loading...'}
@@ -382,17 +346,15 @@ const Messages: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Actions */}
                             <button 
                                 onClick={handleArchiveToggle}
-                                className="p-2 text-text-secondary hover:text-primary transition-colors rounded-lg hover:bg-background"
+                                className="p-2 text-text-secondary hover:text-primary transition-colors rounded-full hover:bg-surface-container-highest"
                                 title={activeConv?.isArchived ? "Unarchive" : "Archive"}
                             >
                                 {activeConv?.isArchived ? <Inbox size={20} /> : <Archive size={20} />}
                             </button>
                         </div>
 
-                        {/* Messages */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-4 z-0" ref={scrollRef}>
                             {messages.map(msg => {
                                 const isMe = msg.senderId === currentUser?.userId;
@@ -401,22 +363,19 @@ const Messages: React.FC = () => {
                                         {!isMe && (
                                             <img 
                                                 src={msg.senderAvatar || `https://www.gravatar.com/avatar/${createGravatarHash(msg.senderName)}?s=40&d=mp`}
-                                                className="w-8 h-8 rounded-full mr-2 self-end mb-1 border border-border"
+                                                className="w-8 h-8 rounded-full mr-2 self-end mb-1 border border-outline/10 shadow-sm"
                                                 title={msg.senderName}
                                             />
                                         )}
-                                        <div className={`max-w-[70%] p-3 rounded-lg shadow-sm text-sm ${
+                                        <div className={`max-w-[75%] px-4 py-3 rounded-2xl shadow-sm text-sm ${
                                             isMe 
-                                                ? 'bg-primary text-on-primary rounded-tr-none' 
-                                                : 'bg-surface border border-border text-text-primary rounded-tl-none'
+                                                ? 'bg-primary text-on-primary rounded-br-none' 
+                                                : 'bg-surface-container-highest text-text-primary rounded-bl-none'
                                         }`}>
-                                            {/* Show sender name in group chats if not me */}
                                             {!isMe && activeConv?.type === 'GROUP' && (
                                                 <p className="text-[10px] font-bold opacity-70 mb-1">{msg.senderName}</p>
                                             )}
-                                            
                                             <SmartMessage content={msg.content} />
-                                            
                                             <p className={`text-[10px] mt-1 text-right ${isMe ? 'opacity-70' : 'text-text-secondary'}`}>
                                                 {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                             </p>
@@ -426,8 +385,7 @@ const Messages: React.FC = () => {
                             })}
                         </div>
 
-                        {/* Input */}
-                        <form onSubmit={handlePreSendCheck} className="p-4 bg-surface border-t border-border z-10">
+                        <form onSubmit={handlePreSendCheck} className="p-4 bg-surface-container-high border-t border-outline/10 z-10">
                             <MentionInput 
                                 value={newMessage} 
                                 onChange={setNewMessage} 
@@ -437,7 +395,7 @@ const Messages: React.FC = () => {
                                     <button 
                                         type="submit" 
                                         disabled={!newMessage.trim()}
-                                        className="bg-primary text-on-primary p-2 rounded-lg hover:bg-primary-hover transition-colors h-10 w-10 flex items-center justify-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="bg-primary text-on-primary p-2 rounded-full hover:bg-primary-hover transition-colors h-10 w-10 flex items-center justify-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Send size={18} />
                                     </button>
@@ -447,7 +405,7 @@ const Messages: React.FC = () => {
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary opacity-40">
-                        <MessageCircle size={64} className="mb-4 bg-surface p-4 rounded-full border border-border" />
+                        <MessageCircle size={64} className="mb-4 bg-surface-container-highest p-6 rounded-full" />
                         <p className="text-lg font-medium">Select a conversation</p>
                     </div>
                 )}
@@ -455,11 +413,11 @@ const Messages: React.FC = () => {
 
             {/* --- PRIVACY WARNING MODAL --- */}
             {showPrivacyModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-surface rounded-xl shadow-2xl max-w-md w-full border border-border animate-in fade-in zoom-in duration-200">
-                        <div className="p-6">
-                            <div className="flex items-center gap-3 text-amber-600 mb-4">
-                                <div className="bg-amber-100 p-2 rounded-full">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-surface-container-high rounded-2xl shadow-2xl max-w-md w-full border border-outline/10 animate-in fade-in zoom-in duration-200">
+                        <div className="p-8">
+                            <div className="flex items-center gap-3 text-warning mb-4">
+                                <div className="bg-warning-container p-2 rounded-full">
                                     <AlertTriangle size={24} />
                                 </div>
                                 <h3 className="text-lg font-bold text-text-primary">Add Users to Chat?</h3>
@@ -468,20 +426,20 @@ const Messages: React.FC = () => {
                             <p className="text-text-secondary mb-4">
                                 You mentioned <strong>{pendingUsersToAdd.join(', ')}</strong>. 
                             </p>
-                            <p className="text-text-secondary mb-6 text-sm bg-background p-3 rounded-lg border border-border">
+                            <p className="text-text-secondary mb-6 text-sm bg-surface-container-low p-4 rounded-xl border border-outline/5">
                                 ⚠️ <strong>Note:</strong> By sending this message, they will be added to this conversation and will be able to see the <strong>entire chat history</strong>.
                             </p>
                             
                             <div className="flex gap-3 justify-end">
                                 <button 
                                     onClick={() => setShowPrivacyModal(false)}
-                                    className="px-4 py-2 text-sm font-medium text-text-secondary hover:bg-background rounded-lg transition-colors"
+                                    className="px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-container-highest rounded-full transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button 
                                     onClick={executeSend}
-                                    className="px-4 py-2 text-sm font-medium bg-primary text-on-primary rounded-lg hover:bg-primary-hover shadow-sm transition-colors"
+                                    className="px-6 py-2 text-sm font-bold bg-primary text-on-primary rounded-full hover:bg-primary-hover shadow-md transition-colors"
                                 >
                                     Confirm & Add
                                 </button>
@@ -494,7 +452,6 @@ const Messages: React.FC = () => {
     );
 };
 
-// --- HELPER COMPONENT: User Search Results ---
 const UserSearchResults = ({ query, navigate }: { query: string, navigate: any }) => {
     const [results, setResults] = useState<Participant[]>([]);
     
@@ -512,20 +469,19 @@ const UserSearchResults = ({ query, navigate }: { query: string, navigate: any }
     if (results.length === 0) return null;
 
     return (
-        <div className="mt-2 border-t border-border pt-2">
+        <div className="mt-2 border-t border-outline/10 pt-2 px-2">
             <p className="px-4 text-xs font-bold text-text-tertiary mb-1 uppercase tracking-wider">Start New Chat</p>
             {results.map(u => (
                 <div 
                     key={u.userId}
                     onClick={() => {
-                        // Start chat logic
                         axios.post(`/api/messages/start/${u.userId}`).then(res => {
                             navigate(`/messages/${res.data.conversationId}`);
                         });
                     }}
-                    className="flex items-center gap-3 p-3 cursor-pointer hover:bg-background border-l-4 border-transparent"
+                    className="flex items-center gap-3 p-3 cursor-pointer hover:bg-surface-container-highest rounded-xl transition-colors"
                 >
-                    <img src={u.avatarUrl || `https://www.gravatar.com/avatar/${createGravatarHash(u.email)}?s=40&d=mp`} className="w-8 h-8 rounded-full bg-background" />
+                    <img src={u.avatarUrl || `https://www.gravatar.com/avatar/${createGravatarHash(u.email)}?s=40&d=mp`} className="w-8 h-8 rounded-full bg-surface-container-highest" />
                     <div>
                         <p className="text-sm font-medium text-text-primary">{u.firstName} {u.lastName}</p>
                         <p className="text-xs text-text-secondary">{u.email}</p>

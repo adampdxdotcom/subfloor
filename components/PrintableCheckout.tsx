@@ -1,16 +1,17 @@
 import React from 'react';
-import { Customer, Project, Vendor } from '../types';
+import { useData } from '../context/DataContext';
+import { Customer, Project } from '../types';
 import { CheckoutItem } from './SampleSelector'; 
 
 interface PrintableCheckoutProps {
   customer: Customer | null;
   project: Project | null;
   checkoutItems: CheckoutItem[];
-  vendors: Vendor[]; 
   returnDate: string;
 }
 
 export const PrintableCheckout: React.FC<PrintableCheckoutProps> = ({ customer, project, checkoutItems, returnDate }) => {
+  const { systemBranding } = useData();
   
   if (!customer || !project) {
     return null;
@@ -21,7 +22,7 @@ export const PrintableCheckout: React.FC<PrintableCheckoutProps> = ({ customer, 
     <div id="printable-summary" className="p-10 bg-white text-black font-sans hidden print:block">
       <header className="flex justify-between items-start pb-4 border-b-2 border-gray-300">
         <div>
-          <h1 className="text-4xl font-bold text-gray-800">Subfloor</h1>
+          <h1 className="text-4xl font-bold text-gray-800">{systemBranding?.companyName || 'Subfloor'}</h1>
           <p className="text-gray-600">Sample Checkout Summary</p>
         </div>
         <div className="text-right text-sm">

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Project, Quote, Installer, QuoteStatus, Job, InstallationType, INSTALLATION_TYPES } from '../types';
-import { Edit, Check, X, History, FileText, Move, Save } from 'lucide-react';
+import { Edit, Check, X, History, FileText, Move, Save, Plus } from 'lucide-react';
 import ActivityHistory from './ActivityHistory';
 import ModalPortal from './ModalPortal'; 
 import { formatDate } from '../utils/dateUtils';
-import AddEditInstallerModal from './AddEditInstallerModal'; // Corrected Import
+import AddEditInstallerModal from './AddEditInstallerModal';
 
 interface QuotesSectionProps {
     project: Project;
@@ -24,7 +24,7 @@ interface QuotesSectionProps {
 
 const QuotesSection: React.FC<QuotesSectionProps> = ({ 
     project, projectQuotes, installers, addQuote, updateQuote, 
-    addInstaller, isModalOpen, onCloseModal, onOpenEditModal, 
+    isModalOpen, onCloseModal, onOpenEditModal, 
     editingQuoteForModal 
 }) => {
     const { acceptQuote, quotesHistory, fetchQuotesHistory, systemBranding } = useData();
@@ -42,37 +42,28 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     const [isInstallerModalOpen, setIsInstallerModalOpen] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     
-    // --- UPDATED FILTER LOGIC ---
     const installerSearchResults = useMemo(() => { 
         if (!installerSearchTerm) return []; 
-        
-        // Filter based on Installation Type
-        let allowedType = 'Managed'; // Default
+        let allowedType = 'Managed';
         if (newQuote.installationType === 'Unmanaged Installer') {
             allowedType = 'Unmanaged';
         }
-        
         return installers.filter(i => 
-            // Name matches search
             i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase()) && 
-            // Type matches selection (or fallback to allowing all if type is undefined/legacy)
             (i.type === allowedType || !i.type)
         ); 
     }, [installers, installerSearchTerm, newQuote.installationType]);
 
-    // Also clear selection if type changes
     useEffect(() => {
         if (selectedInstaller) {
             let requiredType = 'Managed';
             if (newQuote.installationType === 'Unmanaged Installer') requiredType = 'Unmanaged';
-            
-            // If current selection doesn't match new type, clear it
             if (selectedInstaller.type && selectedInstaller.type !== requiredType) {
                 setSelectedInstaller(null);
                 setInstallerSearchTerm('');
             }
         }
-    }, [newQuote.installationType]);
+    }, [newQuote.installationType, selectedInstaller]);
 
     const calculatedDeposit = useMemo(() => {
         const materials = parseFloat(newQuote.materialsAmount) || 0;
@@ -85,9 +76,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     }, [newQuote]);
 
     useEffect(() => {
-        if (project.id) {
-            fetchQuotesHistory(project.id);
-        }
+        if (project.id) fetchQuotesHistory(project.id);
     }, [project.id, fetchQuotesHistory]);
     
     useEffect(() => {
@@ -122,7 +111,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
         e.preventDefault();
         const requiresInstaller = newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer';
         if (requiresInstaller && !selectedInstaller) {
-            alert("Please select an installer for this installation type.");
+            toast.error("Please select an installer.");
             return;
         }
 
@@ -134,36 +123,26 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
             laborAmount: newQuote.installationType === 'Managed Installation' ? (parseFloat(newQuote.laborAmount) || 0) : null,
             laborDepositPercentage: newQuote.installationType === 'Managed Installation' ? (parseFloat(newQuote.laborDepositPercentage) || 50) : null,
             quoteDetails: newQuote.quoteDetails,
-            // Preserve existing PO if editing, otherwise null for new
             poNumber: editingQuote ? editingQuote.poNumber : null,
             status: editingQuote ? editingQuote.status : QuoteStatus.SENT
         };
 
-        if (editingQuote) {
-            await updateQuote({ ...quoteData, id: editingQuote.id });
-        } else {
-            await addQuote(quoteData);
-        }
+        if (editingQuote) await updateQuote({ ...quoteData, id: editingQuote.id });
+        else await addQuote(quoteData);
         onCloseModal();
     };
     
     const handleSelectInstaller = (installer: Installer) => { setSelectedInstaller(installer); setInstallerSearchTerm(installer.installerName); };
-    
     const handleShowAddNewInstaller = () => { setIsInstallerModalOpen(true); };
     
     const handleQuoteStatusChange = async (e: React.MouseEvent, quote: Quote, status: QuoteStatus) => { 
         e.preventDefault(); 
         e.stopPropagation(); 
-        
-        if (status === QuoteStatus.ACCEPTED) { 
-            await acceptQuote({ id: quote.id, status: status }); 
-        } else {
-            await updateQuote({ id: quote.id, status: status }); 
-        } 
+        if (status === QuoteStatus.ACCEPTED) await acceptQuote({ id: quote.id, status: status }); 
+        else await updateQuote({ id: quote.id, status: status }); 
     };
 
     const handlePoUpdate = async (quoteId: number, poNumber: string) => {
-        // Only update if the value actually changed to prevent API spam
         const quote = projectQuotes.find(q => q.id === quoteId);
         if (quote && quote.poNumber !== poNumber) {
             await updateQuote({ id: quoteId, poNumber });
@@ -171,23 +150,23 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     };
 
     return (
-        <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
-            <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
+        <div className="flex flex-col h-full">
+            <div className="p-4 border-b border-outline/10 flex justify-between items-center flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <Move className="drag-handle cursor-move text-text-secondary hover:text-text-primary transition-colors" size={20} />
-                    <FileText className="w-6 h-6 text-accent" />
+                    <FileText className="w-6 h-6 text-primary" />
                     <h3 className="text-xl font-semibold text-text-primary">Quotes</h3>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => { setEditingQuote(null); onOpenEditModal(null as any); }}
-                        className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-1 px-3 text-sm rounded-lg"
+                        className="bg-primary hover:bg-primary-hover text-on-primary font-semibold py-1 px-4 text-sm rounded-full flex items-center gap-1 transition-all shadow-sm"
                     >
-                        Add Quote
+                        <Plus size={16}/> Add
                     </button>
                     <button
                         onClick={() => setShowHistory(!showHistory)}
-                        className="ml-2 p-2 text-text-secondary hover:text-text-primary"
+                        className={`p-2 rounded-full transition-colors ${showHistory ? 'bg-primary-container text-primary font-bold' : 'text-text-secondary hover:text-text-primary hover:bg-surface-container-highest'}`}
                         title="Toggle Quote History"
                     >
                         <History size={18} />
@@ -195,7 +174,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                 </div>
             </div>
 
-            <div className="p-4 overflow-y-auto flex-grow">
+            <div className="p-4 overflow-y-auto flex-grow scrollbar-thin scrollbar-thumb-surface-container-highest">
                 {showHistory ? (
                     <ActivityHistory history={quotesHistory} />
                 ) : (
@@ -204,36 +183,36 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                             const installer = installers.find(i => i.id === quote.installerId);
                             const totalAmount = (Number(quote.materialsAmount) || 0) + (Number(quote.laborAmount) || 0);
                             return (
-                                <div key={quote.id} className={`block bg-background p-3 rounded-md border-l-4 hover:bg-surface transition-colors ${quote.status === QuoteStatus.ACCEPTED ? 'border-green-500' : quote.status === QuoteStatus.REJECTED ? 'border-red-500' : 'border-blue-500'}`}>
+                                <div key={quote.id} className={`block bg-surface-container p-3 rounded-xl border-l-4 hover:bg-surface-container-high transition-colors ${quote.status === QuoteStatus.ACCEPTED ? 'border-tertiary' : quote.status === QuoteStatus.REJECTED ? 'border-error' : 'border-secondary'}`}>
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="font-bold text-lg text-text-primary">${totalAmount.toFixed(2)}</p>
-                                            <p className="text-sm text-text-secondary">{installer?.installerName || quote.installationType}</p>
-                                            <p className="text-xs text-text-secondary mt-2">Materials: ${Number(quote.materialsAmount || 0).toFixed(2)}, Labor: ${Number(quote.laborAmount || 0).toFixed(2)}</p>
-                                            <span className="text-xs font-semibold bg-surface text-text-secondary px-2 py-1 rounded-full mt-2 inline-block">{quote.installationType}</span>
+                                            <p className="font-bold text-lg text-text-primary">${totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                            <p className="text-sm text-text-secondary font-medium">{installer?.installerName || quote.installationType}</p>
+                                            <p className="text-xs text-text-secondary mt-2 opacity-80">M: ${Number(quote.materialsAmount || 0).toLocaleString()}, L: ${Number(quote.laborAmount || 0).toLocaleString()}</p>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider bg-surface-container-highest text-text-secondary px-2 py-1 rounded-full mt-2 inline-block border border-outline/5">{quote.installationType}</span>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-semibold text-sm text-text-primary">{quote.status}</p>
-                                            <p className="text-xs text-text-secondary mt-1">{formatDate(quote.dateSent, systemBranding?.systemTimezone)}</p>
+                                            <p className="font-bold text-xs uppercase tracking-widest text-text-primary">{quote.status}</p>
+                                            <p className="text-[10px] text-text-tertiary mt-1">{formatDate(quote.dateSent, systemBranding?.systemTimezone)}</p>
                                             {quote.status === QuoteStatus.SENT && (
-                                                <div className="flex space-x-2 mt-2 items-center">
-                                                    <button onClick={() => onOpenEditModal(quote)} className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface rounded-full" title="Edit Quote"><Edit className="w-4 h-4" /></button>
-                                                    <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.ACCEPTED)} className="p-2 bg-green-600 rounded-full hover:bg-green-700" title="Accept Quote"><Check className="w-4 h-4 text-white" /></button>
-                                                    <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.REJECTED)} className="p-2 bg-red-600 rounded-full hover:bg-red-700" title="Reject Quote"><X className="w-4 h-4 text-white" /></button>
+                                                <div className="flex space-x-2 mt-3 items-center">
+                                                    <button onClick={() => onOpenEditModal(quote)} className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface-container-highest rounded-full transition-colors" title="Edit Quote"><Edit className="w-4 h-4" /></button>
+                                                    <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.ACCEPTED)} className="p-2 bg-tertiary text-on-tertiary rounded-full hover:bg-tertiary-hover shadow-sm transition-colors" title="Accept Quote"><Check className="w-4 h-4" /></button>
+                                                    <button onClick={(e) => handleQuoteStatusChange(e, quote, QuoteStatus.REJECTED)} className="p-2 bg-error text-on-error rounded-full hover:bg-error-hover shadow-sm transition-colors" title="Reject Quote"><X className="w-4 h-4" /></button>
                                                 </div>
                                             )}
                                             {quote.status === QuoteStatus.ACCEPTED && (
-                                                <div className="mt-2 flex items-center gap-1">
+                                                <div className="mt-3 flex items-center">
                                                     <input 
                                                         type="text" 
                                                         placeholder="Add PO #" 
                                                         defaultValue={quote.poNumber || ''}
                                                         onKeyDown={(e) => { if(e.key === 'Enter') handlePoUpdate(quote.id, e.currentTarget.value); }}
-                                                        className="text-xs w-24 p-1 bg-surface border border-border rounded text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                                                        className="text-xs w-24 p-1.5 bg-surface-container-low border border-outline/50 rounded-lg text-text-primary focus:ring-2 focus:ring-primary/50 outline-none"
                                                         id={`po-input-${quote.id}`}
                                                     />
-                                                    <button onClick={() => { const val = (document.getElementById(`po-input-${quote.id}`) as HTMLInputElement).value; handlePoUpdate(quote.id, val); }} className="p-1 bg-primary text-on-primary rounded hover:bg-primary-hover" title="Save PO">
-                                                        <Save className="w-3 h-3" />
+                                                    <button onClick={() => { const val = (document.getElementById(`po-input-${quote.id}`) as HTMLInputElement).value; handlePoUpdate(quote.id, val); }} className="p-1.5 bg-primary text-on-primary rounded-lg hover:bg-primary-hover ml-1 shadow-sm transition-colors" title="Save PO">
+                                                        <Save className="w-3.5 h-3.5" />
                                                     </button>
                                                 </div>
                                             )}
@@ -242,79 +221,84 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                                 </div>
                             );
                         })}
-                        {projectQuotes.length === 0 && <p className="text-text-secondary text-center py-4">No quotes created yet.</p>}
+                        {projectQuotes.length === 0 && <p className="text-text-tertiary text-center py-8 italic text-sm">No quotes created yet.</p>}
                     </div>
                 )}
             </div>
             
             {isModalOpen && (
                 <ModalPortal>
-                    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-                        <div className="bg-surface p-8 rounded-lg w-full max-w-lg border border-border">
-                            <h3 className="text-xl font-bold mb-4 text-text-primary">{editingQuote ? 'Edit Quote' : 'Add New Quote'}</h3>
+                    <div className="fixed inset-0 bg-scrim/60 flex items-center justify-center z-50 p-4">
+                        <div className="bg-surface-container-high p-6 rounded-2xl w-full max-w-2xl border border-outline/20 shadow-2xl">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-2xl font-bold text-text-primary">{editingQuote ? 'Edit Quote' : 'Add New Quote'}</h3>
+                                <button onClick={onCloseModal} className="text-text-secondary hover:text-text-primary p-2 rounded-full hover:bg-surface-container-highest transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
                             
                                 <form onSubmit={handleSaveQuote}>
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-text-secondary mb-2">Installation Type</label>
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-semibold text-text-secondary mb-3">Installation Type</label>
                                         <div className="flex flex-wrap gap-x-4 gap-y-2">
                                             {INSTALLATION_TYPES.map(type => (
-                                                <label key={type} className="flex items-center space-x-2 cursor-pointer">
+                                                <label key={type} className="flex items-center space-x-2 cursor-pointer group">
                                                     <input
                                                         type="radio" name="installationType" value={type}
                                                         checked={newQuote.installationType === type}
                                                         onChange={e => setNewQuote({ ...newQuote, installationType: e.target.value as InstallationType })}
-                                                        className="form-radio h-4 w-4 text-primary bg-background border-border focus:ring-primary"
+                                                        className="form-radio h-5 w-5 text-primary bg-surface-container border-outline/50 focus:ring-primary"
                                                     />
-                                                    <span className="text-text-primary">{type}</span>
+                                                    <span className="text-text-primary group-hover:text-primary transition-colors">{type}</span>
                                                 </label>
                                             ))}
                                         </div>
                                     </div>
                                     {(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && (
-                                        <div className="relative mb-4">
-                                            <label className="block text-sm font-medium text-text-secondary mb-1">Installer</label>
-                                            <input type="text" placeholder="Search for an installer..." value={installerSearchTerm} onChange={e => { setInstallerSearchTerm(e.target.value); setSelectedInstaller(null); }} className="w-full p-2 bg-background border-border rounded text-text-primary" />
+                                        <div className="relative mb-6">
+                                            <label className="block text-sm font-semibold text-text-secondary mb-1.5 ml-1">Installer</label>
+                                            <input type="text" placeholder="Search for an installer..." value={installerSearchTerm} onChange={e => { setInstallerSearchTerm(e.target.value); setSelectedInstaller(null); }} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" />
                                             {installerSearchTerm && !selectedInstaller && (
-                                                <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto">
+                                                <div className="absolute z-10 w-full bg-surface-container-high border border-outline/20 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-xl">
                                                     {installerSearchResults.map(inst => (
-                                                        <div key={inst.id} onClick={() => handleSelectInstaller(inst)} className="p-2 hover:bg-background cursor-pointer text-text-primary">{inst.installerName}</div>
+                                                        <div key={inst.id} onClick={() => handleSelectInstaller(inst)} className="px-4 py-2.5 hover:bg-primary-container/30 cursor-pointer text-text-primary transition-colors">{inst.installerName}</div>
                                                     ))}
                                                     {installerSearchResults.length === 0 && (
-                                                        <div className="p-2 text-center text-text-secondary">No results. <button type="button" onClick={handleShowAddNewInstaller} className="ml-2 text-accent font-semibold hover:underline">Add it?</button></div>
+                                                        <div className="p-4 text-center text-text-secondary text-sm">No results. <button type="button" onClick={handleShowAddNewInstaller} className="ml-2 text-primary font-bold hover:underline">Add New</button></div>
                                                     )}
                                                 </div>
                                             )}
                                         </div>
                                     )}
-                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                         <div>
-                                            <label className="block text-sm font-medium text-text-secondary mb-1">Materials Cost</label>
-                                            <input type="number" step="0.01" placeholder="0.00" value={newQuote.materialsAmount} onChange={e => setNewQuote({ ...newQuote, materialsAmount: e.target.value })} className="w-full p-2 bg-background border-border rounded text-text-primary" required />
+                                            <label className="block text-sm font-semibold text-text-secondary mb-1.5 ml-1">Materials Cost</label>
+                                            <input type="number" step="0.01" placeholder="0.00" value={newQuote.materialsAmount} onChange={e => setNewQuote({ ...newQuote, materialsAmount: e.target.value })} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary focus:ring-2 focus:ring-primary/50 outline-none" required />
                                         </div>
                                         {newQuote.installationType === 'Managed Installation' && (
                                             <div>
-                                                <label className="block text-sm font-medium text-text-secondary mb-1">Labor Cost</label>
-                                                <input type="number" step="0.01" placeholder="0.00" value={newQuote.laborAmount} onChange={e => setNewQuote({ ...newQuote, laborAmount: e.target.value })} className="w-full p-2 bg-background border-border rounded text-text-primary" required />
+                                                <label className="block text-sm font-semibold text-text-secondary mb-1.5 ml-1">Labor Cost</label>
+                                                <input type="number" step="0.01" placeholder="0.00" value={newQuote.laborAmount} onChange={e => setNewQuote({ ...newQuote, laborAmount: e.target.value })} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary focus:ring-2 focus:ring-primary/50 outline-none" required />
                                             </div>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4 mb-4 items-center">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 items-center">
                                         {newQuote.installationType === 'Managed Installation' && (
                                             <div className="relative">
-                                                <label className="block text-sm font-medium text-text-secondary mb-1">Installer Deposit %</label>
-                                                <input type="number" value={newQuote.laborDepositPercentage} onChange={e => setNewQuote({ ...newQuote, laborDepositPercentage: e.target.value })} className="w-full p-2 bg-background border-border rounded text-text-primary" />
-                                                <span className="absolute right-3 top-1/2 mt-3 -translate-y-1/2 text-text-secondary">%</span>
+                                                <label className="block text-sm font-semibold text-text-secondary mb-1.5 ml-1">Installer Deposit %</label>
+                                                <input type="number" value={newQuote.laborDepositPercentage} onChange={e => setNewQuote({ ...newQuote, laborDepositPercentage: e.target.value })} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary focus:ring-2 focus:ring-primary/50 outline-none" />
+                                                <span className="absolute right-4 top-1/2 mt-3 -translate-y-1/2 text-text-tertiary font-bold">%</span>
                                             </div>
                                         )}
-                                        <div className="bg-background p-2 rounded text-center self-end">
-                                            <span className="text-sm text-text-secondary">Required Deposit: </span>
-                                            <span className="font-bold text-text-primary">${calculatedDeposit.toFixed(2)}</span>
+                                        <div className="bg-surface-container p-4 rounded-xl text-center self-end border border-outline/20 shadow-inner">
+                                            <span className="text-xs text-text-secondary uppercase font-bold tracking-wider block mb-1">Required Deposit</span>
+                                            <span className="text-2xl font-bold text-text-primary">${calculatedDeposit.toFixed(2)}</span>
                                         </div>
                                     </div>
-                                    <textarea placeholder="Quote details..." value={newQuote.quoteDetails} onChange={e => setNewQuote({ ...newQuote, quoteDetails: e.target.value })} className="w-full p-2 mb-4 bg-background border-border rounded text-text-primary" rows={3}></textarea>
-                                    <div className="flex justify-end space-x-2">
-                                        <button type="button" onClick={onCloseModal} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button>
-                                        <button type="submit" disabled={(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && !selectedInstaller} className="py-2 px-4 bg-primary hover:bg-primary-hover text-on-primary rounded disabled:opacity-50 disabled:cursor-not-allowed">{editingQuote ? 'Save Changes' : 'Add Quote'}</button>
+                                    <textarea placeholder="Scope of work and specific terms..." value={newQuote.quoteDetails} onChange={e => setNewQuote({ ...newQuote, quoteDetails: e.target.value })} className="w-full bg-surface-container border border-outline/50 rounded-xl px-4 py-3 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none transition-all" rows={4}></textarea>
+                                    <div className="flex justify-end gap-3 mt-8">
+                                        <button type="button" onClick={onCloseModal} className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors font-medium">Cancel</button>
+                                        <button type="submit" disabled={(newQuote.installationType === 'Managed Installation' || newQuote.installationType === 'Unmanaged Installer') && !selectedInstaller} className="py-3 px-8 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-bold shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">{editingQuote ? 'Save Changes' : 'Add Quote'}</button>
                                     </div>
                                 </form>
                         </div>
@@ -327,12 +311,9 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                         isOpen={isInstallerModalOpen} 
                         onClose={() => {
                             setIsInstallerModalOpen(false);
-                            // After closing, clear the search term so the new installer appears 
-                            // in the main installer list/search results if they reopen the search.
                             setInstallerSearchTerm(''); 
                         }} 
                         installer={null} 
-                        // --- UPDATED: Pass the correct type based on what they were trying to quote ---
                         initialData={{ 
                             installerName: installerSearchTerm,
                             type: newQuote.installationType === 'Unmanaged Installer' ? 'Unmanaged' : 'Managed'

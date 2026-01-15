@@ -135,16 +135,16 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
     };
 
     return (
-        <div className="bg-surface rounded-lg shadow-md flex flex-col h-full">
-             <div className="p-4 border-b border-border flex justify-between items-center flex-shrink-0">
+        <div className="flex flex-col h-full">
+             <div className="p-4 border-b border-outline/10 flex justify-between items-center flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <Move className="drag-handle cursor-move text-text-secondary hover:text-text-primary transition-colors" size={20} />
-                    <Layers className="w-6 h-6 text-accent" />
+                    <Layers className="w-6 h-6 text-primary" />
                     <h3 className="text-xl font-semibold text-text-primary">Sample Checkouts</h3>
                 </div>
                 <button 
                   onClick={handleOpenModal} 
-                  className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-1 px-3 text-sm rounded-lg flex items-center gap-1"
+                  className="bg-primary hover:bg-primary-hover text-on-primary font-semibold py-1 px-4 text-sm rounded-full flex items-center gap-1"
                 >
                     <PlusCircle size={16} /> Check Out
                 </button>
@@ -157,7 +157,7 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                         return ( 
                             <div 
                                 key={checkout.id} 
-                                className={`bg-background p-3 rounded-md flex justify-between items-center border-l-4 ${checkout.isSelected ? 'border-green-500 bg-green-50/10' : 'border-transparent'}`}
+                                className={`bg-surface-container p-3 rounded-xl flex justify-between items-center border-l-4 ${checkout.isSelected ? 'border-tertiary bg-tertiary-container/20' : 'border-transparent'}`}
                             > 
                                 <div>
                                     <p className="font-semibold text-text-primary">{displayName}</p>
@@ -166,10 +166,10 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                                     <div className="mt-2 flex gap-2">
                                         <button 
                                             onClick={() => handleToggleSelect(checkout)}
-                                            className={`text-xs flex items-center gap-1 px-2 py-1 rounded border transition-colors ${
+                                            className={`text-xs flex items-center gap-1 px-2 py-1 rounded-full border transition-colors ${
                                                 checkout.isSelected 
-                                                    ? 'bg-green-100 text-green-700 border-green-300' 
-                                                    : 'bg-surface text-text-secondary border-border hover:bg-gray-100'
+                                                    ? 'bg-tertiary-container text-on-tertiary-container border-tertiary-container/50' 
+                                                    : 'bg-surface-container-high text-text-secondary border-outline/20 hover:bg-surface-container-highest'
                                             }`}
                                         >
                                             <ThumbsUp size={12} />
@@ -179,7 +179,7 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                                         {checkout.isSelected && (
                                             <button 
                                                 onClick={() => handleOrderMaterial(checkout)}
-                                                className="text-xs flex items-center gap-1 px-2 py-1 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                                                className="text-xs flex items-center gap-1 px-2 py-1 rounded-full border border-secondary-container/50 bg-secondary-container text-on-secondary-container hover:brightness-105 transition-all"
                                             >
                                                 <ShoppingCart size={12} /> Order
                                             </button>
@@ -188,47 +188,47 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                                 </div> 
                                 {checkout.actualReturnDate ? ( 
                                     <div className="text-right">
-                                        <span className="text-sm text-green-400 flex items-center justify-end"><Check className="w-4 h-4 mr-1"/> Returned</span>
+                                        <span className="text-sm text-tertiary flex items-center justify-end"><Check className="w-4 h-4 mr-1"/> Returned</span>
                                         <span className="text-xs text-text-secondary">{new Date(checkout.actualReturnDate).toLocaleDateString()}</span>
                                     </div>
                                 ) : ( 
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => handleExtend(checkout)} className="text-sm bg-primary hover:bg-primary-hover text-on-primary py-1 px-3 rounded flex items-center gap-1"><Clock size={14} /> Extend</button>
-                                        <button onClick={() => handleReturn(checkout)} className="text-sm bg-accent hover:bg-accent-hover text-on-accent py-1 px-3 rounded">Return</button> 
+                                        <button onClick={() => handleExtend(checkout)} className="text-sm bg-primary hover:bg-primary-hover text-on-primary py-1 px-3 rounded-full flex items-center gap-1"><Clock size={14} /> Extend</button>
+                                        <button onClick={() => handleReturn(checkout)} className="text-sm border border-outline text-text-primary hover:bg-surface-container-highest py-1 px-3 rounded-full">Return</button> 
                                     </div>
                                 )} 
                             </div> 
                         ); 
                     })} 
-                    {projectCheckouts.length === 0 && <p className="text-text-secondary text-center py-4">No samples checked out for this project.</p>} 
+                    {projectCheckouts.length === 0 && <p className="text-text-tertiary text-center py-8 italic text-sm">No samples checked out for this project.</p>} 
                 </div>
             </div>
 
             {isModalOpen && (
                 <ModalPortal>
-                    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"> 
-                        <div className="bg-surface p-8 rounded-lg w-full max-w-2xl border border-border flex flex-col max-h-[90vh]">
+                    <div className="fixed inset-0 bg-scrim/60 flex items-center justify-center z-50 p-4"> 
+                        <div className="bg-surface-container-high p-6 rounded-2xl w-full max-w-3xl border border-outline/20 flex flex-col max-h-[90vh]">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-bold text-text-primary">Check Out Sample</h3> 
-                                <button onClick={handleCloseMainModal} className="text-text-secondary hover:text-text-primary"><X size={24} /></button>
+                                <h3 className="text-2xl font-bold text-text-primary">Check Out Sample</h3> 
+                                <button onClick={handleCloseMainModal} className="text-text-secondary hover:text-text-primary p-2 rounded-full hover:bg-surface-container-highest"><X size={20} /></button>
                             </div>
                             
                             <form onSubmit={handleCheckoutSubmit} className="flex-1 flex flex-col min-h-0"> 
                                 <div className="space-y-4 flex-1 overflow-y-auto pr-2">
                                     <div> 
                                         <label className="text-sm font-medium text-text-secondary block mb-2">1. Expected Return Date</label> 
-                                        <input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" required/> 
+                                        <input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" required/> 
                                     </div> 
 
                                     <div> 
-                                        <label className="text-sm font-medium text-text-secondary block mb-2">2. Search or Scan Samples</label> 
+                                        <label className="text-sm font-medium text-text-secondary block mb-2">2. Add Samples</label> 
                                         <SampleSelector onItemsChange={handleItemsChange} />
                                     </div> 
                                 </div>
                                 
-                                <div className="flex justify-end space-x-2 pt-6 border-t border-border mt-4"> 
-                                    <button type="button" onClick={handleCloseMainModal} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button> 
-                                    <button type="submit" disabled={checkoutItems.length === 0 || !returnDate} className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary disabled:opacity-50 disabled:cursor-not-allowed">
+                                <div className="flex justify-end gap-3 pt-6 border-t border-outline/10 mt-4"> 
+                                    <button type="button" onClick={handleCloseMainModal} className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors">Cancel</button> 
+                                    <button type="submit" disabled={checkoutItems.length === 0 || !returnDate} className="py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                         Check Out ({checkoutItems.length})
                                     </button> 
                                 </div> 
@@ -244,7 +244,7 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                         isOpen={isOrderModalOpen} 
                         onClose={() => setIsOrderModalOpen(false)}
                         initialProjectId={project.id}
-                        prefillData={prefillOrderData}
+                        prefillOrderData={prefillOrderData}
                     />
                 </ModalPortal>
             )}

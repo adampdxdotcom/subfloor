@@ -53,29 +53,29 @@ const CombinedRestoreForm: React.FC = () => {
     };
 
     return (
-        <form onSubmit={handleRestore} className="bg-background rounded-lg border border-border p-6">
+        <form onSubmit={handleRestore} className="bg-surface-container rounded-xl border border-outline/10 p-6">
             <h3 className="text-lg font-bold text-text-primary mb-2 text-center">Full System Restore</h3>
             <p className="text-text-secondary text-sm text-center mb-6">Upload both files to restore the entire application state in one go.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div>
-                    <label className="block text-xs font-bold text-text-secondary uppercase mb-2 flex items-center gap-2">
-                        <Database size={14} /> Database File
+                    <label className="block text-sm font-semibold text-text-secondary mb-2 flex items-center gap-2">
+                        <Database size={16} /> Database File
                     </label>
                     <input 
                         type="file" accept=".zip" 
                         onChange={e => e.target.files && setDbFile(e.target.files[0])}
-                        className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-surface file:text-text-primary hover:file:bg-primary hover:file:text-on-primary transition-colors"
+                        className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-full file:border file:border-outline file:bg-surface-container-high file:text-text-primary hover:file:bg-primary-container/30 transition-colors cursor-pointer"
                     />
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-text-secondary uppercase mb-2 flex items-center gap-2">
-                        <ImageIcon size={14} /> Images File
+                    <label className="block text-sm font-semibold text-text-secondary mb-2 flex items-center gap-2">
+                        <ImageIcon size={16} /> Images File
                     </label>
                     <input 
                         type="file" accept=".zip" 
                         onChange={e => e.target.files && setImgFile(e.target.files[0])}
-                        className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-surface file:text-text-primary hover:file:bg-primary hover:file:text-on-primary transition-colors"
+                        className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-full file:border file:border-outline file:bg-surface-container-high file:text-text-primary hover:file:bg-primary-container/30 transition-colors cursor-pointer"
                     />
                 </div>
             </div>
@@ -83,7 +83,7 @@ const CombinedRestoreForm: React.FC = () => {
             <button
                 type="submit"
                 disabled={!dbFile || !imgFile || isRestoring}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                className="w-full bg-error hover:bg-error-hover text-on-error font-bold py-3 px-6 rounded-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
                 <RotateCcw size={18} />
                 {isRestoring ? 'Restoring System...' : 'Restore Everything'}

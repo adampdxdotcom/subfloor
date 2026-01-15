@@ -143,35 +143,35 @@ const MySettingsSection: React.FC = () => {
     };
 
     return (
-        <section className="bg-surface p-6 rounded-lg shadow-md border border-border">
-            <h2 className="text-2xl font-semibold text-text-primary mb-4">
+        <section>
+            <h2 className="text-2xl font-bold text-text-primary mb-6">
                 My Settings
             </h2>
             <div className="space-y-6 max-w-md">
                 {/* AVATAR UPLOAD SECTION */}
                 <div className="flex flex-col items-center mb-6">
-                    <div className="relative w-24 h-24 mb-2">
+                    <div className="relative w-28 h-28 mb-4">
                         {currentUser?.avatarUrl ? (
                             <img 
                                 src={currentUser.avatarUrl} 
                                 alt="Profile" 
-                                className="w-full h-full rounded-full object-cover border-2 border-border"
+                                className="w-full h-full rounded-full object-cover border-4 border-surface shadow-md"
                             />
                         ) : (
-                            <div className="w-full h-full rounded-full bg-surface flex items-center justify-center border-2 border-border text-2xl font-bold text-text-secondary">
+                            <div className="w-full h-full rounded-full bg-surface-container-highest flex items-center justify-center border-4 border-surface shadow-md text-3xl font-bold text-primary">
                                 {firstName ? `${firstName[0]}${lastName[0] || ''}`.toUpperCase() : currentUser?.email[0].toUpperCase()}
                             </div>
                         )}
                         
                         {/* DELETE BUTTON - Only show if avatarUrl exists */}
                         {currentUser?.avatarUrl && (
-                            <button onClick={handleAvatarDelete} className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full shadow-lg transition-colors z-10" title="Remove Picture">
+                            <button onClick={handleAvatarDelete} className="absolute top-0 right-0 bg-error-container text-error p-1.5 rounded-full shadow-sm hover:bg-error hover:text-white transition-colors z-10 border-2 border-surface" title="Remove Picture">
                                 <Trash2 size={12} />
                             </button>
                         )}
 
-                        <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-primary hover:bg-primary-hover text-white p-2 rounded-full cursor-pointer shadow-lg transition-colors">
-                            <Camera size={16} />
+                        <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-primary hover:bg-primary-hover text-on-primary p-2.5 rounded-full cursor-pointer shadow-lg transition-colors border-2 border-surface">
+                            <Camera size={18} />
                         </label>
                         <input 
                             id="avatar-upload" 
@@ -181,46 +181,46 @@ const MySettingsSection: React.FC = () => {
                             onChange={handleFileChange} 
                         />
                     </div>
-                    <p className="text-xs text-text-secondary">Click camera icon to change</p>
+                    <p className="text-xs text-text-secondary font-medium">Click camera icon to change</p>
                 </div>
 
-                <div className="space-y-4">
-                    <h3 className="text-lg font-medium text-text-primary border-b border-gray-700 pb-2">Profile Information</h3>
+                <div className="space-y-5">
+                    <h3 className="text-lg font-bold text-text-primary border-b border-outline/10 pb-2">Profile Information</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">First Name</label>
-                            <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />
+                            <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-colors" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Last Name</label>
-                            <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />
+                            <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-colors" />
                         </div>
                     </div>
-                    <button onClick={handleProfileSave} className="flex items-center gap-2 py-2 px-4 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded"><Save size={16}/> Update Profile</button>
+                    <button onClick={handleProfileSave} className="flex items-center gap-2 py-2 px-6 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded-full font-semibold shadow-sm transition-all hover:shadow-md"><Save size={16}/> Update Profile</button>
                 </div>
                 
-                <h3 className="text-lg font-medium text-text-primary border-b border-gray-700 pb-2 pt-4">Security</h3>
-                <div className="space-y-4">
+                <h3 className="text-lg font-bold text-text-primary border-b border-outline/10 pb-2 pt-6">Security</h3>
+                <div className="space-y-5">
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">Current Password</label>
-                        <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" placeholder="Required to verify identity" />
+                        <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-colors" placeholder="Required to verify identity" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">New Password</label>
-                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" placeholder="Minimum 8 characters" />
+                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-colors" placeholder="Minimum 8 characters" />
                     </div>
                     <div className="flex justify-end">
-                         <button onClick={handlePasswordChange} className="py-2 px-4 text-sm bg-red-600 text-white rounded hover:bg-red-700">Change Password</button>
+                         <button onClick={handlePasswordChange} className="py-2 px-6 text-sm bg-surface-container-high border border-outline/20 text-text-primary hover:bg-surface-container-highest rounded-full font-medium transition-colors">Change Password</button>
                     </div>
                 </div>
 
                 {/* BIOMETRIC SETTINGS (MOBILE ONLY) */}
                 {Capacitor.isNativePlatform() && (
                     <>
-                        <h3 className="text-lg font-medium text-text-primary border-b border-gray-700 pb-2 pt-4">App Security</h3>
-                        <div className="flex items-center justify-between p-4 bg-background rounded-md border border-border">
+                        <h3 className="text-lg font-bold text-text-primary border-b border-outline/10 pb-2 pt-6">App Security</h3>
+                        <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-outline/10">
                             <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${isBioEnabled ? 'bg-green-900/30 text-green-500' : 'bg-surface text-text-secondary'}`}>
+                                <div className={`p-2 rounded-full ${isBioEnabled ? 'bg-success-container text-success' : 'bg-surface-container-highest text-text-secondary'}`}>
                                     <Fingerprint size={24} />
                                 </div>
                                 <div>
@@ -231,7 +231,7 @@ const MySettingsSection: React.FC = () => {
                             <button
                                 onClick={toggleBiometrics}
                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                                    isBioEnabled ? 'bg-green-600' : 'bg-gray-700'
+                                    isBioEnabled ? 'bg-primary' : 'bg-surface-container-highest'
                                 }`}
                             >
                                 <span
@@ -244,24 +244,30 @@ const MySettingsSection: React.FC = () => {
                     </>
                 )}
 
-                <h3 className="text-lg font-medium text-text-primary border-b border-gray-700 pb-2 pt-4">Preferences</h3>
-                <div className="flex items-center gap-4 p-4 bg-background rounded-md border border-border">
-                    <Palette className="w-6 h-6 text-accent" />
-                    <label htmlFor="userColor" className="font-medium text-text-secondary">
-                        My Calendar Color
-                    </label>
-                    <input type="color" id="userColor" value={color} onChange={handleColorChange} className="ml-auto w-24 h-10 p-1 bg-surface border border-border rounded-md cursor-pointer"/>
+                <h3 className="text-lg font-bold text-text-primary border-b border-outline/10 pb-2 pt-6">Preferences</h3>
+                <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl border border-outline/10">
+                    <div className="flex items-center gap-3">
+                        <Palette className="w-6 h-6 text-accent" />
+                        <label htmlFor="userColor" className="font-medium text-text-secondary">
+                            My Calendar Color
+                        </label>
+                    </div>
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-surface shadow-sm ring-1 ring-outline/10 hover:ring-primary transition-all">
+                        <input type="color" id="userColor" value={color} onChange={handleColorChange} className="absolute -top-4 -left-4 w-20 h-20 p-0 border-0 cursor-pointer"/>
+                    </div>
                 </div>
                 <div className="flex justify-end">
-                    <button onClick={handleColorSave} className="flex items-center gap-2 py-2 px-4 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded">
+                    <button onClick={handleColorSave} className="flex items-center gap-2 py-2 px-6 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded-full font-semibold shadow-sm transition-all hover:shadow-md">
                         <Save size={16}/> Save Calendar Color
                     </button>
                 </div>
 
-                <h3 className="text-lg font-medium text-text-primary border-b border-gray-700 pb-2 pt-4">Calendar Sync</h3>
-                <div className="bg-background rounded-md border border-border p-4">
+                <h3 className="text-lg font-bold text-text-primary border-b border-outline/10 pb-2 pt-6">Calendar Sync</h3>
+                <div className="bg-surface-container-low rounded-xl border border-outline/10 p-5">
                     <div className="flex items-start gap-3 mb-4">
-                        <Calendar className="w-10 h-10 text-accent shrink-0" />
+                        <div className="p-2 bg-primary-container rounded-lg text-primary">
+                            <Calendar className="w-6 h-6" />
+                        </div>
                         <div>
                             <h4 className="font-bold text-text-primary">Sync to Phone</h4>
                             <p className="text-sm text-text-secondary">
@@ -273,7 +279,7 @@ const MySettingsSection: React.FC = () => {
                     {!calendarToken ? (
                         <button 
                             onClick={handleGenerateToken}
-                            className="w-full py-2 bg-primary hover:bg-primary-hover text-white rounded font-medium transition-colors"
+                            className="w-full py-2 bg-primary hover:bg-primary-hover text-on-primary rounded-full font-bold transition-colors shadow-md"
                         >
                             Generate Sync Link
                         </button>
@@ -282,14 +288,14 @@ const MySettingsSection: React.FC = () => {
                             <div className="flex gap-2">
                                 <button 
                                     onClick={handleCopyLink}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-surface hover:bg-surface-hover border border-border text-text-primary rounded transition-colors"
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-surface-container-highest hover:bg-surface-container-high border border-transparent hover:border-outline/10 text-text-primary rounded-full font-medium transition-all"
                                 >
-                                    {isCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                                    {isCopied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
                                     {isCopied ? "Copied!" : "Copy Link"}
                                 </button>
                                 <button 
                                     onClick={() => { if(confirm("Resetting this link will disconnect all current devices. Continue?")) handleGenerateToken() }}
-                                    className="px-3 py-2 bg-red-900/20 hover:bg-red-900/40 text-red-500 border border-red-900/50 rounded transition-colors"
+                                    className="px-3 py-2 bg-error-container hover:bg-error/20 text-error border border-transparent rounded-full transition-colors"
                                     title="Reset Link"
                                 >
                                     <RefreshCw size={16} />

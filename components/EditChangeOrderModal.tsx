@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ChangeOrder, Quote } from '../types';
-// --- MODIFIED: Import useData hook and Trash2 icon ---
 import { useData } from '../context/DataContext';
-import { Trash2 } from 'lucide-react';
+import { useChangeOrderMutations } from '../hooks/useChangeOrders';
+import { Trash2, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface EditChangeOrderModalProps {
@@ -13,8 +13,8 @@ interface EditChangeOrderModalProps {
 }
 
 const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder, acceptedQuotes, onClose, onSave }) => {
-  // --- MODIFIED: Destructure currentUser and deleteChangeOrder ---
-  const { currentUser, deleteChangeOrder } = useData();
+  const { currentUser } = useData();
+  const { deleteChangeOrder: deleteMutation } = useChangeOrderMutations();
 
   const [formData, setFormData] = useState({
     description: '',
@@ -23,7 +23,6 @@ const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder
     quoteId: undefined as number | undefined | null
   });
 
-  // --- ADDED: State for delete and save operations ---
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -66,12 +65,11 @@ const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder
     }
   };
 
-  // --- ADDED: Handler function for deleting the change order ---
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to permanently delete this change order?')) {
         setIsDeleting(true);
         try {
-            await deleteChangeOrder(changeOrder.id);
+            await deleteMutation.mutateAsync(changeOrder.id);
             toast.success('Change order deleted successfully.');
             onClose();
         } catch (error) {
@@ -85,10 +83,15 @@ const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-text-primary">Edit Change Order</h2>
-        <form onSubmit={handleSubmit}>
+    <div className="fixed inset-0 bg-scrim/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-surface-container-high p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-outline/20">
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-text-primary">Edit Change Order</h2>
+            <button onClick={onClose} className="text-text-secondary hover:text-text-primary p-2 rounded-full hover:bg-surface-container-highest transition-colors">
+                <X size={20} />
+            </button>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="space-y-4">
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-text-secondary mb-1">
@@ -100,7 +103,7 @@ const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                className="w-full p-2 bg-gray-800 border border-border rounded"
+                className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none"
                 required
               />
             </div>
@@ -116,7 +119,7 @@ const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder
                 value={formData.amount}
                 onChange={handleChange}
                 placeholder="e.g., -50.00"
-                className="w-full p-2 bg-gray-800 border border-border rounded"
+                className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none"
                 required
               />
             </div>
@@ -129,7 +132,7 @@ const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder
                 name="type"
                 value={formData.type}
                 onChange={handleChange}
-                className="w-full p-2 bg-gray-800 border border-border rounded"
+                className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none"
               >
                 <option value="Materials">Materials</option>
                 <option value="Labor">Labor</option>
@@ -146,7 +149,7 @@ const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder
                   name="quoteId"
                   value={formData.quoteId || ''}
                   onChange={handleChange}
-                  className="w-full p-2 bg-gray-800 border border-border rounded"
+                  className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none"
                 >
                   {acceptedQuotes.map((q, index) => (
                     <option key={q.id} value={q.id}>
@@ -157,34 +160,36 @@ const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder
               </div>
             )}
           </div>
-          {/* --- MODIFIED: Added Delete button and disabled states for all buttons --- */}
-          <div className="flex items-center justify-end space-x-4 mt-8">
+
+          <div className="flex items-center gap-3 mt-8">
             {currentUser?.roles?.includes('Admin') && (
                 <button
                     type="button"
                     onClick={handleDelete}
                     disabled={isSaving || isDeleting}
-                    className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:bg-red-900 disabled:cursor-not-allowed mr-auto"
+                    className="py-3 px-6 rounded-full bg-error hover:bg-error-hover text-on-error font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mr-auto transition-all shadow-md"
                 >
                     <Trash2 size={16} />
                     {isDeleting ? 'Deleting...' : 'Delete'}
                 </button>
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSaving || isDeleting}
-              className="py-2 px-4 bg-gray-600 hover:bg-gray-700 rounded text-white"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving || isDeleting}
-              className="py-2 px-4 bg-primary hover:bg-secondary rounded text-white"
-            >
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
+            <div className="flex items-center justify-end gap-3 flex-grow">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={isSaving || isDeleting}
+                    className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors disabled:opacity-50"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    disabled={isSaving || isDeleting}
+                    className="py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all disabled:opacity-50"
+                >
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+            </div>
           </div>
         </form>
       </div>

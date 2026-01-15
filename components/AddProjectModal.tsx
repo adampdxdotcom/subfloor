@@ -23,7 +23,6 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
     const navigate = useNavigate();
 
     // --- VIEW STATE ---
-    // 'SELECT_CUSTOMER' | 'CREATE_CUSTOMER' | 'CREATE_PROJECT'
     const [currentView, setCurrentView] = useState<'SELECT_CUSTOMER' | 'CREATE_CUSTOMER' | 'CREATE_PROJECT'>('SELECT_CUSTOMER');
 
     // --- DATA STATE ---
@@ -44,7 +43,6 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            // Reset logic
             if (initialCustomer) {
                 setCustomer(initialCustomer);
                 setCurrentView('CREATE_PROJECT');
@@ -58,14 +56,11 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
             setProjectName(initialProjectName || '');
             setProjectType(PROJECT_TYPES[0]);
             
-            // Reset Customer Form
             setNewCustomerName('');
             setNewCustomerEmail('');
             setNewCustomerPhone('');
         }
     }, [isOpen, initialCustomer, initialInstaller, initialProjectName]);
-
-    // --- ACTIONS ---
 
     const handleCustomerSelect = (c: Customer) => {
         setCustomer(c);
@@ -123,7 +118,6 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
         }
     };
 
-    // Installer Logic
     const handleSaveNewInstaller = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -137,33 +131,36 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-            <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md border border-border relative">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-surface-container-high p-6 rounded-2xl shadow-2xl w-full max-w-xl border border-outline/20 relative">
                 
                 {/* Header with Title & Close/Back */}
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-text-primary">
-                        {currentView === 'CREATE_CUSTOMER' ? 'New Customer' : 'Start New Project'}
-                    </h2>
-                    {currentView === 'CREATE_CUSTOMER' && (
-                        <button onClick={() => setCurrentView('SELECT_CUSTOMER')} className="text-text-secondary hover:text-text-primary">
-                            <ArrowLeft size={24} />
+                <div className="flex items-center mb-6">
+                     {currentView !== 'SELECT_CUSTOMER' && (
+                        <button onClick={() => setCurrentView('SELECT_CUSTOMER')} className="text-text-secondary hover:text-text-primary p-2 rounded-full hover:bg-surface-container-highest mr-2">
+                            <ArrowLeft size={20} />
                         </button>
                     )}
+                    <h2 className="text-2xl font-bold text-text-primary flex-grow">
+                        {currentView === 'CREATE_CUSTOMER' ? 'New Customer' : 'Start New Project'}
+                    </h2>
+                    <button onClick={onClose} className="text-text-secondary hover:text-text-primary p-2 rounded-full hover:bg-surface-container-highest">
+                        <X size={20} />
+                    </button>
                 </div>
 
                 {/* VIEW 1: SELECT CUSTOMER */}
                 {currentView === 'SELECT_CUSTOMER' && (
                     <div>
                         <div className="mb-6">
-                            <label className="block text-sm font-medium text-text-secondary mb-2">Select Customer</label>
+                            <label className="block text-sm font-medium text-text-secondary mb-1.5">Select Customer</label>
                             <CustomerSelector 
                                 onCustomerSelect={handleCustomerSelect} 
                                 onRequestNewCustomer={handleRequestNewCustomer}
                             />
                         </div>
                         <div className="flex justify-end">
-                            <button onClick={onClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">
+                            <button onClick={onClose} className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors">
                                 Cancel
                             </button>
                         </div>
@@ -173,13 +170,13 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                 {/* VIEW 2: CREATE CUSTOMER (INLINE) */}
                 {currentView === 'CREATE_CUSTOMER' && (
                     <form onSubmit={handleCreateCustomer} className="space-y-4">
-                        <input type="text" placeholder="Full Name" value={newCustomerName} onChange={e => setNewCustomerName(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" required />
-                        <input type="email" placeholder="Email (Optional)" value={newCustomerEmail} onChange={e => setNewCustomerEmail(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />
-                        <input type="tel" placeholder="Phone (Optional)" value={newCustomerPhone} onChange={e => setNewCustomerPhone(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" />
+                        <input type="text" placeholder="Full Name" value={newCustomerName} onChange={e => setNewCustomerName(e.target.value)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" required />
+                        <input type="email" placeholder="Email (Optional)" value={newCustomerEmail} onChange={e => setNewCustomerEmail(e.target.value)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" />
+                        <input type="tel" placeholder="Phone (Optional)" value={newCustomerPhone} onChange={e => setNewCustomerPhone(e.target.value)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" />
                         
                         <div className="flex justify-end gap-3 mt-6">
-                            <button type="button" onClick={() => setCurrentView('SELECT_CUSTOMER')} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Back</button>
-                            <button type="submit" className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary font-bold">Save & Continue</button>
+                            <button type="button" onClick={() => setCurrentView('SELECT_CUSTOMER')} className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors">Back</button>
+                            <button type="submit" className="py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all">Save & Continue</button>
                         </div>
                     </form>
                 )}
@@ -188,20 +185,20 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                 {currentView === 'CREATE_PROJECT' && customer && (
                     <form onSubmit={handleSubmitProject} className="space-y-4">
                         {!initialCustomer && (
-                            <div className="flex justify-between items-center bg-background p-2 rounded border border-border text-sm">
+                            <div className="flex justify-between items-center bg-surface-container p-3 rounded-lg border border-outline/20 text-sm">
                                 <span className="text-text-primary font-bold">{customer.fullName}</span>
-                                <button type="button" onClick={() => { setCustomer(null); setCurrentView('SELECT_CUSTOMER'); }} className="text-accent hover:underline">Change</button>
+                                <button type="button" onClick={() => { setCustomer(null); setCurrentView('SELECT_CUSTOMER'); }} className="text-primary hover:underline font-medium">Change</button>
                             </div>
                         )}
 
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Project Name</label>
-                            <input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} className="w-full p-2 bg-background border border-border rounded text-text-primary" required />
+                            <input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" required />
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Project Type</label>
-                            <select value={projectType} onChange={(e) => setProjectType(e.target.value as ProjectType)} className="w-full p-2 bg-background border border-border rounded text-text-primary">
+                            <select value={projectType} onChange={(e) => setProjectType(e.target.value as ProjectType)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none">
                                 {PROJECT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
@@ -215,36 +212,36 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                                     placeholder="Search installers..." 
                                     value={installerSearchTerm} 
                                     onChange={e => { setInstallerSearchTerm(e.target.value); setSelectedInstaller(null); }} 
-                                    className="w-full p-2 bg-background border border-border rounded text-text-primary" 
+                                    className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" 
                                     disabled={!!initialInstaller} 
                                 />
                                 {installerSearchTerm && !selectedInstaller && !initialInstaller && (
-                                    <div className="absolute z-10 w-full bg-surface border border-border rounded-b-md mt-1 max-h-40 overflow-y-auto shadow-lg">
+                                    <div className="absolute z-10 w-full bg-surface-container-high border border-outline/20 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-xl">
                                         {installers.filter(i => i.installerName.toLowerCase().includes(installerSearchTerm.toLowerCase())).map(inst => (
-                                            <div key={inst.id} onClick={() => { setSelectedInstaller(inst); setInstallerSearchTerm(inst.installerName); }} className="p-2 hover:bg-background cursor-pointer text-text-primary">
+                                            <div key={inst.id} onClick={() => { setSelectedInstaller(inst); setInstallerSearchTerm(inst.installerName); }} className="px-4 py-2 hover:bg-primary-container/30 cursor-pointer text-text-primary">
                                                 {inst.installerName}
                                             </div>
                                         ))}
-                                        <div className="p-2 text-center text-text-secondary text-sm cursor-pointer hover:text-accent" onClick={() => { setNewInstallerForm(prev => ({...prev, installerName: installerSearchTerm})); setIsAddingNewInstaller(true); }}>
+                                        <div className="p-2 border-t border-outline/20 text-center text-primary text-sm cursor-pointer hover:bg-primary-container/30 font-medium" onClick={() => { setNewInstallerForm(prev => ({...prev, installerName: installerSearchTerm})); setIsAddingNewInstaller(true); }}>
                                             + Add New "{installerSearchTerm}"
                                         </div>
                                     </div>
                                 )}
                             </div>
                         ) : (
-                            <div className="bg-background p-3 rounded border border-border">
-                                <h4 className="font-bold text-sm mb-2 text-text-primary">New Installer</h4>
-                                <input type="text" placeholder="Name" value={newInstallerForm.installerName} onChange={e => setNewInstallerForm({...newInstallerForm, installerName: e.target.value})} className="w-full p-2 mb-2 bg-surface border border-border rounded text-xs text-text-primary" />
+                            <div className="bg-surface-container p-4 rounded-lg border border-outline/20">
+                                <h4 className="font-semibold text-md mb-3 text-text-primary">New Installer</h4>
+                                <input type="text" placeholder="Name" value={newInstallerForm.installerName} onChange={e => setNewInstallerForm({...newInstallerForm, installerName: e.target.value})} className="w-full bg-surface-container-low border border-outline/50 rounded-lg px-3 py-2 mb-2 text-sm text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" />
                                 <div className="flex gap-2">
-                                    <button type="button" onClick={() => setIsAddingNewInstaller(false)} className="flex-1 py-1 bg-secondary text-on-secondary text-xs rounded">Cancel</button>
-                                    <button type="button" onClick={handleSaveNewInstaller} className="flex-1 py-1 bg-primary text-on-primary text-xs rounded">Save</button>
+                                    <button type="button" onClick={() => setIsAddingNewInstaller(false)} className="flex-1 py-1.5 px-4 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest text-xs font-medium">Cancel</button>
+                                    <button type="button" onClick={handleSaveNewInstaller} className="flex-1 py-1.5 px-4 rounded-full bg-primary text-on-primary text-xs font-semibold">Save</button>
                                 </div>
                             </div>
                         )}
 
                         <div className="flex justify-end gap-3 mt-6">
-                            <button type="button" onClick={onClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary">Cancel</button>
-                            <button type="submit" className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary font-bold">Create & Transfer</button>
+                            <button type="button" onClick={onClose} className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors">Cancel</button>
+                            <button type="submit" className="py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all">Create & Transfer</button>
                         </div>
                     </form>
                 )}

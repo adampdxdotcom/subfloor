@@ -148,7 +148,7 @@ const SystemEmailSettings: React.FC = () => {
     }
 
     return (
-        <section className="bg-surface p-6 rounded-lg shadow-md border border-border max-w-4xl mx-auto">
+        <section className="md:bg-surface-container-low md:p-8 md:rounded-2xl md:border md:border-outline/10 max-w-5xl mx-auto transition-all">
             <h2 className="text-2xl font-semibold text-text-primary mb-2 flex items-center gap-3">
                 <Mail className="w-7 h-7 text-accent" />
                 System-Wide Email Settings
@@ -157,9 +157,9 @@ const SystemEmailSettings: React.FC = () => {
                 These settings are global and affect all users and automated emails sent to customers.
             </p>
             
-            <div className="space-y-6 border-t border-border pt-6 mb-6">
-                <h3 className="text-lg font-medium text-text-primary -mb-2 flex items-center gap-2">
-                    <Lock className="w-4 h-4" /> SMTP Credentials (Gmail)
+            <div className="space-y-6 pt-6 mb-8">
+                <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-secondary" /> SMTP Credentials (Gmail)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -169,7 +169,7 @@ const SystemEmailSettings: React.FC = () => {
                             value={credentials.emailUser}
                             onChange={(e) => setCredentials(prev => ({ ...prev, emailUser: e.target.value }))}
                             placeholder="company@gmail.com"
-                            className="w-full p-2 bg-background border border-border rounded-md text-text-primary focus:ring-2 focus:ring-primary focus:border-transparent"
+                            className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary"
                         />
                     </div>
                     <div>
@@ -180,12 +180,12 @@ const SystemEmailSettings: React.FC = () => {
                                 value={credentials.emailPass}
                                 onChange={(e) => setCredentials(prev => ({ ...prev, emailPass: e.target.value }))}
                                 placeholder={credentials.emailPass === '********' ? '********' : "Enter App Password"}
-                                className="w-full p-2 bg-background border border-border rounded-md text-text-primary focus:ring-2 focus:ring-primary focus:border-transparent pr-10"
+                                className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-all pr-10"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary"
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary"
                             >
                                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                             </button>
@@ -196,39 +196,39 @@ const SystemEmailSettings: React.FC = () => {
                     </div>
                 </div>
                 
-                <div className="mt-4 flex justify-end">
+                <div className="mt-2 flex justify-end">
                     <button 
                         onClick={handleSendTest} 
                         type="button"
-                        className="text-sm flex items-center gap-2 text-primary hover:text-primary-hover font-medium"
+                        className="text-sm flex items-center gap-2 text-primary hover:text-primary-hover font-bold bg-primary/5 hover:bg-primary/10 px-4 py-2 rounded-full transition-colors"
                     >
                         <Send size={16} /> Send Test Email
                     </button>
                 </div>
             </div>
 
-            <div className="space-y-6 border-t border-border pt-6 mb-6">
-                <h3 className="text-lg font-medium text-text-primary -mb-2 flex items-center gap-2">
-                    <Clock className="w-4 h-4" /> Company Communication Schedule
+            <div className="space-y-6 border-t border-outline/10 pt-6 mb-8">
+                <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-secondary" /> Company Communication Schedule
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-background rounded-md border border-border flex flex-col gap-2">
+                    <div className="p-4 bg-surface-container-highest rounded-xl border border-outline/10 flex flex-col gap-2">
                         <label className="text-sm font-medium text-text-secondary">Send daily updates at:</label>
                         <input 
                             type="time" 
                             value={settings.dailyUpdateTime || "07:00"}
                             onChange={(e) => setSettings(prev => ({ ...prev, dailyUpdateTime: e.target.value }))}
-                            className="p-2 bg-surface border border-border rounded text-text-primary cursor-pointer w-full"
+                            className="p-2 bg-surface-container-low border border-outline/10 rounded-lg text-text-primary cursor-pointer w-full focus:border-primary focus:outline-none"
                         />
                     </div>
-                    <div className="p-4 bg-background rounded-md border border-border flex flex-col gap-2">
+                    <div className="p-4 bg-surface-container-highest rounded-xl border border-outline/10 flex flex-col gap-2">
                         <label className="text-sm font-medium text-text-secondary flex items-center gap-2">
                             <Globe size={14} /> Server Timezone
                         </label>
                         <select
                             value={settings.timezone || "America/New_York"}
                             onChange={(e) => setSettings(prev => ({ ...prev, timezone: e.target.value }))}
-                            className="p-2 bg-surface border border-border rounded text-text-primary w-full"
+                            className="p-2 bg-surface-container-low border border-outline/10 rounded-lg text-text-primary w-full focus:border-primary focus:outline-none"
                         >
                             {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
                         </select>
@@ -236,12 +236,12 @@ const SystemEmailSettings: React.FC = () => {
                 </div>
             </div>
 
-            <div className="space-y-6 border-t border-border pt-6">
-                <h3 className="text-lg font-medium text-text-primary -mb-2">Customer Automations</h3>
+            <div className="space-y-4 border-t border-outline/10 pt-6 mb-8">
+                <h3 className="text-lg font-medium text-text-primary mb-2">Customer Automations</h3>
                 
                 {/* 1. PAST DUE REMINDERS */}
-                <div className="flex items-center justify-between p-4 bg-background rounded-md border border-border">
-                    <label htmlFor="pastDueIsEnabled" className="font-semibold text-text-primary">
+                <div className="flex items-center justify-between py-4 border-b border-outline/10 md:bg-surface-container-highest md:border md:rounded-xl md:p-6 md:border-outline/10">
+                    <label htmlFor="pastDueIsEnabled" className="font-medium text-text-primary">
                         Enable Past Due Reminders
                     </label>
                     <div className="relative inline-block w-14 h-8 align-middle select-none transition duration-200 ease-in">
@@ -250,35 +250,35 @@ const SystemEmailSettings: React.FC = () => {
                             id="pastDueIsEnabled"
                             checked={settings.pastDueReminders.isEnabled}
                             onChange={(e) => handleSettingChange('pastDueReminders.isEnabled', e.target.checked)}
-                            className="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                            className="peer absolute block w-8 h-8 rounded-full bg-surface border-4 border-outline appearance-none cursor-pointer checked:right-0 checked:border-primary checked:bg-primary transition-all duration-200"
                         />
-                        <label htmlFor="pastDueIsEnabled" className="toggle-label block overflow-hidden h-8 rounded-full bg-secondary cursor-pointer"></label>
+                        <label htmlFor="pastDueIsEnabled" className="block overflow-hidden h-8 rounded-full bg-surface-container-highest border border-outline/20 cursor-pointer peer-checked:bg-primary/20 transition-colors"></label>
                     </div>
                 </div>
 
                 {settings.pastDueReminders.isEnabled && (
-                    <div className="p-4 bg-background rounded-md border border-border">
+                    <div className="p-4 bg-surface-container-highest/50 rounded-xl border border-outline/10 ml-4 border-l-4 border-l-primary">
                         <div className="flex items-center gap-3">
-                            <label htmlFor="pastDueFrequencyDays" className="text-text-primary">Send reminder every</label>
+                            <label htmlFor="pastDueFrequencyDays" className="text-text-secondary">Send reminder every</label>
                             <input
                                 type="number"
                                 id="pastDueFrequencyDays"
                                 value={settings.pastDueReminders.frequencyDays}
                                 onChange={(e) => handleSettingChange('pastDueReminders.frequencyDays', e.target.value)}
-                                className="w-20 p-1 bg-surface border-border rounded text-text-primary text-center"
+                                className="w-20 p-1 bg-surface-container-low border border-outline/20 rounded text-text-primary text-center focus:border-primary focus:outline-none"
                             />
-                            <label htmlFor="pastDueFrequencyDays" className="text-text-primary">days for overdue samples.</label>
+                            <label htmlFor="pastDueFrequencyDays" className="text-text-secondary">days for overdue samples.</label>
                         </div>
                     </div>
                 )}
 
                 {/* 2. UPCOMING JOB REMINDERS (NEW) */}
-                <div className="flex items-center justify-between p-4 bg-background rounded-md border border-border">
+                <div className="flex items-center justify-between py-4 border-b border-outline/10 md:bg-surface-container-highest md:border md:rounded-xl md:p-6 md:border-outline/10">
                     <div className="flex flex-col">
-                        <label htmlFor="upcomingJobIsEnabled" className="font-semibold text-text-primary flex items-center gap-2">
-                            Enable Upcoming Job Reminders <Calendar size={16} />
+                        <label htmlFor="upcomingJobIsEnabled" className="font-medium text-text-primary flex items-center gap-2">
+                            Enable Upcoming Job Reminders <Calendar size={16} className="text-primary" />
                         </label>
-                        <span className="text-xs text-text-secondary mt-1">Automatically emails customers 2 business days before a job starts.</span>
+                        <span className="text-sm text-text-secondary mt-1">Automatically emails customers 2 business days before a job starts.</span>
                     </div>
                     
                     <div className="relative inline-block w-14 h-8 align-middle select-none transition duration-200 ease-in">
@@ -287,17 +287,17 @@ const SystemEmailSettings: React.FC = () => {
                             id="upcomingJobIsEnabled"
                             checked={settings.upcomingJobReminders?.isEnabled || false}
                             onChange={(e) => handleSettingChange('upcomingJobReminders.isEnabled', e.target.checked)}
-                            className="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                            className="peer absolute block w-8 h-8 rounded-full bg-surface border-4 border-outline appearance-none cursor-pointer checked:right-0 checked:border-primary checked:bg-primary transition-all duration-200"
                         />
-                        <label htmlFor="upcomingJobIsEnabled" className="toggle-label block overflow-hidden h-8 rounded-full bg-secondary cursor-pointer"></label>
+                        <label htmlFor="upcomingJobIsEnabled" className="block overflow-hidden h-8 rounded-full bg-surface-container-highest border border-outline/20 cursor-pointer peer-checked:bg-primary/20 transition-colors"></label>
                     </div>
                 </div>
             </div>
 
             {/* 3. EMAIL TEMPLATES (NEW SECTION) */}
-            <div className="space-y-6 border-t border-border pt-6">
-                <h3 className="text-lg font-medium text-text-primary -mb-2 flex items-center gap-2">
-                    <FileEdit className="w-4 h-4" /> Message Templates
+            <div className="space-y-6 border-t border-outline/10 pt-6">
+                <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                    <FileEdit className="w-4 h-4 text-secondary" /> Message Templates
                 </h3>
                 <p className="text-sm text-text-secondary">
                     Customize the automated emails sent by the system.
@@ -305,14 +305,14 @@ const SystemEmailSettings: React.FC = () => {
                 
                 <div className="grid grid-cols-1 gap-3">
                     {templates.map(template => (
-                        <div key={template.key} className="flex items-center justify-between p-4 bg-background border border-border rounded-lg hover:border-primary/50 transition-colors">
+                        <div key={template.key} className="flex items-center justify-between p-4 bg-surface-container-highest border border-outline/10 rounded-xl hover:border-primary/50 transition-colors group">
                             <div>
                                 <div className="font-medium text-text-primary">{template.description}</div>
                                 <div className="text-xs text-text-secondary mt-0.5">Subject: {template.subject}</div>
                             </div>
                             <button 
                                 onClick={() => setEditingTemplateKey(template.key)}
-                                className="px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded transition-colors"
+                                className="px-4 py-2 text-sm font-bold text-primary bg-surface-container-low border border-outline/10 rounded-full hover:bg-primary hover:text-on-primary transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
                             >
                                 Edit
                             </button>
@@ -324,8 +324,8 @@ const SystemEmailSettings: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mt-8 flex justify-end">
-                <button onClick={handleSave} className="flex items-center gap-2 py-2 px-6 text-base bg-primary hover:bg-primary-hover text-on-primary rounded font-semibold">
+            <div className="mt-8 pt-6 border-t border-outline/10 flex justify-end">
+                <button onClick={handleSave} className="flex items-center gap-2 py-3 px-8 text-base bg-primary hover:bg-primary-hover text-on-primary rounded-full font-bold shadow-sm transition-all hover:shadow-md">
                     <Save size={18}/> Save System Settings
                 </button>
             </div>

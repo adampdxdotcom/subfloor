@@ -103,8 +103,8 @@ const UserNotificationSettings: React.FC = () => {
     }
 
     return (
-        <div className="space-y-8">
-            <section className="bg-surface p-6 rounded-lg shadow-md border border-border max-w-4xl mx-auto">
+        <div className="space-y-8 max-w-5xl mx-auto">
+            <section className="md:bg-surface-container-low md:p-8 md:rounded-2xl md:border md:border-outline/10 transition-all">
                 <h2 className="text-2xl font-semibold text-text-primary mb-2 flex items-center gap-3">
                     <Bell className="w-7 h-7 text-accent" />
                     My Daily Update Email
@@ -113,36 +113,36 @@ const UserNotificationSettings: React.FC = () => {
                     Configure a daily summary email with system updates and your personal appointments. This email is sent only to you.
                 </p>
                 <div className="space-y-6">
-                    <div className="flex items-center justify-between p-4 bg-background rounded-md border border-border">
-                        <label htmlFor="isEnabled" className="font-semibold text-lg text-text-primary">
+                    <div className="flex items-center justify-between py-6 border-b border-outline/10 md:border md:bg-surface-container-highest md:rounded-xl md:p-6 md:border-outline/10">
+                        <label htmlFor="isEnabled" className="font-medium text-lg text-text-primary">
                             Receive Daily Update Email
                         </label>
                         <div className="relative inline-block w-14 h-8 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" id="isEnabled" checked={settings.isEnabled} onChange={(e) => handleSettingChange('isEnabled', e.target.checked)} className="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-                            <label htmlFor="isEnabled" className="toggle-label block overflow-hidden h-8 rounded-full bg-secondary cursor-pointer"></label>
+                            <input type="checkbox" id="isEnabled" checked={settings.isEnabled} onChange={(e) => handleSettingChange('isEnabled', e.target.checked)} className="peer absolute block w-8 h-8 rounded-full bg-surface border-4 border-outline appearance-none cursor-pointer checked:right-0 checked:border-primary checked:bg-primary transition-all duration-200"/>
+                            <label htmlFor="isEnabled" className="block overflow-hidden h-8 rounded-full bg-surface-container-highest border border-outline/20 cursor-pointer peer-checked:bg-primary/20 transition-colors"></label>
                         </div>
                     </div>
                     {settings.isEnabled && (
-                        <div className="space-y-6 border-t border-border pt-6">
+                        <div className="space-y-6 pt-2">
                             <div>
                                <h3 className="text-lg font-medium text-text-primary mb-2">Content to Include</h3>
-                                <div className="space-y-3 p-4 bg-background rounded-md border border-border">
+                                <div className="space-y-4 py-4 md:p-6 md:bg-surface-container-highest md:rounded-xl md:border md:border-outline/10">
                                     <label className="flex items-center gap-3">
-                                        <input type="checkbox" checked={settings.includeAllUpdates} onChange={(e) => handleSettingChange('includeAllUpdates', e.target.checked)} className="form-checkbox h-5 w-5 text-primary bg-surface border-border rounded focus:ring-primary" />
+                                        <input type="checkbox" checked={settings.includeAllUpdates} onChange={(e) => handleSettingChange('includeAllUpdates', e.target.checked)} className="w-5 h-5 rounded border-outline/30 text-primary focus:ring-primary bg-surface-container-high" />
                                         <span className="text-text-primary">Include all system updates (samples, jobs, quotes, etc.)</span>
                                     </label>
                                     <div className="flex items-center gap-3">
-                                        <input type="checkbox" id="includePersonalAppointments" checked={settings.includePersonalAppointments} onChange={(e) => handleSettingChange('includePersonalAppointments', e.target.checked)} className="form-checkbox h-5 w-5 text-primary bg-surface border-border rounded focus:ring-primary" />
+                                        <input type="checkbox" id="includePersonalAppointments" checked={settings.includePersonalAppointments} onChange={(e) => handleSettingChange('includePersonalAppointments', e.target.checked)} className="w-5 h-5 rounded border-outline/30 text-primary focus:ring-primary bg-surface-container-high" />
                                         <label htmlFor="includePersonalAppointments" className="text-text-primary">Include my personal appointments for the next</label>
-                                        <input type="number" value={settings.personalAppointmentsDays} onChange={(e) => handleSettingChange('personalAppointmentsDays', e.target.value)} disabled={!settings.includePersonalAppointments} className="w-20 p-1 bg-surface border-border rounded text-text-primary disabled:opacity-50" />
+                                        <input type="number" value={settings.personalAppointmentsDays} onChange={(e) => handleSettingChange('personalAppointmentsDays', e.target.value)} disabled={!settings.includePersonalAppointments} className="w-16 p-1 bg-surface-container-high border border-outline/20 rounded text-center text-text-primary disabled:opacity-50 focus:border-primary focus:outline-none" />
                                         <label htmlFor="includePersonalAppointments" className="text-text-primary">days</label>
                                     </div>
                                </div>
                             </div>
                         </div>
                     )}
-                     <div className="flex justify-end items-center gap-4 pt-4 border-t border-border">
-                        <button onClick={handleSendTest} disabled={isSendingTest} className="flex items-center gap-2 py-2 px-6 text-base bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+                     <div className="flex justify-end items-center gap-4 pt-4 mt-4 border-t border-outline/10">
+                        <button onClick={handleSendTest} disabled={isSendingTest} className="flex items-center gap-2 py-2 px-6 text-sm bg-surface-container-highest hover:bg-surface-container-highest/80 rounded-full text-text-primary font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                             <Send size={18}/> {isSendingTest ? 'Sending...' : 'Send Test'}
                         </button>
                     </div>
@@ -150,18 +150,18 @@ const UserNotificationSettings: React.FC = () => {
             </section>
 
             {/* --- NEW SECTION: Project Alerts --- */}
-            <section className="bg-surface p-6 rounded-lg shadow-md border border-border max-w-4xl mx-auto">
+            <section className="md:bg-surface-container-low md:p-8 md:rounded-2xl md:border md:border-outline/10 transition-all">
                 <h2 className="text-xl font-semibold text-text-primary mb-2 flex items-center gap-3">
                     <Bell className="w-6 h-6 text-accent" />
                     Project Alerts
                 </h2>
-                <div className="p-4 bg-background rounded-md border border-border">
+                <div className="py-6 border-b border-outline/10 md:border md:bg-surface-container-highest md:rounded-xl md:p-6 md:border-outline/10 mt-4">
                     <label className="flex items-center space-x-3 cursor-pointer">
                         <input 
                             type="checkbox" 
                             checked={notifyUpcomingJobs} 
                             onChange={e => setNotifyUpcomingJobs(e.target.checked)}
-                            className="form-checkbox h-5 w-5 text-primary bg-surface border-border rounded focus:ring-primary" 
+                            className="w-5 h-5 rounded border-outline/30 text-primary focus:ring-primary bg-surface-container-high" 
                         />
                         <span className="text-text-primary font-medium">Email me 2 days before my jobs start</span>
                     </label>
@@ -170,8 +170,8 @@ const UserNotificationSettings: React.FC = () => {
                     </p>
                 </div>
                 
-                <div className="flex justify-end pt-6">
-                    <button onClick={handleSave} className="flex items-center gap-2 py-2 px-6 text-base bg-primary hover:bg-primary-hover rounded text-on-primary font-semibold">
+                <div className="flex justify-end pt-8">
+                    <button onClick={handleSave} className="flex items-center gap-2 py-3 px-8 text-base bg-primary hover:bg-primary-hover rounded-full text-on-primary font-bold shadow-sm transition-all hover:shadow-md">
                         <Save size={18}/> Save My Settings
                     </button>
                 </div>

@@ -47,20 +47,20 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
 
     return (
         <div 
-            className={`bg-surface rounded-lg shadow-md border overflow-hidden group flex flex-col cursor-pointer hover:shadow-lg transition-all h-full relative
-                ${isSelected ? 'border-primary ring-2 ring-primary bg-primary/5' : 'border-border'}
+            className={`bg-surface-container-high rounded-xl shadow-sm border overflow-hidden group flex flex-col cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all h-full relative
+                ${isSelected ? 'border-primary ring-2 ring-primary/80' : 'border-outline/10'}
             `} 
             onClick={() => onClick(product)}
         >
             {/* Selection Overlay Checkbox */}
             {(isSelectionMode || isSelected) && (
-                <div className="absolute top-2 left-2 z-10 text-primary">
-                    {isSelected ? <CheckCircle2 size={24} className="fill-surface" /> : <Circle size={24} className="text-white drop-shadow-md" />}
+                <div className="absolute top-2.5 left-2.5 z-10 text-primary">
+                    {isSelected ? <CheckCircle2 size={24} className="fill-surface-container-high" /> : <Circle size={24} className="text-white/80 drop-shadow-md" />}
                 </div>
             )}
 
             {/* Image Area */}
-            <div className="w-full h-48 bg-background flex items-center justify-center relative">
+            <div className="w-full h-48 bg-surface-container flex items-center justify-center relative">
                 {product.defaultThumbnailUrl || product.defaultImageUrl ? (
                     <img src={getImageUrl(product.defaultThumbnailUrl || product.defaultImageUrl)} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
@@ -71,7 +71,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
                         <span className="text-xs text-text-secondary">No Image</span>
                     </div>
                 )}
-                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+                <div className="absolute top-2 right-2 bg-scrim/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
                     {product.variants.length} Variants
                 </div>
             </div>
@@ -83,7 +83,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
                 {/* Price Range */}
                 <div className="mt-2">
                     {displayInfo ? (
-                        <p className="text-sm font-semibold text-green-400">
+                        <p className="text-sm font-semibold text-tertiary">
                             {displayInfo.priceStr} <span className="text-text-secondary font-normal text-xs">/ {displayInfo.unitLabel}</span>
                         </p>
                     ) : (
@@ -94,12 +94,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
                 <div className="flex-grow" />
                 
                 {showDiscontinuedStyle && (
-                    <div className="mb-2 text-center bg-secondary text-on-secondary text-xs font-bold py-1 rounded border border-border uppercase tracking-wider">Discontinued</div>
+                    <div className="mb-2 text-center bg-error-container text-on-error-container text-xs font-bold py-1 rounded-full uppercase tracking-wider">Discontinued</div>
                 )}
                 
-                <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
+                <div className="flex justify-between items-center mt-4 pt-3 border-t border-outline/10">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold bg-background text-text-secondary px-2 py-1 rounded">
+                        <span className="text-xs font-semibold bg-surface-container-highest text-text-secondary px-2 py-1 rounded-full">
                             {product.productType}
                         </span>
                         {product.productLineUrl && (
@@ -107,7 +107,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
                                 href={product.productLineUrl} 
                                 target="_blank" 
                                 rel="noreferrer" 
-                                className="text-text-tertiary hover:text-primary p-1 rounded hover:bg-background transition-colors"
+                                className="text-text-tertiary hover:text-primary p-1 rounded-full hover:bg-surface-container-highest transition-colors"
                                 title="Open Product Website"
                                 onClick={(e) => e.stopPropagation()} 
                             >
@@ -115,7 +115,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
                             </a>
                         )}
                     </div>
-                    <ChevronRight size={16} className="text-text-tertiary" />
+                    <ChevronRight size={18} className="text-text-secondary" />
                 </div>
             </div>
         </div>

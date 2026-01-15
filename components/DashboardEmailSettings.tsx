@@ -43,7 +43,7 @@ const DashboardEmailSettings: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSendingTest, setIsSendingTest] = useState(false);
     const [isSendingReminders, setIsSendingReminders] = useState(false);
-    const [isSendingPastDue, setIsSendingPastDue] = useState(false); // New state for the new button
+    const [isSendingPastDue, setIsSendingPastDue] = useState(false);
 
     useEffect(() => {
         if (!isDataLoading && currentUser) {
@@ -61,13 +61,12 @@ const DashboardEmailSettings: React.FC = () => {
         }
     }, [currentUser, isDataLoading]);
 
-    // Updated handler to manage nested state
     const handleSettingChange = (field: keyof DashboardEmailPrefs | `pastDueReminders.${keyof DashboardEmailPrefs['pastDueReminders']}`, value: any) => {
         if (field.startsWith('pastDueReminders.')) {
             const subField = field.split('.')[1] as keyof DashboardEmailPrefs['pastDueReminders'];
             let processedValue = value;
             if (subField === 'frequencyDays') {
-                processedValue = Math.max(1, parseInt(value, 10) || 1); // Ensure it's at least 1
+                processedValue = Math.max(1, parseInt(value, 10) || 1);
             }
             setSettings(prev => ({
                 ...prev,
@@ -152,141 +151,182 @@ const DashboardEmailSettings: React.FC = () => {
     }
 
     return (
-        <>
-            <section className="bg-surface p-6 rounded-lg shadow-md border border-border max-w-4xl mx-auto">
-                <h2 className="text-2xl font-semibold text-text-primary mb-2 flex items-center gap-3">
-                    <Bell className="w-7 h-7 text-accent" />
+        <div className="space-y-8 max-w-4xl mx-auto">
+            <section className="bg-surface-container-high p-6 md:p-8 rounded-2xl shadow-sm border border-outline/10">
+                <h2 className="text-xl font-semibold text-text-primary mb-2 flex items-center gap-3">
+                    <Bell className="w-6 h-6 text-primary" />
                     Internal: Daily Dashboard Email
                 </h2>
-                <p className="text-text-secondary mb-6">
+                <p className="text-text-secondary text-sm mb-6">
                     Configure a daily summary email to keep you updated on key business activities. This email is sent to you only.
                 </p>
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between p-4 bg-gray-800 rounded-md">
+                <div className="space-y-8">
+                    <div className="flex items-center justify-between p-4 bg-surface-container rounded-xl">
                         <label htmlFor="isEnabled" className="font-semibold text-lg text-text-primary">
                             Enable Dashboard Email
                         </label>
-                        <div className="relative inline-block w-14 h-8 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" id="isEnabled" checked={settings.isEnabled} onChange={(e) => handleSettingChange('isEnabled', e.target.checked)} className="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-                            <label htmlFor="isEnabled" className="toggle-label block overflow-hidden h-8 rounded-full bg-gray-600 cursor-pointer"></label>
-                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="isEnabled" checked={settings.isEnabled} onChange={(e) => handleSettingChange('isEnabled', e.target.checked)} className="sr-only peer" />
+                            <div className="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-on-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-outline after:border after:border-outline after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
                     </div>
                     {settings.isEnabled && (
-                        <div className="space-y-6 border-t border-border pt-6">
+                        <div className="space-y-6 border-t border-outline/10 pt-6">
                             <div>
-                                <h3 className="text-lg font-medium text-text-primary mb-2">Frequency</h3>
-                                <div className="flex gap-4 p-4 bg-gray-800 rounded-md">
+                                <h3 className="text-md font-medium text-text-primary mb-3">Frequency</h3>
+                                <div className="flex gap-6 p-4 bg-surface-container rounded-xl">
                                     <label className="flex items-center gap-2">
-                                        <input type="radio" name="frequency" value="daily" checked={settings.frequency === 'daily'} onChange={() => handleSettingChange('frequency', 'daily')} className="form-radio h-5 w-5 text-accent bg-gray-900 border-border" />
+                                        <input type="radio" name="frequency" value="daily" checked={settings.frequency === 'daily'} onChange={() => handleSettingChange('frequency', 'daily')} className="form-radio h-5 w-5 text-primary bg-surface-container-low border-outline/50" />
                                         <span>Send Daily</span>
                                     </label>
                                     <label className="flex items-center gap-2">
-                                        <input type="radio" name="frequency" value="on_event" checked={settings.frequency === 'on_event'} onChange={() => handleSettingChange('frequency', 'on_event')} className="form-radio h-5 w-5 text-accent bg-gray-900 border-border" />
+                                        <input type="radio" name="frequency" value="on_event" checked={settings.frequency === 'on_event'} onChange={() => handleSettingChange('frequency', 'on_event')} className="form-radio h-5 w-5 text-primary bg-surface-container-low border-outline/50" />
                                         <span>Send only when there's an update</span>
                                     </label>
                                 </div>
                             </div>
                             <div>
-                               <h3 className="text-lg font-medium text-text-primary mb-2">Content to Include</h3>
-                                <div className="space-y-3 p-4 bg-gray-800 rounded-md">
+                               <h3 className="text-md font-medium text-text-primary mb-3">Content to Include</h3>
+                                <div className="space-y-4 p-4 bg-surface-container rounded-xl">
                                     <label className="flex items-center gap-3">
-                                        <input type="checkbox" checked={settings.includeSamplesDue} onChange={(e) => handleSettingChange('includeSamplesDue', e.target.checked)} className="form-checkbox h-5 w-5 text-accent bg-gray-900 border-border rounded" />
+                                        <input type="checkbox" checked={settings.includeSamplesDue} onChange={(e) => handleSettingChange('includeSamplesDue', e.target.checked)} className="form-checkbox h-5 w-5 text-primary bg-surface-container-low border-outline/50 rounded" />
                                         <span>Samples Due Today</span>
                                     </label>
-                                    <div className="flex items-center gap-3">
-                                        <input type="checkbox" id="includeUpcomingJobs" checked={settings.includeUpcomingJobs} onChange={(e) => handleSettingChange('includeUpcomingJobs', e.target.checked)} className="form-checkbox h-5 w-5 text-accent bg-gray-900 border-border rounded" />
+                                    <div className="flex items-center gap-3 text-sm">
+                                        <input type="checkbox" id="includeUpcomingJobs" checked={settings.includeUpcomingJobs} onChange={(e) => handleSettingChange('includeUpcomingJobs', e.target.checked)} className="form-checkbox h-5 w-5 text-primary bg-surface-container-low border-outline/50 rounded" />
                                         <label htmlFor="includeUpcomingJobs">Upcoming Jobs starting within</label>
-                                        <input type="number" value={settings.upcomingJobsDays} onChange={(e) => handleSettingChange('upcomingJobsDays', e.target.value)} disabled={!settings.includeUpcomingJobs} className="w-20 p-1 bg-gray-900 border-border rounded disabled:opacity-50" />
+                                        <input type="number" value={settings.upcomingJobsDays} onChange={(e) => handleSettingChange('upcomingJobsDays', e.target.value)} disabled={!settings.includeUpcomingJobs} className="w-20 bg-surface-container-low border border-outline/50 rounded-lg px-2 py-1 text-text-primary disabled:opacity-50" />
                                         <label htmlFor="includeUpcomingJobs">days</label>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <input type="checkbox" id="includePendingQuotes" checked={settings.includePendingQuotes} onChange={(e) => handleSettingChange('includePendingQuotes', e.target.checked)} className="form-checkbox h-5 w-5 text-accent bg-gray-900 border-border rounded" />
+                                    <div className="flex items-center gap-3 text-sm">
+                                        <input type="checkbox" id="includePendingQuotes" checked={settings.includePendingQuotes} onChange={(e) => handleSettingChange('includePendingQuotes', e.target.checked)} className="form-checkbox h-5 w-5 text-primary bg-surface-container-low border-outline/50 rounded" />
                                         <label htmlFor="includePendingQuotes">Pending Quotes older than</label>
-                                        <input type="number" value={settings.pendingQuotesDays} onChange={(e) => handleSettingChange('pendingQuotesDays', e.target.value)} disabled={!settings.includePendingQuotes} className="w-20 p-1 bg-gray-900 border-border rounded disabled:opacity-50" />
+                                        <input type="number" value={settings.pendingQuotesDays} onChange={(e) => handleSettingChange('pendingQuotesDays', e.target.value)} disabled={!settings.includePendingQuotes} className="w-20 bg-surface-container-low border border-outline/50 rounded-lg px-2 py-1 text-text-primary disabled:opacity-50" />
                                         <label htmlFor="includePendingQuotes">days</label>
                                     </div>
                                </div>
                             </div>
                         </div>
                     )}
-                     <div className="flex justify-end items-center gap-4 pt-4 border-t border-border">
-                        <button onClick={handleSendTest} disabled={isSendingTest} className="flex items-center gap-2 py-2 px-6 text-base bg-gray-600 text-white rounded hover:bg-gray-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+                     <div className="flex justify-end items-center gap-4 pt-6 border-t border-outline/10">
+                        <button onClick={handleSendTest} disabled={isSendingTest} className="flex items-center gap-2 py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
                             <Send size={18}/> {isSendingTest ? 'Sending...' : 'Send Test'}
                         </button>
                     </div>
                 </div>
             </section>
 
-            <section className="mt-8 bg-surface p-6 rounded-lg shadow-md border border-border max-w-4xl mx-auto">
-                <h2 className="text-2xl font-semibold text-text-primary mb-2 flex items-center gap-3">
-                    <Bell className="w-7 h-7 text-accent" />
-                    Customer-Facing: Past Due Sample Reminders
-                </h2>
-                <p className="text-text-secondary mb-6">
-                    Automatically send reminder emails to customers for samples that are overdue.
-                </p>
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between p-4 bg-gray-800 rounded-md">
-                        <label htmlFor="pastDueIsEnabled" className="font-semibold text-lg text-text-primary">
-                            Enable Past Due Reminders
-                        </label>
-                        <div className="relative inline-block w-14 h-8 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" id="pastDueIsEnabled" checked={settings.pastDueReminders.isEnabled} onChange={(e) => handleSettingChange('pastDueReminders.isEnabled', e.target.checked)} className="toggle-checkbox absolute block w-8 h-8 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-                            <label htmlFor="pastDueIsEnabled" className="toggle-label block overflow-hidden h-8 rounded-full bg-gray-600 cursor-pointer"></label>
-                        </div>
-                    </div>
-                    {settings.pastDueReminders.isEnabled && (
-                        <div className="space-y-3 p-4 bg-gray-800 rounded-md border-t border-border">
-                            <div className="flex items-center gap-3">
-                                <label htmlFor="pastDueFrequencyDays">Send reminder every</label>
-                                <input type="number" id="pastDueFrequencyDays" value={settings.pastDueReminders.frequencyDays} onChange={(e) => handleSettingChange('pastDueReminders.frequencyDays', e.target.value)} className="w-20 p-1 bg-gray-900 border-border rounded" />
-                                <label htmlFor="pastDueFrequencyDays">days for overdue samples.</label>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </section>
-
             {currentUser?.roles.includes('Admin') && (
-                 <section className="mt-8 bg-surface p-6 rounded-lg shadow-md border-2 border-yellow-500/50 max-w-4xl mx-auto">
-                    <h2 className="text-2xl font-semibold text-yellow-400 mb-4 flex items-center gap-3">
-                        <AlertTriangle className="w-7 h-7" />
+                 <section className="bg-surface-container-high p-6 md:p-8 rounded-2xl shadow-sm border-2 border-tertiary-container/80">
+                    <h2 className="text-xl font-semibold text-tertiary mb-3 flex items-center gap-3">
+                        <AlertTriangle className="w-6 h-6" />
                         Manual Actions
                     </h2>
+                    <p className="text-text-secondary text-sm mb-6">
+                        Manually trigger system-wide email blasts. These actions are sent to all relevant customers immediately.
+                    </p>
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-gray-800 rounded-md">
+                        <div className="flex items-center justify-between p-4 bg-surface-container rounded-xl">
                             <div>
                                 <h3 className="font-semibold text-lg text-text-primary">Send "Due Tomorrow" Reminders</h3>
-                                <p className="text-text-secondary mt-1">
-                                    Manually trigger the email reminder for all customers with samples due tomorrow.
+                                <p className="text-text-secondary text-sm mt-1">
+                                    Trigger email to customers with samples due tomorrow.
                                 </p>
                             </div>
-                            <button onClick={handleSendAllReminders} disabled={isSendingReminders} className="flex items-center gap-2 py-2 px-6 text-base bg-yellow-600 text-white rounded hover:bg-yellow-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+                            <button onClick={handleSendAllReminders} disabled={isSendingReminders} className="flex items-center gap-2 py-2.5 px-6 rounded-full bg-tertiary text-on-tertiary font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                                 <Send size={18}/> {isSendingReminders ? 'Sending...' : 'Send All Now'}
                             </button>
                         </div>
-                        <div className="flex items-center justify-between p-4 bg-gray-800 rounded-md">
+                        <div className="flex items-center justify-between p-4 bg-surface-container rounded-xl">
                             <div>
                                 <h3 className="font-semibold text-lg text-text-primary">Send "Past Due" Reminders</h3>
-                                <p className="text-text-secondary mt-1">
-                                    Manually trigger the email reminder for ALL customers with past-due samples.
+                                <p className="text-text-secondary text-sm mt-1">
+                                    Trigger email for ALL customers with past-due samples.
                                 </p>
                             </div>
-                            <button onClick={handleSendAllPastDue} disabled={isSendingPastDue} className="flex items-center gap-2 py-2 px-6 text-base bg-red-600 text-white rounded hover:bg-red-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
-                                <Send size={18}/> {isSendingPastDue ? 'Sending...' : 'Send All Past Due'}
+                            <button onClick={handleSendAllPastDue} disabled={isSendingPastDue} className="flex items-center gap-2 py-2.5 px-6 rounded-full bg-error text-on-error font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                                <Send size={18}/> {isSendingPastDue ? 'Sending...' : 'Send Past Due'}
                             </button>
                         </div>
                     </div>
                 </section>
             )}
 
-            <div className="mt-8 flex justify-end max-w-4xl mx-auto">
-                <button onClick={handleSave} className="flex items-center gap-2 py-2 px-6 text-base bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold">
-                    <Save size={18}/> Save All Settings
+            <div className="flex justify-end">
+                <button onClick={handleSave} className="flex items-center gap-2 py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all">
+                    <Save size={18}/> Save My Settings
                 </button>
             </div>
-        </>
+        </div>
     );
 };
 
+export const SystemEmailSettings: React.FC = () => {
+    const { currentUser, systemPreferences, saveSystemPreferences } = useData();
+    const [settings, setSettings] = useState(DEFAULT_SETTINGS.pastDueReminders);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        if (systemPreferences) {
+            const merged = { ...DEFAULT_SETTINGS.pastDueReminders, ...systemPreferences.pastDueReminders };
+            setSettings(merged);
+            setIsLoading(false);
+        }
+    }, [systemPreferences]);
+
+    const handleSettingChange = (field: keyof typeof settings, value: any) => {
+        let processedValue = value;
+        if (field === 'frequencyDays') {
+             processedValue = Math.max(1, parseInt(value, 10) || 1);
+        }
+        setSettings(prev => ({ ...prev, [field]: processedValue }));
+    };
+
+    const handleSave = async () => {
+        await saveSystemPreferences({ pastDueReminders: settings });
+    };
+    
+    if (isLoading) return <div>Loading...</div>;
+    if (!currentUser?.roles.includes('Admin')) return null;
+
+    return (
+        <div className="space-y-8 max-w-4xl mx-auto">
+            <section className="bg-surface-container-high p-6 md:p-8 rounded-2xl shadow-sm border border-outline/10">
+                <h2 className="text-xl font-semibold text-text-primary mb-2 flex items-center gap-3">
+                    <Bell className="w-6 h-6 text-primary" />
+                    Customer-Facing: Past Due Sample Reminders
+                </h2>
+                <p className="text-text-secondary text-sm mb-6">
+                    Automatically send reminder emails to customers for samples that are overdue.
+                </p>
+                <div className="space-y-8">
+                    <div className="flex items-center justify-between p-4 bg-surface-container rounded-xl">
+                        <label htmlFor="pastDueIsEnabled" className="font-semibold text-lg text-text-primary ">
+                            Enable Past Due Reminders
+                        </label>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="pastDueIsEnabled" checked={settings.isEnabled} onChange={(e) => handleSettingChange('isEnabled', e.target.checked)} className="sr-only peer" />
+                            <div className="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-on-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-outline after:border after:border-outline after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    {settings.isEnabled && (
+                        <div className="space-y-3 p-4 bg-surface-container rounded-xl border-t border-outline/10">
+                            <div className="flex items-center gap-3">
+                                <label htmlFor="pastDueFrequencyDays">Send reminder every</label>
+                                <input type="number" id="pastDueFrequencyDays" value={settings.frequencyDays} onChange={(e) => handleSettingChange('frequencyDays', e.target.value)} className="w-20 bg-surface-container-low border border-outline/50 rounded-lg px-2 py-1 text-text-primary" />
+                                <label htmlFor="pastDueFrequencyDays">days for overdue samples.</label>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </section>
+            <div className="flex justify-end">
+                <button onClick={handleSave} className="flex items-center gap-2 py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all">
+                    <Save size={18}/> Save System Settings
+                </button>
+            </div>
+        </div>
+    );
+};
+ 
 export default DashboardEmailSettings;

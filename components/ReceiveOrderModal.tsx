@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { MaterialOrder, OrderLineItem } from '../types';
-import { X, Truck, AlertTriangle, Mail, ArrowLeft, CheckCircle, Upload, MailX, Camera, FileText, Trash2, FolderOpen } from 'lucide-react';
+import { MaterialOrder } from '../types';
+import { X, Truck, AlertTriangle, Mail, ArrowLeft, CheckCircle, Upload, MailX, Camera, FileText, FolderOpen } from 'lucide-react';
 
 interface ReceiveOrderModalProps {
     isOpen: boolean;
@@ -18,10 +18,10 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
     const [dateReceived, setDateReceived] = useState('');
     const [notes, setNotes] = useState('');
     const [sendEmail, setSendEmail] = useState(true);
-    const [files, setFiles] = useState<File[]>([]); // CHANGED: File Array
+    const [files, setFiles] = useState<File[]>([]); 
 
     // Damage State
-    const [damageItems, setDamageItems] = useState<Set<number>>(new Set()); // ID of line items
+    const [damageItems, setDamageItems] = useState<Set<number>>(new Set()); 
     const [replacementEta, setReplacementEta] = useState('');
     const [damageNotes, setDamageNotes] = useState('');
 
@@ -41,7 +41,6 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
 
     if (!isOpen || !order) return null;
 
-    // Determine email recipient for label
     const emailRecipient = order.purchaserType === 'Installer' 
         ? (order.installerEmail ? order.installerName : null)
         : (order.customerEmail ? order.customerName : null);
@@ -55,10 +54,8 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
         setDamageItems(next);
     };
 
-    // NEW: Handle accumulating files
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            // Convert FileList to Array and append to existing files
             setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
         }
     };
@@ -84,13 +81,11 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
         if (damageItems.size === 0) return alert("Please select at least one damaged item.");
         
         setIsSubmitting(true);
-        
-        // Map selected line item IDs back to the minimal data needed for the re-order
         const itemsToReorder = order.lineItems
             .filter(item => damageItems.has(item.id))
             .map(item => ({
-                sampleId: item.variantId, // Changed to variantId to match the new type
-                quantity: item.quantity, // Default to full quantity, user can edit later if needed or we could add qty input here
+                sampleId: item.variantId, 
+                quantity: item.quantity, 
                 unit: item.unit || 'SF'
             }));
 
@@ -100,7 +95,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                 replacementEta,
                 notes: damageNotes,
                 sendEmailNotification: hasEmail && sendEmail,
-                files // Pass the files
+                files 
             });
             onClose();
         } catch (err) {
@@ -110,15 +105,15 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
     };
 
     return (
-        <div className="fixed inset-0 bg-black/75 z-50 overflow-y-auto">
-            <div className="flex h-full items-center justify-center p-0 lg:p-4">
-            <div className="bg-surface w-full h-full lg:h-auto lg:max-h-[90vh] lg:max-w-lg lg:rounded-lg shadow-2xl flex flex-col border border-border relative">
+        <div className="fixed inset-0 bg-scrim/60 z-50 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-0 lg:p-4">
+            <div className="bg-surface-container-high w-full h-full lg:h-auto lg:max-h-[90vh] lg:max-w-lg lg:rounded-2xl shadow-2xl flex flex-col border border-outline/20 relative">
                 
                 {/* HEADER */}
-                <div className="p-4 border-b border-border flex justify-between items-center bg-background lg:rounded-t-lg sticky top-0 z-10">
+                <div className="p-4 border-b border-outline/10 flex justify-between items-center lg:rounded-t-2xl sticky top-0 z-10 bg-surface-container-high">
                     <div className="flex items-center gap-3">
                         {mode === 'DAMAGE' ? (
-                            <AlertTriangle className="text-text-primary w-6 h-6" />
+                            <AlertTriangle className="text-error w-6 h-6" />
                         ) : (
                             <Truck className="text-primary w-6 h-6" />
                         )}
@@ -126,7 +121,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                             {mode === 'DAMAGE' ? 'Report Damage' : 'Receive Order'}
                         </h2>
                     </div>
-                    <button onClick={onClose} className="text-text-secondary hover:text-text-primary">
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container-highest text-text-secondary hover:text-text-primary">
                         <X size={24} />
                     </button>
                 </div>
@@ -148,7 +143,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                     required
                                     value={dateReceived}
                                     onChange={e => setDateReceived(e.target.value)}
-                                    className="w-full p-2 bg-background border border-border rounded text-text-primary"
+                                    className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none"
                                 />
                             </div>
 
@@ -158,7 +153,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                     value={notes}
                                     onChange={e => setNotes(e.target.value)}
                                     placeholder="e.g. Left in garage, Box 2 looks slightly crushed..."
-                                    className="w-full p-2 bg-background border border-border rounded text-text-primary h-24 resize-none"
+                                    className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary h-24 resize-none placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none"
                                 />
                             </div>
 
@@ -166,10 +161,8 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium text-text-secondary mb-1">Paperwork (Packing Slip / BOL)</label>
                                 
-                                {/* Split Action Buttons */}
                                 <div className="grid grid-cols-2 gap-4">
-                                    {/* Standard Upload */}
-                                    <label className="border border-border bg-surface hover:bg-background rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
+                                    <label className="border border-outline/20 bg-surface-container hover:bg-surface-container-highest rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
                                         <input 
                                             type="file" 
                                             multiple 
@@ -181,8 +174,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                         <span className="text-xs font-bold text-text-primary">Upload Files</span>
                                     </label>
 
-                                    {/* Camera Capture */}
-                                    <label className="border border-border bg-surface hover:bg-background rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
+                                    <label className="border border-outline/20 bg-surface-container hover:bg-surface-container-highest rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
                                         <input 
                                             type="file" 
                                             accept="image/*"
@@ -195,20 +187,19 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                     </label>
                                 </div>
 
-                                {/* File Gallery / Preview */}
                                 {files.length > 0 && (
-                                    <div className="bg-background border border-border rounded-lg p-2 space-y-2">
+                                    <div className="bg-surface-container border border-outline/20 rounded-xl p-2 space-y-2">
                                         {files.map((file, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-2 bg-surface rounded shadow-sm">
+                                            <div key={idx} className="flex items-center justify-between p-2 bg-surface-container-highest rounded-lg shadow-sm">
                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                     {file.type.startsWith('image/') ? (
-                                                        <img src={URL.createObjectURL(file)} alt="Preview" className="w-8 h-8 object-cover rounded" />
+                                                        <img src={URL.createObjectURL(file)} alt="Preview" className="w-8 h-8 object-cover rounded-md" />
                                                     ) : (
                                                         <FileText className="w-8 h-8 text-text-tertiary" />
                                                     )}
                                                     <span className="text-xs font-medium truncate max-w-[150px] md:max-w-[200px]">{file.name}</span>
                                                 </div>
-                                                <button type="button" onClick={() => removeFile(idx)} className="text-text-tertiary hover:text-red-500"><X size={16} /></button>
+                                                <button type="button" onClick={() => removeFile(idx)} className="text-text-tertiary hover:text-error"><X size={16} /></button>
                                             </div>
                                         ))}
                                     </div>
@@ -221,11 +212,11 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                     onClick={() => setSendEmail(!sendEmail)}
                                     className={`w-full text-left p-4 rounded-lg border-2 transition-all flex items-center gap-4 group ${
                                         sendEmail 
-                                            ? 'border-primary bg-primary/10' 
-                                            : 'border-border bg-background hover:bg-surface'
+                                            ? 'border-primary bg-primary-container/30' 
+                                            : 'border-outline/20 bg-surface-container hover:bg-surface-container-highest'
                                     }`}
                                 >
-                                    <div className={`p-2 rounded-full ${sendEmail ? 'bg-primary text-on-primary' : 'bg-secondary text-text-secondary'}`}>
+                                    <div className={`p-2 rounded-full ${sendEmail ? 'bg-primary text-on-primary' : 'bg-secondary-container text-on-secondary-container'}`}>
                                         {sendEmail ? <Mail size={24} /> : <MailX size={24} />}
                                     </div>
                                     <div>
@@ -243,7 +234,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                 <button 
                                     type="button"
                                     onClick={() => setMode('DAMAGE')}
-                                    className="text-text-secondary hover:text-text-primary text-sm font-semibold flex items-center gap-1 px-2 py-1 rounded hover:bg-background transition-colors"
+                                    className="text-error hover:bg-error-container/30 text-sm font-semibold flex items-center gap-1 px-2 py-1 rounded-full transition-colors"
                                 >
                                     <AlertTriangle size={16} />
                                     Report Damage?
@@ -255,20 +246,20 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                     {/* --- DAMAGE MODE --- */}
                     {mode === 'DAMAGE' && (
                         <form id="damage-form" onSubmit={handleDamageSubmit} className="space-y-4">
-                            <div className="bg-background border border-border p-3 rounded text-sm text-text-secondary mb-4">
+                            <div className="bg-surface-container border border-outline/20 p-3 rounded-xl text-sm text-text-secondary mb-4">
                                 This will mark the current order as <strong>Received</strong> and create a new <strong>Replacement Order</strong> for the selected items.
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-2">Which items are damaged?</label>
-                                <div className="space-y-2 max-h-48 overflow-y-auto border border-border rounded p-2 bg-background">
+                                <div className="space-y-2 max-h-48 overflow-y-auto border border-outline/20 rounded-xl p-2 bg-surface-container">
                                     {order.lineItems.map(item => (
-                                        <label key={item.id} className="flex items-center gap-3 p-2 hover:bg-surface rounded cursor-pointer group">
+                                        <label key={item.id} className="flex items-center gap-3 p-2 hover:bg-surface-container-highest rounded-lg cursor-pointer group">
                                             <input 
                                                 type="checkbox"
                                                 checked={damageItems.has(item.id)}
                                                 onChange={() => toggleDamageItem(item.id)}
-                                                className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
+                                                className="form-checkbox h-4 w-4 text-primary bg-surface-container-low border-outline/50 rounded-sm focus:ring-primary"
                                             />
                                             <div className="text-sm">
                                                 <span className="font-medium text-text-primary">
@@ -291,7 +282,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                     required
                                     value={replacementEta}
                                     onChange={e => setReplacementEta(e.target.value)}
-                                    className="w-full p-2 bg-background border border-border rounded text-text-primary"
+                                    className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none"
                                 />
                             </div>
 
@@ -302,7 +293,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                     value={damageNotes}
                                     onChange={e => setDamageNotes(e.target.value)}
                                     placeholder="Describe the damage..."
-                                    className="w-full p-2 bg-background border border-border rounded text-text-primary h-20 resize-none"
+                                    className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary h-20 resize-none placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none"
                                 />
                             </div>
 
@@ -311,8 +302,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                 <label className="block text-sm font-medium text-text-secondary mb-1">Damage Photos / Evidence</label>
                                 
                                 <div className="grid grid-cols-2 gap-4 mb-3">
-                                    {/* Standard Upload */}
-                                    <label className="border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
+                                    <label className="border border-error-container bg-error-container/30 hover:bg-error-container/50 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
                                         <input 
                                             type="file" 
                                             multiple 
@@ -320,12 +310,11 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                             className="hidden"
                                             onChange={handleFileSelect}
                                         />
-                                        <FolderOpen className="w-6 h-6 text-red-500 mb-2" />
-                                        <span className="text-xs font-bold text-red-700">Upload Files</span>
+                                        <FolderOpen className="w-6 h-6 text-error mb-2" />
+                                        <span className="text-xs font-bold text-on-error-container">Upload Files</span>
                                     </label>
 
-                                    {/* Camera Capture */}
-                                    <label className="border border-red-200 bg-red-50 hover:bg-red-100 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
+                                    <label className="border border-error-container bg-error-container/30 hover:bg-error-container/50 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm">
                                         <input 
                                             type="file" 
                                             accept="image/*"
@@ -333,25 +322,24 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                             className="hidden"
                                             onChange={handleFileSelect}
                                         />
-                                        <Camera className="w-6 h-6 text-red-500 mb-2" />
-                                        <span className="text-xs font-bold text-red-700">Take Photo</span>
+                                        <Camera className="w-6 h-6 text-error mb-2" />
+                                        <span className="text-xs font-bold text-on-error-container">Take Photo</span>
                                     </label>
                                 </div>
 
-                                {/* File Gallery / Preview */}
                                 {files.length > 0 && (
-                                    <div className="bg-background border border-border rounded-lg p-2 space-y-2">
+                                    <div className="bg-surface-container border border-outline/20 rounded-xl p-2 space-y-2">
                                         {files.map((file, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-2 bg-surface rounded shadow-sm border-l-2 border-red-400">
+                                            <div key={idx} className="flex items-center justify-between p-2 bg-surface-container-highest rounded-lg shadow-sm border-l-2 border-error">
                                                 <div className="flex items-center gap-3 overflow-hidden">
                                                     {file.type.startsWith('image/') ? (
-                                                        <img src={URL.createObjectURL(file)} alt="Preview" className="w-8 h-8 object-cover rounded" />
+                                                        <img src={URL.createObjectURL(file)} alt="Preview" className="w-8 h-8 object-cover rounded-md" />
                                                     ) : (
                                                         <FileText className="w-8 h-8 text-text-tertiary" />
                                                     )}
                                                     <span className="text-xs font-medium truncate max-w-[150px] md:max-w-[200px]">{file.name}</span>
                                                 </div>
-                                                <button type="button" onClick={() => removeFile(idx)} className="text-text-tertiary hover:text-red-500"><X size={16} /></button>
+                                                <button type="button" onClick={() => removeFile(idx)} className="text-text-tertiary hover:text-error"><X size={16} /></button>
                                             </div>
                                         ))}
                                     </div>
@@ -364,15 +352,15 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                     onClick={() => setSendEmail(!sendEmail)}
                                     className={`w-full text-left p-4 rounded-lg border-2 transition-all flex items-center gap-4 group ${
                                         sendEmail 
-                                            ? 'border-red-500 bg-red-50' 
-                                            : 'border-border bg-background hover:bg-surface'
+                                            ? 'border-error bg-error-container/30' 
+                                            : 'border-outline/20 bg-surface-container hover:bg-surface-container-highest'
                                     }`}
                                 >
-                                    <div className={`p-2 rounded-full ${sendEmail ? 'bg-red-500 text-white' : 'bg-secondary text-text-secondary'}`}>
+                                    <div className={`p-2 rounded-full ${sendEmail ? 'bg-error text-on-error' : 'bg-secondary-container text-on-secondary-container'}`}>
                                         {sendEmail ? <Mail size={24} /> : <MailX size={24} />}
                                     </div>
                                     <div>
-                                        <p className={`font-bold ${sendEmail ? 'text-red-600' : 'text-text-secondary'}`}>
+                                        <p className={`font-bold ${sendEmail ? 'text-error' : 'text-text-secondary'}`}>
                                             {sendEmail ? 'Sending Damage Alert' : 'Alert Disabled'}
                                         </p>
                                         <p className="text-sm text-text-secondary">
@@ -387,13 +375,13 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                 </div>
 
                 {/* FOOTER */}
-                <div className="p-4 border-t border-border bg-surface lg:rounded-b-lg flex justify-end gap-3 shrink-0 sticky bottom-0 z-10 lg:static">
+                <div className="p-4 border-t border-outline/10 bg-surface-container-high lg:rounded-b-2xl flex justify-end gap-3 shrink-0 sticky bottom-0 z-10 lg:static">
                     {mode === 'DAMAGE' ? (
                         <>
                             <button 
                                 type="button"
                                 onClick={() => setMode('RECEIVE')}
-                                className="px-4 py-2 text-text-secondary hover:text-text-primary flex items-center gap-2"
+                                className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors flex items-center gap-2"
                             >
                                 <ArrowLeft size={16} /> Back
                             </button>
@@ -401,7 +389,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                 form="damage-form"
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="px-4 py-2 bg-primary hover:bg-primary-hover text-on-primary rounded shadow-sm font-medium disabled:opacity-50"
+                                className="py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all disabled:opacity-50"
                             >
                                 {isSubmitting ? 'Processing...' : 'Submit Damage Report'}
                             </button>
@@ -411,7 +399,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                             <button 
                                 onClick={onClose} 
                                 type="button"
-                                className="px-4 py-2 bg-secondary hover:bg-secondary-hover text-on-secondary rounded"
+                                className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors"
                             >
                                 Cancel
                             </button>
@@ -419,7 +407,7 @@ const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({ isOpen, onClose, 
                                 form="receive-form"
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="px-4 py-2 bg-primary hover:bg-primary-hover text-on-primary rounded shadow-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                                className="py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
                             >
                                 <CheckCircle size={18} />
                                 {isSubmitting ? 'Receiving...' : 'Mark as Received'}

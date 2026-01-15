@@ -60,10 +60,10 @@ const PricingConfigurationSection: React.FC = () => {
     if (loading) return <div className="p-6 text-center text-text-secondary">Loading configuration...</div>;
 
     return (
-        <section className="bg-surface p-6 rounded-lg shadow-md border border-border max-w-3xl">
-            <div className="flex items-center gap-3 mb-6 border-b border-border pb-4">
-                <div className="p-2 bg-green-900/30 rounded-lg text-green-400">
-                    <DollarSign size={24} />
+        <section className="md:bg-surface-container-low md:p-8 md:rounded-2xl md:border md:border-outline/10 max-w-4xl mx-auto transition-all">
+            <div className="flex items-center gap-3 mb-8 md:mb-8 pb-4 border-b border-outline/10">
+                <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-primary">
+                    <DollarSign size={24} className="text-primary" />
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-text-primary">Pricing Configuration</h2>
@@ -71,14 +71,14 @@ const PricingConfigurationSection: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+                <div className="space-y-8">
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-2">Calculation Method</label>
-                        <div className="flex bg-background p-1 rounded-lg border border-border">
+                        <div className="flex bg-surface-container-highest p-1 rounded-full border border-outline/10">
                             <button
                                 onClick={() => setSettings({ ...settings, calculationMethod: 'Markup' })}
-                                className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
+                                className={`flex-1 py-2 px-4 rounded-full text-sm font-bold transition-all ${
                                     settings.calculationMethod === 'Markup' 
                                     ? 'bg-primary text-on-primary shadow-sm' 
                                     : 'text-text-secondary hover:text-text-primary'
@@ -88,7 +88,7 @@ const PricingConfigurationSection: React.FC = () => {
                             </button>
                             <button
                                 onClick={() => setSettings({ ...settings, calculationMethod: 'Margin' })}
-                                className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
+                                className={`flex-1 py-2 px-4 rounded-full text-sm font-bold transition-all ${
                                     settings.calculationMethod === 'Margin' 
                                     ? 'bg-primary text-on-primary shadow-sm' 
                                     : 'text-text-secondary hover:text-text-primary'
@@ -111,7 +111,7 @@ const PricingConfigurationSection: React.FC = () => {
                                 type="number" 
                                 value={settings.retailMarkup}
                                 onChange={(e) => setSettings({ ...settings, retailMarkup: parseFloat(e.target.value) || 0 })}
-                                className="w-full bg-background border border-border rounded-lg py-2 pl-4 pr-10 text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+                                className="w-full bg-surface-container-highest border-b-2 border-transparent rounded-t-lg py-3 pl-4 pr-10 text-text-primary focus:border-primary focus:outline-none transition-all"
                             />
                             <div className="absolute right-3 top-2.5 text-text-secondary">
                                 <Percent size={16} />
@@ -126,7 +126,7 @@ const PricingConfigurationSection: React.FC = () => {
                                 type="number" 
                                 value={settings.contractorMarkup}
                                 onChange={(e) => setSettings({ ...settings, contractorMarkup: parseFloat(e.target.value) || 0 })}
-                                className="w-full bg-background border border-border rounded-lg py-2 pl-4 pr-10 text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+                                className="w-full bg-surface-container-highest border-b-2 border-transparent rounded-t-lg py-3 pl-4 pr-10 text-text-primary focus:border-primary focus:outline-none transition-all"
                             />
                             <div className="absolute right-3 top-2.5 text-text-secondary">
                                 <Percent size={16} />
@@ -137,7 +137,7 @@ const PricingConfigurationSection: React.FC = () => {
                     <button 
                         onClick={handleSave} 
                         disabled={saving}
-                        className="flex items-center justify-center w-full py-2 px-4 bg-primary hover:bg-primary-hover text-on-primary font-bold rounded-lg transition-colors disabled:opacity-50"
+                        className="flex items-center justify-center w-full py-3 px-6 bg-primary hover:bg-primary-hover text-on-primary font-bold rounded-full transition-colors disabled:opacity-50 shadow-sm"
                     >
                         <Save size={18} className="mr-2" />
                         {saving ? "Saving..." : "Save Configuration"}
@@ -145,33 +145,37 @@ const PricingConfigurationSection: React.FC = () => {
                 </div>
 
                 {/* LIVE PREVIEW PANEL */}
-                <div className="bg-background rounded-lg border border-border p-5">
+                <div className="bg-surface-container-highest rounded-2xl border border-outline/10 p-6 flex flex-col justify-center">
                     <h3 className="text-sm font-bold text-text-primary mb-4 flex items-center gap-2">
                         <Calculator size={16} className="text-accent"/> Live Example
                     </h3>
-                    <div className="space-y-4 text-sm">
-                        <div className="p-3 bg-surface rounded border border-border">
+                    <div className="space-y-6 text-sm">
+                        <div className="p-4 bg-surface-container-low rounded-xl border border-outline/10 text-center">
                             <p className="text-text-secondary mb-1">If Unit Cost is:</p>
                             <p className="text-xl font-bold text-text-primary">$100.00</p>
                         </div>
                         
-                        <div className="relative pl-4 border-l-2 border-border space-y-4">
-                            <div>
-                                <p className="text-text-secondary text-xs uppercase tracking-wider mb-1">Retail Price</p>
-                                <p className="text-lg font-bold text-green-400">
+                        <div className="space-y-6 px-4">
+                            <div className="flex justify-between items-center border-b border-outline/10 pb-4">
+                                <div>
+                                    <p className="text-text-secondary text-xs uppercase tracking-wider mb-1">Retail Price</p>
+                                    <p className="text-xs text-text-secondary">
+                                        {settings.calculationMethod} of {settings.retailMarkup}%
+                                    </p>
+                                </div>
+                                <p className="text-2xl font-bold text-primary">
                                     ${calculateExample(100, settings.retailMarkup)}
                                 </p>
-                                <p className="text-xs text-text-secondary">
-                                    {settings.calculationMethod} of {settings.retailMarkup}%
-                                </p>
                             </div>
-                            <div>
-                                <p className="text-text-secondary text-xs uppercase tracking-wider mb-1">Contractor Price</p>
-                                <p className="text-lg font-bold text-blue-400">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="text-text-secondary text-xs uppercase tracking-wider mb-1">Contractor Price</p>
+                                    <p className="text-xs text-text-secondary">
+                                        {settings.calculationMethod} of {settings.contractorMarkup}%
+                                    </p>
+                                </div>
+                                <p className="text-2xl font-bold text-secondary">
                                     ${calculateExample(100, settings.contractorMarkup)}
-                                </p>
-                                <p className="text-xs text-text-secondary">
-                                    {settings.calculationMethod} of {settings.contractorMarkup}%
                                 </p>
                             </div>
                         </div>

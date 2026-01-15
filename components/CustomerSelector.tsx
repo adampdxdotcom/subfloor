@@ -33,27 +33,29 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSelect, o
         placeholder="Search by name or email..."
         value={searchTerm}
         onChange={e => setSearchTerm(e.target.value)}
-        className="w-full p-3 bg-background text-text-primary border-2 border-border rounded-lg"
+        className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none"
       />
       {searchTerm.length > 0 && (
-        <div className="absolute z-10 w-full bg-surface border border-border rounded-b-lg mt-1 shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-10 w-full bg-surface-container-high border border-outline/20 rounded-lg mt-1 shadow-xl max-h-60 overflow-y-auto">
           {searchResults.map(customer => (
             <div
               key={customer.id}
               onClick={() => handleSelect(customer)}
-              className="p-3 hover:bg-background cursor-pointer border-b border-border text-text-primary"
+              className="px-4 py-3 hover:bg-primary-container/30 cursor-pointer border-b border-outline/10 text-text-primary"
             >
               <p className="font-semibold">{customer.fullName}</p>
               <p className="text-sm text-text-secondary">{customer.email}</p>
             </div>
           ))}
-          {/* --- MODIFIED: This now calls the parent component with the search term --- */}
           <div
             onClick={() => onRequestNewCustomer(searchTerm)}
-            className="p-3 hover:bg-background cursor-pointer flex items-center gap-2 text-accent font-semibold"
+            className="p-3 hover:bg-primary-container/30 cursor-pointer flex items-center gap-2 text-primary font-semibold"
           >
             <UserPlus size={18} />
-            Create New Customer "{searchTerm}"
+            {searchResults.length > 0 
+                ? `Or create new customer "${searchTerm}"`
+                : `Create new customer "${searchTerm}"`
+            }
           </div>
         </div>
       )}

@@ -10,20 +10,19 @@ import ProjectCarousel from '../components/ProjectCarousel';
 import OrderCarousel from '../components/OrderCarousel';
 import SampleCarousel from '../components/SampleCarousel';
 import SampleDetailModal from '../components/SampleDetailModal';
-import { useData } from '../context/DataContext'; // Need products to map back if needed, but carousel passes product
+import { useData } from '../context/DataContext';
 
 const Dashboard: React.FC = () => {
   const { data: projects = [] } = useProjects();
   const { data: sampleCheckouts = [] } = useSampleCheckouts();
   const { data: materialOrders = [] } = useMaterialOrders();
-  const { samples } = useData(); // Get legacy samples for modal mapping
+  const { samples } = useData(); 
   
   const [filter, setFilter] = useState<ProjectStatus | 'All' | 'Recap'>('Recap');
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   
-  // Sample Modal State
-  const [selectedSampleForModal, setSelectedSampleForModal] = useState<any>(null); // Use any/legacy Sample type
+  const [selectedSampleForModal, setSelectedSampleForModal] = useState<any>(null);
   
   const safeDateSort = (a: Project, b: Project) => {
     const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -31,44 +30,36 @@ const Dashboard: React.FC = () => {
     return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
   };
 
-  // 1. ACTIVE SAMPLES
   const activeCheckouts = useMemo(() => {
       return sampleCheckouts
           .filter(sc => !sc.actualReturnDate)
           .sort((a, b) => new Date(a.expectedReturnDate).getTime() - new Date(b.expectedReturnDate).getTime());
   }, [sampleCheckouts]);
 
-  // 2. UPCOMING ORDERS CAROUSEL (5 Days)
   const upcomingOrders = useMemo(() => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
       const futureWindow = new Date(today);
-      // Set window to exactly 5 days
       futureWindow.setDate(today.getDate() + 5); 
 
       return materialOrders
           .filter(o => {
-              // Only show Active or Replacement orders
               if (o.status !== 'Ordered' && o.status !== 'Damage Replacement') return false;
               if (!o.etaDate) return false;
 
-              // Robust Date Parsing (Fixes the missing order issue)
               const dateStr = o.etaDate.includes('T') ? o.etaDate.split('T')[0] : o.etaDate;
               const eta = new Date(`${dateStr}T00:00:00`);
               
-              // Logic: Show everything in the past (overdue) AND everything up to 5 days in future
               return eta <= futureWindow;
           })
           .sort((a, b) => {
-              // Robust Sort
               const dateStrA = a.etaDate! && a.etaDate.includes('T') ? a.etaDate.split('T')[0] : a.etaDate!;
               const dateStrB = b.etaDate! && b.etaDate.includes('T') ? b.etaDate.split('T')[0] : b.etaDate!;
               return new Date(dateStrA).getTime() - new Date(dateStrB).getTime();
           });
   }, [materialOrders]);
 
-  // 3. ACTIVE PIPELINE CAROUSEL
   const activePipelineProjects = useMemo(() => {
     const statusOrder = {
         [ProjectStatus.QUOTING]: 1,
@@ -117,39 +108,31 @@ const Dashboard: React.FC = () => {
   ];
 
   const handleSampleClick = (product: Product) => {
-      // Map Product back to legacy Sample format for the modal (temporary bridge)
-      // Or better, update SampleDetailModal to take Product. 
-      // For now, find the matching sample in context.
       const sample = samples.find(s => s.id === parseInt(product.id as any) || s.sku === product.variants[0]?.sku);
       if (sample) setSelectedSampleForModal(sample);
-      // Fallback: If migration isn't 100% perfect, we might fail to open old samples via new product objects
   };
 
   return (
-    <div>
-      <div className="bg-surface p-6 rounded-lg shadow-md mb-6 border border-border">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
-          <div className="flex flex-wrap items-center gap-4">
-              <button 
-                  onClick={() => setIsCheckoutModalOpen(true)}
-                  className="bg-primary hover:bg-primary-hover text-on-primary font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2 shadow-md"
-              >
-                  <PackagePlus size={18} />
-                  New Checkout
-              </button>
-
-          </div>
+    <div className="space-y-6">
+        {/* Header Section - De-boxed */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-1">
+            <h1 className="text-4xl font-bold text-text-primary tracking-tight">Dashboard</h1>
+            <button 
+                onClick={() => setIsCheckoutModalOpen(true)}
+                className="bg-primary hover:bg-primary-hover text-on-primary font-semibold py-3 px-6 rounded-full transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+            >
+                <PackagePlus size={20} />
+                New Checkout
+            </button>
         </div>
         
-        <div className="border-t border-border pt-4">
-            <div className="flex items-center space-x-2 overflow-x-auto pb-2 no-scrollbar after:content-[''] after:min-w-[1rem]">
+        {/* Filter Chips - Floating Surface */}
+        <div className="flex items-center space-x-2 overflow-x-auto pb-2 px-1 no-scrollbar after:content-[''] after:min-w-[1rem]">
                 <button 
                   onClick={() => setIsFilterVisible(!isFilterVisible)} 
-                  className="flex items-center space-x-2 p-2 rounded-md hover:bg-background transition-colors cursor-pointer mr-2"
+                  className="flex items-center space-x-2 p-2 rounded-full hover:bg-surface-container-high transition-colors cursor-pointer mr-2 text-text-secondary"
                 >
-                  <Filter className="w-5 h-5 text-text-secondary flex-shrink-0"/>
-                  <span className="text-text-secondary font-medium flex-shrink-0">Filter:</span>
+                  <Filter className="w-5 h-5 flex-shrink-0"/>
                 </button>
                 
                 {isFilterVisible && (
@@ -158,22 +141,19 @@ const Dashboard: React.FC = () => {
                         <button 
                           key={option} 
                           onClick={() => setFilter(option)} 
-                          className={`px-3 py-1.5 text-sm rounded-full transition-colors flex-shrink-0 font-medium ${filter === option ? 'bg-primary text-on-primary shadow-sm' : 'bg-background text-text-secondary hover:bg-gray-700 border border-border'}`}
+                          className={`px-4 py-2 text-sm rounded-full transition-colors flex-shrink-0 font-medium border ${filter === option ? 'bg-primary-container text-on-primary-container border-transparent' : 'bg-surface text-text-secondary border-outline hover:bg-surface-container-high'}`}
                         >
                             {option}
                         </button>
                     ))}
                   </div>
                 )}
-            </div>
         </div>
-      </div>
       
       <div>
           {filter === 'Recap' ? (
             <div>
                 <SampleCarousel title="Active Sample Checkouts" checkouts={activeCheckouts} onItemClick={handleSampleClick} />
-                {/* This is the ONLY Order Carousel */}
                 <OrderCarousel title="Upcoming Deliveries (Next 5 Days)" orders={upcomingOrders} projects={projects} />
                 <ProjectCarousel title="Active Pipeline" projects={activePipelineProjects} />
             </div>

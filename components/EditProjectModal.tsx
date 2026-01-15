@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Project, PROJECT_TYPES } from '../types';
+import { X } from 'lucide-react';
 
 interface EditProjectModalProps {
   project: Project;
@@ -46,13 +47,24 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ project, onClose, o
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-2xl font-bold mb-6 text-text-primary">Edit Project Details</h2>
+    <div className="fixed inset-0 bg-scrim/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-surface-container-high p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-outline/20" onClick={(e) => e.stopPropagation()}>
+        
+        {/* Header with Close Button */}
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-text-primary">Edit Project Details</h2>
+            <button 
+                onClick={onClose} 
+                className="text-text-secondary hover:text-text-primary p-2 rounded-full hover:bg-surface-container-highest transition-colors"
+            >
+                <X size={20} />
+            </button>
+        </div>
+
         <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label htmlFor="projectName" className="block text-sm font-medium text-text-secondary mb-1">
+              <label htmlFor="projectName" className="block text-sm font-medium text-text-secondary mb-1.5 ml-1">
                 Project Name
               </label>
               <input
@@ -61,12 +73,12 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ project, onClose, o
                 name="projectName"
                 value={formData.projectName}
                 onChange={handleChange}
-                className="w-full p-2 bg-background border border-border rounded text-text-primary focus:ring-2 focus:ring-primary outline-none"
+                className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none transition-all"
                 required
               />
             </div>
             <div>
-              <label htmlFor="projectType" className="block text-sm font-medium text-text-secondary mb-1">
+              <label htmlFor="projectType" className="block text-sm font-medium text-text-secondary mb-1.5 ml-1">
                 Project Type
               </label>
               <select
@@ -74,7 +86,7 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ project, onClose, o
                 name="projectType"
                 value={formData.projectType}
                 onChange={handleChange}
-                className="w-full p-2 bg-background border border-border rounded text-text-primary focus:ring-2 focus:ring-primary outline-none"
+                className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none transition-all cursor-pointer"
               >
                 {PROJECT_TYPES.map(type => (
                   <option key={type} value={type}>{type}</option>
@@ -82,17 +94,18 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({ project, onClose, o
               </select>
             </div>
           </div>
-          <div className="flex justify-end space-x-4 mt-8">
+
+          <div className="flex justify-end gap-3 mt-8">
             <button
               type="button"
               onClick={onClose}
-              className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-semibold transition-colors"
+              className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary font-semibold transition-colors"
+              className="py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all active:scale-95"
             >
               Save Changes
             </button>

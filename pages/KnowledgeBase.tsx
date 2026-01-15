@@ -32,7 +32,6 @@ const CreateCategoryModal = ({ onClose, onSave }: { onClose: () => void, onSave:
     );
 };
 
-// --- HELPER: Slugify text for IDs ---
 const slugify = (text: string) => {
     return text.toString().toLowerCase()
         .replace(/\s+/g, '-')           
@@ -42,7 +41,6 @@ const slugify = (text: string) => {
         .replace(/-+$/, '');            
 };
 
-// --- HELPER: Inject IDs into Headers (Runs on Save) ---
 const injectHeaderIds = (html: string) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -55,7 +53,6 @@ const injectHeaderIds = (html: string) => {
     return doc.body.innerHTML;
 };
 
-// --- HELPER: Extract Headers for TOC (Runs on Read) ---
 const extractHeaders = (html: string) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -97,14 +94,11 @@ export default function KnowledgeBase() {
     // TOC State
     const [toc, setToc] = useState<{ id: string, text: string, level: number }[]>([]);
 
-    // Load Categories on mount
     useEffect(() => {
         fetchCategories();
     }, []);
 
-    // Load Articles when Category or Search changes
     useEffect(() => {
-        // Debounce search or immediate category load
         const timer = setTimeout(() => {
             if (searchQuery) fetchArticles(null, searchQuery);
             else if (activeCategory) fetchArticles(activeCategory);
@@ -112,35 +106,29 @@ export default function KnowledgeBase() {
         return () => clearTimeout(timer);
     }, [activeCategory, searchQuery]);
 
-    // Clear search when clicking a category
     useEffect(() => {
         if (activeCategory) setSearchQuery('');
     }, [activeCategory]);
 
-    // SCROLL HANDLER: Runs when article loads to handle deep links
     useEffect(() => {
         if (currentArticle && pendingAnchor) {
-            // Increased timeout to ensure DOM is fully painted
             const timer = setTimeout(() => {
                 const el = document.getElementById(pendingAnchor);
                 if (el) {
                     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    setPendingAnchor(null); // Clear the jump
+                    setPendingAnchor(null);
                 }
-            }, 300); // 300ms is usually safe for large renders
+            }, 300);
             return () => clearTimeout(timer);
         }
     }, [currentArticle, pendingAnchor]);
 
-    // CAPTION HYDRATION (Read Mode)
     useEffect(() => {
         if (view === 'read' && currentArticle) {
-            // Allow DOM to paint
             setTimeout(() => {
                 const container = document.querySelector('.kb-read-content');
                 if (!container) return;
 
-                // Fix Image Sources for Mobile
                 container.querySelectorAll('img').forEach((img: any) => {
                     const currentSrc = img.getAttribute('src');
                     if (currentSrc && !currentSrc.startsWith('http')) {
@@ -149,7 +137,6 @@ export default function KnowledgeBase() {
                 });
 
                 container.querySelectorAll('img[data-caption]').forEach((img: any) => {
-                    // Skip if already wrapped (prevents double wrapping on re-renders)
                     if (img.parentElement.tagName === 'FIGURE') return;
 
                     const captionText = img.getAttribute('data-caption');
@@ -159,7 +146,6 @@ export default function KnowledgeBase() {
                     const figcaption = document.createElement('figcaption');
                     figcaption.innerText = captionText;
 
-                    // FIX: Read 'align' attribute to apply styles to the Figure wrapper
                     const align = img.getAttribute('align');
                     if (align === 'left') {
                         figure.style.float = 'left';
@@ -181,7 +167,6 @@ export default function KnowledgeBase() {
         try {
             const res = await axios.get(getEndpoint('/api/kb/categories'), { withCredentials: true });
             setCategories(res.data);
-            // Auto-select first category if none selected and categories exist
             if (!activeCategory && res.data.length > 0) {
                 setActiveCategory(res.data[0].id);
             }
@@ -209,27 +194,21 @@ export default function KnowledgeBase() {
         } catch (e) { toast.error("Failed to create category"); }
     };
 
-    // Updated to accept an optional initial title from search
     const handleCreateArticle = (initialTitle = '') => {
         setEditTitle(initialTitle);
         setEditContent('<p>Start writing...</p>');
         setEditCategoryId(activeCategory || '');
         setEditTags([]);
         setCurrentArticle(null);
-        // Clear search so we don't see the result screen when we come back
         setSearchQuery('');
         setView('edit');
     };
 
     const handleEditArticle = (article: any) => {
-        // FIX: Clear current article FIRST.
-        // This ensures the UI goes "Loading" and the useEffect hook won't fire 
-        // using the OLD article data with the NEW anchor.
         setCurrentArticle(null);
-        
         axios.get(getEndpoint(`/api/kb/articles/${article.id}`), { withCredentials: true }).then(res => {
             setCurrentArticle(res.data);
-            setToc(extractHeaders(res.data.content)); // Build TOC
+            setToc(extractHeaders(res.data.content)); 
             setView('read');
         });
     };
@@ -247,7 +226,6 @@ export default function KnowledgeBase() {
         if (!editTitle) return toast.error("Title is required");
         if (!editCategoryId) return toast.error("Category is required");
 
-        // Auto-generate IDs for Deep Linking
         const contentWithIds = injectHeaderIds(editContent);
 
         try {
@@ -269,11 +247,9 @@ export default function KnowledgeBase() {
                 setCurrentArticle({ ...res.data, author_name: currentUser?.firstName, title: editTitle, content: contentWithIds, tags: editTags }); 
             }
             
-            // Refresh and go back
-            fetchArticles(Number(editCategoryId)); // Refresh list
+            fetchArticles(Number(editCategoryId)); 
             setActiveCategory(Number(editCategoryId));
-            // Go back to read mode for this article
-            setToc(extractHeaders(contentWithIds)); // Update TOC
+            setToc(extractHeaders(contentWithIds)); 
             setView('read');
         } catch (e) { 
             console.error(e);
@@ -289,37 +265,35 @@ export default function KnowledgeBase() {
     };
 
     const handleRestoreContent = (oldContent: string) => {
-        // 1. Update content state
         setEditContent(oldContent);
-        // 2. Switch to Edit Mode immediately
-        setEditTags(currentArticle?.tags || []); // Preserve tags
+        setEditTags(currentArticle?.tags || []); 
         setView('edit');
     };
 
     return (
         <div className="h-full flex flex-col">
-            {/* SECTION 1: HEADER BOX */}
-            <div className="bg-surface p-6 rounded-lg shadow-md mb-6 border border-border flex-shrink-0">
+            {/* SECTION 1: HEADER BOX - MD3 Style */}
+            <div className="bg-surface-container-high p-8 rounded-xl shadow-sm mb-6 border border-outline/10 flex-shrink-0">
                 <div>
-                    <h1 className="text-3xl font-bold text-text-primary">Knowledge Base</h1>
-                    <p className="text-text-secondary mt-1">Manage documentation, guides, and internal resources.</p>
+                    <h1 className="text-4xl font-bold text-text-primary tracking-tight">Knowledge Base</h1>
+                    <p className="text-text-secondary mt-1 font-medium">Manage documentation, guides, and internal resources.</p>
                 </div>
             </div>
             
             {/* MAIN APP CONTAINER */}
-            <div className="flex-1 flex min-h-0 bg-surface border border-border rounded-lg overflow-hidden shadow-sm relative">
+            <div className="flex-1 flex min-h-0 bg-surface-container-high border border-outline/10 rounded-xl overflow-hidden shadow-sm relative">
                 
                 {/* SIDEBAR: Categories */}
-                <div className={`border-r border-border bg-background flex flex-col transition-all duration-200 
+                <div className={`border-r border-outline/10 bg-surface-container-low flex flex-col transition-all duration-200 
                     ${showSidebar ? 'absolute inset-0 z-50 w-full' : 'hidden md:flex w-64'}
                 `}>
-                    <div className="p-4 border-b border-border flex justify-between items-center bg-surface">
+                    <div className="p-4 border-b border-outline/10 flex justify-between items-center bg-surface-container-low">
                         <h2 className="font-bold text-text-primary flex items-center gap-2">
                             <Folder className="text-primary w-5 h-5" /> Library
                         </h2>
                         <div className="flex items-center gap-2">
                             {isAdmin && (
-                                <button onClick={() => setIsCatModalOpen(true)} className="text-primary hover:bg-primary/10 p-1.5 rounded transition-colors" title="New Category">
+                                <button onClick={() => setIsCatModalOpen(true)} className="text-primary hover:bg-primary-container p-2 rounded-full transition-colors" title="New Category">
                                     <Plus size={18} />
                                 </button>
                             )}
@@ -330,30 +304,27 @@ export default function KnowledgeBase() {
                         {categories.length === 0 && <div className="text-sm text-text-tertiary p-4 text-center">No categories yet.</div>}
                         {categories.map(cat => (
                             <div key={cat.id}>
-                                {/* Category Header */}
                                 <button 
                                     onClick={() => {
                                         setActiveCategory(cat.id);
-                                        // Don't force 'list' view if just expanding
                                     }}
                                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
                                         activeCategory === cat.id 
-                                            ? 'bg-primary/10 text-primary font-bold' 
-                                            : 'text-text-secondary hover:bg-surface hover:text-text-primary'
+                                            ? 'bg-primary-container text-primary font-bold' 
+                                            : 'text-text-secondary hover:bg-surface-container-high hover:text-text-primary'
                                     }`}
                                 >
                                     <Folder size={16} className={activeCategory === cat.id ? 'text-primary' : 'text-text-tertiary'} />
                                     <span className="truncate">{cat.name}</span>
                                 </button>
 
-                                {/* Nested Articles (Tree) */}
                                 {activeCategory === cat.id && (
-                                    <div className="ml-4 border-l border-border pl-2 mt-1 space-y-0.5">
+                                    <div className="ml-4 border-l border-outline/20 pl-2 mt-1 space-y-0.5">
                                         {articles.map(art => (
                                             <button
                                                 key={art.id}
-                                                onClick={() => { handleEditArticle(art); setShowSidebar(false); }} // Or View
-                                                className={`block w-full text-left px-2 py-1.5 text-xs truncate rounded ${currentArticle?.id === art.id ? 'text-primary bg-primary/5 font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-surface'}`}
+                                                onClick={() => { handleEditArticle(art); setShowSidebar(false); }} 
+                                                className={`block w-full text-left px-2 py-1.5 text-xs truncate rounded-md ${currentArticle?.id === art.id ? 'text-primary bg-primary-container/30 font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-surface-container-high'}`}
                                             >
                                                 {art.title}
                                             </button>
@@ -372,10 +343,7 @@ export default function KnowledgeBase() {
                     {/* VIEW: LIST OF ARTICLES */}
                     {view === 'list' && (
                         <div className="flex flex-col h-full">
-                            {/* HEADER: Responsive Layout */}
-                            <div className="p-4 md:p-6 border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                
-                                {/* Row 1: Title & Mobile Controls */}
+                            <div className="p-4 md:p-6 border-b border-outline/10 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-high">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <button onClick={() => setShowSidebar(true)} className="md:hidden text-primary hover:bg-primary/10 p-1 rounded"><Menu size={24} /></button>
@@ -387,12 +355,11 @@ export default function KnowledgeBase() {
                                                     <h1 className="text-xl md:text-2xl font-bold text-text-primary">
                                                         {categories.find(c => c.id === activeCategory)?.name || 'Library'}
                                                     </h1>
-                                                    <p className="text-text-secondary text-xs md:text-sm">{articles.length} articles</p>
+                                                    <p className="text-text-secondary text-xs md:text-sm font-medium">{articles.length} articles</p>
                                                 </>
                                             )}
                                         </div>
                                     </div>
-                                    {/* Mobile "New" Button */}
                                     {isAdmin && activeCategory && (
                                         <button onClick={() => handleCreateArticle()} className="md:hidden text-primary bg-primary/10 p-2 rounded-full">
                                             <Plus size={20} />
@@ -400,31 +367,29 @@ export default function KnowledgeBase() {
                                     )}
                                 </div>
 
-                                {/* Row 2: Search Bar & Desktop "New" Button */}
                                 <div className="flex items-center gap-4 w-full md:w-auto">
                                     <div className="relative w-full md:w-64 lg:w-80">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
                                         <input 
-                                            className="w-full bg-background border border-border rounded pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                                            className="w-full bg-surface-container-highest border-none rounded-full pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-shadow shadow-sm"
                                             placeholder="Search..."
                                             value={searchQuery}
                                             onChange={e => setSearchQuery(e.target.value)}
                                         />
                                     </div>
                                     {isAdmin && activeCategory && (
-                                        <button onClick={() => handleCreateArticle()} className="hidden md:flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-primary-hover transition-colors">
+                                        <button onClick={() => handleCreateArticle()} className="hidden md:flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-full font-bold shadow-md hover:bg-primary-hover transition-colors">
                                             <Plus size={18} /> New Article
                                         </button>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-6">
-                                {/* ON-THE-FLY CREATION: Show if searching and Admin */}
+                            <div className="flex-1 overflow-y-auto p-6 bg-surface">
                                 {isAdmin && searchQuery && (
                                     <button 
                                         onClick={() => handleCreateArticle(searchQuery)}
-                                        className="w-full mb-4 p-4 border border-dashed border-primary/50 bg-primary/5 rounded-lg flex items-center justify-center gap-2 text-primary font-bold hover:bg-primary/10 transition-colors"
+                                        className="w-full mb-4 p-4 border border-dashed border-primary/50 bg-primary-container/20 rounded-xl flex items-center justify-center gap-2 text-primary font-bold hover:bg-primary-container/40 transition-colors"
                                     >
                                         <Plus size={18} />
                                         Create new article: "{searchQuery}"
@@ -432,7 +397,6 @@ export default function KnowledgeBase() {
                                 )}
 
                                 {articles.length === 0 ? (
-                                    // Only show empty state if we aren't showing the create button above (or to show context)
                                     <div className="text-center py-8 text-text-tertiary">
                                         {!isAdmin && <p>No articles found.</p>}
                                     </div>
@@ -442,13 +406,13 @@ export default function KnowledgeBase() {
                                             <div 
                                                 key={article.id} 
                                                 onClick={() => handleEditArticle(article)}
-                                                className="p-4 rounded-lg border border-border bg-background hover:border-primary hover:shadow-md transition-all cursor-pointer group"
+                                                className="p-5 rounded-xl border border-outline/10 bg-surface-container-high hover:border-primary hover:shadow-md transition-all cursor-pointer group"
                                             >
                                                 <h3 className="font-bold text-lg text-text-primary group-hover:text-primary mb-1">{article.title}</h3>
                                                 <div className="flex items-center gap-4 text-xs text-text-secondary">
-                                                    <span>Updated {new Date(article.updated_at).toLocaleDateString()}</span>
+                                                    <span className="font-medium">Updated {new Date(article.updated_at).toLocaleDateString()}</span>
                                                     {article.tags && article.tags.length > 0 && (
-                                                        <span className="flex items-center gap-1"><Tag size={12} /> {article.tags.join(', ')}</span>
+                                                        <span className="flex items-center gap-1 bg-surface-container px-2 py-0.5 rounded-full"><Tag size={12} /> {article.tags.join(', ')}</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -461,59 +425,51 @@ export default function KnowledgeBase() {
 
                     {/* VIEW: READ ARTICLE */}
                     {view === 'read' && currentArticle && (
-                        <div className="flex flex-col h-full relative">
-                            {/* Header */}
-                            <div className="p-6 border-b border-border flex justify-between items-start bg-surface">
+                        <div className="flex flex-col h-full relative bg-surface">
+                            <div className="p-6 border-b border-outline/10 flex justify-between items-start bg-surface-container-high">
                                 <div>
                                     <div className="flex items-center gap-2 mb-2">
-                                        <button onClick={() => setView('list')} className="text-sm text-text-secondary hover:text-text-primary flex items-center gap-1">
+                                        <button onClick={() => setView('list')} className="text-sm text-text-secondary hover:text-text-primary flex items-center gap-1 font-medium">
                                             <ArrowLeft size={14} /> Back
                                         </button>
                                         <span className="text-border">|</span>
-                                        <span className="text-xs text-primary font-bold uppercase tracking-wider bg-primary/10 px-2 py-0.5 rounded">
+                                        <span className="text-xs text-primary font-bold uppercase tracking-wider bg-primary-container px-2 py-0.5 rounded">
                                             {categories.find(c => c.id === currentArticle.category_id)?.name}
                                         </span>
                                     </div>
-                                    <h1 className="text-3xl font-bold text-text-primary">{currentArticle.title}</h1>
-                                    <p className="text-xs text-text-secondary mt-2">Last updated {new Date(currentArticle.updated_at).toLocaleDateString()}</p>
+                                    <h1 className="text-3xl font-bold text-text-primary tracking-tight">{currentArticle.title}</h1>
+                                    <p className="text-xs text-text-secondary mt-2 font-medium">Last updated {new Date(currentArticle.updated_at).toLocaleDateString()}</p>
                                 </div>
                                 {isAdmin && (
                                     <div className="flex gap-2">
-                                        <button onClick={() => setView('history')} className="p-2 text-text-secondary hover:text-primary hover:bg-background rounded-lg border border-transparent hover:border-border transition-all" title="View History">
+                                        <button onClick={() => setView('history')} className="p-2 text-text-secondary hover:text-primary hover:bg-surface-container-highest rounded-full transition-all" title="View History">
                                             <History size={20} />
                                         </button>
-                                        <button onClick={startEditing} className="p-2 text-text-secondary hover:text-primary hover:bg-background rounded-lg border border-transparent hover:border-border transition-all" title="Edit Article">
+                                        <button onClick={startEditing} className="p-2 text-text-secondary hover:text-primary hover:bg-surface-container-highest rounded-full transition-all" title="Edit Article">
                                             <Edit2 size={20} />
                                         </button>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Content Body + TOC Grid */}
-                            <div className="flex-1 overflow-hidden flex">
+                            <div className="flex-1 overflow-hidden flex bg-surface">
                                 <div 
                                     className="flex-1 overflow-y-auto p-6 md:p-8 flow-root" 
                                     onClick={(e) => {
-                                        // INTERCEPT MENTION CLICKS
-                                        if (e.target.tagName === 'IMG') {
-                                            // @ts-ignore
+                                        if (e.target instanceof HTMLImageElement) {
                                             window.open(e.target.src, '_blank');
                                             return;
                                         }
-                                        // @ts-ignore
-                                        const target = e.target.closest('.kb-mention');
+                                        const target = (e.target as HTMLElement).closest('.kb-mention');
                                         if (target) {
                                             const id = target.getAttribute('data-id');
                                             const anchor = target.getAttribute('data-anchor');
                                             
                                             if (id) {
-                                                // 1. Same Article? Just Scroll.
                                                 if (Number(id) === currentArticle.id && anchor) {
                                                     document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth' });
                                                     return;
                                                 }
-                                                
-                                                // 2. Different Article? Load + Queue Scroll
                                                 if (Number(id) !== currentArticle.id) {
                                                     if (anchor) setPendingAnchor(anchor);
                                                     handleEditArticle({ id }); 
@@ -529,22 +485,20 @@ export default function KnowledgeBase() {
                                     />
                                 </div>
 
-                                {/* Right Sidebar: Table of Contents */}
                                 {toc.length > 0 && (
-                                    <div className="w-64 border-l border-border bg-background p-6 hidden xl:block overflow-y-auto">
+                                    <div className="w-64 border-l border-outline/10 bg-surface-container-low p-6 hidden xl:block overflow-y-auto">
                                         <h4 className="font-bold text-text-secondary text-xs uppercase tracking-wider mb-4">On this page</h4>
-                                        <div className="space-y-2 border-l border-border">
+                                        <div className="space-y-2 border-l border-outline/20">
                                             {toc.map((item, i) => (
                                                 <div key={i} className="group flex items-center justify-between pl-3 hover:border-l hover:-ml-[1px] hover:border-primary transition-all">
                                                     <a 
                                                         href={`#${item.id}`} 
                                                         className={`block text-xs hover:text-primary truncate ${
-                                                            item.level === 3 ? 'ml-2 text-text-tertiary' : 'text-text-secondary'
+                                                            item.level === 3 ? 'ml-2 text-text-tertiary' : 'text-text-secondary font-medium'
                                                         }`}
                                                     >
                                                         {item.text}
                                                     </a>
-                                                    {/* Copy Anchor Link Button */}
                                                     <button 
                                                         onClick={(e) => {
                                                             e.preventDefault();
@@ -565,7 +519,6 @@ export default function KnowledgeBase() {
                         </div>
                     )}
 
-                    {/* VIEW: HISTORY */}
                     {view === 'history' && currentArticle && (
                         <ArticleHistoryView 
                             articleId={currentArticle.id}
@@ -574,42 +527,36 @@ export default function KnowledgeBase() {
                         />
                     )}
 
-                    {/* VIEW: EDIT/CREATE */}
                     {view === 'edit' && (
-                        <div className="flex flex-col h-full">
-                            {/* Header - Layout matched to Read View to prevent jumping */}
-                            <div className="p-6 border-b border-border flex justify-between items-start bg-surface">
+                        <div className="flex flex-col h-full bg-surface">
+                            <div className="p-6 border-b border-outline/10 flex justify-between items-start bg-surface-container-high">
                                 <div className="w-full mr-4">
-                                    {/* Row 1: Nav & Meta controls */}
                                     <div className="flex items-center gap-2 mb-2 h-6">
-                                        <button onClick={() => currentArticle ? setView('read') : setView('list')} className="text-sm text-text-secondary hover:text-text-primary flex items-center gap-1">
+                                        <button onClick={() => currentArticle ? setView('read') : setView('list')} className="text-sm text-text-secondary hover:text-text-primary flex items-center gap-1 font-medium">
                                             <ArrowLeft size={14} /> Cancel
                                         </button>
                                         <span className="text-border">|</span>
-                                        {/* Category Select (Matches Breadcrumb position) */}
                                         <select 
                                             value={editCategoryId} 
                                             onChange={e => setEditCategoryId(e.target.value)}
-                                            className="bg-transparent text-xs font-bold uppercase tracking-wider text-primary border-none outline-none cursor-pointer hover:bg-primary/5 rounded px-1 -ml-1"
+                                            className="bg-transparent text-xs font-bold uppercase tracking-wider text-primary border-none outline-none cursor-pointer hover:bg-primary-container rounded px-1 -ml-1 transition-colors"
                                         >
                                             <option value="" disabled>Select Category</option>
                                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
                                     </div>
 
-                                    {/* Row 2: Title Input (Matches H1 position) */}
                                     <input 
                                         type="text" 
                                         placeholder="Article Title" 
-                                        className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder-text-tertiary text-text-primary p-0 m-0 focus:ring-0"
+                                        className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder-text-tertiary text-text-primary p-0 m-0 focus:ring-0 tracking-tight"
                                         value={editTitle}
                                         onChange={e => setEditTitle(e.target.value)}
                                     />
                                     
-                                    {/* TAGS INPUT */}
                                     <div className="flex flex-wrap items-center gap-2 mt-2">
                                         {editTags.map(tag => (
-                                            <span key={tag} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded flex items-center gap-1">
+                                            <span key={tag} className="text-xs bg-primary-container text-primary px-2 py-0.5 rounded-full flex items-center gap-1 font-medium">
                                                 {tag}
                                                 <button onClick={() => setEditTags(editTags.filter(t => t !== tag))}><X size={12} /></button>
                                             </span>
@@ -627,9 +574,8 @@ export default function KnowledgeBase() {
                                     </div>
                                 </div>
 
-                                {/* Save Button (Matches Edit Button position) */}
                                 <div className="flex-shrink-0">
-                                    <button onClick={handleSave} className="flex items-center gap-2 bg-primary text-on-primary px-4 py-1.5 rounded-lg font-bold hover:bg-primary-hover transition-colors shadow-sm">
+                                    <button onClick={handleSave} className="flex items-center gap-2 bg-primary text-on-primary px-6 py-2 rounded-full font-bold shadow-md hover:bg-primary-hover transition-colors">
                                         <Save size={18} /> Save
                                     </button>
                                 </div>
@@ -643,7 +589,6 @@ export default function KnowledgeBase() {
                 </div>
             </div>
 
-            {/* MODAL */}
             {isCatModalOpen && <CreateCategoryModal onClose={() => setIsCatModalOpen(false)} onSave={handleCreateCategory} />}
         </div>
     );

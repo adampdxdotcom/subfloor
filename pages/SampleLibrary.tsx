@@ -12,7 +12,6 @@ import * as preferenceService from '../services/preferenceService';
 import ProductDetailModal from '../components/ProductDetailModal';
 import SampleCarousel from '../components/SampleCarousel';
 import ProductCard from '../components/ProductCard';
-// Removed PrintQueueModal import since we removed the trigger
 
 const SampleLibrary: React.FC = () => {
   const { data: products = [], isLoading: productsLoading } = useProducts();
@@ -27,7 +26,7 @@ const SampleLibrary: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [pricingSettings, setPricingSettings] = useState<PricingSettings | null>(null);
   
-  // Sync URL changes to local state (e.g. Navigation from Universal Search)
+  // Sync URL changes to local state
   useEffect(() => {
     const urlQuery = searchParams.get('search') || '';
     if (urlQuery !== searchTerm) {
@@ -57,17 +56,13 @@ const SampleLibrary: React.FC = () => {
   }, []);
   
   const [isSaving, setIsSaving] = useState(false);
-  
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const openId = searchParams.get('open');
-
     if (openId && products.length > 0) {
-      // Match ID as string to support UUIDs
       const productToOpen = products.find((p) => String(p.id) === openId);
-
       if (productToOpen) {
         setSelectedProduct(productToOpen);
         setIsDetailModalOpen(true);
@@ -156,53 +151,55 @@ const SampleLibrary: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
-  if (productsLoading) { return <div>Loading library...</div>; }
+  if (productsLoading) { 
+    return <div className="flex items-center justify-center h-64 text-text-secondary">Loading library...</div>; 
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-surface p-6 rounded-lg shadow-md border border-border">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 w-full">
-          <h1 className="text-3xl font-bold text-text-primary">Sample Library</h1>
+    <div className="space-y-8">
+      {/* Header & Controls - De-boxed MD3 Style */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-1 w-full">
+          <h1 className="text-4xl font-bold text-text-primary tracking-tight">Sample Library</h1>
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full md:w-auto">
-              <div className="bg-background p-1 rounded-lg flex items-center border border-border">
+              {/* Segmented Control */}
+              <div className="bg-surface-container-high p-1 rounded-full flex items-center shadow-inner">
                   <button 
                     onClick={() => setViewMode('active')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 md:py-1.5 rounded-md text-sm font-medium transition-all ${
-                        viewMode === 'active' ? 'bg-surface shadow text-primary' : 'text-text-secondary hover:text-text-primary'
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-2 rounded-full text-sm font-medium transition-all ${
+                        viewMode === 'active' ? 'bg-surface shadow text-primary' : 'text-text-secondary hover:text-text-primary hover:bg-surface-container-highest'
                     }`}
                   >
                       <LayoutGrid size={16} /> Active
                   </button>
                   <button 
                     onClick={() => setViewMode('discontinued')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 md:py-1.5 rounded-md text-sm font-medium transition-all ${
-                        viewMode === 'discontinued' ? 'bg-surface shadow text-red-400' : 'text-text-secondary hover:text-text-primary'
+                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-2 rounded-full text-sm font-medium transition-all ${
+                        viewMode === 'discontinued' ? 'bg-surface shadow text-error' : 'text-text-secondary hover:text-text-primary hover:bg-surface-container-highest'
                     }`}
                   >
                       <Archive size={16} /> Discontinued
                   </button>
               </div>
 
-              {/* REMOVED: Bulk Print Button */}
-
               {viewMode === 'active' && (
-                  <button onClick={() => setIsAddModalOpen(true)} className="flex items-center justify-center bg-primary hover:bg-primary-hover text-on-primary font-bold py-3 md:py-2 px-4 rounded-lg transition-colors shadow-md">
+                  <button onClick={() => setIsAddModalOpen(true)} className="flex items-center justify-center bg-primary hover:bg-primary-hover text-on-primary font-semibold py-3 px-6 rounded-full transition-all shadow-lg hover:shadow-xl">
                     <PlusCircle className="w-5 h-5 mr-2" />
                     Add Product
                   </button>
               )}
           </div>
-        </div>
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={18} />
+      </div>
+      
+      {/* Floating Search Bar */}
+      <div className="relative w-full max-w-2xl">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" size={20} />
           <input 
             type="text" 
             placeholder="Search by style, color, manufacturer, type, or SKU..." 
             value={searchTerm} 
             onChange={handleSearchChange} 
-            className="w-full pl-10 pr-4 py-3 bg-background border border-border rounded-lg text-text-primary focus:ring-2 focus:ring-primary outline-none transition-all shadow-inner" 
+            className="w-full pl-12 pr-6 py-4 bg-surface-container-high border-none rounded-full text-text-primary focus:ring-2 focus:ring-primary/50 outline-none transition-shadow shadow-sm hover:shadow-md placeholder:text-text-tertiary" 
           />
-        </div>
       </div>
 
       {searchTerm === '' && viewMode === 'active' && activeCheckouts.length > 0 && (
@@ -212,14 +209,14 @@ const SampleLibrary: React.FC = () => {
             checkouts={activeCheckouts} 
             onItemClick={handleProductClick} 
           /> 
-          <div className="border-t border-border my-8"></div>
-          <h2 className="text-2xl font-semibold mb-6 text-text-primary">All Products</h2>
+          <div className="border-t border-outline/10 my-8"></div>
+          <h2 className="text-2xl font-semibold mb-6 text-text-primary pl-1">All Products</h2>
         </>
       )}
       
       <div 
         ref={parentRef} 
-        className="overflow-y-auto w-full relative bg-surface border border-border rounded-lg shadow-md"
+        className="overflow-y-auto w-full relative rounded-xl"
         style={{ height: gridHeight }}
       >
         <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
@@ -257,11 +254,11 @@ const SampleLibrary: React.FC = () => {
 
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/75 flex justify-center z-50 overflow-y-auto">
-          <div className="bg-surface w-full min-h-full md:min-h-0 md:h-auto md:max-h-[90vh] md:max-w-3xl md:rounded-lg shadow-2xl flex flex-col border border-border md:my-auto relative" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface-container-high w-full min-h-full md:min-h-0 md:h-auto md:max-h-[90vh] md:max-w-3xl md:rounded-xl shadow-2xl flex flex-col border border-outline/10 md:my-auto relative" onClick={(e) => e.stopPropagation()}>
             
-            <div className="p-4 border-b border-border flex justify-between items-center bg-background md:rounded-t-lg">
+            <div className="p-4 border-b border-outline/10 flex justify-between items-center bg-surface-container-low md:rounded-t-xl">
                 <h2 className="text-xl font-bold text-text-primary">Create New Product Line</h2>
-                <button onClick={resetAddModal} className="p-2 hover:bg-surface rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
+                <button onClick={resetAddModal} className="p-2 hover:bg-surface-container-highest rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
             </div>
             
             <div className="p-6 overflow-y-auto flex-grow">

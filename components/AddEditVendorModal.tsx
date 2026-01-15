@@ -91,11 +91,8 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         
-        // Special handling for phone numbers to auto-format
         if (name === 'phone' || name === 'repPhone') {
-            // Remove previous formatting to check raw numbers, then re-format
             const raw = value.replace(/[^\d]/g, '');
-            // Prevent typing more than 10 digits
             if (raw.length <= 10) {
                  setFormData(prev => ({ ...prev, [name]: formatPhoneNumber(raw) }));
             }
@@ -165,7 +162,6 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
         }));
     };
 
-    // --- NEW: Logic to copy details from the selected supplier ---
     const handleCopySupplierInfo = () => {
         const supplier = allVendors.find(v => v.id === formData.defaultSupplierId);
         if (supplier) {
@@ -175,14 +171,11 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                 phone: supplier.phone || prev.phone,
                 orderingEmail: supplier.orderingEmail || prev.orderingEmail,
                 claimsEmail: supplier.claimsEmail || prev.claimsEmail,
-                // Copy Rep Info
                 repName: supplier.repName || prev.repName,
                 repPhone: supplier.repPhone || prev.repPhone,
                 repEmail: supplier.repEmail || prev.repEmail,
-                // Copy URLs
                 websiteUrl: supplier.websiteUrl || prev.websiteUrl,
                 portalUrl: supplier.portalUrl || prev.portalUrl,
-                // We also re-copy shipping just in case it was changed
                 shippingMethod: supplier.shippingMethod || prev.shippingMethod,
                 dedicatedShippingDay: supplier.dedicatedShippingDay ?? prev.dedicatedShippingDay
             }));
@@ -192,182 +185,195 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
 
     if (!isOpen) return null;
 
+    const inputClasses = "w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-primary transition-colors";
+
     return (
         <div className="fixed inset-0 bg-black/75 z-[60] overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-0 lg:p-4">
-            <div className="bg-surface w-full min-h-full lg:min-h-0 lg:h-auto lg:max-h-[90vh] lg:max-w-4xl lg:rounded-lg shadow-2xl flex flex-col border border-border relative">
-                
-                <div className="p-4 border-b border-border flex justify-between items-center bg-background lg:rounded-t-lg sticky top-0 z-10">
-                    <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
-                        <Building className="text-primary" />
-                        {vendorToEdit ? 'Edit Vendor' : 'New Vendor'}
-                    </h2>
-                    <button onClick={onClose} className="p-2 hover:bg-surface rounded-full text-text-secondary hover:text-text-primary"><X size={24} /></button>
-                </div>
+                <div className="bg-surface-container-high w-full min-h-full lg:min-h-0 lg:h-auto lg:max-h-[90vh] lg:max-w-4xl lg:rounded-2xl shadow-2xl flex flex-col border border-outline/10 relative">
+                    
+                    <div className="p-4 border-b border-outline/10 flex justify-between items-center bg-surface-container-low lg:rounded-t-2xl sticky top-0 z-10">
+                        <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                            <Building className="text-primary" />
+                            {vendorToEdit ? 'Edit Vendor' : 'New Vendor'}
+                        </h2>
+                        <button onClick={onClose} className="p-2 hover:bg-surface-container-highest rounded-full text-text-secondary hover:text-text-primary transition-colors">
+                            <X size={24} />
+                        </button>
+                    </div>
 
-                <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
-                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto flex-grow">
-                        {/* Column 1: Core Info */}
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-text-primary border-b border-border pb-2">Contact Info</h3>
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary">Vendor Name</label>
-                                <input type="text" name="name" value={formData.name} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary placeholder-text-secondary" required />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary">Vendor Type</label>
-                                <select name="vendorType" value={formData.vendorType ?? ''} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary">
-                                    <option value="Supplier">Supplier</option>
-                                    <option value="Manufacturer">Manufacturer</option>
-                                    <option value="Both">Both</option>
-                                </select>
-                            </div>
-
-                            {formData.vendorType === 'Manufacturer' && (
+                    <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 overflow-y-auto flex-grow">
+                            {/* Column 1: Core Info */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary border-b border-outline/10 pb-2">Contact Info</h3>
                                 <div>
-                                    <label className="block text-sm font-medium text-text-secondary">Default Supplier / Distributor</label>
-                                    <div className="flex gap-2 mt-1">
-                                        <select name="defaultSupplierId" value={formData.defaultSupplierId ?? ''} onChange={handleSupplierChange} className="w-full p-2 bg-background border-border rounded text-text-primary">
-                                            <option value="">Select a Supplier...</option>
-                                            {potentialSuppliers.map(supplier => (
-                                                <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                                            ))}
-                                        </select>
-                                        
-                                        {/* COPY BUTTON */}
-                                        {formData.defaultSupplierId && (
-                                            <button 
-                                                type="button" 
-                                                onClick={handleCopySupplierInfo}
-                                                className="p-2 bg-secondary text-on-secondary rounded hover:bg-secondary-hover transition-colors"
-                                                title="Copy Address/Phone/Email from Supplier"
-                                            >
-                                                <Copy size={18} />
-                                            </button>
-                                        )}
+                                    <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Vendor Name</label>
+                                    <input type="text" name="name" value={formData.name} onChange={handleChange} className={inputClasses} required />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Vendor Type</label>
+                                    <select name="vendorType" value={formData.vendorType ?? ''} onChange={handleChange} className={inputClasses}>
+                                        <option value="Supplier">Supplier</option>
+                                        <option value="Manufacturer">Manufacturer</option>
+                                        <option value="Both">Both</option>
+                                    </select>
+                                </div>
+
+                                {formData.vendorType === 'Manufacturer' && (
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Default Supplier / Distributor</label>
+                                        <div className="flex gap-2">
+                                            <select name="defaultSupplierId" value={formData.defaultSupplierId ?? ''} onChange={handleSupplierChange} className={inputClasses}>
+                                                <option value="">Select a Supplier...</option>
+                                                {potentialSuppliers.map(supplier => (
+                                                    <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                                                ))}
+                                            </select>
+                                            
+                                            {formData.defaultSupplierId && (
+                                                <button 
+                                                    type="button" 
+                                                    onClick={handleCopySupplierInfo}
+                                                    className="p-3 bg-primary-container text-primary rounded-lg hover:bg-primary hover:text-on-primary transition-all shadow-sm"
+                                                    title="Copy Address/Phone/Email from Supplier"
+                                                >
+                                                    <Copy size={20} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-text-tertiary mt-1">Auto-selects this supplier for new products.</p>
-                                </div>
-                            )}
-                             
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary">Default Product Type</label>
-                                <select name="defaultProductType" value={formData.defaultProductType ?? ''} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary">
-                                    <option value="">None</option>
-                                    {PRODUCT_TYPES.map(type => (<option key={type} value={type}>{type}</option>))}
-                                </select>
-                            </div>
-
-                            {/* --- NEW URL INPUTS --- */}
-                            <div className="pt-2">
-                                <label className="block text-sm font-medium text-text-secondary flex items-center gap-2">
-                                    <Globe size={14}/> Website URL
-                                </label>
-                                <input type="url" name="websiteUrl" value={formData.websiteUrl} onChange={handleChange} placeholder="https://..." className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary text-sm" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary flex items-center gap-2">
-                                    <LinkIcon size={14}/> Dealer Portal URL
-                                </label>
-                                <input type="url" name="portalUrl" value={formData.portalUrl} onChange={handleChange} placeholder="https://..." className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary text-sm" />
-                            </div>
-
-                            <div className="border-t border-border pt-2 mt-2">
-                                <label className="block text-sm font-medium text-text-secondary">Address</label>
-                                <textarea name="address" value={formData.address} onChange={handleChange} rows={2} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary"></textarea>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary">Main Phone</label>
-                                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary" />
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-text-secondary">Ordering Email</label>
-                                <input type="email" name="orderingEmail" value={formData.orderingEmail} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary">Claims Email</label>
-                                <input type="email" name="claimsEmail" value={formData.claimsEmail} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary" />
-                            </div>
-                        </div>
-
-                        {/* Column 2: Rep, Shipping, Pricing */}
-                        <div className="space-y-4">
-                             <h3 className="text-lg font-semibold text-text-primary border-b border-border pb-2">Representative</h3>
-                            <div>
-                                <label className="block text-sm font-medium text-text-secondary">Rep Name</label>
-                                <input type="text" name="repName" value={formData.repName} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary" />
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-text-secondary">Rep Phone</label>
-                                <input type="tel" name="repPhone" value={formData.repPhone} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary" />
-                            </div>
-                             <div>
-                                <label className="block text-sm font-medium text-text-secondary">Rep Email</label>
-                                <input type="email" name="repEmail" value={formData.repEmail} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary" />
-                            </div>
-                            
-                            <div className="pt-4">
-                                <h3 className="text-lg font-semibold text-text-primary border-b border-border pb-2">Shipping</h3>
+                                )}
+                                
                                 <div>
-                                    <label className="block text-sm font-medium text-text-secondary">Shipping Method</label>
-                                    <input type="text" name="shippingMethod" value={formData.shippingMethod} placeholder="e.g., LTL Freight, UPS Ground" onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary" />
-                                </div>
-                                <div className="mt-4">
-                                    <label className="block text-sm font-medium text-text-secondary">Dedicated Weekly Delivery Day</label>
-                                    <select name="dedicatedShippingDay" value={formData.dedicatedShippingDay ?? ''} onChange={handleChange} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary">
+                                    <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Default Product Type</label>
+                                    <select name="defaultProductType" value={formData.defaultProductType ?? ''} onChange={handleChange} className={inputClasses}>
                                         <option value="">None</option>
-                                        {WEEKDAYS.map((day, index) => (<option key={index} value={index}>{day}</option>))}
+                                        {PRODUCT_TYPES.map(type => (<option key={type} value={type}>{type}</option>))}
                                     </select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1 flex items-center gap-1.5"><Globe size={12}/> Website</label>
+                                        <input type="url" name="websiteUrl" value={formData.websiteUrl} onChange={handleChange} placeholder="https://..." className={inputClasses} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1 flex items-center gap-1.5"><LinkIcon size={12}/> Portal</label>
+                                        <input type="url" name="portalUrl" value={formData.portalUrl} onChange={handleChange} placeholder="https://..." className={inputClasses} />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Main Phone</label>
+                                    <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={inputClasses} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Ordering Email</label>
+                                    <input type="email" name="orderingEmail" value={formData.orderingEmail} onChange={handleChange} className={inputClasses} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Claims Email</label>
+                                    <input type="email" name="claimsEmail" value={formData.claimsEmail} onChange={handleChange} className={inputClasses} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Address</label>
+                                    <textarea name="address" value={formData.address} onChange={handleChange} rows={2} className={inputClasses}></textarea>
                                 </div>
                             </div>
 
-                            {/* --- MOVED: Pricing Override Section --- */}
-                            <div className="p-3 bg-background rounded border border-border space-y-3 mt-4">
-                                <h4 className="text-sm font-semibold text-text-primary border-b border-border pb-1 mb-2">Pricing Overrides</h4>
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary">Default Markup %</label>
-                                    <input type="number" name="defaultMarkup" value={formData.defaultMarkup ?? ''} placeholder="Use Global Default" onChange={handleChange} className="mt-1 w-full p-2 bg-surface border-border rounded text-text-primary" />
+                            {/* Column 2: Rep, Shipping, Pricing */}
+                            <div className="space-y-6">
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary border-b border-outline/10 pb-2">Representative</h3>
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Rep Name</label>
+                                        <input type="text" name="repName" value={formData.repName} onChange={handleChange} className={inputClasses} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Rep Phone</label>
+                                        <input type="tel" name="repPhone" value={formData.repPhone} onChange={handleChange} className={inputClasses} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Rep Email</label>
+                                        <input type="email" name="repEmail" value={formData.repEmail} onChange={handleChange} className={inputClasses} />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary">Calculation Method</label>
-                                    <select name="pricingMethod" value={formData.pricingMethod ?? ''} onChange={handleChange} className="mt-1 w-full p-2 bg-surface border-border rounded text-text-primary">
-                                        <option value="">Use Global Default</option>
-                                        <option value="Markup">Markup</option>
-                                        <option value="Margin">Margin</option>
-                                    </select>
+                                
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary border-b border-outline/10 pb-2">Shipping</h3>
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Shipping Method</label>
+                                        <input type="text" name="shippingMethod" value={formData.shippingMethod} placeholder="LTL, UPS, etc." onChange={handleChange} className={inputClasses} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Delivery Day</label>
+                                        <select name="dedicatedShippingDay" value={formData.dedicatedShippingDay ?? ''} onChange={handleChange} className={inputClasses}>
+                                            <option value="">None</option>
+                                            {WEEKDAYS.map((day, index) => (<option key={index} value={index}>{day}</option>))}
+                                        </select>
+                                    </div>
                                 </div>
+
+                                <div className="bg-surface-container-low p-4 rounded-xl border border-outline/10 space-y-4">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-text-tertiary border-b border-outline/10 pb-2">Pricing Overrides</h4>
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Markup %</label>
+                                        <input type="number" name="defaultMarkup" value={formData.defaultMarkup ?? ''} placeholder="Use Global" onChange={handleChange} className={inputClasses.replace('bg-surface-container-highest', 'bg-surface-container-high')} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-text-secondary mb-1 ml-1">Method</label>
+                                        <select name="pricingMethod" value={formData.pricingMethod ?? ''} onChange={handleChange} className={inputClasses.replace('bg-surface-container-highest', 'bg-surface-container-high')}>
+                                            <option value="">Use Global</option>
+                                            <option value="Markup">Markup</option>
+                                            <option value="Margin">Margin</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Column 3: Notes */}
+                            <div className="space-y-4 flex flex-col h-full">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary border-b border-outline/10 pb-2">Internal Notes</h3>
+                                <textarea 
+                                    name="notes" 
+                                    value={formData.notes} 
+                                    onChange={handleChange} 
+                                    className={`${inputClasses} flex-grow min-h-[300px] resize-none`}
+                                    placeholder="Add any specific details about ordering, shipping windows, or claims processes..."
+                                ></textarea>
                             </div>
                         </div>
 
-                        {/* Column 3: Notes */}
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-text-primary border-b border-border pb-2">Notes</h3>
-                             <div>
-                                <textarea name="notes" value={formData.notes} onChange={handleChange} rows={15} className="mt-1 w-full p-2 bg-background border-border rounded text-text-primary"></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="p-4 border-t border-border bg-background lg:rounded-b-lg flex justify-end gap-3 shrink-0 sticky bottom-0 z-10 lg:static">
-                        {vendorToEdit && currentUser?.roles?.includes('Admin') && (
-                            <button
-                                type="button"
-                                onClick={handleDelete}
-                                disabled={isDeleting}
-                                className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded text-white font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                style={{ marginRight: 'auto' }}
+                        <div className="p-4 border-t border-outline/10 bg-surface-container-low lg:rounded-b-2xl flex justify-end gap-3 shrink-0 sticky bottom-0 z-10 lg:static">
+                            {vendorToEdit && currentUser?.roles?.includes('Admin') && (
+                                <button
+                                    type="button"
+                                    onClick={handleDelete}
+                                    disabled={isDeleting}
+                                    className="py-2 px-6 bg-error-container hover:bg-error/20 text-error rounded-full font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors mr-auto"
+                                >
+                                    <Trash2 size={16} />
+                                    <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
+                                </button>
+                            )}
+                            <button 
+                                type="button" 
+                                onClick={onClose} 
+                                className="py-2 px-6 bg-surface hover:bg-surface-container-highest border border-outline/20 rounded-full text-text-primary font-medium transition-colors"
                             >
-                                <Trash2 size={16} />
-                                <span className="hidden md:inline">{isDeleting ? 'Deleting...' : 'Delete Vendor'}</span>
-                                <span className="md:hidden">Delete</span>
+                                Cancel
                             </button>
-                        )}
-                        <button type="button" onClick={onClose} className="py-2 px-4 bg-secondary hover:bg-secondary-hover rounded text-on-secondary font-medium">Cancel</button>
-                        <button type="submit" className="py-2 px-4 bg-primary hover:bg-primary-hover rounded text-on-primary">{vendorToEdit ? 'Save Changes' : 'Create Vendor'}</button>
-                    </div>
-                </form>
-            </div>
+                            <button 
+                                type="submit" 
+                                className="py-2 px-6 bg-primary hover:bg-primary-hover rounded-full text-on-primary font-semibold shadow-md transition-all"
+                            >
+                                {vendorToEdit ? 'Save Changes' : 'Create Vendor'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     );

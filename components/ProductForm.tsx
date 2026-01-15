@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
-import { Save, X, Plus, Trash2, Upload } from 'lucide-react';
+import { Save, Upload } from 'lucide-react';
 import { Product, PRODUCT_TYPES, ProductVariant, Vendor } from '../types';
 import { toast } from 'react-hot-toast';
 import CreatableSelect from 'react-select/creatable';
@@ -13,7 +13,6 @@ export interface ProductFormData {
     productType: string;
     description: string;
     productLineUrl: string;
-    // Variants are handled separately in the backend, but for creation we might batch them
     initialVariants: Partial<ProductVariant>[];
 }
 
@@ -34,20 +33,15 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
     const [productLineUrl, setProductLineUrl] = useState(initialData?.productLineUrl || '');
     const [hasMasterBoard, setHasMasterBoard] = useState(initialData?.variants?.some(v => v.isMaster) || false);
     
-    // Image handling
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [defaultImageUrl, setDefaultImageUrl] = useState<string>('');
     const [imageInputType, setImageInputType] = useState<'upload' | 'url'>('upload');
     const [previewUrl, setPreviewUrl] = useState<string | null>(initialData?.defaultImageUrl || null);
 
-    // Vendor Modal State
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [pendingVendorName, setPendingVendorName] = useState('');
     const [targetVendorField, setTargetVendorField] = useState<'manufacturer' | 'supplier' | null>(null);
     
-    // NOTE: Removed [showGenerator, setShowGenerator] state
-
-    // Effect to set initial URL if provided
     useEffect(() => {
         if (initialData?.defaultImageUrl && initialData.defaultImageUrl.startsWith('http')) {
             setDefaultImageUrl(initialData.defaultImageUrl);
@@ -55,7 +49,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
         }
     }, [initialData?.defaultImageUrl]);
 
-    // --- NEW: Smart Defaults Logic ---
     useEffect(() => {
         if (manufacturerId && typeof manufacturerId === 'number') {
             const selectedManufacturer = vendors.find(v => v.id === manufacturerId);
@@ -70,8 +63,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
         }
     }, [manufacturerId, vendors]);
 
-
-    // Helper to format vendors for React-Select
     const vendorOptions = (type: 'Manufacturer' | 'Supplier') => 
         vendors
             .filter(v => v.vendorType === type || v.vendorType === 'Both')
@@ -81,11 +72,10 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
         if (e.target.files?.[0]) {
             setSelectedFile(e.target.files[0]);
             setPreviewUrl(URL.createObjectURL(e.target.files[0]));
-            setDefaultImageUrl(''); // Clear URL if uploading a file
+            setDefaultImageUrl(''); 
         }
     };
 
-    // --- Handle New Vendor Creation ---
     const handleCreateVendorOption = (inputValue: string, field: 'manufacturer' | 'supplier') => {
         setPendingVendorName(inputValue);
         setTargetVendorField(field);
@@ -94,19 +84,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
 
     const handleSaveNewVendor = async (vendorData: Omit<Vendor, 'id'>) => {
         try {
-            // Force the type based on which field triggered it
             const finalVendorData = { 
                 ...vendorData, 
                 vendorType: targetVendorField === 'manufacturer' ? 'Manufacturer' : 'Supplier' 
             };
-            
-            // The addVendor function in context refreshes the list via side effect.
             await addVendor(finalVendorData as any); 
-            
-            // NOTE: Due to addVendor refreshing the entire list via side effect in DataContext, 
-            // the state `vendors` will update, and React-Select will rebuild.
-            // A perfect solution would be to return the ID from the context function and set it here.
-            
             setIsVendorModalOpen(false);
             setTargetVendorField(null);
         } catch (error) {
@@ -139,22 +121,20 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
         await onSave(formData);
     };
     
-    // NOTE: Removed handleGeneratorSuccess function
-
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* LEFT COLUMN: Image & Basic Info */}
                 <div className="space-y-4">
                     <div className="w-full aspect-video bg-background border-2 border-dashed border-border rounded-lg flex items-center justify-center relative overflow-hidden group">
-                        {previewUrl ? (
+                        {previewUrl ? ( 
                             <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                         ) : (
-                            <span className="text-text-secondary">Default Product Image</span>
+                            <span className="text-text-secondary text-sm">Default Product Image</span>
                         )}
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="absolute inset-0 bg-scrim/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                              {imageInputType === 'upload' ? (
-                                 <label className="cursor-pointer bg-white text-black px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2">
+                                 <label className="cursor-pointer bg-primary-container text-on-primary-container px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-md hover:brightness-110 transition-all">
                                     <Upload size={16} /> Change File
                                     <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                                  </label>
@@ -163,13 +143,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
                     </div>
 
                     {/* Image Input Toggle */}
-                    <div className="flex gap-4 text-sm">
+                    <div className="flex gap-6 text-sm text-text-secondary">
                          <label className="flex items-center gap-2 cursor-pointer">
-                             <input type="radio" name="imgType" checked={imageInputType === 'upload'} onChange={() => setImageInputType('upload')} />
+                             <input type="radio" name="imgType" checked={imageInputType === 'upload'} onChange={() => setImageInputType('upload')} className="form-radio h-4 w-4 text-primary bg-surface-container-low border-outline/50" />
                              Upload File
                          </label>
                          <label className="flex items-center gap-2 cursor-pointer">
-                             <input type="radio" name="imgType" checked={imageInputType === 'url'} onChange={() => setImageInputType('url')} />
+                             <input type="radio" name="imgType" checked={imageInputType === 'url'} onChange={() => setImageInputType('url')} className="form-radio h-4 w-4 text-primary bg-surface-container-low border-outline/50" />
                              Paste URL
                          </label>
                     </div>
@@ -181,15 +161,15 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
                             value={defaultImageUrl} 
                             onChange={e => {
                                 setDefaultImageUrl(e.target.value);
-                                setPreviewUrl(e.target.value); // Live preview
+                                setPreviewUrl(e.target.value); 
                             }} 
-                            className="w-full p-2 bg-surface border border-border rounded text-text-primary text-sm" 
+                            className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" 
                         />
                     )}
                     
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">Product Line Name *</label>
-                        <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full p-2 bg-surface border border-border rounded text-text-primary" placeholder="e.g. Forever Oak Collection" />
+                        <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" placeholder="e.g. Forever Oak Collection" />
                     </div>
                 </div>
 
@@ -225,19 +205,19 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
 
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">Product Type *</label>
-                        <select value={productType} onChange={e => setProductType(e.target.value)} className="w-full p-2 bg-surface border border-border rounded text-text-primary">
+                        <select value={productType} onChange={e => setProductType(e.target.value)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none">
                             {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-1">Website URL</label>
-                        <input type="url" value={productLineUrl} onChange={e => setProductLineUrl(e.target.value)} className="w-full p-2 bg-surface border border-border rounded text-text-primary" placeholder="https://manufacturer.com/product" />
+                        <input type="url" value={productLineUrl} onChange={e => setProductLineUrl(e.target.value)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none" placeholder="https://manufacturer.com/product" />
                     </div>
                     
                     {/* MASTER BOARD TOGGLE */}
                     <div className="flex items-center gap-2 pt-4">
-                        <input type="checkbox" id="masterBoard" checked={hasMasterBoard} onChange={e => setHasMasterBoard(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                        <input type="checkbox" id="masterBoard" checked={hasMasterBoard} onChange={e => setHasMasterBoard(e.target.checked)} className="form-checkbox h-4 w-4 text-primary bg-surface-container-low border-outline/50 rounded-sm focus:ring-primary" />
                         <label htmlFor="masterBoard" className="text-sm font-medium text-text-primary cursor-pointer">Inventory includes a "Master Board" / Strap Set?</label>
                     </div>
                 </div>
@@ -245,14 +225,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
 
             <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">Description / Notes</label>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full p-2 bg-surface border border-border rounded text-text-primary h-24" />
+                <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-surface-container border border-outline/50 rounded-lg px-4 py-2.5 text-text-primary placeholder:text-text-tertiary focus:ring-2 focus:ring-primary/50 outline-none h-24" />
             </div>
 
-            {/* NOTE: Removed Variant Generator Button */}
-            
-            <div className="flex justify-end gap-4 pt-4 border-t border-border">
-                <button type="button" onClick={onCancel} className="px-4 py-2 text-text-secondary hover:text-text-primary">Cancel</button>
-                <button type="submit" disabled={isSaving} className="px-6 py-2 bg-primary hover:bg-primary-hover text-on-primary rounded font-bold flex items-center gap-2">
+            <div className="flex justify-end gap-3 pt-6 border-t border-outline/10">
+                <button type="button" onClick={onCancel} className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors">Cancel</button>
+                <button type="submit" disabled={isSaving} className="py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     {isSaving ? 'Saving...' : <><Save size={18} /> Save Product Line</>}
                 </button>
             </div>
@@ -261,7 +239,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSave, onCancel
                 <AddEditVendorModal
                     isOpen={isVendorModalOpen}
                     onClose={() => setIsVendorModalOpen(false)}
-                    // FIX: Correct props for creating new vendor
                     initialVendorType={targetVendorField === 'manufacturer' ? 'Manufacturer' : 'Supplier'}
                     onSave={handleSaveNewVendor}
                 />

@@ -6,9 +6,6 @@ const ModalPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
     if (!elRef.current) {
         elRef.current = document.createElement('div');
-        // Optional: Add a high z-index to ensure it sits on top of everything
-        elRef.current.style.position = 'relative';
-        elRef.current.style.zIndex = '9999';
     }
 
     useEffect(() => {

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useProjectFiles, useFileMutations, ProjectFile } from '../hooks/usePhotos'; // Updated hook
+import { useProjectFiles, useFileMutations, ProjectFile } from '../hooks/usePhotos'; 
 import { Camera, Trash2, X, Maximize2, CheckCircle2, Move, ChevronLeft, ChevronRight, FileText, Download, File as FileIcon, Image as ImageIcon } from 'lucide-react';
 import { Project } from '../types';
 import { toast } from 'react-hot-toast';
@@ -20,10 +20,8 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Filter list based on active tab
-    // Safety check: Ensure allFiles is an array before filtering
     const displayedFiles = (Array.isArray(allFiles) ? allFiles : []).filter((f: ProjectFile) => {
-        const cat = f.category || 'SITE'; // Default to SITE for old data
+        const cat = f.category || 'SITE'; 
         return cat === activeTab;
     });
 
@@ -65,8 +63,7 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
         }
     };
 
-    // --- LIGHTBOX NAVIGATION ---
-    const photosOnly = displayedFiles; // Only valid for SITE tab currently
+    const photosOnly = displayedFiles; 
     
     const handlePhotoClick = (file: ProjectFile, index: number) => {
         if (isSelectMode) {
@@ -74,7 +71,6 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
         } else if (activeTab === 'SITE') {
             setLightboxIndex(index);
         } else {
-            // For documents, open in new tab
             window.open(getImageUrl(file.url), '_blank');
         }
     };
@@ -101,52 +97,52 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
     }, [lightboxIndex, handlePrev, handleNext]);
 
     return (
-        <div className="bg-surface rounded-lg shadow-sm border border-border h-full flex flex-col overflow-hidden">
+        <div className="h-full flex flex-col overflow-hidden">
             {/* Standard Widget Header */}
-            <div className="p-3 border-b border-border bg-background/50 flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-2">
-                    <Move size={16} className="drag-handle text-text-tertiary cursor-move hover:text-text-primary shrink-0" />
-                    <h3 className="font-bold text-text-primary flex items-center gap-2">
-                        <ImageIcon size={18} /> Project Files
+            <div className="p-4 border-b border-outline/10 flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-3">
+                    <Move size={20} className="drag-handle text-text-secondary cursor-move hover:text-text-primary shrink-0" />
+                    <h3 className="text-xl font-semibold text-text-primary flex items-center gap-2">
+                        <ImageIcon size={20} /> Project Files
                     </h3>
                 </div>
             </div>
 
             {/* Toolbar (Tabs & Actions) */}
-            <div className="border-b border-border bg-background shrink-0">
-                <div className="flex justify-between items-center px-3 py-2">
+            <div className="border-b border-outline/10 bg-surface-container-low shrink-0">
+                <div className="flex justify-between items-center px-4 py-2">
                     {/* Tabs */}
-                    <div className="flex space-x-4">
-                            <button
-                                onClick={() => { setActiveTab('SITE'); setIsSelectMode(false); }}
-                                className={`text-sm font-bold transition-colors flex items-center gap-2 ${
-                                    activeTab === 'SITE' ? 'text-primary' : 'text-text-secondary hover:text-text-primary'
-                                }`}
-                            >
-                                <Camera size={16} /> Site Photos
-                            </button>
-                            <button
-                                onClick={() => { setActiveTab('DOCUMENT'); setIsSelectMode(false); }}
-                                className={`text-sm font-bold transition-colors flex items-center gap-2 ${
-                                    activeTab === 'DOCUMENT' ? 'text-primary' : 'text-text-secondary hover:text-text-primary'
-                                }`}
-                            >
-                                <FileText size={16} /> Documents
-                            </button>
+                    <div className="flex space-x-2 bg-surface-container-highest p-1 rounded-full">
+                        <button
+                            onClick={() => { setActiveTab('SITE'); setIsSelectMode(false); }}
+                            className={`px-3 py-1 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                                activeTab === 'SITE' ? 'bg-primary-container text-on-primary-container shadow-sm' : 'text-text-secondary hover:text-text-primary'
+                            }`}
+                        >
+                            <Camera size={16} /> Site Photos
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('DOCUMENT'); setIsSelectMode(false); }}
+                            className={`px-3 py-1 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                                activeTab === 'DOCUMENT' ? 'bg-primary-container text-on-primary-container shadow-sm' : 'text-text-secondary hover:text-text-primary'
+                            }`}
+                        >
+                            <FileText size={16} /> Documents
+                        </button>
                     </div>
                     
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                         {isSelectMode ? (
                             <>
-                                <button onClick={handleDeleteSelected} disabled={selectedIds.size === 0} className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded disabled:opacity-50">Delete ({selectedIds.size})</button>
-                                <button onClick={() => { setIsSelectMode(false); setSelectedIds(new Set()); }} className="px-3 py-1 bg-secondary text-on-secondary text-xs font-bold rounded">Cancel</button>
+                                <button onClick={handleDeleteSelected} disabled={selectedIds.size === 0} className="px-3 py-1.5 bg-error hover:bg-error-hover text-on-error text-xs font-bold rounded-full disabled:opacity-50 transition-colors shadow-sm">Delete ({selectedIds.size})</button>
+                                <button onClick={() => { setIsSelectMode(false); setSelectedIds(new Set()); }} className="px-3 py-1.5 border border-outline text-text-primary hover:bg-surface-container-highest text-xs font-bold rounded-full transition-colors">Cancel</button>
                             </>
                         ) : (
                             <>
                                 {displayedFiles.length > 0 && (
-                                    <button onClick={() => setIsSelectMode(true)} className="px-3 py-1 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-border/50 rounded">Select</button>
+                                    <button onClick={() => setIsSelectMode(true)} className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface-container-highest rounded-full transition-colors">Select</button>
                                 )}
-                                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 px-3 py-1 bg-primary text-on-primary text-xs font-bold rounded hover:bg-primary-hover shadow-sm">
+                                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 px-3 py-1.5 bg-primary text-on-primary text-xs font-bold rounded-full hover:bg-primary-hover shadow-md transition-all">
                                     {activeTab === 'SITE' ? <Camera size={14} /> : <FileText size={14} />} Add
                                 </button>
                             </>
@@ -164,13 +160,13 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-3">
+            <div className="flex-1 overflow-y-auto p-4 bg-surface-container">
                 {isLoading ? (
                     <div className="text-center py-8 text-text-secondary text-xs">Loading...</div>
                 ) : displayedFiles.length === 0 ? (
                     <div 
                         onClick={() => fileInputRef.current?.click()}
-                        className="h-full flex flex-col items-center justify-center text-text-tertiary cursor-pointer hover:bg-background/50 border-2 border-dashed border-border rounded-lg transition-colors p-4"
+                        className="h-full flex flex-col items-center justify-center text-text-tertiary cursor-pointer hover:bg-surface-container-low border-2 border-dashed border-outline/30 rounded-xl transition-colors p-4"
                     >
                         {activeTab === 'SITE' ? <Camera size={32} className="mb-2 opacity-50" /> : <FileText size={32} className="mb-2 opacity-50" />}
                         <span className="text-sm font-medium">No {activeTab === 'SITE' ? 'photos' : 'documents'} yet</span>
@@ -178,23 +174,23 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
                     </div>
                 ) : activeTab === 'SITE' ? (
                     // --- PHOTO GRID VIEW ---
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
                         {displayedFiles.map((file: ProjectFile, index: number) => {
                             const isSelected = selectedIds.has(file.id);
                             return (
                                 <div 
                                     key={file.id} 
                                     onClick={() => handlePhotoClick(file, index)}
-                                    className={`relative aspect-square rounded overflow-hidden cursor-pointer group border-2 transition-all ${isSelected ? 'border-primary ring-2 ring-primary/50' : 'border-transparent hover:border-border'}`}
+                                    className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer group border-2 transition-all ${isSelected ? 'border-primary ring-2 ring-primary/50' : 'border-transparent hover:border-outline/50'}`}
                                 >
                                     <img src={getImageUrl(file.thumbnailUrl || file.url)} alt="Project Site" className="w-full h-full object-cover" loading="lazy" />
                                     {isSelectMode && (
-                                        <div className={`absolute top-1 right-1 rounded-full bg-white p-0.5 ${isSelected ? 'text-primary' : 'text-gray-300'}`}>
-                                            <CheckCircle2 size={16} fill={isSelected ? "currentColor" : "none"} />
+                                        <div className={`absolute top-1.5 right-1.5 rounded-full bg-surface p-0.5 ${isSelected ? 'text-primary' : 'text-outline'}`}>
+                                            <CheckCircle2 size={18} fill={isSelected ? "currentColor" : "none"} />
                                         </div>
                                     )}
                                     {!isSelectMode && (
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                        <div className="absolute inset-0 bg-scrim/0 group-hover:bg-scrim/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                             <Maximize2 className="text-white drop-shadow-md" size={20} />
                                         </div>
                                     )}
@@ -214,28 +210,28 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
                                 <div 
                                     key={file.id}
                                     onClick={() => isSelectMode ? toggleSelection(file.id) : window.open(getImageUrl(file.url), '_blank')}
-                                    className={`flex items-center p-3 rounded-lg border transition-all cursor-pointer ${
-                                        isSelected ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/50'
+                                    className={`flex items-center p-3 rounded-xl border transition-all cursor-pointer ${
+                                        isSelected ? 'border-primary bg-primary-container/20 shadow-sm' : 'border-outline/20 bg-surface-container-high hover:border-primary/50'
                                     }`}
                                 >
                                     {/* Icon */}
-                                    <div className="w-10 h-10 rounded bg-surface border border-border flex items-center justify-center mr-3 text-text-secondary shrink-0 overflow-hidden">
+                                    <div className="w-10 h-10 rounded-lg bg-surface-container-highest border border-outline/10 flex items-center justify-center mr-3 text-text-secondary shrink-0 overflow-hidden">
                                         {isImage ? (
                                             <img src={getImageUrl(file.thumbnailUrl || file.url)} className="w-full h-full object-cover" />
                                         ) : (
-                                            <FileIcon size={20} className={isPdf ? 'text-red-500' : 'text-blue-500'} />
+                                            <FileIcon size={20} className={isPdf ? 'text-error' : 'text-primary'} />
                                         )}
                                     </div>
                                     
                                     {/* Details */}
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-text-primary truncate">{file.fileName || 'Untitled Document'}</p>
-                                        <p className="text-xs text-text-tertiary">{new Date(file.createdAt).toLocaleDateString()}</p>
+                                        <p className="text-xs text-text-tertiary">{new Date(file.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}</p>
                                     </div>
 
                                     {/* Actions */}
                                     {isSelectMode ? (
-                                        <div className={`shrink-0 ${isSelected ? 'text-primary' : 'text-gray-300'}`}>
+                                        <div className={`shrink-0 ${isSelected ? 'text-primary' : 'text-outline'}`}>
                                             <CheckCircle2 size={20} fill={isSelected ? "currentColor" : "none"} />
                                         </div>
                                     ) : (

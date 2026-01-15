@@ -8,9 +8,7 @@ import { useJobs, useJobMutations } from '../hooks/useJobs';
 import { useChangeOrders, useChangeOrderMutations } from '../hooks/useChangeOrders';
 import { useMaterialOrders, useMaterialOrderMutations } from '../hooks/useMaterialOrders';
 import { useInstallers, useInstallerMutations } from '../hooks/useInstallers';
-import { useSampleCheckouts } from '../hooks/useSampleCheckouts'; // Needed if passed to children or logic
-import { Project, Quote, QuoteStatus, ChangeOrder, MaterialOrder, Job } from '../types';
-// import { Trash2 } from 'lucide-react'; // REMOVED
+import { Project, Quote, QuoteStatus, ChangeOrder, MaterialOrder } from '../types';
 
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -26,19 +24,17 @@ import ChangeOrderSection from '../components/ChangeOrderSection';
 import MaterialOrdersSection from '../components/MaterialOrdersSection';
 import ActivityHistory from '../components/ActivityHistory';
 import JobNotesSection from '../components/JobNotesSection';
-import ProjectPhotosSection from '../components/ProjectPhotosSection'; // NEW IMPORT
-// import DeleteProjectSection from '../components/DeleteProjectSection'; // REMOVED
-import LockedWidget from '../components/LockedWidget'; // NEW IMPORT
+import ProjectPhotosSection from '../components/ProjectPhotosSection';
+import LockedWidget from '../components/LockedWidget';
 import { toast } from 'react-hot-toast';
 import * as jobService from '../services/jobService';
-import * as notificationService from '../services/notificationService'; // NEW
+import * as notificationService from '../services/notificationService';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const ProjectDetail: React.FC = () => {
     const { projectId: routeProjectId } = useParams<{ projectId: string }>();
     const navigate = useNavigate();
-    const location = useLocation();
     
     const { 
         currentUser, isLayoutEditMode, toggleLayoutEditMode,
@@ -46,10 +42,11 @@ const ProjectDetail: React.FC = () => {
         projectHistory,
         fetchProjectHistory,
         updateJob,
-        refreshNotifications // NEW: Need this to clear the red dot
+        refreshNotifications,
+        users
     } = useData();
     
-    // --- HOOKS REPLACEMENT ---
+    // --- HOOKS ---
     const { data: projects = [] } = useProjects();
     const { data: customers = [] } = useCustomers();
     const { data: quotes = [] } = useQuotes();
@@ -57,14 +54,12 @@ const ProjectDetail: React.FC = () => {
     const { data: changeOrders = [] } = useChangeOrders();
     const { data: materialOrders = [] } = useMaterialOrders();
     const { data: installers = [] } = useInstallers();
-    const { users } = useData(); // Get users list for Project Lead lookup
 
     const projectMutations = useProjectMutations();
     const quoteMutations = useQuoteMutations();
     const jobMutations = useJobMutations();
     const changeOrderMutations = useChangeOrderMutations();
     const installerMutations = useInstallerMutations();
-    // We still rely on useData().isLoading for the initial global fetch check.
     
     const [activeModal, setActiveModal] = useState<'sample' | 'quote' | 'order' | null>(null);
     const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
@@ -78,29 +73,20 @@ const ProjectDetail: React.FC = () => {
     const job = useMemo(() => jobs.find(j => j.projectId === numericProjectId), [jobs, numericProjectId]);
     const customer = useMemo(() => customers.find(c => c.id === project?.customerId), [customers, project]);
     
-    // --- NEW: Derive Team Info ---
     const projectQuotes = quotes.filter(q => q.projectId === project?.id);
     const acceptedQuote = projectQuotes.find(q => q.status === 'Accepted');
-    // Find installer from Accepted Quote, or fallback to first quote with an installer
     const activeInstallerId = acceptedQuote?.installerId || projectQuotes.find(q => q.installerId)?.installerId;
     const activeInstaller = useMemo(() => installers.find(i => i.id === activeInstallerId), [installers, activeInstallerId]);
-
     const projectLead = useMemo(() => users.find(u => u.userId === project?.managerId), [users, project]);
-    // ----------------------------
-
 
     const defaultLayouts = useMemo(() => ({
       lg: [
-        // ROW 1: Quotes, Samples, Notes (Three columns)
         { i: 'quotes', x: 0, y: 0, w: 4, h: 7, minH: 5, minW: 3 },
         { i: 'sample-checkouts', x: 4, y: 0, w: 4, h: 7, minH: 4, minW: 3 },
         { i: 'notes', x: 8, y: 0, w: 4, h: 7, minH: 4, minW: 3 },
-        // ROW 2: Job Details (Full Width)
         { i: 'job-details', x: 0, y: 7, w: 12, h: 9, minH: 7, minW: 6 },
-        // ROW 3: Material Orders & Change Orders (Split 50/50)
         { i: 'material-orders', x: 0, y: 16, w: 6, h: 6, minH: 4, minW: 3 },
         { i: 'change-orders', x: 6, y: 16, w: 6, h: 6, minH: 5, minW: 3 },
-        // ROW 4: Photos (1/3) & History (2/3)
         { i: 'photos', x: 0, y: 22, w: 4, h: 5, minH: 4, minW: 3 },
         { i: 'history', x: 4, y: 22, w: 8, h: 5, minH: 4, minW: 6 },
       ]
@@ -109,31 +95,18 @@ const ProjectDetail: React.FC = () => {
     const [layouts, setLayouts] = useState(defaultLayouts);
     const [originalLayouts, setOriginalLayouts] = useState(layouts);
 
-    // Initial load and layout merge
     useEffect(() => {
-        // FIX: Read from currentUser.preferences.projectLayouts
         const savedLayouts = currentUser?.preferences?.projectLayouts;
-        // Safety check: Only use saved layouts if they actually contain keys (e.g. 'lg', 'md')
         if (savedLayouts && Object.keys(savedLayouts).length > 0) {
-            // SMART MERGE:
-            // If the saved layout is missing items (e.g., because they were hidden when saved),
-            // inject the default positions for those missing items so they don't collapse.
             const mergedLayouts: ReactGridLayout.Layouts = { ...defaultLayouts };
-            
-            // Iterate through available breakpoints in the saved layout
             (Object.keys(savedLayouts) as Array<keyof typeof defaultLayouts>).forEach((bp) => {
                 const savedItems = savedLayouts[bp] || [];
                 const defaultItems = defaultLayouts[bp] || [];
-                
-                // Find items that exist in default but are missing from saved
                 const missingItems = defaultItems.filter(
                     defItem => !savedItems.find(savedItem => savedItem.i === defItem.i)
                 );
-                
-                // Combine saved preferences with the fallback defaults
                 mergedLayouts[bp] = [...savedItems, ...missingItems];
             });
-            
             setLayouts(mergedLayouts);
         }
     }, [currentUser, defaultLayouts]);
@@ -146,12 +119,8 @@ const ProjectDetail: React.FC = () => {
     
     const fetchPageSpecificData = useCallback(async () => {
         if (isNaN(numericProjectId)) return;
-        
         fetchProjectHistory(numericProjectId);
         try {
-            // Check if job is already loaded via DataProvider fetch
-            // NOTE: We still use jobService here because the global RQ hook might be delayed.
-            // When we updateJob, RQ cache gets updated via DataContext
             if (!job) {
                 const jobData = await jobService.getJobForProject(numericProjectId);
                 if (jobData) updateJob(jobData);
@@ -159,26 +128,21 @@ const ProjectDetail: React.FC = () => {
         } catch (error) { console.error("Could not load job schedule details."); }
     }, [numericProjectId, fetchProjectHistory, updateJob, job]);
 
-
     useEffect(() => {
         fetchPageSpecificData();
-    }, [numericProjectId, fetchProjectHistory, updateJob, fetchPageSpecificData]);
+    }, [numericProjectId, fetchPageSpecificData]);
 
-    // --- NEW: Auto-mark notifications as read when viewing project ---
     useEffect(() => {
         if (numericProjectId && !isNaN(numericProjectId)) {
-            // Fire and forget - don't block render
             notificationService.markReferenceAsRead(numericProjectId).then(() => refreshNotifications());
         }
     }, [numericProjectId, refreshNotifications]);
-
 
     const handleLayoutChange = (layout: ReactGridLayout.Layout[], allLayouts: ReactGridLayout.Layouts) => {
         setLayouts(allLayouts);
     };
 
     const handleSaveLayout = () => {
-        // FIX: Save using the correct key 'projectLayouts' and correct function
         saveCurrentUserPreferences({ projectLayouts: layouts });
         toast.success("Layout saved!");
         toggleLayoutEditMode();
@@ -200,7 +164,6 @@ const ProjectDetail: React.FC = () => {
     
     const handleOpenEditChangeOrderModal = (changeOrder: ChangeOrder) => { setEditingChangeOrder(changeOrder); };
     
-    // Logic for deleting the project, called from ProjectInfoHeader
     const handleDeleteProject = async () => {
         if (!project || !customer) return;
         if (window.confirm(`Are you sure you want to permanently delete the project "${project.projectName}"?`)) {
@@ -219,7 +182,6 @@ const ProjectDetail: React.FC = () => {
     
     const handleSaveNotes = async (notes: string) => { if(job) await jobMutations.saveJobDetails.mutateAsync({ id: job.id, notes }); };
     
-    // Wrappers for child components that expect functions
     const handleUpdateProject = async (data: any) => projectMutations.updateProject.mutateAsync(data);
     const handleAddQuote = async (data: any) => quoteMutations.addQuote.mutateAsync(data);
     const handleUpdateQuote = async (data: any) => quoteMutations.updateQuote.mutateAsync(data);
@@ -227,7 +189,6 @@ const ProjectDetail: React.FC = () => {
     const handleAddInstaller = async (data: any) => installerMutations.addInstaller.mutateAsync(data);
     const handleAddChangeOrder = async (data: any) => changeOrderMutations.addChangeOrder.mutateAsync(data);
     const handleUpdateChangeOrder = async (id: number, data: any) => changeOrderMutations.updateChangeOrder.mutateAsync({id, data});
-    // NOTE: Material Order functions need wrappers if used in MaterialOrdersSection
 
     if (!project) { return <div className="text-center p-8">Project not found.</div>; }
     
@@ -237,7 +198,7 @@ const ProjectDetail: React.FC = () => {
     const projectOrders = materialOrders.filter(o => o.projectId === project.id);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             <ProjectInfoHeader 
                 project={project} 
                 customer={customer} 
@@ -265,7 +226,7 @@ const ProjectDetail: React.FC = () => {
                 isDraggable={isLayoutEditMode}
                 isResizable={isLayoutEditMode}
             >
-                <div key="quotes" className="h-full overflow-hidden">
+                <div key="quotes" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
                     <QuotesSection 
                         project={project} projectQuotes={projectQuotes} installers={installers} addQuote={handleAddQuote} 
                         updateQuote={handleUpdateQuote} updateProject={handleUpdateProject} addInstaller={handleAddInstaller} 
@@ -275,18 +236,17 @@ const ProjectDetail: React.FC = () => {
                     />
                 </div>
                 
-                <div key="job-details" className="h-full overflow-hidden">
+                <div key="job-details" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
                     <LockedWidget isLocked={!isQuoteAccepted} title="Job Financials & Schedule">
                         {isQuoteAccepted ? (
                         <FinalizeJobSection project={project} job={job} quotes={projectQuotes} changeOrders={projectChangeOrders} saveJobDetails={handleSaveJobDetails} updateProject={handleUpdateProject} />
                         ) : (
-                            <div className="h-full w-full bg-surface/50" /> // Placeholder content
+                            <div className="h-full w-full bg-surface/50" />
                         )}
                     </LockedWidget>
                 </div>
 
-                <div key="notes" className="h-full overflow-hidden">
-                    {/* UNLOCKED: Job now exists from creation */}
+                <div key="notes" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
                     {job ? (
                         <JobNotesSection job={job} onSaveNotes={handleSaveNotes} />
                     ) : (
@@ -294,12 +254,11 @@ const ProjectDetail: React.FC = () => {
                     )}
                 </div>
 
-                <div key="sample-checkouts" className="h-full overflow-hidden">
-                    {/* MODIFIED: Removed isModalOpen/onCloseModal props as the component now manages its own state */}
+                <div key="sample-checkouts" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
                     <SampleCheckoutsSection project={project} />
                 </div>
                 
-                <div key="change-orders" className="h-full overflow-hidden">
+                <div key="change-orders" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
                     <LockedWidget isLocked={!isQuoteAccepted} title="Change Orders">
                         {isQuoteAccepted ? (
                         <ChangeOrderSection project={project} projectChangeOrders={projectChangeOrders} acceptedQuotes={acceptedQuotes} addChangeOrder={handleAddChangeOrder} onEditChangeOrder={handleOpenEditChangeOrderModal} />
@@ -309,7 +268,7 @@ const ProjectDetail: React.FC = () => {
                     </LockedWidget>
                 </div>
                 
-                <div key="material-orders" className="h-full overflow-hidden">
+                <div key="material-orders" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
                     <LockedWidget isLocked={!isQuoteAccepted} title="Material Orders">
                         {isQuoteAccepted ? (
                         <MaterialOrdersSection project={project} orders={projectOrders} isModalOpen={activeModal === 'order'} 
@@ -322,12 +281,11 @@ const ProjectDetail: React.FC = () => {
                     </LockedWidget>
                 </div>
 
-                <div key="photos" className="h-full overflow-hidden">
-                    {/* UNLOCKED: Photos can be added anytime */}
+                <div key="photos" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
                     <ProjectPhotosSection project={project} />
                 </div>
                 
-                <div key="history" className="h-full overflow-hidden">
+                <div key="history" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
                     <ActivityHistory history={projectHistory} />
                 </div>
             </ResponsiveGridLayout>

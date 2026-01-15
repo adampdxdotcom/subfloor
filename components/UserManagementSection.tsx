@@ -97,50 +97,52 @@ const UserManagementSection: React.FC = () => {
     };
 
     return (
-        <section className="bg-surface p-6 rounded-lg shadow-md border border-border">
+        <section className="md:bg-surface-container-low md:p-8 md:rounded-2xl md:border md:border-outline/10 max-w-6xl mx-auto transition-all">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                 <div className="md:col-span-2 lg:col-span-1">
-                    <h3 className="text-xl font-medium mb-4 text-text-primary">Existing Users</h3>
+                    <h3 className="text-xl font-bold mb-4 text-text-primary flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary"/> Existing Users
+                    </h3>
                     {isLoading ? ( <p className="text-text-secondary">Loading users...</p> ) : (
                         <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
                             {users.map((user) => (
-                                <div key={user.userId} className="bg-background p-4 rounded-md border border-border">
+                                <div key={user.userId} className="bg-surface-container-highest/30 p-4 rounded-2xl border border-outline/10 hover:border-outline/30 transition-colors">
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex items-center gap-3">
                                             {user.avatarUrl ? (
-                                                <img src={user.avatarUrl} alt={user.email} className="w-10 h-10 rounded-full object-cover border border-border"/>
+                                                <img src={user.avatarUrl} alt={user.email} className="w-12 h-12 rounded-full object-cover border-2 border-surface-container-low shadow-sm"/>
                                             ) : (
-                                                <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-text-secondary font-bold border border-border">
+                                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg border-2 border-surface-container-low shadow-sm">
                                                     {(user.firstName ? user.firstName[0] : user.email[0]).toUpperCase()}
                                                 </div>
                                             )}
                                             <div>
-                                                <p className="font-bold text-text-primary text-sm">
+                                                <p className="font-bold text-text-primary text-base">
                                                     {user.firstName ? `${user.firstName} ${user.lastName}` : 'No Name Set'}
                                                 </p>
-                                                <p className="text-xs text-text-secondary">{user.email}</p>
+                                                <p className="text-xs font-medium text-text-secondary">{user.email}</p>
                                             </div>
                                         </div>
                                         
                                         <button 
                                             onClick={() => handleDeleteUser(user)} 
                                             disabled={currentUser?.userId === user.userId} 
-                                            className="text-red-500 hover:text-red-400 p-2 rounded hover:bg-surface transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
+                                            className="text-error/80 hover:text-error p-2 rounded-full hover:bg-error/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" 
                                             title="Delete User"
                                         >
                                             <Trash2 size={18} />
                                         </button>
                                     </div>
-                                    <div className="flex items-center gap-6 border-t border-border pt-3">
+                                    <div className="flex flex-wrap items-center gap-4 border-t border-outline/10 pt-3">
                                         <div className="flex gap-4 items-center">
                                             {availableRoles.map(role => (
-                                                <label key={role.id} className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-                                                    <input type="checkbox" checked={user.roles.includes(role.name)} onChange={(e) => handleRoleChange(user.userId, role.name, e.target.checked)} disabled={currentUser?.userId === user.userId && role.name === 'Admin'} className="h-4 w-4 rounded text-primary focus:ring-primary bg-surface border-border disabled:opacity-50" />
+                                                <label key={role.id} className="flex items-center gap-2 text-sm font-medium text-text-secondary cursor-pointer hover:text-text-primary transition-colors">
+                                                    <input type="checkbox" checked={user.roles.includes(role.name)} onChange={(e) => handleRoleChange(user.userId, role.name, e.target.checked)} disabled={currentUser?.userId === user.userId && role.name === 'Admin'} className="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary bg-surface-container-low" />
                                                     {role.name}
                                                 </label>
                                             ))}
                                         </div>
-                                        <button onClick={() => handleSaveRoles(user)} className="ml-auto flex items-center gap-2 py-1 px-3 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded"><Save size={14}/> Save</button>
+                                        <button onClick={() => handleSaveRoles(user)} className="ml-auto flex items-center gap-2 py-1.5 px-4 text-xs font-bold bg-primary/10 hover:bg-primary hover:text-on-primary text-primary rounded-full transition-all"><Save size={14}/> Save</button>
                                     </div>
                                 </div>
                             ))}
@@ -148,36 +150,36 @@ const UserManagementSection: React.FC = () => {
                     )}
                 </div>
                 <div className="md:col-span-2 lg:col-span-1">
-                    <h3 className="text-xl font-medium mb-3 text-text-primary">Invite New User</h3>
-                    <form onSubmit={handleCreateUser} className="space-y-4 bg-background p-4 rounded-md border border-border">
+                    <h3 className="text-xl font-bold mb-4 text-text-primary">Invite New User</h3>
+                    <form onSubmit={handleCreateUser} className="space-y-5 bg-surface-container-highest/30 p-6 rounded-2xl border border-outline/10">
                         <div>
-                            <label className="block text-sm font-medium text-text-secondary">Email Address <span className="text-red-400">*</span></label>
-                            <input type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="mt-1 block w-full p-2 bg-surface border-border rounded text-text-primary placeholder-text-secondary" placeholder="new.user@example.com" autoComplete="off" />
+                            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">Email Address <span className="text-error">*</span></label>
+                            <input type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} className="block w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-lg text-text-primary placeholder:text-text-secondary/50 focus:border-primary focus:outline-none transition-all" placeholder="new.user@example.com" autoComplete="off" />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary">First Name</label>
-                                <input type="text" value={newUserFirstName} onChange={(e) => setNewUserFirstName(e.target.value)} className="mt-1 block w-full p-2 bg-surface border-border rounded text-text-primary placeholder-text-secondary" placeholder="John" />
+                                <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">First Name</label>
+                                <input type="text" value={newUserFirstName} onChange={(e) => setNewUserFirstName(e.target.value)} className="block w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-lg text-text-primary placeholder:text-text-secondary/50 focus:border-primary focus:outline-none transition-all" placeholder="John" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary">Last Name</label>
-                                <input type="text" value={newUserLastName} onChange={(e) => setNewUserLastName(e.target.value)} className="mt-1 block w-full p-2 bg-surface border-border rounded text-text-primary placeholder-text-secondary" placeholder="Doe" />
+                                <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">Last Name</label>
+                                <input type="text" value={newUserLastName} onChange={(e) => setNewUserLastName(e.target.value)} className="block w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-lg text-text-primary placeholder:text-text-secondary/50 focus:border-primary focus:outline-none transition-all" placeholder="Doe" />
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-text-secondary">Initial Role</label>
+                            <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">Initial Role</label>
                             <select 
                                 value={newUserRole} 
                                 onChange={(e) => setNewUserRole(e.target.value)} 
-                                className="mt-1 block w-full p-2 bg-surface border-border rounded text-text-primary"
+                                className="block w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-lg text-text-primary focus:border-primary focus:outline-none transition-all cursor-pointer"
                             >
                                 {availableRoles.map(role => (
                                     <option key={role.id} value={role.name}>{role.name}</option>
                                 ))}
                             </select>
                         </div>
-                        <div className="pt-2">
-                            <button type="submit" className="w-full bg-primary hover:bg-primary-hover text-on-primary py-2 px-4 rounded-md font-medium flex items-center justify-center gap-2">
+                        <div className="pt-4">
+                            <button type="submit" className="w-full bg-primary hover:bg-primary-hover text-on-primary py-3 px-6 rounded-full font-bold shadow-sm flex items-center justify-center gap-2 transition-all hover:shadow-md">
                                 <Users size={18} /> Send Invitation
                             </button>
                             <p className="text-xs text-text-tertiary mt-2 text-center">

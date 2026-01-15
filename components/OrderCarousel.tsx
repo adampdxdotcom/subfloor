@@ -15,7 +15,7 @@ const OrderCard = ({ order, project }: { order: MaterialOrder; project?: Project
     today.setHours(0, 0, 0, 0);
     
     let etaText = 'No ETA';
-    let urgencyColor = 'text-text-secondary';
+    let urgencyColor = 'text-text-secondary font-medium';
     
     if (order.etaDate) {
         // Fix Timezone/ISO Issue: Ensure we have just YYYY-MM-DD before appending time
@@ -30,39 +30,39 @@ const OrderCard = ({ order, project }: { order: MaterialOrder; project?: Project
         
         etaText = eta.toLocaleDateString();
         
-        if (diffDays < 0) urgencyColor = 'text-red-500 font-bold'; // Overdue
-        else if (diffDays === 0) urgencyColor = 'text-green-500 font-bold'; // Today
-        else if (diffDays <= 3) urgencyColor = 'text-yellow-500 font-bold'; // Soon
+        if (diffDays < 0) urgencyColor = 'text-error font-bold'; // Overdue
+        else if (diffDays === 0) urgencyColor = 'text-success font-bold'; // Today
+        else if (diffDays <= 3) urgencyColor = 'text-warning font-bold'; // Soon
     }
 
     return (
         <Link 
             to={`/projects/${order.projectId}`} 
-            className="block bg-surface p-4 rounded-lg shadow-md hover:shadow-lg hover:bg-background transition-all duration-300 w-80 flex-shrink-0 border border-border"
+            className="block bg-surface-container-high p-5 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 w-80 flex-shrink-0 border border-outline/10 group"
         >
             <div className="flex justify-between items-start mb-2">
                 <div>
                     <h3 className="font-bold text-lg text-text-primary truncate max-w-[180px]" title={project?.projectName}>
                         {project?.projectName || 'Unknown Project'}
                     </h3>
-                    <p className="text-sm text-text-secondary truncate">{order.supplierName || 'Unknown Supplier'}</p>
+                    <p className="text-sm text-text-secondary truncate font-medium">{order.supplierName || 'Unknown Supplier'}</p>
                 </div>
-                <div className={`text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 ${
-                    order.status === 'Damage Replacement' ? 'bg-red-900 text-red-100' : 'bg-blue-900 text-blue-100'
+                <div className={`text-[10px] uppercase tracking-wide font-bold px-2 py-1 rounded-full flex items-center gap-1 ${
+                    order.status === 'Damage Replacement' ? 'bg-error-container text-error' : 'bg-primary-container text-primary'
                 }`}>
                     {order.status === 'Damage Replacement' ? <AlertTriangle size={10} /> : <Truck size={10} />}
                     {order.status === 'Damage Replacement' ? 'Repl.' : 'Order'}
                 </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-border">
+            <div className="mt-4 pt-4 border-t border-outline/20">
                 <div className="flex justify-between items-center text-sm mb-2">
                     <span className="text-text-secondary">ETA:</span>
                     <span className={urgencyColor}>{etaText}</span>
                 </div>
                 
                 {/* Mini Line Items Preview */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                     {order.lineItems.slice(0, 2).map(item => (
                         <div key={item.id} className="flex justify-between text-xs text-text-secondary">
                             <span className="truncate w-3/4">{item.quantity} {item.unit} - {item.style}</span>
@@ -74,7 +74,7 @@ const OrderCard = ({ order, project }: { order: MaterialOrder; project?: Project
                 </div>
             </div>
 
-            <div className="mt-4 flex justify-end items-center text-sm text-accent">
+            <div className="mt-5 flex justify-end items-center text-sm text-primary font-medium group-hover:translate-x-1 transition-transform">
                 <span className="flex items-center gap-1">View <ChevronRight size={16}/></span>
             </div>
         </Link>
@@ -85,7 +85,10 @@ const OrderCarousel: React.FC<OrderCarouselProps> = ({ title, orders, projects }
     return (
         <div className="mb-12">
             <h2 className="text-2xl font-semibold mb-4 text-text-primary flex items-center gap-2">
-                <Package className="text-primary" /> {title}
+                <div className="p-2 bg-primary-container rounded-full text-primary">
+                    <Package size={20} /> 
+                </div>
+                {title}
             </h2>
             <div className="flex gap-6 overflow-x-auto pb-4 no-scrollbar">
                 {orders.map(order => (

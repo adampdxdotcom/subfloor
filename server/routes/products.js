@@ -707,11 +707,13 @@ router.delete('/variants/:id', verifySession(), verifyRole('Admin'), async (req,
         const usageRes = await client.query(`SELECT count(*) FROM sample_checkouts WHERE variant_id = $1 AND actual_return_date IS NULL`, [id]);
         if (parseInt(usageRes.rows[0].count) > 0) throw new Error("Cannot delete variant: It has active checkouts.");
 
+        // Log BEFORE deleting to ensure record context is available for logging logic
+        // Also pass client to ensure transactional integrity
+        await logActivity(userId, 'DELETE', 'VARIANT', id, {}, client);
+
         await client.query('UPDATE order_line_items SET variant_id = NULL WHERE variant_id = $1', [id]);
         await client.query('DELETE FROM sample_checkouts WHERE variant_id = $1', [id]);
         await client.query('DELETE FROM product_variants WHERE id = $1', [id]);
-        
-        await logActivity(userId, 'DELETE', 'VARIANT', id, {});
         await client.query('COMMIT');
         res.status(204).send();
     } catch (err) {

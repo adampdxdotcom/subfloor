@@ -43,8 +43,6 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Only check click outside logic if we are on Desktop (dropdown mode)
-      // On mobile, the modal is full screen so "outside" clicks aren't really possible/relevant in the same way
       if (window.innerWidth >= 768 && wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
@@ -113,16 +111,16 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
   const selectionCount = selectedInstallerIds.size + selectedUserIds.size;
 
   return (
-    <div className="" ref={wrapperRef}>
+    <div className="relative" ref={wrapperRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 p-2 rounded-lg hover:bg-background transition-colors border border-transparent hover:border-border"
+        className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-high hover:bg-surface-container-highest transition-colors border border-outline/10 hover:border-outline/20 shadow-sm"
         aria-label="Filter calendar"
       >
         <Filter size={20} className="text-primary" />
         <span className="font-medium text-text-primary">Filter</span>
         {selectionCount > 0 && (
-            <span className="bg-primary text-on-primary text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+            <span className="bg-primary text-on-primary text-xs font-bold rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center">
                 {selectionCount}
             </span>
         )}
@@ -131,16 +129,16 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
       {isOpen && (
         <>
             {/* ================= DESKTOP VIEW (Dropdown) ================= */}
-            <div className="hidden md:block absolute top-full right-0 mt-2 w-72 bg-surface border border-border rounded-lg shadow-xl z-20">
+            <div className="hidden md:block absolute top-full right-0 mt-2 w-80 bg-surface-container-high border border-outline/10 rounded-xl shadow-2xl z-20 overflow-hidden ring-1 ring-black/5">
             <div className="max-h-[70vh] overflow-y-auto">
                 {/* Global Options */}
-                <div className="p-2 border-b border-border">
-                  <label className="flex items-center gap-2 p-2 rounded hover:bg-background cursor-pointer">
+                <div className="p-3 border-b border-outline/10 bg-surface-container-low">
+                  <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-container-highest cursor-pointer transition-colors">
                     <input 
                       type="checkbox" 
                       checked={showDeliveries} 
                       onChange={(e) => onShowDeliveriesChange(e.target.checked)}
-                      className="h-4 w-4 rounded text-primary focus:ring-primary bg-background border-border" 
+                      className="h-5 w-5 rounded border-outline/20 text-primary focus:ring-primary bg-surface-container-highest cursor-pointer" 
                     />
                     <span className="text-sm font-medium text-text-primary flex items-center gap-2">
                       <Truck size={14} /> Material Deliveries
@@ -149,61 +147,61 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
                 </div>
 
                 {/* Installers Section */}
-                <div className="p-3 border-b border-border bg-surface-hover/30">
-                  <h4 className="font-semibold text-text-primary text-sm">Installers</h4>
+                <div className="p-3 bg-surface-container-highest/50 border-b border-outline/5">
+                  <h4 className="font-bold text-text-secondary text-xs uppercase tracking-wider">Installers</h4>
                 </div>
-                <div className="flex justify-between p-2 bg-surface">
-                  <button onClick={handleSelectAllInstallers} className="text-xs text-accent hover:underline">Select All</button>
-                  <button onClick={handleDeselectAllInstallers} className="text-xs text-accent hover:underline">Deselect All</button>
+                <div className="flex justify-between px-3 py-2 bg-surface-container-low border-b border-outline/5">
+                  <button onClick={handleSelectAllInstallers} className="text-xs text-primary font-medium hover:text-primary-hover">Select All</button>
+                  <button onClick={handleDeselectAllInstallers} className="text-xs text-text-secondary hover:text-text-primary">Deselect All</button>
                 </div>
-                <div className="p-1">
+                <div className="p-2 space-y-1">
                 {(installers || []).map(installer => (
-                    <label key={`installer-${installer.id}`} className="flex items-center justify-between p-2 rounded hover:bg-background cursor-pointer">
-                    <div className="flex items-center gap-3">
-                        <input type="checkbox" checked={selectedInstallerIds.has(installer.id)} onChange={() => handleInstallerToggle(installer.id)} className="h-4 w-4 rounded text-primary focus:ring-primary bg-background border-border" />
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: installer.color || '#6b7280' }} />
-                        <span className="text-sm text-text-secondary">{installer.installerName}</span>
+                    <div key={`installer-${installer.id}`} className="group flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-highest cursor-pointer transition-colors">
+                      <div className="flex items-center gap-3">
+                          <input type="checkbox" checked={selectedInstallerIds.has(installer.id)} onChange={() => handleInstallerToggle(installer.id)} className="h-4 w-4 rounded border-outline/20 text-primary focus:ring-primary bg-surface-container-highest cursor-pointer" />
+                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: installer.color || '#6b7280' }} />
+                          <span className={`text-sm ${selectedInstallerIds.has(installer.id) ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>{installer.installerName}</span>
+                      </div>
+                      <button onClick={(e) => { e.preventDefault(); handleSoloSelectInstaller(installer.id); }} className="opacity-0 group-hover:opacity-100 text-xs text-primary font-bold hover:bg-primary-container px-2 py-0.5 rounded transition-all">Only</button>
                     </div>
-                    <button onClick={(e) => { e.preventDefault(); handleSoloSelectInstaller(installer.id); }} className="text-xs text-accent hover:underline px-2">Only</button>
-                    </label>
                 ))}
                 </div>
 
                 {/* Users Section */}
-                <div className="p-3 border-b border-t border-border mt-2">
-                <h4 className="font-semibold text-text-primary text-sm">Users</h4>
+                <div className="p-3 bg-surface-container-highest/50 border-y border-outline/5 mt-2">
+                  <h4 className="font-bold text-text-secondary text-xs uppercase tracking-wider">Users</h4>
                 </div>
-                <div className="flex justify-between p-2">
-                <button onClick={handleSelectAllUsers} className="text-xs text-accent hover:underline">Select All</button>
-                <button onClick={handleDeselectAllUsers} className="text-xs text-accent hover:underline">Deselect All</button>
+                <div className="flex justify-between px-3 py-2 bg-surface-container-low border-b border-outline/5">
+                  <button onClick={handleSelectAllUsers} className="text-xs text-primary font-medium hover:text-primary-hover">Select All</button>
+                  <button onClick={handleDeselectAllUsers} className="text-xs text-text-secondary hover:text-text-primary">Deselect All</button>
                 </div>
-                <div className="p-1">
+                <div className="p-2 space-y-1">
                 {(users || []).map(user => (
-                    <label key={`user-${user.userId}`} className="flex items-center justify-between p-2 rounded hover:bg-background cursor-pointer">
-                    <div className="flex items-center gap-3">
-                        <input type="checkbox" checked={selectedUserIds.has(user.userId)} onChange={() => handleUserToggle(user.userId)} className="h-4 w-4 rounded text-primary focus:ring-primary bg-background border-border" />
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: user.color || '#6b7280' }} />
-                        <span className="text-sm text-text-secondary">{user.email}</span>
+                    <div key={`user-${user.userId}`} className="group flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-highest cursor-pointer transition-colors">
+                      <div className="flex items-center gap-3">
+                          <input type="checkbox" checked={selectedUserIds.has(user.userId)} onChange={() => handleUserToggle(user.userId)} className="h-4 w-4 rounded border-outline/20 text-primary focus:ring-primary bg-surface-container-highest cursor-pointer" />
+                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: user.color || '#6b7280' }} />
+                          <span className={`text-sm ${selectedUserIds.has(user.userId) ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>{user.email}</span>
+                      </div>
+                      <button onClick={(e) => { e.preventDefault(); handleSoloSelectUser(user.userId); }} className="opacity-0 group-hover:opacity-100 text-xs text-primary font-bold hover:bg-primary-container px-2 py-0.5 rounded transition-all">Only</button>
                     </div>
-                    <button onClick={(e) => { e.preventDefault(); handleSoloSelectUser(user.userId); }} className="text-xs text-accent hover:underline px-2">Only</button>
-                    </label>
                 ))}
                 </div>
             </div>
             </div>
 
             {/* ================= MOBILE VIEW (Full Screen Sheet) ================= */}
-            <div className="md:hidden fixed inset-0 bg-surface z-50 flex flex-col animate-in slide-in-from-bottom-5 duration-200">
+            <div className="md:hidden fixed inset-0 bg-surface-container-low z-50 flex flex-col animate-in slide-in-from-bottom-5 duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-border bg-surface">
+                <div className="flex items-center justify-between p-4 border-b border-outline/10 bg-surface-container-high">
                     <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
                         <Filter size={20} /> Filter Calendar
                     </h2>
-                    <button onClick={() => setIsOpen(false)} className="p-2 bg-background rounded-full text-text-secondary hover:text-text-primary"><X size={24}/></button>
+                    <button onClick={() => setIsOpen(false)} className="p-2 bg-surface-container-highest rounded-full text-text-secondary hover:text-text-primary"><X size={24}/></button>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-border bg-surface">
+                <div className="flex border-b border-outline/10 bg-surface-container-high">
                     <button 
                         onClick={() => setActiveTab('installers')}
                         className={`flex-1 py-4 font-semibold text-sm uppercase tracking-wide transition-colors ${activeTab === 'installers' ? 'border-b-2 border-primary text-primary' : 'text-text-secondary'}`}
@@ -219,8 +217,8 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
                 </div>
 
                 {/* Options Row */}
-                <div className="p-4 bg-background border-b border-border">
-                    <div className="flex items-center justify-between bg-surface p-3 rounded-lg border border-border shadow-sm">
+                <div className="p-4 bg-surface-container-low border-b border-outline/10">
+                    <div className="flex items-center justify-between bg-surface-container-high p-4 rounded-xl border border-outline/5 shadow-sm">
                         <span className="font-medium text-text-primary flex items-center gap-2">
                             <Truck size={18} /> Show Deliveries
                         </span>
@@ -234,7 +232,7 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-4 bg-background">
+                <div className="flex-1 overflow-y-auto p-4 bg-surface-container-low">
                     {activeTab === 'installers' && (
                         <div className="space-y-2">
                             {installers.map(installer => {
@@ -243,10 +241,10 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
                                     <div key={installer.id} className="flex gap-2">
                                         <button 
                                             onClick={() => toggleDraftInstaller(installer.id)}
-                                            className={`flex-1 flex items-center justify-between p-4 rounded-lg border text-left transition-all ${
+                                            className={`flex-1 flex items-center justify-between p-4 rounded-xl border text-left transition-all ${
                                                 isSelected 
-                                                ? 'bg-primary/10 border-primary shadow-sm' 
-                                                : 'bg-surface border-border hover:border-primary/50'
+                                                ? 'bg-primary-container border-primary shadow-sm' 
+                                                : 'bg-surface-container-high border-outline/10'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
@@ -259,7 +257,7 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
                                         </button>
                                         <button 
                                             onClick={() => handleSoloDraftInstaller(installer.id)}
-                                            className="px-4 font-bold text-xs uppercase tracking-wide text-primary border border-primary/30 rounded-lg hover:bg-primary/5 bg-surface"
+                                            className="px-4 font-bold text-xs uppercase tracking-wide text-primary border border-outline/10 rounded-xl hover:bg-primary-container bg-surface-container-high shadow-sm"
                                         >
                                             Only
                                         </button>
@@ -278,10 +276,10 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
                                     <div key={user.userId} className="flex gap-2">
                                         <button 
                                             onClick={() => toggleDraftUser(user.userId)}
-                                            className={`flex-1 flex items-center justify-between p-4 rounded-lg border text-left transition-all ${
+                                            className={`flex-1 flex items-center justify-between p-4 rounded-xl border text-left transition-all ${
                                                 isSelected 
-                                                ? 'bg-primary/10 border-primary shadow-sm' 
-                                                : 'bg-surface border-border hover:border-primary/50'
+                                                ? 'bg-primary-container border-primary shadow-sm' 
+                                                : 'bg-surface-container-high border-outline/10'
                                             }`}
                                         >
                                             <div className="flex items-center gap-3">
@@ -294,7 +292,7 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
                                         </button>
                                         <button 
                                             onClick={() => handleSoloDraftUser(user.userId)}
-                                            className="px-4 font-bold text-xs uppercase tracking-wide text-primary border border-primary/30 rounded-lg hover:bg-primary/5 bg-surface"
+                                            className="px-4 font-bold text-xs uppercase tracking-wide text-primary border border-outline/10 rounded-xl hover:bg-primary-container bg-surface-container-high shadow-sm"
                                         >
                                             Only
                                         </button>
@@ -307,16 +305,16 @@ const CalendarFilter: React.FC<CalendarFilterProps> = ({
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 bg-surface border-t border-border flex gap-3">
+                <div className="p-4 bg-surface-container-high border-t border-outline/10 flex gap-3">
                     <button 
                         onClick={handleResetAll}
-                        className="flex-1 py-3 text-text-primary font-medium hover:bg-background rounded-lg transition-colors border border-border flex items-center justify-center gap-2"
+                        className="flex-1 py-3 text-text-primary font-medium hover:bg-surface-container-highest rounded-full transition-colors border border-outline/10 flex items-center justify-center gap-2"
                     >
                         <RotateCcw size={18} /> Reset All
                     </button>
                     <button 
                         onClick={handleApply}
-                        className="flex-1 py-3 bg-primary text-on-primary font-bold rounded-lg shadow-md hover:bg-primary-hover transition-colors"
+                        className="flex-1 py-3 bg-primary text-on-primary font-bold rounded-full shadow-lg hover:bg-primary-hover transition-colors"
                     >
                         Apply Filters
                     </button>

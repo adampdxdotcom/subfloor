@@ -11,7 +11,6 @@ interface CustomerSampleCardProps {
 
 const CustomerSampleCard: React.FC<CustomerSampleCardProps> = ({ sample, onStartProject }) => {
     // Logic to determine image and title
-    // Note: This relies on the backend returning joined fields (we will update the query next)
     const anySample = sample as any;
     const imageUrl = anySample.interestVariantThumbnail || anySample.productThumbnail;
     const title = anySample.interestVariantName 
@@ -19,9 +18,9 @@ const CustomerSampleCard: React.FC<CustomerSampleCardProps> = ({ sample, onStart
         : (anySample.productName || `Sample #${sample.id}`);
     
     return (
-        <div className="bg-surface p-4 rounded-lg shadow-sm border border-border flex gap-4 transition-all hover:border-primary/50 relative group">
+        <div className="bg-surface-container-high p-4 rounded-xl shadow-sm border border-outline/10 flex gap-4 transition-all hover:shadow-md relative group">
             {/* Image */}
-            <div className="w-20 h-20 bg-background rounded-md border border-border flex items-center justify-center shrink-0 overflow-hidden relative">
+            <div className="w-20 h-20 bg-surface-container-low rounded-lg border border-outline/10 flex items-center justify-center shrink-0 overflow-hidden relative">
                 {imageUrl ? (
                     <img src={getImageUrl(imageUrl)} alt={title} className="w-full h-full object-cover" />
                 ) : (
@@ -48,12 +47,12 @@ const CustomerSampleCard: React.FC<CustomerSampleCardProps> = ({ sample, onStart
                     {!sample.projectId ? (
                         <button 
                             onClick={(e) => { e.preventDefault(); onStartProject(sample); }}
-                            className="text-xs font-bold text-white bg-primary hover:bg-primary-hover px-3 py-1.5 rounded-full flex items-center gap-1 transition-colors shadow-sm"
+                            className="text-xs font-bold text-on-primary bg-primary hover:bg-primary-hover px-4 py-2 rounded-full flex items-center gap-1 transition-colors shadow-sm"
                         >
                             Start Project <ArrowRight size={12} />
                         </button>
                     ) : (
-                        <div className="flex items-center gap-1 text-xs text-green-500 font-medium">
+                        <div className="flex items-center gap-1 text-xs text-success font-bold bg-success-container px-3 py-1 rounded-full w-fit">
                             <CheckCircle2 size={12} />
                             <span>Linked to Project</span>
                         </div>

@@ -37,8 +37,8 @@ const AddSampleInlineModal: React.FC<AddSampleInlineModalProps> = ({
 
       if (sampleDataToSave.productType !== 'Tile') {
         // We know sampleFormat exists on the type, so we can safely set it
-        sampleDataToSave.sampleFormat = null;
-        sampleDataToSave.boardColors = '';
+        (sampleDataToSave as any).sampleFormat = null;
+        (sampleDataToSave as any).boardColors = '';
       }
       
       const createdSample = await addSample(sampleDataToSave);
@@ -61,10 +61,10 @@ const AddSampleInlineModal: React.FC<AddSampleInlineModalProps> = ({
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60]">
-        <div className="bg-surface p-8 rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="bg-surface-container-high p-8 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-outline/10" onClick={e => e.stopPropagation()}>
           <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-text-primary">Create New Sample</h2>
-              <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-700">
+              <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container-highest text-text-secondary hover:text-text-primary transition-colors">
                   <X className="w-6 h-6" />
               </button>
           </div>

@@ -92,7 +92,7 @@ const SizeManagement: React.FC = () => {
     }
 
     return (
-        <section className="bg-surface p-6 rounded-lg shadow-md border border-border">
+        <section className="md:bg-surface-container-low md:p-8 md:rounded-2xl md:border md:border-outline/10 max-w-4xl mx-auto transition-all">
             <h2 className="text-2xl font-semibold text-text-primary mb-4">Manage Sample Sizes</h2>
             <p className="text-text-secondary mb-6 max-w-2xl">Here you can clean up typos or remove unused sample sizes from the suggestion list.</p>
 
@@ -103,34 +103,34 @@ const SizeManagement: React.FC = () => {
                     value={createValue}
                     onChange={(e) => setCreateValue(e.target.value)}
                     placeholder="Add new size (e.g. 24x48)"
-                    className="flex-grow p-2 bg-background border border-border rounded text-text-primary placeholder-text-secondary focus:border-primary focus:outline-none"
+                    className="flex-grow p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-lg text-text-primary placeholder-text-secondary focus:border-primary focus:outline-none transition-all"
                 />
                 <button 
                     type="submit" 
                     disabled={!createValue.trim()}
-                    className="px-4 py-2 bg-primary text-text-on-primary rounded hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                    className="px-6 py-2 bg-primary text-on-primary rounded-full hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors font-bold shadow-sm"
                 >
                     <Plus size={18} />
                     Add
                 </button>
             </form>
 
-            <div className="max-w-md space-y-2">
+            <div className="max-w-xl space-y-0 divide-y divide-outline/10 border border-outline/10 rounded-xl overflow-hidden">
                 {sizes.map(size => (
-                    <div key={size.value} className="bg-background p-3 rounded-md border border-border flex items-center justify-between group">
+                    <div key={size.value} className="bg-surface-container-highest/30 p-4 flex items-center justify-between group hover:bg-surface-container-highest/60 transition-colors">
                         {editingValue === size.value ? (
                             <input
                                 type="text"
                                 value={newValue}
                                 onChange={(e) => setNewValue(e.target.value)}
-                                className="flex-grow p-1 bg-surface border border-primary rounded text-text-primary"
+                                className="flex-grow p-2 bg-surface-container-high border-b-2 border-primary text-text-primary focus:outline-none"
                                 autoFocus
                             />
                         ) : (
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-4">
                                 <span className="text-text-primary font-medium">{size.value}</span>
                                 {size.usageCount > 0 && (
-                                    <span className="text-xs px-2 py-0.5 bg-surface text-text-secondary rounded-full border border-border">
+                                    <span className="text-xs px-2 py-0.5 bg-surface-container-high text-text-secondary rounded-full border border-outline/10">
                                         {size.usageCount} variant{size.usageCount !== 1 ? 's' : ''}
                                     </span>
                                 )}
@@ -139,19 +139,19 @@ const SizeManagement: React.FC = () => {
                         <div className="flex items-center gap-2 ml-4">
                             {editingValue === size.value ? (
                                 <>
-                                    <button onClick={() => handleSaveEdit(size.value)} className="p-1 text-green-400 hover:bg-green-900/20 rounded-full"><Save size={18} /></button>
-                                    <button onClick={handleCancelEdit} className="p-1 text-red-500 hover:bg-red-900/20 rounded-full"><X size={18} /></button>
+                                    <button onClick={() => handleSaveEdit(size.value)} className="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors"><Save size={18} /></button>
+                                    <button onClick={handleCancelEdit} className="p-2 text-error hover:bg-error/10 rounded-full transition-colors"><X size={18} /></button>
                                 </>
                             ) : (
                                 <>
-                                    <button onClick={() => handleEditClick(size.value)} className="p-1 text-text-secondary hover:text-primary hover:bg-surface rounded-full transition-colors"><Edit size={16} /></button>
+                                    <button onClick={() => handleEditClick(size.value)} className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-full transition-colors"><Edit size={18} /></button>
                                     <button 
                                         onClick={() => handleDelete(size.value)} 
                                         disabled={size.usageCount > 0}
                                         title={size.usageCount > 0 ? "Cannot delete size currently in use" : "Delete size"}
-                                        className={`p-1 rounded-full transition-colors ${size.usageCount > 0 ? 'text-gray-600 cursor-not-allowed' : 'text-red-500 hover:bg-red-500/10'}`}
+                                        className={`p-2 rounded-full transition-colors ${size.usageCount > 0 ? 'text-outline/40 cursor-not-allowed' : 'text-error/80 hover:text-error hover:bg-error/10'}`}
                                     >
-                                        <Trash2 size={16} />
+                                        <Trash2 size={18} />
                                     </button>
                                 </>
                             )}

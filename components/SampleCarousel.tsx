@@ -15,9 +15,6 @@ const useCheckoutDetails = (checkout: SampleCheckout) => {
     const customer = customers.find(c => c.id === checkout.customerId);
     const installer = installers.find(i => i.id === checkout.installerId);
     
-    // Find the product and variant that matches this checkout
-    // Note: This is O(N) on products. For very large libraries, a map would be better, 
-    // but fine for typical client-side use.
     let product: Product | undefined;
     let variant = undefined;
 
@@ -37,7 +34,7 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
     const { extendSampleCheckout, updateSampleCheckout } = useData();
     const { product, variant, project, customer, installer } = useCheckoutDetails(checkout);
 
-    if (!product || !variant) return null; // Should not happen unless data integrity issue
+    if (!product || !variant) return null;
 
     const handleExtend = async (e: React.MouseEvent) => {
         e.stopPropagation(); 
@@ -51,8 +48,8 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
         }
     };
     
-    // Determine due date status
-    let statusColor = 'text-yellow-400';
+    // Determine due date status styles
+    let statusStyles = 'bg-surface-container border border-outline text-text-secondary';
     let statusText = 'Checked Out';
     
     const today = new Date();
@@ -61,22 +58,20 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
     dueDate.setHours(0, 0, 0, 0);
     const outDate = new Date(checkout.checkoutDate);
     
-    // Calculate duration in days to detect "Extended" status
-    // Standard checkout is ~2 days. If > 3 days, it's likely been extended.
     const durationDays = Math.ceil((dueDate.getTime() - outDate.getTime()) / (1000 * 60 * 60 * 24));
     const isExtended = durationDays > 3;
 
     if (dueDate < today) {
-        statusColor = 'text-red-500 font-bold';
+        statusStyles = 'bg-error-container text-error font-bold border-none';
         statusText = 'OVERDUE';
     } else if (dueDate.getTime() === today.getTime()) {
-        statusColor = 'text-orange-400 font-bold';
+        statusStyles = 'bg-warning-container text-warning font-bold border-none';
         statusText = 'Due Today';
     } else if (isExtended) {
-        statusColor = 'text-blue-500 font-bold';
+        statusStyles = 'bg-primary-container text-primary font-bold border-none';
         statusText = 'Extended';
     } else {
-        statusColor = 'text-text-primary font-medium';
+        // Default set above
         statusText = 'On Time';
     }
 
@@ -84,39 +79,41 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
     const displayName = `${product.name} - ${variant.name}`;
 
     return (
-        <div className="bg-surface rounded-lg shadow-md border border-border overflow-hidden group flex flex-col cursor-pointer w-80 flex-shrink-0" onClick={() => onClick(product)}>
-            <div className="w-full h-40 bg-background flex items-center justify-center text-text-secondary relative">
+        <div className="bg-surface-container-high rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group flex flex-col cursor-pointer w-80 flex-shrink-0 border border-outline/10" onClick={() => onClick(product)}>
+            <div className="w-full h-48 bg-surface-container-low flex items-center justify-center text-text-secondary relative">
                 {displayImage ? (
                     <img src={getImageUrl(displayImage)} alt={displayName} className="w-full h-full object-cover" />
                 ) : (
                     <span className="text-sm">No Image</span>
                 )}
+                
+                {/* Floating Status Badge */}
+                <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 ${statusStyles}`}>
+                     {statusText === 'OVERDUE' && <AlertCircle size={12} />}
+                     {statusText}
+                </div>
             </div>
-            <div className="p-4 flex flex-col flex-grow">
+            
+            <div className="p-5 flex flex-col flex-grow">
                 <h3 className="font-bold text-base text-text-primary truncate" title={displayName}>{displayName}</h3>
-                <p className="text-xs text-text-secondary truncate">{product.manufacturerName || 'N/A'}</p>
+                <p className="text-sm text-text-secondary truncate mb-4">{product.manufacturerName || 'N/A'}</p>
                 
                 <div className="flex-grow" />
                 
-                <div className="mt-3 text-xs">
+                <div className="mt-auto space-y-3">
                     {/* Date Grid */}
-                    <div className="grid grid-cols-2 gap-2 mb-3 bg-background/50 p-2 rounded border border-border/50">
+                    <div className="flex justify-between items-end text-xs">
                         <div>
-                            <span className="text-[10px] uppercase text-text-tertiary block mb-0.5">Checked Out</span>
+                            <span className="text-text-secondary block mb-0.5">Checked Out</span>
                             <span className="text-text-secondary font-medium block truncate">{formatDate(checkout.checkoutDate)}</span>
                         </div>
                         <div className="text-right">
-                            <span className="text-[10px] uppercase text-text-tertiary block mb-0.5">Due Date</span>
-                            <span className={`block truncate ${statusColor}`}>{formatDate(checkout.expectedReturnDate)}</span>
+                            <span className="text-text-secondary block mb-0.5">Due Date</span>
+                            <span className="font-bold text-text-primary block truncate">{formatDate(checkout.expectedReturnDate)}</span>
                         </div>
                     </div>
 
-                    <div className={`${statusColor} mb-2 flex justify-between items-center`}>
-                        <span className="font-bold uppercase tracking-wider">{statusText}</span>
-                        {statusText === 'OVERDUE' && <AlertCircle size={14} />}
-                    </div>
-                    
-                    <div className="mb-2 truncate">
+                    <div className="truncate text-xs">
                         <span className="text-text-secondary">For: </span>
                         {project ? (
                             <Link to={`/projects/${project.id}`} className="text-accent hover:underline font-medium" onClick={(e) => e.stopPropagation()}>
@@ -124,22 +121,22 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
                             </Link>
                         ) : customer ? (
                             <Link to={`/customers/${customer.id}`} className="text-accent hover:underline font-medium" onClick={(e) => e.stopPropagation()}>
-                                {customer.fullName} (Customer)
+                                {customer.fullName}
                             </Link>
                         ) : installer ? (
                             <Link to={`/installers/${installer.id}`} className="text-accent hover:underline font-medium" onClick={(e) => e.stopPropagation()}>
-                                {installer.installerName} (Installer)
+                                {installer.installerName}
                             </Link>
                         ) : (
                             <span className="text-text-tertiary font-medium">Unknown</span>
                         )}
                     </div>
 
-                    <div className="flex items-center gap-2 justify-end pt-2 border-t border-border/50">
-                        <button onClick={handleExtend} className="text-xs bg-surface hover:bg-surface-hover border border-border text-text-primary py-1.5 px-3 rounded flex items-center gap-1 transition-colors">
-                            <Clock size={12} /> Extend
+                    <div className="flex items-center gap-2 justify-end pt-3">
+                        <button onClick={handleExtend} className="text-xs font-medium text-primary hover:bg-primary-container/20 py-2 px-4 rounded-full transition-colors">
+                            Extend
                         </button>
-                        <button onClick={handleReturn} className="text-xs bg-primary hover:bg-primary-hover text-on-primary py-1.5 px-3 rounded flex items-center gap-1 transition-colors">
+                        <button onClick={handleReturn} className="text-xs font-bold bg-secondary hover:bg-secondary-hover text-on-secondary py-2 px-4 rounded-full shadow-sm flex items-center gap-1 transition-colors">
                             <Undo2 size={12} /> Return
                         </button>
                     </div>
@@ -149,11 +146,10 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
     );
 };
 
-
 interface SampleCarouselProps {
     title: string;
-    checkouts: SampleCheckout[]; // UPDATED: Now takes active checkouts directly
-    onItemClick: (product: Product) => void; // UPDATED: Returns the Product object
+    checkouts: SampleCheckout[]; 
+    onItemClick: (product: Product) => void; 
 }
 
 const SampleCarousel: React.FC<SampleCarouselProps> = ({ title, checkouts, onItemClick }) => {
@@ -162,7 +158,7 @@ const SampleCarousel: React.FC<SampleCarouselProps> = ({ title, checkouts, onIte
             <h2 className="text-2xl font-semibold mb-4 text-text-primary flex items-center gap-2">
                 {title}
                 {checkouts.length > 0 && (
-                    <span className="text-sm font-normal bg-surface text-text-secondary px-2 py-0.5 rounded-full border border-border">
+                    <span className="text-sm font-bold bg-primary-container text-on-primary-container px-3 py-1 rounded-full">
                         {checkouts.length}
                     </span>
                 )}
