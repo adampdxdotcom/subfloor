@@ -64,6 +64,47 @@ router.delete('/profiles/:id', verifySession(), verifyRole('Admin'), async (req,
 });
 
 // =================================================================
+//  ALIAS MEMORY (Learning from your edits)
+// =================================================================
+
+// GET /api/import/aliases - Fetch all saved rules
+router.get('/aliases', verifySession(), async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM size_aliases');
+        res.json(toCamelCase(result.rows));
+    } catch (err) {
+        console.error('Error fetching aliases:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/import/aliases - Learn a new rule
+router.post('/aliases', verifySession(), async (req, res) => {
+    const { aliasText, mappedSize } = req.body;
+    
+    // Basic validation
+    if (!aliasText || !mappedSize) {
+        return res.status(400).json({ error: 'Alias text and mapped size are required.' });
+    }
+
+    try {
+        // Upsert: If we already know this alias, update its mapping
+        const query = `
+            INSERT INTO size_aliases (alias_text, mapped_size)
+            VALUES ($1, $2)
+            ON CONFLICT (alias_text) 
+            DO UPDATE SET mapped_size = $2
+            RETURNING *
+        `;
+        const result = await pool.query(query, [cleanString(aliasText), cleanString(mappedSize)]);
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        console.error('Error saving alias:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// =================================================================
 //  IMPORT LOGIC (The Heavy Lifting)
 // =================================================================
 
@@ -199,6 +240,23 @@ router.post('/preview', verifySession(), async (req, res) => {
     }
 });
 
+// --- HELPER: Pricing Engine Logic ---
+const calculateRetailPrice = (cost, markup, method = 'Markup') => {
+    const costNum = Number(cost);
+    const markupNum = Number(markup);
+
+    if (isNaN(costNum) || costNum <= 0) return 0;
+    if (isNaN(markupNum) || markupNum <= 0) return costNum;
+
+    if (method === 'Margin') {
+        if (markupNum >= 100) return costNum; // Avoid division by zero/negative
+        return costNum / (1 - markupNum / 100);
+    }
+    // Default to Markup
+    return costNum * (1 + markupNum / 100);
+};
+
+
 // POST /api/import/execute
 // Commit changes to the database
 router.post('/execute', verifySession(), async (req, res) => {
@@ -211,6 +269,20 @@ router.post('/execute', verifySession(), async (req, res) => {
         
         let updates = 0;
         let created = 0;
+
+        // --- PRE-FETCH SYSTEM SETTINGS ---
+        const settingsRes = await client.query(`SELECT settings FROM system_preferences WHERE key = 'pricing_settings'`);
+        let globalPricing = { retailMarkup: 0, calculationMethod: 'Markup' }; // Default values
+        
+        if (settingsRes.rows.length > 0 && settingsRes.rows[0].settings) {
+            // Since it's a jsonb column, it should already be an object
+            const dbSettings = settingsRes.rows[0].settings;
+            
+            // Merge with defaults to ensure keys always exist, even if DB object is incomplete
+            globalPricing = { ...globalPricing, ...dbSettings };
+        }
+
+        const vendorCache = {}; // Cache to avoid re-querying vendors
 
         for (const row of previewResults) {
             // Skip errors/ignored
@@ -268,26 +340,60 @@ router.post('/execute', verifySession(), async (req, res) => {
                     productId = newParent.rows[0].id;
                 }
 
+                // --- PRICING LOGIC ---
+                let finalRetailPrice = row.retailPrice || 0;
+                
+                // If no retail price is provided, calculate it
+                if (!finalRetailPrice && row.unitCost > 0) {
+                    let vendorPricing = null;
+                    if (manufId) {
+                        if (!vendorCache[manufId]) {
+                             const vendorRes = await client.query(`SELECT default_markup, pricing_method FROM vendors WHERE id = $1`, [manufId]);
+                             vendorCache[manufId] = vendorRes.rows.length > 0 ? vendorRes.rows[0] : null;
+                        }
+                        vendorPricing = vendorCache[manufId];
+                    }
+
+                    // Waterfall: Vendor > Global
+                    const markup = vendorPricing?.default_markup || globalPricing.retailMarkup;
+                    const method = vendorPricing?.pricing_method || globalPricing.calculationMethod;
+                    
+                    finalRetailPrice = calculateRetailPrice(row.unitCost, markup, method);
+                }
+
                 // Create Variant
                 await client.query(`
-                    INSERT INTO product_variants (product_id, name, sku, size, unit_cost, retail_price, carton_size)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    INSERT INTO product_variants (product_id, name, sku, size, unit_cost, retail_price, carton_size, has_sample)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 `, [
                     productId, 
                     vName, 
                     cleanString(row.sku), 
                     cleanString(row.size), 
                     row.unitCost || 0, 
-                    row.retailPrice || 0,
-                    row.cartonSize || null
+                    finalRetailPrice, // Use the calculated price
+                    row.cartonSize || null,
+                    row.hasSample || false // Read the checkbox value from the review step
                 ]);
+
+                // SYNC SIZES: Ensure this size is added to the global "Known Sizes" list
+                if (row.size) {
+                    const cleanSize = cleanString(row.size);
+                    if (cleanSize) {
+                        // Corrected table and column name
+                        await client.query(`
+                            INSERT INTO standard_sizes (size_value) 
+                            VALUES ($1) 
+                            ON CONFLICT (size_value) DO NOTHING
+                        `, [cleanSize]);
+                    }
+                }
+
                 created++;
             }
         }
 
         // Log the batch activity
-        // Note: We intentionally don't await this or pass 'client' if your utils.js isn't updated yet
-        // to avoid breaking the transaction. We log outside the transaction or just use pool (safe enough for logs).
         try {
              await logActivity(userId, 'IMPORT', 'BATCH', 'Multiple', { updates, created, strategy });
         } catch (e) { console.warn("Failed to log import activity", e); }

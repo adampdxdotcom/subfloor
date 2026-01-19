@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useData } from '../context/DataContext';
 import { MaterialOrder, Product, ProductVariant, Unit, UNITS, Vendor, PricingSettings } from '../types';
 import { X, Package as PackageIcon, History, Calculator, XCircle, AlertCircle } from 'lucide-react';
 import AddEditVendorModal from './AddEditVendorModal';
@@ -7,6 +6,13 @@ import CollapsibleSection from './CollapsibleSection';
 import ActivityHistory from './ActivityHistory';
 import GlobalProjectSelector from './GlobalProjectSelector';
 import * as preferenceService from '../services/preferenceService';
+import { getMaterialOrderHistory } from '../services/materialOrderService';
+import { useMaterialOrderMutations } from '../hooks/useMaterialOrderMutations';
+import { useVendorMutations } from '../hooks/useVendorMutations';
+import { useProducts } from '../hooks/useProducts';
+import { useVendors } from '../hooks/useVendors';
+import { useProjects } from '../hooks/useProjects';
+import { useQuery } from '@tanstack/react-query';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
 import { toast } from 'react-hot-toast';
 
@@ -42,12 +48,25 @@ const formatDateForInput = (dateString: string | undefined | null) => dateString
 
 const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ isOpen, onClose, editingOrder = null, initialProjectId = null, prefillData = null }) => {
     
-    const { 
-        products, vendors, addVendor, 
-        addMaterialOrder, updateMaterialOrder, 
-        materialOrderHistory, fetchMaterialOrderHistory,
-        projects
-    } = useData();
+    // REFACTOR: Hooks
+    const { data: products = [] } = useProducts();
+    const { data: vendors = [] } = useVendors();
+    const { data: projects = [] } = useProjects();
+    const { addVendor } = useVendorMutations();
+    const { addMaterialOrder, updateMaterialOrder } = useMaterialOrderMutations();
+    
+    // --- DEBUG LOGGING ---
+    console.log('AddEditMaterialOrderModal Render:', { 
+        addMaterialOrderType: typeof addMaterialOrder,
+        addMaterialOrderValue: addMaterialOrder
+    });
+
+    // New: Fetch history directly
+    const { data: materialOrderHistory = [] } = useQuery({
+        queryKey: ['material_orders', 'history', editingOrder?.id],
+        queryFn: () => getMaterialOrderHistory(editingOrder!.id),
+        enabled: !!editingOrder,
+    });
 
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(initialProjectId);
     const [supplierId, setSupplierId] = useState<number | null>(null);
@@ -130,7 +149,6 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
         if (!isOpen) return;
 
         if (editingOrder) {
-            fetchMaterialOrderHistory(editingOrder.id);
             setSelectedProjectId(editingOrder.projectId);
             setSupplierId(editingOrder.supplierId || null);
             const currentSupplier = vendors.find(v => v.id === editingOrder.supplierId);
@@ -211,7 +229,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             setLineItems([]);
             setNotes('');
         }
-    }, [editingOrder, isOpen, initialProjectId, products, vendors, fetchMaterialOrderHistory, prefillData, pricingSettings]);
+    }, [editingOrder, isOpen, initialProjectId, products, vendors, prefillData, pricingSettings]);
 
     
     const handleSelectSearchItem = (product: Product, variant: ProductVariant) => {
@@ -352,9 +370,18 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             notes: notes
         };
 
+        console.log('Submitting Order:', { editingOrder: !!editingOrder, orderData });
+
         try { 
-            if (editingOrder) { await updateMaterialOrder(editingOrder.id, orderData); } 
-            else { await addMaterialOrder({ ...orderData, projectId: selectedProjectId }); }
+            if (editingOrder) { 
+                console.log('Calling updateMaterialOrder...');
+                await updateMaterialOrder({ id: editingOrder.id, data: orderData }); 
+                toast.success('Order updated successfully');
+            } else { 
+                console.log('Calling addMaterialOrder...');
+                await addMaterialOrder({ ...orderData, projectId: selectedProjectId }); 
+                toast.success('Order created successfully');
+            }
             onClose(); 
         } 
         catch (error) { 
@@ -548,7 +575,7 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             </div>
             </div>
             
-            <AddEditVendorModal isOpen={isVendorModalOpen} onClose={() => setIsVendorModalOpen(false)} onSave={async (v) => { await addVendor(v); setIsVendorModalOpen(false); }} initialVendorType='Supplier' />
+            <AddEditVendorModal isOpen={isVendorModalOpen} onClose={() => setIsVendorModalOpen(false)} vendorToEdit={null} initialVendorType='Supplier' />
         </div>
     );
 };

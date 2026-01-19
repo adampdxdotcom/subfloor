@@ -488,6 +488,36 @@ export interface MappedRow {
     status?: 'new' | 'update' | 'error' | 'ignored';
 }
 
+// --- ADDED: Spreadsheet Cleaner Types ---
+
+export interface ExcelSheetData {
+    fileName: string;
+    headers: string[];
+    rows: any[]; // Raw objects from XLSX
+}
+
+export interface KnownSize {
+    id: string;
+    label: string; // The clean output, e.g. "12x24"
+    matchers?: string[]; // Aliases/Messy inputs, e.g. ["M122", "Tile 12 by 24"]
+}
+
+export interface SizeAlias {
+    id: number;
+    aliasText: string;
+    mappedSize: string;
+}
+
+export interface ParsedRow {
+    id: string;
+    originalData: Record<string, any>; // Keep full original row to re-export later
+    targetText: string; // The specific cell text we are analyzing (Description)
+    extractedSize?: string | null;
+    selectionSource?: string; // If manually highlighted, what text was selected?
+    status: 'MATCHED' | 'NEW' | 'UNKNOWN';
+    manualOverride?: boolean; // True if user manually typed/selected something
+}
+
 // --- MODIFIED & CONSOLIDATED: A single, flexible type for all user preferences ---
 export interface UserPreferences {
   project_dashboard_layout?: ReactGridLayout_Layouts; // Legacy field
@@ -528,22 +558,17 @@ export interface DataContextType extends AppData {
   fetchSampleHistory: (sampleId: number) => Promise<void>;
   materialOrderHistory: ActivityLogEntry[];
   fetchMaterialOrderHistory: (orderId: number) => Promise<void>;
-  fetchSamples: () => Promise<void>;
-  addInstaller: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>;
-  updateInstaller: (installer: Installer) => Promise<void>;
-  deleteInstaller: (installerId: number) => Promise<void>;
   
   // Legacy Sample Functions (Will be replaced)
+  fetchSamples: () => Promise<void>;
   addSample: (sampleData: any) => Promise<Sample>;
   updateSample: (sampleId: number, sampleData: any) => Promise<void>;
   deleteSample: (sampleId: number) => Promise<void>;
   
-  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>) => Promise<Customer>;
-  updateCustomer: (customer: Customer) => Promise<void>;
-  deleteCustomer: (customerId: number) => Promise<void>;
-  addProject: (project: Omit<Project, 'id' | 'createdAt'> & { installerId?: number }) => Promise<Project>;
-  updateProject: (project: Partial<Project> & { id: number }) => Promise<void>;
-  deleteProject: (projectId: number) => Promise<void>;
+  // --- REMOVED MUTATIONS ---
+  // addInstaller, updateInstaller, deleteInstaller are now in useInstallerMutations
+  // addCustomer, updateCustomer, deleteCustomer are now in useCustomerMutations
+  // addProject, updateProject, deleteProject are now in useProjectMutations
   addSampleCheckout: (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>) => Promise<void>;
   updateSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
   extendSampleCheckout: (checkout: SampleCheckout) => Promise<void>;
@@ -561,9 +586,7 @@ export interface DataContextType extends AppData {
   deleteMaterialOrder: (orderId: number) => Promise<void>;
   receiveMaterialOrder: (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean }) => Promise<void>;
   reportMaterialOrderDamage: (orderId: number, data: { items: any[]; replacementEta: string; notes: string; sendEmailNotification: boolean }) => Promise<void>;
-  addVendor: (vendor: Omit<Vendor, 'id' | 'defaultSupplierId'>) => Promise<void>; // Modified to account for new FK
-  updateVendor: (vendor: Vendor) => Promise<void>;
-  deleteVendor: (vendorId: number) => Promise<void>;
+  // addVendor, updateVendor, deleteVendor are now in useVendorMutations
   
   unreadCount: number; // NEW
   refreshNotifications: () => Promise<void>; // NEW

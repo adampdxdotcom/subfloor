@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useData } from '../context/DataContext';
+import { useCustomerMutations } from '../hooks/useCustomers';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import { Customer } from '../types';
 import { toast } from 'react-hot-toast';
 import { Trash2, X, User } from 'lucide-react';
@@ -62,12 +63,12 @@ const validateForm = (
 };
 
 const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, customer, initialData, onSaveSuccess }) => {
-  const { addCustomer, updateCustomer, deleteCustomer, currentUser } = useData();
+  const { data: currentUser } = useCurrentUser();
+  const { createCustomer, updateCustomer, deleteCustomer } = useCustomerMutations();
+  
   const [formData, setFormData] = useState(initialFormState);
   const [confirmEmail, setConfirmEmail] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   
   const isAdmin = currentUser?.roles.includes('Admin');
   const isEditMode = customer !== null;
@@ -88,8 +89,6 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
             setConfirmEmail('');
         }
         setErrors({});
-        setIsSaving(false);
-        setIsDeleting(false);
     }
   }, [isOpen, customer, isEditMode, initialData]);
 
@@ -119,25 +118,23 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
       return;
     }
 
-    setIsSaving(true);
+    const payload = { ...formData, phoneNumber: formData.phoneNumber.replace(/[^\d]/g, '') };
 
     try {
-      const payload = { ...formData, phoneNumber: formData.phoneNumber.replace(/[^\d]/g, '') };
-
-      if (isEditMode && customer) {
-        await updateCustomer({ ...customer, ...payload });
-      } else {
-        const newCustomer = await addCustomer(payload);
-        if (onSaveSuccess) {
-          onSaveSuccess(newCustomer);
+        if (isEditMode && customer) {
+          await updateCustomer.mutateAsync({ ...customer, ...payload });
+          toast.success('Customer updated!');
+          onClose();
+        } else {
+          const newCustomer = await createCustomer.mutateAsync(payload);
+          toast.success('Customer created!');
+          if (onSaveSuccess) {
+            onSaveSuccess(newCustomer);
+          }
+          onClose();
         }
-      }
-
-      onClose();
     } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSaving(false);
+        // Error toast usually handled by mutation logic
     }
   };
 
@@ -145,22 +142,20 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
     if (!customer) return;
 
     if (window.confirm(`Delete ${customer.fullName}?`)) {
-      setIsDeleting(true);
       try {
-        await deleteCustomer(customer.id);
-        toast.success('Customer deleted.');
-        onClose();
+          await deleteCustomer.mutateAsync(customer.id);
+          toast.success('Customer deleted.');
+          onClose();
       } catch (err) {
-        toast.error((err as Error).message);
-      } finally {
-        setIsDeleting(false);
+          // Error handled by mutation
       }
     }
   };
 
   if (!isOpen) return null;
 
-  const isSaveDisabled = isSaving || isDeleting || Object.keys(errors).length > 0;
+  const isProcessing = createCustomer.isPending || updateCustomer.isPending || deleteCustomer.isPending;
+  const isSaveDisabled = isProcessing || Object.keys(errors).length > 0;
 
   return (
     <div className="fixed inset-0 bg-black/75 flex justify-center z-50 overflow-y-auto">
@@ -242,7 +237,7 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
               type="button"
               onClick={onClose}
               className="py-2 px-6 bg-surface hover:bg-surface-container-highest border border-outline/20 rounded-full text-text-primary font-medium transition-colors"
-              disabled={isSaving || isDeleting}
+              disabled={isProcessing}
             >
               Cancel
             </button>
@@ -252,10 +247,10 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
                 type="button"
                 onClick={handleDelete}
                 className="py-2 px-6 bg-error-container hover:bg-error/20 text-error rounded-full font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mr-auto transition-colors"
-                disabled={isSaving || isDeleting}
+                disabled={isProcessing}
               >
                 <Trash2 size={16} />
-                {isDeleting ? 'Deleting...' : 'Delete'}
+                {deleteCustomer.isPending ? 'Deleting...' : 'Delete'}
               </button>
             )}
 
@@ -264,7 +259,7 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
               className="py-2 px-6 bg-primary hover:bg-primary-hover rounded-full text-on-primary font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               disabled={isSaveDisabled}
             >
-              {isSaving ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Add Customer')}
+              {createCustomer.isPending || updateCustomer.isPending ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Add Customer')}
             </button>
           </div>
         </form>

@@ -1,10 +1,9 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import * as quoteService from '../services/quoteService';
 import { useProjects } from '../hooks/useProjects';
 import { useCustomers } from '../hooks/useCustomers';
 import { useInstallers } from '../hooks/useInstallers';
+import { useQuotes } from '../hooks/useQuotes';
 import { QuoteStatus } from '../types';
 import { FileText, DollarSign, Calendar, HardHat } from 'lucide-react';
 
@@ -12,11 +11,9 @@ const QuoteDetail: React.FC = () => {
   const { quoteId } = useParams<{ quoteId: string }>();
   const numericQuoteId = quoteId ? parseInt(quoteId, 10) : undefined;
 
-  const { data: quote, isLoading } = useQuery({
-    queryKey: ['quote', numericQuoteId],
-    queryFn: () => quoteService.getQuote(numericQuoteId!),
-    enabled: !!numericQuoteId,
-  });
+  // REFACTOR: Use the shared hook and find locally
+  const { data: quotes = [], isLoading } = useQuotes();
+  const quote = quotes.find(q => q.id === numericQuoteId);
 
   const { data: projects = [] } = useProjects();
   const { data: customers = [] } = useCustomers();
@@ -28,7 +25,6 @@ const QuoteDetail: React.FC = () => {
   const installer = installers.find(i => i.id === quote?.installerId);
   
   const getStatusInfo = (status: QuoteStatus) => {
-    // Note: tertiary-container used as per diff; ensure it is defined in tailwind.config
     if (status === QuoteStatus.ACCEPTED) return { color: 'bg-primary-container text-primary', text: 'Accepted' };
     if (status === QuoteStatus.REJECTED) return { color: 'bg-error-container text-error', text: 'Rejected' };
     return { color: 'bg-secondary-container text-text-secondary', text: 'Sent' };
@@ -70,10 +66,19 @@ const QuoteDetail: React.FC = () => {
                 <div className="p-2 bg-primary-container rounded-full text-primary">
                     <DollarSign size={18}/>
                 </div>
-                Amount
+                Materials Amount
             </h2>
             <p className="text-5xl font-bold text-text-primary tracking-tight">
-                ${parseFloat(quote.amount as any).toFixed(2)}
+                ${parseFloat(quote.materialsAmount as any || 0).toFixed(2)}
+            </p>
+            <h2 className="text-lg font-semibold mt-4 mb-3 text-text-primary flex items-center gap-3">
+                <div className="p-2 bg-primary-container rounded-full text-primary">
+                    <DollarSign size={18}/>
+                </div>
+                Labor Amount
+            </h2>
+            <p className="text-5xl font-bold text-text-primary tracking-tight">
+                ${parseFloat(quote.laborAmount as any || 0).toFixed(2)}
             </p>
           </div>
           <div>

@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
-// --- CORRECTED: Import UserPreferences and remove UiPreferences ---
 import { AppData, Customer, DataContextType, Installer, Job, Project, ProjectStatus, Quote, Product, ProductVariant, SampleCheckout, ChangeOrder, MaterialOrder, Vendor, CurrentUser, ActivityLogEntry, UserPreferences, User, SystemBranding } from '../types';
 import { toast } from 'react-hot-toast';
 
@@ -7,30 +6,23 @@ import { useSessionContext } from 'supertokens-auth-react/recipe/session';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUnreadNotificationCount } from '../hooks/useNotifications';
 import { useProducts, useProductMutations } from '../hooks/useProducts';
-import { useCustomers, useCustomerMutations } from '../hooks/useCustomers';
-import { useProjects, useProjectMutations } from '../hooks/useProjects';
-import { useInstallers, useInstallerMutations } from '../hooks/useInstallers';
-import { useVendors, useVendorMutations } from '../hooks/useVendors';
-import { useQuotes, useQuoteMutations } from '../hooks/useQuotes';
+import { useCustomers } from '../hooks/useCustomers';
+import { useProjects } from '../hooks/useProjects';
+import { useInstallers } from '../hooks/useInstallers';
+import { useVendors } from '../hooks/useVendors';
+import { useQuotes } from '../hooks/useQuotes';
+import { useQuoteMutations } from '../hooks/useQuoteMutations';
 import { useJobs, useJobMutations } from '../hooks/useJobs';
-import { useChangeOrders, useChangeOrderMutations } from '../hooks/useChangeOrders';
-import { useMaterialOrders, useMaterialOrderMutations } from '../hooks/useMaterialOrders';
-import { useSampleCheckouts, useSampleCheckoutMutations } from '../hooks/useSampleCheckouts';
-import { useHistory } from '../hooks/useHistory'; // NEW IMPORT
+import { useChangeOrders } from '../hooks/useChangeOrders';
+import { useChangeOrderMutations } from '../hooks/useChangeOrderMutations';
+import { useMaterialOrders } from '../hooks/useMaterialOrders';
+import { useMaterialOrderMutations } from '../hooks/useMaterialOrderMutations';
+import { useSampleCheckouts } from '../hooks/useSampleCheckouts';
+import { useSampleCheckoutMutations } from '../hooks/useSampleCheckoutMutations';
+import { useHistory } from '../hooks/useHistory'; 
 
-import * as customerService from '../services/customerService';
-import * as productService from '../services/productService'; // New Service
-import * as projectService from '../services/projectService';
-import * as installerService from '../services/installerService';
-import * as quoteService from '../services/quoteService';
-import * as jobService from '../services/jobService';
-import * as sampleCheckoutService from '../services/sampleCheckoutService';
-import * as changeOrderService from '../services/changeOrderService';
-import * as materialOrderService from '../services/materialOrderService';
-import * as vendorService from '../services/vendorService';
 import * as userService from '../services/userService';
 import * as preferenceService from '../services/preferenceService';
-import * as notificationService from '../services/notificationService'; // NEW
 import { debounce } from 'lodash';
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -59,41 +51,37 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   // --- REACT QUERY: Customers ---
   const { data: customers = [], isLoading: customersLoading } = useCustomers(!!currentUser);
-  const customerMutations = useCustomerMutations();
 
   // --- REACT QUERY: Projects ---
   const { data: projects = [], isLoading: projectsLoading } = useProjects(!!currentUser);
-  const projectMutations = useProjectMutations();
   
   // --- REACT QUERY: Installers ---
   const { data: installers = [], isLoading: installersLoading } = useInstallers(!!currentUser);
-  const installerMutations = useInstallerMutations();
 
   // --- REACT QUERY: Vendors ---
   const { data: vendors = [], isLoading: vendorsLoading } = useVendors(!!currentUser);
-  const vendorMutations = useVendorMutations();
 
   // --- REACT QUERY: Quotes ---
-  const { data: quotes = [], isLoading: quotesLoading } = useQuotes(!!currentUser);
+  const { data: quotes = [], isLoading: quotesLoading } = useQuotes();
   const quoteMutations = useQuoteMutations();
 
   // --- REACT QUERY: Jobs ---
-  const { data: jobs = [], isLoading: jobsLoading } = useJobs(!!currentUser);
+  const { data: jobs = [], isLoading: jobsLoading } = useJobs();
   const jobMutations = useJobMutations();
 
   // --- REACT QUERY: Change Orders ---
-  const { data: changeOrders = [], isLoading: changeOrdersLoading } = useChangeOrders(!!currentUser);
+  const { data: changeOrders = [], isLoading: changeOrdersLoading } = useChangeOrders();
   const changeOrderMutations = useChangeOrderMutations();
 
   // --- REACT QUERY: Material Orders ---
-  const { data: materialOrders = [], isLoading: materialOrdersLoading } = useMaterialOrders(!!currentUser);
+  const { data: materialOrders = [], isLoading: materialOrdersLoading } = useMaterialOrders();
   const materialOrderMutations = useMaterialOrderMutations();
 
   // --- REACT QUERY: Sample Checkouts ---
-  const { data: sampleCheckouts = [], isLoading: sampleCheckoutsLoading } = useSampleCheckouts(!!currentUser);
+  const { data: sampleCheckouts = [], isLoading: sampleCheckoutsLoading } = useSampleCheckouts();
   const sampleCheckoutMutations = useSampleCheckoutMutations();
   
-  // --- NEW: History Hook ---
+  // --- HISTORY ---
   const {
     customerHistory, fetchCustomerHistory,
     projectHistory, fetchProjectHistory,
@@ -240,19 +228,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [sessionContext.doesSessionExist, sessionContext.loading, fetchInitialData, fetchCurrentUser, fetchAllUsers]);
   
   
-  const addVendor = useCallback(async (vendor: Omit<Vendor, 'id'>): Promise<void> => {
-      await vendorMutations.addVendor.mutateAsync(vendor);
-  }, [vendorMutations.addVendor]);
-  
-  const updateVendor = useCallback(async (vendor: Vendor): Promise<void> => {
-      const { id, ...data } = vendor;
-      await vendorMutations.updateVendor.mutateAsync({ id, data });
-  }, [vendorMutations.updateVendor]);
-
-  const deleteVendor = useCallback(async (vendorId: number): Promise<void> => {
-      await vendorMutations.deleteVendor.mutateAsync(vendorId);
-  }, [vendorMutations.deleteVendor]);
-
     const fetchProducts = async () => {
         await queryClient.invalidateQueries({ queryKey: ['products'] });
     };
@@ -356,110 +331,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toast.error("Deprecated function called: Use deleteProduct.");
     }, []);
 
-  const addInstaller = useCallback(async (installer: Omit<Installer, 'id' | 'jobs'>): Promise<Installer> => {
-    try {
-      const newDbInstaller = await installerMutations.addInstaller.mutateAsync(installer);
-      toast.success('Installer created successfully!');
-      return newDbInstaller;
-    } catch (error) { 
-      console.error("Error adding installer:", error); 
-      toast.error((error as Error).message);
-      throw error; 
-    }
-  }, [installerMutations.addInstaller]);
-
-  const updateInstaller = useCallback(async (installer: Installer): Promise<void> => {
-    try {
-      await installerMutations.updateInstaller.mutateAsync(installer);
-      toast.success('Installer updated successfully!');
-    } catch (error) { 
-      console.error("Error updating installer:", error); 
-      toast.error((error as Error).message); 
-      throw error; 
-    }
-  }, [installerMutations.updateInstaller]);
-
-  const deleteInstaller = useCallback(async (installerId: number): Promise<void> => {
-    try {
-      await installerMutations.deleteInstaller.mutateAsync(installerId);
-    } catch (error) {
-      console.error("Error deleting installer:", error);
-      throw error;
-    }
-  }, [installerMutations.deleteInstaller]);
-
-
-  const addCustomer = useCallback(async (customer: Omit<Customer, 'id' | 'createdAt' | 'jobs'>): Promise<Customer> => {
-    try {
-      const newDbCustomer = await customerMutations.addCustomer.mutateAsync(customer);
-      toast.success('Customer created successfully!');
-      return newDbCustomer;
-    } catch (error) {
-      console.error("Error adding customer:", error);
-      toast.error((error as Error).message);
-      throw error;
-    }
-  }, [customerMutations.addCustomer]);
-
-  const updateCustomer = useCallback(async (customer: Customer): Promise<void> => {
-    try {
-      await customerMutations.updateCustomer.mutateAsync(customer);
-      toast.success('Customer updated successfully!');
-    } catch (error) {
-      console.error("Error updating customer:", error);
-      toast.error((error as Error).message);
-      throw error;
-    }
-  }, [customerMutations.updateCustomer]);
-  
-  const deleteCustomer = useCallback(async (customerId: number): Promise<void> => {
-    try {
-      await customerMutations.deleteCustomer.mutateAsync(customerId);
-    } catch (error) {
-      console.error("Error deleting customer:", error);
-      throw error;
-    }
-  }, [customerMutations.deleteCustomer]);
-  
-  const addProject = useCallback(async (projectData: Omit<Project, 'id' | 'createdAt'> & { installerId?: number }): Promise<Project> => {
-    try {
-      const newDbProject = await projectMutations.addProject.mutateAsync(projectData);
-      toast.success('Project created successfully!');
-      return newDbProject;
-    } catch (error) { 
-      console.error("Error adding project:", error); 
-      toast.error((error as Error).message); 
-      throw error; 
-    }
-  }, [projectMutations.addProject]);
-
-  const updateProject = useCallback(async (projectToUpdate: Partial<Project> & { id: number }) => {
-    try {
-      await projectMutations.updateProject.mutateAsync(projectToUpdate);
-      if (projectToUpdate.status) {
-        toast.success(`Project status updated to: ${projectToUpdate.status.replace(/_/g, ' ')}`);
-      } else {
-        toast.success('Project updated!');
-      }
-    } catch (error) { 
-      console.error("Error updating project:", error); 
-      toast.error((error as Error).message); 
-      throw error; 
-    }
-  }, [projectMutations.updateProject]);
-
-  const deleteProject = useCallback(async (projectId: number): Promise<void> => {
-    try {
-      await projectMutations.deleteProject.mutateAsync(projectId);
-    } catch (error) {
-      console.error(`Error deleting project ${projectId}:`, error);
-      throw error;
-    }
-  }, [projectMutations.deleteProject]);
-
   const addSampleCheckout = useCallback(async (checkout: Omit<SampleCheckout, 'id' | 'checkoutDate' | 'actualReturnDate'>): Promise<void> => {
     try {
-      await sampleCheckoutMutations.addSampleCheckout.mutateAsync(checkout);
+      await sampleCheckoutMutations.addSampleCheckout(checkout);
       toast.success('Sample checked out!');
     } catch (error) { 
       console.error("Error adding sample checkout:", error); 
@@ -470,7 +344,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateSampleCheckout = useCallback(async (checkout: SampleCheckout): Promise<void> => {
     try {
-      await sampleCheckoutMutations.returnSampleCheckout.mutateAsync(checkout);
+      await sampleCheckoutMutations.returnSampleCheckout(checkout);
       toast.success('Sample returned!');
     } catch (error) 
       { 
@@ -482,7 +356,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const extendSampleCheckout = useCallback(async (checkout: SampleCheckout): Promise<void> => {
     try {
-        await sampleCheckoutMutations.extendSampleCheckout.mutateAsync(checkout.id);
+        await sampleCheckoutMutations.extendSampleCheckout(checkout.id);
         toast.success('Checkout extended by 2 days!');
     } catch (error) {
         console.error("Error extending sample checkout:", error);
@@ -493,7 +367,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const toggleSampleSelection = useCallback(async (checkout: SampleCheckout): Promise<void> => {
       try {
-          await sampleCheckoutMutations.patchSampleCheckout.mutateAsync({
+          await sampleCheckoutMutations.patchSampleCheckout({
               id: checkout.id,
               data: { isSelected: !checkout.isSelected }
           });
@@ -506,7 +380,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addQuote = useCallback(async (quote: Omit<Quote, 'id'|'dateSent'>): Promise<void> => {
     try {
-      await quoteMutations.addQuote.mutateAsync(quote);
+      await quoteMutations.addQuote(quote);
       toast.success('Quote added successfully!');
     } catch (error) { 
       console.error("Error adding quote:", error); 
@@ -517,7 +391,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateQuote = useCallback(async (quote: Partial<Quote> & { id: number }): Promise<void> => {
     try {
-      await quoteMutations.updateQuote.mutateAsync(quote);
+      await quoteMutations.updateQuote(quote);
       toast.success('Quote updated!');
     } catch (error) 
       { console.error("Error updating quote:", error); 
@@ -528,7 +402,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const acceptQuote = useCallback(async (quote: Partial<Quote> & { id: number }): Promise<void> => {
     try {
-      await quoteMutations.acceptQuote.mutateAsync(quote);
+      await quoteMutations.acceptQuote(quote);
       toast.success('Quote accepted and project status updated!');
     } catch (error) {
       console.error("Error accepting quote:", error);
@@ -550,7 +424,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addChangeOrder = useCallback(async (changeOrder: Omit<ChangeOrder, 'id' | 'createdAt'>): Promise<void> => {
     try {
-      await changeOrderMutations.addChangeOrder.mutateAsync(changeOrder);
+      await changeOrderMutations.addChangeOrder(changeOrder);
       toast.success('Change order added!');
     } catch (error) {
       console.error("Error adding change order:", error);
@@ -561,7 +435,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const updateChangeOrder = useCallback(async (changeOrderId: number, changeOrderData: Partial<Omit<ChangeOrder, 'id' | 'projectId' | 'createdAt' | 'quoteId'>>): Promise<void> => {
     try {
-      await changeOrderMutations.updateChangeOrder.mutateAsync({ id: changeOrderId, data: changeOrderData });
+      await changeOrderMutations.updateChangeOrder({ id: changeOrderId, data: changeOrderData });
       toast.success('Change order updated!');
     } catch (error) {
       console.error("Error updating change order:", error);
@@ -572,7 +446,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const deleteChangeOrder = useCallback(async (changeOrderId: number): Promise<void> => {
     try {
-        await changeOrderMutations.deleteChangeOrder.mutateAsync(changeOrderId);
+        await changeOrderMutations.deleteChangeOrder(changeOrderId);
     } catch (error) {
         console.error("Error deleting change order:", error);
         throw error;
@@ -581,7 +455,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addMaterialOrder = useCallback(async (orderData: any): Promise<void> => {
     try {
-        await materialOrderMutations.addMaterialOrder.mutateAsync(orderData);
+        await materialOrderMutations.addMaterialOrder(orderData);
         toast.success('Material order created!');
     } catch (error) {
         console.error("Error adding material order:", error);
@@ -592,7 +466,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const updateMaterialOrder = useCallback(async (orderId: number, orderData: any): Promise<void> => {
     try {
-      await materialOrderMutations.updateMaterialOrder.mutateAsync({ id: orderId, data: orderData });
+      await materialOrderMutations.updateMaterialOrder({ id: orderId, data: orderData });
       toast.success('Material order updated!');
     } catch (error) {
       console.error("Error updating material order:", error);
@@ -603,7 +477,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const deleteMaterialOrder = useCallback(async (orderId: number): Promise<void> => {
     try {
-      await materialOrderMutations.deleteMaterialOrder.mutateAsync(orderId);
+      await materialOrderMutations.deleteMaterialOrder(orderId);
       toast.success('Material order deleted!');
     } catch (error) {
       console.error("Error deleting material order:", error);
@@ -614,7 +488,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const receiveMaterialOrder = useCallback(async (orderId: number, data: { dateReceived: string; notes: string; sendEmailNotification: boolean }): Promise<void> => {
     try {
-      await materialOrderMutations.receiveMaterialOrder.mutateAsync({ id: orderId, data });
+      await materialOrderMutations.receiveMaterialOrder({ id: orderId, data });
       toast.success('Order received!');
     } catch (error) {
       console.error("Error receiving material order:", error);
@@ -625,7 +499,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const reportMaterialOrderDamage = useCallback(async (orderId: number, data: { items: any[]; replacementEta: string; notes: string; sendEmailNotification: boolean }): Promise<void> => {
     try {
-      await materialOrderMutations.reportMaterialOrderDamage.mutateAsync({ id: orderId, data });
+      await materialOrderMutations.reportMaterialOrderDamage({ id: orderId, data });
       toast.success('Damage reported & replacement ordered!');
     } catch (error) {
       console.error("Error reporting damage:", error);
@@ -735,15 +609,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     updateVariant,
     deleteVariant,
 
-    addInstaller, 
-    updateInstaller,
-    deleteInstaller,
-    addCustomer, 
-    updateCustomer,
-    deleteCustomer,
-    addProject, 
-    updateProject,
-    deleteProject,
+    // REMOVED MUTATIONS: addInstaller, updateInstaller, deleteInstaller
+    // REMOVED MUTATIONS: addCustomer, updateCustomer, deleteCustomer
+    // REMOVED MUTATIONS: addProject, updateProject, deleteProject
     addSampleCheckout, 
     updateSampleCheckout,
     extendSampleCheckout,
@@ -760,9 +628,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     deleteMaterialOrder,
     receiveMaterialOrder,
     reportMaterialOrderDamage,
-    addVendor,
-    updateVendor,
-    deleteVendor,
+    // REMOVED MUTATIONS: addVendor, updateVendor, deleteVendor
     updateJob,
     unreadCount,
     refreshNotifications: async () => queryClient.invalidateQueries({ queryKey: ['notifications', 'unreadCount'] })

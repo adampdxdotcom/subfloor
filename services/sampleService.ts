@@ -1,7 +1,33 @@
-import { Sample } from "../types";
+import { Sample, SizeAlias } from "../types";
 import { getEndpoint } from "../utils/apiConfig";
 
 const getApiUrl = () => getEndpoint('/api/products');
+
+// --- NEW: Import/Alias Service Methods ---
+// We point directly to /api/import/aliases for these
+const getAliasUrl = () => getEndpoint('/api/import/aliases');
+
+export const getSizeAliases = async (): Promise<SizeAlias[]> => {
+    const response = await fetch(getAliasUrl());
+    if (!response.ok) {
+        throw new Error('Failed to fetch size aliases.');
+    }
+    return response.json();
+};
+
+export const createSizeAlias = async (aliasText: string, mappedSize: string): Promise<SizeAlias> => {
+    const response = await fetch(getAliasUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aliasText, mappedSize })
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save alias.');
+    }
+    return response.json();
+};
+// ----------------------------------------
 
 export interface SizeStat {
     value: string;

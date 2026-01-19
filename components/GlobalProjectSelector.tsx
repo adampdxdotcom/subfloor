@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { useData } from '../context/DataContext';
+import { useProjects } from '../hooks/useProjects';
+import { useCustomers } from '../hooks/useCustomers';
 import { Project } from '../types';
-import { Check, Search } from 'lucide-react';
+import { Check, Search, Loader } from 'lucide-react';
 
 interface GlobalProjectSelectorProps {
     selectedProjectId: number | null;
@@ -9,12 +10,16 @@ interface GlobalProjectSelectorProps {
 }
 
 const GlobalProjectSelector: React.FC<GlobalProjectSelectorProps> = ({ selectedProjectId, onProjectSelect }) => {
-    const { projects, customers } = useData();
+    const { data: projects = [], isLoading: isLoadingProjects } = useProjects();
+    const { data: customers = [], isLoading: isLoadingCustomers } = useCustomers();
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
 
+    const isLoading = isLoadingProjects || isLoadingCustomers;
+
     // Combine Project + Customer Name for easy display/search
     const enrichedProjects = useMemo(() => {
+        if (!projects || !customers) return [];
         return projects.map(p => {
             const customer = customers.find(c => c.id === p.customerId);
             return {
@@ -61,7 +66,11 @@ const GlobalProjectSelector: React.FC<GlobalProjectSelectorProps> = ({ selectedP
                             onChange={e => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    {filteredProjects.length === 0 ? (
+                    {isLoading ? (
+                        <div className="p-4 text-center text-text-secondary text-sm flex items-center justify-center gap-2">
+                            <Loader size={16} className="animate-spin" /> Loading...
+                        </div>
+                    ) : filteredProjects.length === 0 ? (
                         <div className="p-4 text-center text-text-secondary text-sm">No projects found.</div>
                     ) : (
                         <div className="overflow-y-auto">

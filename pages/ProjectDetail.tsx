@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useProjects, useProjectMutations } from '../hooks/useProjects';
 import { useCustomers } from '../hooks/useCustomers';
-import { useQuotes, useQuoteMutations } from '../hooks/useQuotes';
+import { useQuotes } from '../hooks/useQuotes';
+import { useQuoteMutations } from '../hooks/useQuoteMutations';
 import { useJobs, useJobMutations } from '../hooks/useJobs';
-import { useChangeOrders, useChangeOrderMutations } from '../hooks/useChangeOrders';
-import { useMaterialOrders, useMaterialOrderMutations } from '../hooks/useMaterialOrders';
+import { useChangeOrders } from '../hooks/useChangeOrders';
+import { useChangeOrderMutations } from '../hooks/useChangeOrderMutations';
+import { useMaterialOrders } from '../hooks/useMaterialOrders';
+import { useMaterialOrderMutations } from '../hooks/useMaterialOrderMutations';
 import { useInstallers, useInstallerMutations } from '../hooks/useInstallers';
 import { Project, Quote, QuoteStatus, ChangeOrder, MaterialOrder } from '../types';
 
@@ -169,7 +172,7 @@ const ProjectDetail: React.FC = () => {
         if (window.confirm(`Are you sure you want to permanently delete the project "${project.projectName}"?`)) {
             setIsDeleting(true);
             try {
-                await projectMutations.deleteProject.mutateAsync(project.id);
+                await projectMutations.deleteProject(project.id);
                 toast.success('Project deleted successfully.');
                 navigate(`/customers/${customer.id}`); 
             } catch (error) {
@@ -180,15 +183,15 @@ const ProjectDetail: React.FC = () => {
         }
     };
     
-    const handleSaveNotes = async (notes: string) => { if(job) await jobMutations.saveJobDetails.mutateAsync({ id: job.id, notes }); };
+    const handleSaveNotes = async (notes: string) => { if(job) await jobMutations.saveJobDetails({ projectId: project.id, notes }); };
     
-    const handleUpdateProject = async (data: any) => projectMutations.updateProject.mutateAsync(data);
-    const handleAddQuote = async (data: any) => quoteMutations.addQuote.mutateAsync(data);
-    const handleUpdateQuote = async (data: any) => quoteMutations.updateQuote.mutateAsync(data);
-    const handleSaveJobDetails = async (data: any) => jobMutations.saveJobDetails.mutateAsync(data);
-    const handleAddInstaller = async (data: any) => installerMutations.addInstaller.mutateAsync(data);
-    const handleAddChangeOrder = async (data: any) => changeOrderMutations.addChangeOrder.mutateAsync(data);
-    const handleUpdateChangeOrder = async (id: number, data: any) => changeOrderMutations.updateChangeOrder.mutateAsync({id, data});
+    const handleUpdateProject = async (data: any) => projectMutations.updateProject(data);
+    const handleAddQuote = async (data: any) => quoteMutations.addQuote(data);
+    const handleUpdateQuote = async (data: any) => quoteMutations.updateQuote(data);
+    const handleSaveJobDetails = async (data: any) => jobMutations.saveJobDetails(data);
+    const handleAddInstaller = async (data: any) => installerMutations.addInstaller(data);
+    const handleAddChangeOrder = async (data: any) => changeOrderMutations.addChangeOrder(data);
+    const handleUpdateChangeOrder = async (id: number, data: any) => changeOrderMutations.updateChangeOrder({id, data});
 
     if (!project) { return <div className="text-center p-8">Project not found.</div>; }
     

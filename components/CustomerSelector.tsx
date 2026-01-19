@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { useData } from '../context/DataContext';
+import { useCustomers } from '../hooks/useCustomers'; // Replaced useData
 import { Customer } from '../types';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Loader } from 'lucide-react'; // Added Loader
 
 // --- MODIFIED: Props now include a callback to request a new customer ---
 interface CustomerSelectorProps {
@@ -10,14 +10,14 @@ interface CustomerSelectorProps {
 }
 
 const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSelect, onRequestNewCustomer }) => {
-  const { customers } = useData();
+  const { data: customers = [], isLoading } = useCustomers();
   const [searchTerm, setSearchTerm] = useState('');
 
   const searchResults = useMemo(() => {
-    if (searchTerm.length < 1) return []; // Show results even on 1 character
+    if (searchTerm.length < 1 || !customers) return []; 
     return customers.filter(c =>
       c.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [searchTerm, customers]);
 
@@ -37,7 +37,9 @@ const CustomerSelector: React.FC<CustomerSelectorProps> = ({ onCustomerSelect, o
       />
       {searchTerm.length > 0 && (
         <div className="absolute z-10 w-full bg-surface-container-high border border-outline/20 rounded-lg mt-1 shadow-xl max-h-60 overflow-y-auto">
-          {searchResults.map(customer => (
+          {isLoading && <div className="p-3 text-text-secondary flex items-center gap-2"><Loader size={16} className="animate-spin" /> Searching...</div>}
+          
+          {!isLoading && searchResults.map(customer => (
             <div
               key={customer.id}
               onClick={() => handleSelect(customer)}

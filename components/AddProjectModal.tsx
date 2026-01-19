@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useData } from '../context/DataContext';
 import { Customer, ProjectType, PROJECT_TYPES, Installer } from '../types';
 import { useNavigate } from 'react-router-dom';
+import { useProjectMutations } from '../hooks/useProjects';
+import { useInstallerMutations, useInstallers } from '../hooks/useInstallers';
+import { useCustomerMutations } from '../hooks/useCustomers';
 import CustomerSelector from './CustomerSelector';
 import * as sampleService from '../services/sampleCheckoutService';
 import { toast } from 'react-hot-toast';
@@ -19,8 +21,13 @@ interface AddProjectModalProps {
 const AddProjectModal: React.FC<AddProjectModalProps> = ({ 
     isOpen, onClose, initialCustomer, initialInstaller, initialProjectName, transferSampleId 
 }) => {
-    const { addProject, installers, addInstaller, addCustomer } = useData();
     const navigate = useNavigate();
+    const { data: installers = [] } = useInstallers();
+    
+    // Mutations
+    const { createProject } = useProjectMutations();
+    const { createInstaller } = useInstallerMutations();
+    const { createCustomer } = useCustomerMutations();
 
     // --- VIEW STATE ---
     const [currentView, setCurrentView] = useState<'SELECT_CUSTOMER' | 'CREATE_CUSTOMER' | 'CREATE_PROJECT'>('SELECT_CUSTOMER');
@@ -75,7 +82,7 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
     const handleCreateCustomer = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const newCust = await addCustomer({
+            const newCust = await createCustomer.mutateAsync({
                 fullName: newCustomerName,
                 email: newCustomerEmail || undefined,
                 phoneNumber: newCustomerPhone || undefined
@@ -103,7 +110,7 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                 installerId: selectedInstaller ? selectedInstaller.id : undefined
             };
 
-            const createdProject = await addProject(projectData);
+            const createdProject = await createProject.mutateAsync(projectData);
 
             if (transferSampleId) {
                 await sampleService.transferCheckoutsToProject([transferSampleId], createdProject.id);
@@ -121,7 +128,7 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
     const handleSaveNewInstaller = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const newInst = await addInstaller(newInstallerForm);
+            const newInst = await createInstaller.mutateAsync(newInstallerForm);
             setSelectedInstaller(newInst);
             setInstallerSearchTerm(newInst.installerName);
             setIsAddingNewInstaller(false);

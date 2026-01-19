@@ -6,15 +6,23 @@ import ActivityHistory from './ActivityHistory';
 import ModalPortal from './ModalPortal'; 
 import { formatDate } from '../utils/dateUtils';
 import AddEditInstallerModal from './AddEditInstallerModal';
+import { useQuoteMutations } from '../hooks/useQuoteMutations';
+import { useInstallerMutations } from '../hooks/useInstallerMutations'; // Assuming this was created in Phase 1
+import { useQuotes } from '../hooks/useQuotes';
+import { useInstallers } from '../hooks/useInstallers';
+import { useQuery } from '@tanstack/react-query';
+import { getQuotesHistory } from '../services/quoteService';
+import toast from 'react-hot-toast'; // Assuming standard toast import
 
 interface QuotesSectionProps {
     project: Project;
-    projectQuotes: Quote[];
-    installers: Installer[];
-    addQuote: (quote: Omit<Quote, 'id' | 'dateSent'>) => Promise<void>;
-    updateQuote: (quote: Partial<Quote> & { id: number }) => Promise<void>;
+    // Props are kept for interface compatibility but shadowed by hooks internally
+    projectQuotes?: Quote[];
+    installers?: Installer[];
+    addQuote?: (quote: Omit<Quote, 'id' | 'dateSent'>) => Promise<void>;
+    updateQuote?: (quote: Partial<Quote> & { id: number }) => Promise<void>;
     updateProject: (p: Partial<Project> & { id: number }) => void;
-    addInstaller: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>;
+    addInstaller?: (installer: Omit<Installer, 'id' | 'jobs'>) => Promise<Installer>;
     saveJobDetails: (job: Partial<Job> & { projectId: number }) => Promise<void>;
     isModalOpen: boolean;
     onCloseModal: () => void;
@@ -23,11 +31,28 @@ interface QuotesSectionProps {
 }
 
 const QuotesSection: React.FC<QuotesSectionProps> = ({ 
-    project, projectQuotes, installers, addQuote, updateQuote, 
+    project, 
+    // projectQuotes: propQuotes, // Ignored in favor of hook
+    // installers: propInstallers, // Ignored in favor of hook
     isModalOpen, onCloseModal, onOpenEditModal, 
     editingQuoteForModal 
 }) => {
-    const { acceptQuote, quotesHistory, fetchQuotesHistory, systemBranding } = useData();
+    // REFACTOR: Removed acceptQuote, quotesHistory, fetchQuotesHistory
+    const { systemBranding } = useData();
+    
+    // NEW: Hooks for Data and Mutations
+    const { data: projectQuotes = [] } = useQuotes(project.id);
+    const { data: installers = [] } = useInstallers();
+    const { addQuote, updateQuote, acceptQuote } = useQuoteMutations();
+    const { addInstaller } = useInstallerMutations();
+
+    // NEW: Query for History
+    const [showHistory, setShowHistory] = useState(false);
+    const { data: quotesHistory = [] } = useQuery({
+        queryKey: ['quotes', 'history', project.id],
+        queryFn: () => getQuotesHistory(project.id),
+        enabled: !!project.id && showHistory
+    });
     
     const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
     const [newQuote, setNewQuote] = useState({
@@ -40,7 +65,6 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     const [installerSearchTerm, setInstallerSearchTerm] = useState('');
     const [selectedInstaller, setSelectedInstaller] = useState<Installer | null>(null);
     const [isInstallerModalOpen, setIsInstallerModalOpen] = useState(false);
-    const [showHistory, setShowHistory] = useState(false);
     
     const installerSearchResults = useMemo(() => { 
         if (!installerSearchTerm) return []; 
@@ -75,9 +99,8 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
         return materials;
     }, [newQuote]);
 
-    useEffect(() => {
-        if (project.id) fetchQuotesHistory(project.id);
-    }, [project.id, fetchQuotesHistory]);
+    // REFACTOR: Removed useEffect calling fetchQuotesHistory(project.id)
+    // The useQuery hook now handles this automatically when showHistory is true.
     
     useEffect(() => {
         if (isModalOpen) {
@@ -127,9 +150,15 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
             status: editingQuote ? editingQuote.status : QuoteStatus.SENT
         };
 
-        if (editingQuote) await updateQuote({ ...quoteData, id: editingQuote.id });
-        else await addQuote(quoteData);
-        onCloseModal();
+        try {
+            if (editingQuote) await updateQuote({ ...quoteData, id: editingQuote.id });
+            else await addQuote(quoteData as any); // Cast because Omit vs expected type can be tricky
+            onCloseModal();
+            toast.success(editingQuote ? 'Quote updated' : 'Quote added');
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to save quote');
+        }
     };
     
     const handleSelectInstaller = (installer: Installer) => { setSelectedInstaller(installer); setInstallerSearchTerm(installer.installerName); };
@@ -138,14 +167,21 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
     const handleQuoteStatusChange = async (e: React.MouseEvent, quote: Quote, status: QuoteStatus) => { 
         e.preventDefault(); 
         e.stopPropagation(); 
-        if (status === QuoteStatus.ACCEPTED) await acceptQuote({ id: quote.id, status: status }); 
-        else await updateQuote({ id: quote.id, status: status }); 
+        try {
+            if (status === QuoteStatus.ACCEPTED) await acceptQuote({ id: quote.id, status: status }); 
+            else await updateQuote({ id: quote.id, status: status }); 
+            toast.success(`Quote ${status.toLowerCase()}`);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to update quote status');
+        }
     };
 
     const handlePoUpdate = async (quoteId: number, poNumber: string) => {
         const quote = projectQuotes.find(q => q.id === quoteId);
         if (quote && quote.poNumber !== poNumber) {
             await updateQuote({ id: quoteId, poNumber });
+            toast.success('PO number updated');
         }
     };
 
@@ -230,6 +266,7 @@ const QuotesSection: React.FC<QuotesSectionProps> = ({
                 <ModalPortal>
                     <div className="fixed inset-0 bg-scrim/60 flex items-center justify-center z-50 p-4">
                         <div className="bg-surface-container-high p-6 rounded-2xl w-full max-w-2xl border border-outline/20 shadow-2xl">
+                            {/* Form Logic uses handleSaveQuote which now uses mutation hooks */}
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-2xl font-bold text-text-primary">{editingQuote ? 'Edit Quote' : 'Add New Quote'}</h3>
                                 <button onClick={onCloseModal} className="text-text-secondary hover:text-text-primary p-2 rounded-full hover:bg-surface-container-highest transition-colors">

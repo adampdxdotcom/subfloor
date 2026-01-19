@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useData } from '../context/DataContext';
+import { useInstallerMutations } from '../hooks/useInstallers';
 import { Installer } from '../types';
 import { toast } from 'react-hot-toast';
 import { Trash2, X, HardHat } from 'lucide-react';
@@ -20,10 +20,11 @@ const initialFormState = {
 };
 
 const AddEditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onClose, installer, initialData }) => {
-  const { addInstaller, updateInstaller, deleteInstaller } = useData();
   const [formData, setFormData] = useState(initialFormState);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { createInstaller, updateInstaller, deleteInstaller } = useInstallerMutations();
+
+  const isSaving = createInstaller.isPending || updateInstaller.isPending;
+  const isDeleting = deleteInstaller.isPending;
 
   useEffect(() => {
     if (isOpen && installer) {
@@ -37,8 +38,6 @@ const AddEditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onCl
     } else if (isOpen && !installer) {
       setFormData({ ...initialFormState, ...initialData }); 
     }
-    setIsSaving(false);
-    setIsDeleting(false);
   }, [isOpen, installer, initialData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -55,42 +54,36 @@ const AddEditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onCl
     setFormData(prev => ({ ...prev, [name]: finalValue }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    setIsSaving(true);
-    try {
-      if (installer) {
-          await updateInstaller({ ...installer, ...formData });
-          toast.success("Installer updated.");
-      } else {
-          await addInstaller(formData);
-          toast.success("Installer created.");
-      }
-      onClose();
-    } catch (error) {
-      console.error("Failed to submit installer update:", error);
-      toast.error("Failed to save installer.");
-    } finally {
-      setIsSaving(false);
+    if (installer) {
+        updateInstaller.mutate({ ...installer, ...formData }, {
+            onSuccess: () => {
+                toast.success("Installer updated.");
+                onClose();
+            }
+        });
+    } else {
+        createInstaller.mutate(formData, {
+            onSuccess: () => {
+                toast.success("Installer created.");
+                onClose();
+            }
+        });
     }
   };
   
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!installer) return;
 
     if (window.confirm(`Are you sure you want to permanently delete ${installer.installerName}? This action cannot be undone.`)) {
-      setIsDeleting(true);
-      try {
-        await deleteInstaller(installer.id);
-        toast.success('Installer deleted successfully.');
-        onClose();
-      } catch (error) {
-        toast.error((error as Error).message);
-        console.error("Failed to delete installer:", error);
-      } finally {
-        setIsDeleting(false);
-      }
+      deleteInstaller.mutate(installer.id, {
+          onSuccess: () => {
+              toast.success('Installer deleted successfully.');
+              onClose();
+          }
+      });
     }
   };
 
@@ -191,7 +184,7 @@ const AddEditInstallerModal: React.FC<EditInstallerModalProps> = ({ isOpen, onCl
                 className="py-2 px-6 bg-primary hover:bg-primary-hover rounded-full text-on-primary font-semibold shadow-md transition-all" 
                 disabled={isSaving || isDeleting}
             >
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? 'Saving...' : (installer ? 'Save Changes' : 'Create Installer')}
             </button>
           </div>
         </form>

@@ -1,42 +1,15 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import * as materialOrderService from '../services/materialOrderService';
 
-export const useMaterialOrders = (enabled: boolean = true) => {
+export const useMaterialOrders = (projectId?: number) => {
     return useQuery({
-        queryKey: ['materialOrders'],
-        queryFn: materialOrderService.getMaterialOrders,
-        enabled,
+        // We use a different key structure here because in the future we might 
+        // want to paginate or filter on the server.
+        // For now, consistent with other hooks, we fetch all and select.
+        queryKey: ['material_orders'], 
+        queryFn: () => materialOrderService.getMaterialOrders(),
+        select: (data) => projectId 
+            ? data.filter(o => o.projectId === projectId) 
+            : data,
     });
-};
-
-export const useMaterialOrderMutations = () => {
-    const queryClient = useQueryClient();
-
-    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['materialOrders'] });
-
-    return {
-        addMaterialOrder: useMutation({
-            mutationFn: materialOrderService.addMaterialOrder,
-            onSuccess: invalidate,
-        }),
-        updateMaterialOrder: useMutation({
-            mutationFn: ({ id, data }: { id: number; data: any }) => 
-                materialOrderService.updateMaterialOrder(id, data),
-            onSuccess: invalidate,
-        }),
-        deleteMaterialOrder: useMutation({
-            mutationFn: materialOrderService.deleteMaterialOrder,
-            onSuccess: invalidate,
-        }),
-        receiveMaterialOrder: useMutation({
-            mutationFn: ({ id, data }: { id: number; data: any }) => 
-                materialOrderService.receiveMaterialOrder(id, data),
-            onSuccess: invalidate,
-        }),
-        reportMaterialOrderDamage: useMutation({
-            mutationFn: ({ id, data }: { id: number; data: any }) => 
-                materialOrderService.reportMaterialOrderDamage(id, data),
-            onSuccess: invalidate,
-        }),
-    };
 };

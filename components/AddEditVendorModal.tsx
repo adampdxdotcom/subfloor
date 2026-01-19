@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Vendor, PRODUCT_TYPES } from '../types';
-import { useData } from '../context/DataContext';
 import { useVendors } from '../hooks/useVendors';
+import { useVendorMutations } from '../hooks/useVendorMutations';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import { toast } from 'react-hot-toast';
 import { Trash2, Copy, Globe, Link as LinkIcon, Building, X } from 'lucide-react';
 
 interface AddEditVendorModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (vendor: Omit<Vendor, 'id'> | Vendor) => void;
     vendorToEdit?: Vendor | null;
     initialVendorType?: 'Manufacturer' | 'Supplier';
 }
@@ -27,10 +27,13 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose, onSave, vendorToEdit, initialVendorType }) => {
-    const { currentUser, deleteVendor } = useData();
+const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose, vendorToEdit, initialVendorType }) => {
+    const { data: currentUser } = useCurrentUser();
     const { data: allVendors = [] } = useVendors();
-    const [isDeleting, setIsDeleting] = useState(false);
+    const { createVendor, updateVendor, deleteVendor } = useVendorMutations(onClose);
+
+    const isSaving = createVendor.isPending || updateVendor.isPending;
+    const isDeleting = deleteVendor.isPending;
 
     const [formData, setFormData] = useState({
         name: '',
@@ -121,26 +124,16 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
         };
 
         if (vendorToEdit) {
-            onSave({ ...vendorToEdit, ...dataToSave });
+            updateVendor.mutate({ ...vendorToEdit, ...dataToSave });
         } else {
-            onSave(dataToSave as Omit<Vendor, 'id'>);
+            createVendor.mutate(dataToSave as Omit<Vendor, 'id'>);
         }
     };
     
-    const handleDelete = async () => {
+    const handleDelete = () => {
         if (!vendorToEdit) return;
         if (window.confirm(`Are you sure you want to delete vendor "${vendorToEdit.name}"? This action cannot be undone.`)) {
-            setIsDeleting(true);
-            try {
-                await deleteVendor(vendorToEdit.id);
-                toast.success('Vendor deleted successfully.');
-                onClose();
-            } catch (error) {
-                toast.error((error as Error).message || 'Failed to delete vendor.');
-                console.error(error);
-            } finally {
-                setIsDeleting(false);
-            }
+            deleteVendor.mutate(vendorToEdit.id);
         }
     };
 
@@ -368,8 +361,9 @@ const AddEditVendorModal: React.FC<AddEditVendorModalProps> = ({ isOpen, onClose
                             <button 
                                 type="submit" 
                                 className="py-2 px-6 bg-primary hover:bg-primary-hover rounded-full text-on-primary font-semibold shadow-md transition-all"
+                                disabled={isSaving}
                             >
-                                {vendorToEdit ? 'Save Changes' : 'Create Vendor'}
+                                {isSaving ? (vendorToEdit ? 'Saving...' : 'Creating...') : (vendorToEdit ? 'Save Changes' : 'Create Vendor')}
                             </button>
                         </div>
                     </form>

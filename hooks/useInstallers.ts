@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as installerService from '../services/installerService';
+import { Installer } from '../types';
 
 export const useInstallers = (enabled: boolean = true) => {
-    return useQuery({
+    return useQuery<Installer[], Error>({
         queryKey: ['installers'],
         queryFn: installerService.getInstallers,
         enabled,
@@ -12,18 +13,30 @@ export const useInstallers = (enabled: boolean = true) => {
 export const useInstallerMutations = () => {
     const queryClient = useQueryClient();
 
+    const createInstallerMutation = useMutation({
+        mutationFn: installerService.addInstaller,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['installers'] });
+        },
+    });
+
+    const updateInstallerMutation = useMutation({
+        mutationFn: installerService.updateInstaller,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['installers'] });
+        },
+    });
+
+    const deleteInstallerMutation = useMutation({
+        mutationFn: installerService.deleteInstaller,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['installers'] });
+        },
+    });
+
     return {
-        addInstaller: useMutation({
-            mutationFn: installerService.addInstaller,
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installers'] }),
-        }),
-        updateInstaller: useMutation({
-            mutationFn: installerService.updateInstaller,
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installers'] }),
-        }),
-        deleteInstaller: useMutation({
-            mutationFn: installerService.deleteInstaller,
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['installers'] }),
-        }),
+        createInstaller: createInstallerMutation,
+        updateInstaller: updateInstallerMutation,
+        deleteInstaller: deleteInstallerMutation,
     };
 };

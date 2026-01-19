@@ -5,7 +5,7 @@ import { formatCurrency } from '../utils/pricingUtils';
 import AddEditMaterialOrderModal from './AddEditMaterialOrderModal';
 import ModalPortal from './ModalPortal'; 
 import { formatDate } from '../utils/dateUtils';
-import { useMaterialOrderMutations } from '../hooks/useMaterialOrders';
+import { useMaterialOrderMutations } from '../hooks/useMaterialOrderMutations';
 import { useProducts } from '../hooks/useProducts';
 import { useData } from '../context/DataContext';
 import { toast } from 'react-hot-toast';
@@ -22,12 +22,12 @@ interface MaterialOrdersSectionProps {
 const MaterialOrdersSection: React.FC<MaterialOrdersSectionProps> = ({ project, orders, isModalOpen, onCloseModal, editingOrder, onEditOrder }) => {
     const { currentUser, systemBranding } = useData();
     const { data: products = [] } = useProducts();
-    const { deleteMaterialOrder: deleteMutation } = useMaterialOrderMutations();
+    const { deleteMaterialOrder } = useMaterialOrderMutations();
 
     const handleDeleteOrder = async (orderId: number) => {
         if (window.confirm('Are you sure you want to delete this material order? This action cannot be undone.')) {
             try {
-                await deleteMutation.mutateAsync(orderId);
+                await deleteMaterialOrder(orderId);
                 toast.success('Order deleted successfully.');
             } catch (error) { 
                 toast.error('Failed to delete order.'); 

@@ -5,8 +5,6 @@ const getApiUrl = () => getEndpoint('/api/jobs');
 
 /**
  * Fetches all jobs from the API.
- * NOTE: This returns a list of jobs WITHOUT their detailed appointments.
- * It's suitable for initial app load, but individual job details should be fetched separately.
  */
 export const getJobs = async (): Promise<Job[]> => {
     const response = await fetch(getApiUrl());
@@ -14,25 +12,19 @@ export const getJobs = async (): Promise<Job[]> => {
         throw new Error('Failed to fetch jobs.');
     }
     const jobs = await response.json();
-    // Ensure every job has an empty appointments array to prevent crashes
     return jobs.map((job: any) => ({ ...job, appointments: job.appointments || [] }));
 };
 
 /**
- * --- MODIFIED ---
- * Fetches a single, complete job object for a given project ID.
- * Returns null if no job is found (404), which is an expected condition.
+ * Fetches a single job for a project.
  */
 export const getJobForProject = async (projectId: number): Promise<Job | null> => {
     const response = await fetch(`${getApiUrl()}/project/${projectId}`);
     
-    // --- THIS IS THE FIX ---
-    // If the status is 404, we gracefully return null.
     if (response.status === 404) {
         return null;
     }
 
-    // For any other non-ok status, we throw a real error.
     if (!response.ok) {
         throw new Error(`Failed to fetch job for project ${projectId}. Status: ${response.status}`);
     }
@@ -40,13 +32,10 @@ export const getJobForProject = async (projectId: number): Promise<Job | null> =
     return response.json();
 };
 
-
 /**
- * --- REBUILT ---
- * Creates or updates job details for a project, including its 'on hold' status and all appointments.
- * The backend handles the transactional logic.
+ * Creates or updates job details.
  */
-export const saveJobDetails = async (jobDetails: Partial<Job>): Promise<Job> => {
+export const saveJob = async (jobDetails: Partial<Job>): Promise<Job> => {
     const response = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,4 +46,17 @@ export const saveJobDetails = async (jobDetails: Partial<Job>): Promise<Job> => 
         throw new Error(errorData.error || 'Failed to save job details.');
     }
     return response.json();
+};
+
+export const updateProject = async (projectData: { id: number; [key: string]: any }): Promise<void> => {
+    const { id, ...data } = projectData;
+    const response = await fetch(getEndpoint(`/api/projects/${id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to update project.' }));
+        throw new Error(errorData.error || 'Failed to update project.');
+    }
 };

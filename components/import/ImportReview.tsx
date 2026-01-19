@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowRight, AlertTriangle, CheckCircle2, PlusCircle, AlertCircle, XCircle } from 'lucide-react';
+import { ArrowRight, AlertTriangle, CheckCircle2, PlusCircle, AlertCircle, XCircle, LayoutGrid, CheckSquare, Square } from 'lucide-react';
 
 interface ImportReviewProps {
     results: any[];
-    onExecute: (modifiedResults: any[]) => void; // Callback now accepts modified data
+    onExecute: (modifiedResults: any[]) => void;
     isExecuting: boolean;
     onBack: () => void;
 }
@@ -21,7 +21,11 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
 
     // Initialize state when results arrive
     useEffect(() => {
-        setRows(results.map(r => ({ ...r, isSkipped: r.status === 'error' })));
+        setRows(results.map(r => ({ 
+            ...r, 
+            isSkipped: r.status === 'error',
+            hasSample: false // Default to false (Catalog Only)
+        })));
     }, [results]);
 
     const handleToggleSkip = (index: number) => {
@@ -32,13 +36,60 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
         });
     };
 
+    const handleToggleSample = (index: number) => {
+        setRows(prev => {
+            const newRows = [...prev];
+            newRows[index].hasSample = !newRows[index].hasSample;
+            return newRows;
+        });
+    };
+
     const handleNameEdit = (index: number, newName: string) => {
         setRows(prev => {
             const newRows = [...prev];
-            // If it's a new variant, we edit the incoming name
             newRows[index].productName = newName;
-            // If it's a specific variant match, we might want to update variantName too?
-            // For now, let's just edit Product Name as that was the request (stripping prefixes)
+            return newRows;
+        });
+    };
+
+    // --- BULK SAMPLE ACTIONS ---
+    const handleSampleAction = (action: 'all' | 'none' | 'line_board') => {
+        setRows(prev => {
+            let newRows = [...prev];
+            
+            if (action === 'all') {
+                newRows = newRows.map(r => ({ ...r, hasSample: true }));
+            } else if (action === 'none') {
+                newRows = newRows.map(r => ({ ...r, hasSample: false }));
+            } else if (action === 'line_board') {
+                // 1. Identify unique Product Lines
+                const productLines = new Set(newRows.map(r => r.productName));
+                
+                // 2. Filter out lines that already have a "Master Sample" row (prevent duplicates)
+                const existingMasters = new Set(
+                    newRows.filter(r => r.isMaster).map(r => r.productName)
+                );
+
+                const linesToAdd = [...productLines].filter(p => !existingMasters.has(p));
+
+                // 3. Create new rows
+                const masterRows = linesToAdd.map(lineName => ({
+                    productName: lineName,
+                    variantName: "Master Sample", // Special designation
+                    sku: "", 
+                    unitCost: 0,
+                    retailPrice: 0,
+                    status: 'new', // It's a new "variant" of the product
+                    isSkipped: false,
+                    hasSample: true, // The whole point is to have a sample
+                    isMaster: true, // Logic flag for backend
+                    message: "Generated Line Board",
+                    details: { matchType: 'generated' }
+                }));
+                
+                // Prepend masters to the top
+                newRows = [...masterRows, ...newRows];
+            }
             return newRows;
         });
     };
@@ -48,6 +99,7 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
     const stats = {
         updates: activeRows.filter(r => r.status === 'update').length,
         new: activeRows.filter(r => r.status === 'new').length,
+        samples: activeRows.filter(r => r.hasSample).length,
         errors: rows.filter(r => r.status === 'error').length
     };
 
@@ -57,46 +109,64 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
     const rowVirtualizer = useVirtualizer({
         count: rows.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 56, // Estimate row height (56px is roughly accurate for this table)
-        overscan: 10, // Buffer items to render outside view
+        estimateSize: () => 60,
+        overscan: 10,
     });
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[600px]">
+        <div className="bg-surface-container-high rounded-xl shadow-sm border border-outline/20 overflow-hidden flex flex-col h-[600px]">
             
             {/* SUMMARY HEADER */}
-            <div className="p-6 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+            <div className="p-6 border-b border-outline/10 bg-surface-container-low flex justify-between items-center">
                 <div>
-                    <h2 className="text-lg font-bold text-gray-900">Review Changes</h2>
-                    <p className="text-sm text-gray-500">Click status to skip. Click names to edit.</p>
+                    <h2 className="text-xl font-bold text-text-primary">Review Changes</h2>
+                    <p className="text-sm text-text-secondary">Review prices and select which items to add to inventory.</p>
                 </div>
-                <div className="flex gap-4">
-                    <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold uppercase">
+                <div className="flex gap-3">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-success-container text-success rounded-full text-xs font-bold uppercase">
                         <CheckCircle2 size={14} /> {stats.updates} Updates
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold uppercase">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-primary-container text-primary rounded-full text-xs font-bold uppercase">
                         <PlusCircle size={14} /> {stats.new} New
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1 bg-tertiary-container text-tertiary rounded-full text-xs font-bold uppercase">
+                        <LayoutGrid size={14} /> {stats.samples} Samples
                     </div>
                 </div>
             </div>
 
             {/* SCROLLABLE TABLE */}
-            <div ref={parentRef} className="flex-1 overflow-auto bg-white relative">
+            <div ref={parentRef} className="flex-1 overflow-auto bg-surface-container relative">
                 <table className="w-full text-left text-sm border-collapse">
-                    <thead className="bg-gray-50 text-gray-500 uppercase text-xs sticky top-0 z-10 border-b border-gray-200 shadow-sm">
+                    <thead className="bg-surface-container-low text-text-secondary uppercase text-xs sticky top-0 z-10 border-b border-outline/10 shadow-sm">
                         <tr>
                             <th className="p-3 font-bold w-24">Action</th>
                             <th className="p-3 font-bold">Product Match (Editable)</th>
                             <th className="p-3 font-bold">SKU / Details</th>
+                            
+                            {/* NEW: PHYSICAL SAMPLE COLUMN */}
+                            <th className="p-3 font-bold w-48 bg-surface-container-highest/50">
+                                <div className="flex flex-col gap-2">
+                                    <span>Physical Sample</span>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => handleSampleAction('all')} className="px-1.5 py-0.5 text-[10px] bg-outline/10 hover:bg-outline/20 rounded text-text-primary">All</button>
+                                        <button onClick={() => handleSampleAction('none')} className="px-1.5 py-0.5 text-[10px] bg-outline/10 hover:bg-outline/20 rounded text-text-primary">None</button>
+                                        <button onClick={() => handleSampleAction('line_board')} className="px-1.5 py-0.5 text-[10px] bg-tertiary-container text-tertiary hover:brightness-110 rounded flex items-center gap-1">
+                                            <PlusCircle size={10} /> Line Bd
+                                        </button>
+                                    </div>
+                                </div>
+                            </th>
+
                             <th className="p-3 font-bold text-right">Old Cost</th>
                             <th className="p-3 font-bold text-right">New Cost</th>
                             <th className="p-3 font-bold text-right">Diff</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {/* Top Spacer to push content down to correct scroll position */}
+                    <tbody className="divide-y divide-outline/10">
+                        {/* Top Spacer */}
                         {rowVirtualizer.getVirtualItems().length > 0 && (
-                            <tr><td style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} colSpan={6}></td></tr>
+                            <tr><td style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} colSpan={7}></td></tr>
                         )}
 
                         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -107,20 +177,20 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                                 {/* MAIN ROW */}
                                 <tr 
                                     data-index={virtualRow.index} 
-                                    ref={rowVirtualizer.measureElement} // Dynamic height measurement
-                                    className={`hover:bg-gray-50 transition-colors ${row.isSkipped ? 'opacity-50 bg-gray-50 grayscale' : ''}`}
+                                    ref={rowVirtualizer.measureElement}
+                                    className={`hover:bg-surface-container-highest transition-colors ${row.isSkipped ? 'opacity-50 grayscale' : ''} ${row.isMaster ? 'bg-tertiary-container/10' : ''}`}
                                 >
                                     <td className="p-3">
                                         <button 
                                             onClick={() => handleToggleSkip(idx)}
-                                            className={`text-xs font-bold px-2 py-0.5 rounded border transition-all w-full text-center
+                                            className={`text-xs font-bold px-2 py-1 rounded-lg border transition-all w-full text-center
                                                 ${row.isSkipped 
-                                                    ? 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200' 
+                                                    ? 'bg-surface-container-highest text-text-secondary border-outline/20' 
                                                     : row.status === 'update' 
-                                                        ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100'
+                                                        ? 'bg-success-container text-success border-success/30'
                                                         : row.status === 'new'
-                                                            ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'
-                                                            : 'bg-red-50 text-red-600 border-red-200 cursor-default'
+                                                            ? 'bg-primary-container text-primary border-primary/30'
+                                                            : 'bg-error-container text-error border-error/30 cursor-default'
                                                 }`}
                                             disabled={row.status === 'error'}
                                         >
@@ -130,41 +200,52 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                                     <td className="p-3">
                                         <input 
                                             type="text" 
-                                            className="font-medium text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none w-full transition-colors"
+                                            className="font-medium text-text-primary bg-transparent border-b border-transparent hover:border-outline focus:border-primary focus:outline-none w-full transition-colors"
                                             value={row.productName}
                                             onChange={(e) => handleNameEdit(idx, e.target.value)}
                                             disabled={row.isSkipped}
                                         />
-                                        {row.variantName && <div className="text-xs text-gray-500 mt-1">{row.variantName}</div>}
-                                        {row.status === 'update' && row.details?.matchType && (
-                                            <div className="text-[10px] text-gray-400 uppercase mt-1">Matched by: {row.details.matchType}</div>
-                                        )}
-                                        {row.status === 'error' && <div className="text-xs text-red-500 font-bold mt-1">{row.message}</div>}
+                                        <div className="flex items-center gap-2 mt-1">
+                                            {row.isMaster && <span className="text-[10px] font-bold bg-tertiary text-on-tertiary px-1.5 py-0.5 rounded">MASTER</span>}
+                                            {row.variantName && <div className="text-xs text-text-secondary">{row.variantName}</div>}
+                                        </div>
+                                        {row.status === 'error' && <div className="text-xs text-error font-bold mt-1">{row.message}</div>}
                                     </td>
-                                    <td className="p-3 text-gray-600 font-mono text-xs">{row.sku || '-'}</td>
+                                    <td className="p-3 text-text-secondary font-mono text-xs">{row.sku || '-'}</td>
                                     
-                                    {/* Diff Logic (Same as before) */}
+                                    {/* PHYSICAL SAMPLE CHECKBOX */}
+                                    <td className="p-3 bg-surface-container-highest/20 text-center">
+                                        <button 
+                                            onClick={() => handleToggleSample(idx)}
+                                            disabled={row.isSkipped}
+                                            className={`p-1 rounded transition-colors ${row.hasSample ? 'text-primary' : 'text-outline/40 hover:text-outline'}`}
+                                        >
+                                            {row.hasSample ? <CheckSquare size={20} /> : <Square size={20} />}
+                                        </button>
+                                    </td>
+
+                                    {/* Financials */}
                                     {row.affectedVariants && row.affectedVariants.length === 1 ? (
                                         <>
-                                            <td className="p-3 text-right text-gray-500">{formatMoney(row.affectedVariants[0].oldCost)}</td>
-                                            <td className="p-3 text-right font-bold text-gray-900">{formatMoney(row.unitCost)}</td>
+                                            <td className="p-3 text-right text-text-secondary">{formatMoney(row.affectedVariants[0].oldCost)}</td>
+                                            <td className="p-3 text-right font-bold text-text-primary">{formatMoney(row.unitCost)}</td>
                                             <td className="p-3 text-right">
                                                 {(() => {
                                                     const diff = Number(row.unitCost) - Number(row.affectedVariants[0].oldCost);
-                                                    if (diff > 0) return <span className="text-red-500 text-xs">+{formatMoney(diff)}</span>;
-                                                    if (diff < 0) return <span className="text-green-600 text-xs">{formatMoney(diff)}</span>;
-                                                    return <span className="text-gray-300">-</span>;
+                                                    if (diff > 0) return <span className="text-error text-xs">+{formatMoney(diff)}</span>;
+                                                    if (diff < 0) return <span className="text-success text-xs">{formatMoney(diff)}</span>;
+                                                    return <span className="text-text-secondary">-</span>;
                                                 })()}
                                             </td>
                                         </>
                                     ) : row.status === 'new' ? (
                                         <>
-                                            <td className="p-3 text-right text-gray-300">-</td>
-                                            <td className="p-3 text-right font-bold text-blue-600">{formatMoney(row.unitCost)}</td>
-                                            <td className="p-3 text-right text-blue-600 text-xs">NEW</td>
+                                            <td className="p-3 text-right text-text-secondary">-</td>
+                                            <td className="p-3 text-right font-bold text-primary">{formatMoney(row.unitCost)}</td>
+                                            <td className="p-3 text-right text-primary text-xs">NEW</td>
                                         </>
                                     ) : (
-                                        <td colSpan={3} className="p-3 text-center text-xs text-gray-400 italic">
+                                        <td colSpan={3} className="p-3 text-center text-xs text-text-secondary italic">
                                             {row.affectedVariants?.length > 1 
                                                 ? `Updating ${row.affectedVariants.length} variants` 
                                                 : '-'}
@@ -177,32 +258,34 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                         
                         {/* Bottom Spacer */}
                         {rowVirtualizer.getVirtualItems().length > 0 && (
-                            <tr><td style={{ height: `${rowVirtualizer.getTotalSize() - rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1].end}px` }} colSpan={6}></td></tr>
+                            <tr><td style={{ height: `${rowVirtualizer.getTotalSize() - rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1].end}px` }} colSpan={7}></td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
 
             {/* FOOTER ACTIONS */}
-            <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+            <div className="p-6 border-t border-outline/10 bg-surface-container-low flex justify-between items-center">
                 <button 
                     onClick={onBack}
-                    className="text-gray-600 hover:text-gray-900 font-medium"
+                    className="text-text-secondary hover:text-text-primary font-bold text-sm"
                     disabled={isExecuting}
                 >
-                    Adjust Mapping
+                    Back to Mapping
                 </button>
                 
                 <button 
-                    onClick={() => onExecute(activeRows)} // Send filtered rows
+                    onClick={() => onExecute(activeRows)}
                     disabled={isExecuting || (stats.updates === 0 && stats.new === 0)}
-                    className={`flex items-center gap-2 px-6 py-2 rounded-lg shadow-sm font-bold text-white transition-all ${
+                    className={`flex items-center gap-2 px-6 py-3 rounded-full shadow-md font-bold text-on-primary transition-all ${
                         isExecuting 
-                            ? 'bg-gray-400 cursor-not-allowed' 
-                            : 'bg-green-600 hover:bg-green-700 active:scale-95'
+                            ? 'bg-surface-container-highest text-text-secondary cursor-not-allowed' 
+                            : 'bg-primary hover:bg-primary-hover active:scale-95'
                     }`}
                 >
-                    {isExecuting ? 'Importing...' : `Import ${stats.updates + stats.new} Items`}
+                    {isExecuting ? 'Importing...' : (
+                        <>Import <span className="bg-white/20 px-1.5 rounded text-sm">{stats.updates + stats.new}</span> Items</>
+                    )}
                 </button>
             </div>
         </div>

@@ -1,6 +1,10 @@
 import React, { useMemo } from 'react';
 import { MentionsInput, Mention } from 'react-mentions';
-import { useData } from '../context/DataContext';
+import { useUsers } from '../hooks/useUsers';
+import { useProjects } from '../hooks/useProjects';
+import { useProducts } from '../hooks/useProducts';
+import { useCustomers } from '../hooks/useCustomers';
+import { useInstallers } from '../hooks/useInstallers';
 
 interface MentionInputProps {
     value: string;
@@ -14,7 +18,12 @@ interface MentionInputProps {
 }
 
 const MentionInput: React.FC<MentionInputProps> = ({ value, onChange, placeholder, onKeyDown, minHeight = 40, maxHeight = 120, rightElement, singleLine = false }) => {
-    const { users, projects, products, customers, installers } = useData();
+    // Fetch all data sources required for mentions
+    const { data: users = [] } = useUsers();
+    const { data: projects = [] } = useProjects();
+    const { data: products = [] } = useProducts();
+    const { data: customers = [] } = useCustomers();
+    const { data: installers = [] } = useInstallers();
 
     // Transform data for react-mentions
     const usersData = useMemo(() => users.map(u => ({ id: u.userId, display: u.firstName ? `${u.firstName} ${u.lastName}` : u.email })), [users]);

@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Project, Product, ProductVariant, SampleCheckout } from '../types';
 import { Check, Clock, X, Layers, Move, ThumbsUp, ShoppingCart, PlusCircle } from 'lucide-react'; 
-import { useData } from '../context/DataContext';
+import { useProducts } from '../hooks/useProducts';
+import { useSampleCheckouts } from '../hooks/useSampleCheckouts';
+import { useSampleCheckoutMutations } from '../hooks/useSampleCheckoutMutations';
 import { toast } from 'react-hot-toast';
 import AddEditMaterialOrderModal from './AddEditMaterialOrderModal';
 import ModalPortal from './ModalPortal';
@@ -27,14 +29,10 @@ const formatVariantName = (productName: string, variantName: string) => {
 };
 
 const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project }) => {
-    const { 
-        products, 
-        sampleCheckouts,
-        addSampleCheckout,
-        updateSampleCheckout,
-        extendSampleCheckout,
-        toggleSampleSelection 
-    } = useData();
+    // REFACTOR: Hooks
+    const { data: products = [] } = useProducts();
+    const { data: sampleCheckouts = [] } = useSampleCheckouts(project.id);
+    const { createSampleCheckout, patchSampleCheckout, extendSampleCheckout, returnSampleCheckout } = useSampleCheckoutMutations();
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([]);
@@ -72,7 +70,7 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
         
         try { 
             const promises = checkoutItems.map(item => 
-                addSampleCheckout({ 
+                createSampleCheckout.mutateAsync({ 
                     projectId: project.id, 
                     variantId: item.variantId,
                     interestVariantId: item.interestVariantId,
@@ -93,18 +91,22 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
 
     const handleReturn = async (checkout: SampleCheckout) => { 
         if(confirm(`Are you sure you want to return this sample?`)) { 
-            try { await updateSampleCheckout(checkout); } 
+            try { await returnSampleCheckout.mutateAsync(checkout); } 
             catch (error) { console.error("Return failed:", error); toast.error("Failed to return sample."); } 
         } 
     }; 
     
     const handleExtend = async (checkout: SampleCheckout) => {
-        try { await extendSampleCheckout(checkout); } 
+        try { await extendSampleCheckout.mutateAsync(checkout.id); } 
         catch (error) { console.error("Extend failed:", error); toast.error("Failed to extend checkout."); }
     };
     
     const handleToggleSelect = async (checkout: SampleCheckout) => {
-        await toggleSampleSelection(checkout);
+        try {
+            await patchSampleCheckout.mutateAsync({ id: checkout.id, data: { isSelected: !checkout.isSelected } });
+        } catch (error) {
+            toast.error("Failed to update selection.");
+        }
     };
 
     const handleOrderMaterial = (checkout: SampleCheckout) => {
@@ -244,7 +246,7 @@ const SampleCheckoutsSection: React.FC<SampleCheckoutsSectionProps> = ({ project
                         isOpen={isOrderModalOpen} 
                         onClose={() => setIsOrderModalOpen(false)}
                         initialProjectId={project.id}
-                        prefillOrderData={prefillOrderData}
+                        prefillData={prefillOrderData}
                     />
                 </ModalPortal>
             )}

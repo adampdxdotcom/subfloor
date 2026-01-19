@@ -456,7 +456,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                 {labels.showTechSpecs && renderColumnHeader("Wear Layer", "wearLayer")}
                                                 {labels.showTechSpecs && renderColumnHeader("Thickness", "thickness")}
                                                 {renderColumnHeader("SKU", "sku")}
-                                                {labels.showPackaging && renderColumnHeader("Packaging", "cartonSize")}
+                                                {labels.showPackaging && renderColumnHeader("Carton Qty", "cartonSize")}
+                                                {labels.showPackaging && renderColumnHeader("Unit", "uom")}
                                                 {renderColumnHeader("Cost", "unitCost", "text-right")}
                                                 {renderColumnHeader("Pricing Unit", "pricingUnit", "text-center w-24")}
                                                 {renderColumnHeader("Retail", "retailPrice", "text-right")}
@@ -511,14 +512,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                         )}
                                                         <td className="p-2"><input type="text" className="w-full p-1 border border-primary rounded-md bg-surface-container" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
                                                         {labels.showPackaging && (
-                                                            <td className="p-2 flex gap-1">
-                                                                <input type="number" className="w-16 p-1 border border-primary rounded-md bg-surface-container" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
-                                                                <select className="p-1 border border-primary rounded-md text-xs bg-surface-container" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
+                                                            <td className="p-2">
+                                                                <input type="number" className="w-20 p-1 border border-primary rounded-md bg-surface-container" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
+                                                            </td>
+                                                        )}
+                                                        {labels.showPackaging && (
+                                                            <td className="p-2">
+                                                                <select className="p-1 border border-primary rounded-md text-xs bg-surface-container w-full" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
                                                                     {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                                                 </select>
                                                             </td>
                                                         )}
-                                                        <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
+                                                        <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(costInput)} /></td>
                                                         <td className="p-2">
                                                             <select className="w-full p-1 border border-primary rounded-md text-xs bg-surface-container" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
                                                                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
@@ -556,7 +561,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                         {labels.showTechSpecs && <td className="p-3 text-text-secondary">{v.wearLayer || '-'}</td>}
                                                         {labels.showTechSpecs && <td className="p-3 text-text-secondary">{v.thickness || '-'}</td>}
                                                         <td className="p-3 text-text-secondary">{v.sku || '-'}</td>
-                                                        {labels.showPackaging && <td className="p-3 text-text-secondary text-xs font-mono">{v.cartonSize ? `${v.cartonSize} ${v.uom}` : '-'}</td>}
+                                                        {labels.showPackaging && <td className="p-3 text-text-secondary text-xs font-mono">{v.cartonSize || '-'}</td>}
+                                                        {labels.showPackaging && <td className="p-3 text-text-secondary text-xs font-mono">{v.uom || '-'}</td>}
                                                         <td className="p-3 text-right text-text-secondary">{v.unitCost ? `$${Number(v.unitCost).toFixed(2)}` : '-'}</td>
                                                         <td className="p-3 text-center text-text-secondary text-xs font-mono bg-black/5 rounded mx-1">/{v.pricingUnit || v.uom || 'Unit'}</td>
                                                         <td className="p-3 text-right text-text-secondary font-medium">{v.retailPrice ? `$${Number(v.retailPrice).toFixed(2)}` : '-'}</td>
@@ -599,14 +605,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                     {labels.showTechSpecs && <td className="p-2"><input type="text" className="w-full p-1 border rounded-md bg-surface-container" value={newVariant.thickness || ''} onChange={e => setNewVariant({...newVariant, thickness: e.target.value})} placeholder="Thickness" /></td>}
                                                     <td className="p-2"><input type="text" className="w-full p-1 border rounded-md bg-surface-container" value={newVariant.sku || ''} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} /></td>
                                                     {labels.showPackaging && (
-                                                        <td className="p-2 flex gap-1">
-                                                            <input type="number" className="w-16 p-1 border rounded-md bg-surface-container" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
-                                                            <select className="p-1 border rounded-md text-xs bg-surface-container" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
+                                                        <td className="p-2">
+                                                            <input type="number" className="w-20 p-1 border rounded-md bg-surface-container" value={newVariant.cartonSize || ''} onChange={e => setNewVariant({...newVariant, cartonSize: parseFloat(e.target.value)})} placeholder="Qty" />
+                                                        </td>
+                                                    )}
+                                                    {labels.showPackaging && (
+                                                        <td className="p-2">
+                                                            <select className="w-full p-1 border rounded-md text-xs bg-surface-container" value={newVariant.uom || 'SF'} onChange={e => setNewVariant({...newVariant, uom: e.target.value as any})}>
                                                                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                                             </select>
                                                         </td>
                                                     )}
-                                                    <td className="p-2"><input type="number" className="w-full p-1 border rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
+                                                    <td className="p-2"><input type="number" className="w-full p-1 border rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(costInput)} /></td>
                                                     <td className="p-2">
                                                         <select className="w-full p-1 border border-primary rounded-md text-xs bg-surface-container" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
                                                             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}

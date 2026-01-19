@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useProjects } from '../hooks/useProjects';
-import { useMaterialOrders, useMaterialOrderMutations } from '../hooks/useMaterialOrders';
+import { useMaterialOrders } from '../hooks/useMaterialOrders';
+import { useMaterialOrderMutations } from '../hooks/useMaterialOrderMutations';
 import { Project, MaterialOrder } from '../types';
 import { Package, AlertTriangle, CheckCircle, Clock, Search, Plus, Truck, ChevronDown, ChevronUp, Eye, EyeOff, Edit2 } from 'lucide-react';
 import ReceiveOrderModal from '../components/ReceiveOrderModal';
@@ -64,7 +65,7 @@ const OrderDashboard: React.FC = () => {
             
             // Filter out received orders unless toggled on
             if (!showReceived) {
-                projOrders = projOrders.filter(o => o.status !== 'Received');
+                projOrders = projOrders.filter(o => o.status === 'Ordered' || o.status === 'Damage Replacement');
             }
             
             // Filter Logic: Show if project matches search OR has orders that match search
@@ -106,10 +107,10 @@ const OrderDashboard: React.FC = () => {
 
     // --- MUTATION WRAPPERS ---
     const handleReceiveWrapper = async (orderId: number, data: any) => {
-        await materialOrderMutations.receiveMaterialOrder.mutateAsync({ id: orderId, data });
+        await materialOrderMutations.receiveMaterialOrder({ id: orderId, data });
     };
     const handleDamageWrapper = async (orderId: number, data: any) => {
-        await materialOrderMutations.reportMaterialOrderDamage.mutateAsync({ id: orderId, data });
+        await materialOrderMutations.reportMaterialOrderDamage({ id: orderId, data });
     };
 
     return (
@@ -166,11 +167,8 @@ const OrderDashboard: React.FC = () => {
                         const visibleOrders = isExpanded ? orders : orders.slice(0, 2);
                         const hiddenCount = orders.length - visibleOrders.length;
 
-                        const firstOrder = orders[0];
-                        const poNumber = firstOrder?.poNumber || 'No PO';
-                        const customerName = firstOrder?.customerName || '';
-                        const lastName = customerName.split(' ').pop() || customerName;
-                        const headerTitle = `#${poNumber} - ${lastName}`;
+                        const customerName = orders[0]?.customerName || 'N/A';
+                        const headerTitle = `${customerName}'s Project`;
 
                         return (
                             <div key={project.id} className="bg-surface-container-high border border-outline/10 rounded-xl shadow-sm flex flex-col transition-all duration-200 hover:shadow-md">

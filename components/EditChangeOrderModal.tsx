@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChangeOrder, Quote } from '../types';
 import { useData } from '../context/DataContext';
-import { useChangeOrderMutations } from '../hooks/useChangeOrders';
+import { useChangeOrderMutations } from '../hooks/useChangeOrderMutations';
 import { Trash2, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -14,7 +14,7 @@ interface EditChangeOrderModalProps {
 
 const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder, acceptedQuotes, onClose, onSave }) => {
   const { currentUser } = useData();
-  const { deleteChangeOrder: deleteMutation } = useChangeOrderMutations();
+  const { deleteChangeOrder } = useChangeOrderMutations();
 
   const [formData, setFormData] = useState({
     description: '',
@@ -69,7 +69,7 @@ const EditChangeOrderModal: React.FC<EditChangeOrderModalProps> = ({ changeOrder
     if (window.confirm('Are you sure you want to permanently delete this change order?')) {
         setIsDeleting(true);
         try {
-            await deleteMutation.mutateAsync(changeOrder.id);
+            await deleteChangeOrder(changeOrder.id);
             toast.success('Change order deleted successfully.');
             onClose();
         } catch (error) {

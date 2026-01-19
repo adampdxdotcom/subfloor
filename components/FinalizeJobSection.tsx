@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useData } from '../context/DataContext';
+import { useInstallers } from '../hooks/useInstallers';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { saveJob, updateProject as updateProjectService } from '../services/jobService';
 import { Project, Job, Quote, ChangeOrder, ProjectStatus, QuoteStatus, JobAppointment } from '../types';
-import { Save, Calendar, AlertTriangle, PlusCircle, XCircle, Move } from 'lucide-react';
+import { Save, Calendar, AlertTriangle, PlusCircle, XCircle, Move, Loader } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // --- HELPER FUNCTIONS ---
@@ -18,14 +20,13 @@ interface FinalizeJobSectionProps {
     job: Job | undefined;
     quotes: Quote[];
     changeOrders: ChangeOrder[];
-    saveJobDetails: (job: Partial<Job>) => Promise<void>;
-    updateProject: (p: Partial<Project> & { id: number }) => void;
 }
 
 // --- MAIN COMPONENT ---
-const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, quotes, changeOrders, saveJobDetails, updateProject }) => {
-    const { installers } = useData();
+const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, quotes, changeOrders }) => {
+    const { data: installers = [], isLoading: isLoadingInstallers } = useInstallers();
     const isInitialized = useRef(false);
+    const queryClient = useQueryClient();
 
     const [jobDetails, setJobDetails] = useState<Partial<Job>>({
         projectId: project.id,
@@ -174,6 +175,22 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         }));
     };
 
+    const saveJobMutation = useMutation({
+        mutationFn: saveJob,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['jobs'] });
+            queryClient.invalidateQueries({ queryKey: ['project', project.id] });
+        },
+    });
+
+    const updateProjectMutation = useMutation({
+        mutationFn: updateProjectService,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+            queryClient.invalidateQueries({ queryKey: ['project', project.id] });
+        },
+    });
+
     const handleSave = async () => {
         const firstAppointment = jobDetails.appointments?.[0];
         const shouldUpdateStatus = project.status === ProjectStatus.ACCEPTED && isSchedulingApplicable;
@@ -203,14 +220,14 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         }));
 
         try {
-            await saveJobDetails({ 
+            await saveJobMutation.mutateAsync({ 
                 ...coreJobDetails, 
                 depositAmount: financialSummary.totalDeposit,
                 appointments: finalAppointments 
             });
 
             if (shouldUpdateStatus) {
-                await updateProject({ id: project.id, status: ProjectStatus.SCHEDULED });
+                await updateProjectMutation.mutateAsync({ id: project.id, status: ProjectStatus.SCHEDULED });
             }
             toast.success("Job details saved successfully.");
         } catch (error) { 
@@ -252,8 +269,13 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                     >
                         <AlertTriangle className="w-4 h-4"/> {jobDetails.isOnHold ? 'ON HOLD' : 'Place Hold'}
                     </button>
-                    <button onClick={handleSave} className="bg-primary hover:bg-primary-hover text-on-primary font-semibold py-2 px-4 rounded-full flex items-center gap-2 text-sm">
-                        <Save className="w-4 h-4"/> Save Details
+                    <button 
+                        onClick={handleSave} 
+                        className="bg-primary hover:bg-primary-hover text-on-primary font-semibold py-2 px-4 rounded-full flex items-center gap-2 text-sm disabled:opacity-50"
+                        disabled={saveJobMutation.isPending || updateProjectMutation.isPending}
+                    >
+                        {(saveJobMutation.isPending || updateProjectMutation.isPending) ? <Loader className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
+                        Save Details
                     </button>
                 </div>
             </div>

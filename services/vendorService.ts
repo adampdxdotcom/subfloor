@@ -33,14 +33,14 @@ export const addVendor = async (vendorData: Omit<Vendor, 'id'>): Promise<Vendor>
 
 /**
  * Updates an existing vendor.
- * @param vendorId - The ID of the vendor to update.
- * @param vendorData - The vendor data to update.
+ * Expects the full vendor object with ID.
  */
-export const updateVendor = async (vendorId: number, vendorData: Partial<Omit<Vendor, 'id'>>): Promise<Vendor> => {
-    const response = await fetch(`${getApiUrl()}/${vendorId}`, {
+export const updateVendor = async (vendorData: Vendor): Promise<Vendor> => {
+    const { id, ...data } = vendorData;
+    const response = await fetch(`${getApiUrl()}/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(vendorData),
+        body: JSON.stringify(data),
     });
     if (!response.ok) {
         const errorBody = await response.json();

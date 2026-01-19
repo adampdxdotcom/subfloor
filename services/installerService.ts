@@ -1,5 +1,7 @@
 import { Installer, ActivityLogEntry } from "../types";
 import { getEndpoint } from "../utils/apiConfig";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import * as installerService from "./installerService"; // Assuming this is the filename or logic is local
 
 const getApiUrl = () => getEndpoint('/api/installers');
 
@@ -69,4 +71,36 @@ export const getInstallerHistory = async (installerId: number): Promise<Activity
         throw new Error('Failed to fetch installer history.');
     }
     return response.json();
+};
+
+// --- NEW ---
+export const useInstallerMutations = () => {
+    const queryClient = useQueryClient();
+
+    const createInstallerMutation = useMutation({
+        mutationFn: addInstaller, // Use the correct local function name
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['installers'] });
+        },
+    });
+
+    const updateInstallerMutation = useMutation({
+        mutationFn: updateInstaller,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['installers'] });
+        },
+    });
+
+    const deleteInstallerMutation = useMutation({
+        mutationFn: deleteInstaller,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['installers'] });
+        },
+    });
+
+    return {
+        createInstaller: createInstallerMutation,
+        updateInstaller: updateInstallerMutation,
+        deleteInstaller: deleteInstallerMutation,
+    };
 };

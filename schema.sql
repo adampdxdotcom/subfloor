@@ -427,3 +427,14 @@ VALUES (
   '{"apkDownloadUrl": "https://github.com/your-username/subfloor/releases"}'::jsonb
 )
 ON CONFLICT (key) DO NOTHING;
+
+-- Store reference text for size search
+
+CREATE TABLE size_aliases (
+    id SERIAL PRIMARY KEY,
+    alias_text VARCHAR(255) NOT NULL UNIQUE,
+    mapped_size VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX size_aliases_alias_text_index ON size_aliases(alias_text);
