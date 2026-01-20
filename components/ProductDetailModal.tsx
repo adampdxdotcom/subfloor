@@ -15,6 +15,7 @@ import { PrintableLabel } from './PrintableLabel';
 import { useReactToPrint } from 'react-to-print';
 import { getImageUrl } from '../utils/apiConfig';
 import PrintQueueModal from './PrintQueueModal';
+import SimpleLightbox from './SimpleLightbox';
 
 interface ProductDetailModalProps {
     isOpen: boolean;
@@ -55,6 +56,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     // --- SINGLE PRINTING STATE ---
     const printRef = useRef<HTMLDivElement>(null);
     const [printData, setPrintData] = useState<{ data: any, qrUrl: string } | null>(null);
+    
+    // --- LIGHTBOX STATE ---
+    const [lightboxImage, setLightboxImage] = useState<{url: string, alt: string} | null>(null);
 
     const queryClient = useQueryClient();
 
@@ -346,7 +350,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     };
 
     return (
-        <div className="fixed inset-0 bg-scrim/80 flex items-center justify-center z-50 p-0 lg:p-4">
+        <div className="fixed inset-0 z-[60] bg-background flex flex-col lg:static lg:z-0 lg:bg-surface-container-high lg:rounded-2xl lg:border lg:border-outline/20 lg:h-[calc(100vh-140px)]">
             
             <div style={{ position: 'absolute', top: -10000, left: -10000 }}>
                 <div ref={printRef} className="p-4 w-[3.5in] h-[2in]"> 
@@ -354,11 +358,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 </div>
             </div>
 
-            <div className="bg-surface-container-high w-full h-full lg:max-w-[95vw] xl:max-w-7xl lg:max-h-[90vh] lg:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 lg:border border-outline/20">
+            <div className="w-full h-full flex flex-col overflow-hidden">
                 {/* HEADER */}
                 <div className="p-4 border-b border-outline/10 flex items-center">
-                    {/* Mobile-only Back Button */}
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container-highest text-text-secondary hover:text-text-primary lg:hidden mr-2">
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container-highest text-text-secondary hover:text-text-primary mr-2">
                         <ArrowLeft size={24} />
                     </button>
                     <h2 className="text-xl font-bold text-text-primary flex items-center gap-2 flex-grow">
@@ -392,7 +395,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                             <button onClick={() => setIsEditingParent(true)} className="p-2 hover:bg-surface-container-highest rounded-full text-text-secondary hover:text-primary"><Edit2 size={24} /></button>
                         )}
                         
-                        <button onClick={onClose} className="p-2 hover:bg-surface-container-highest rounded-full text-text-secondary hover:text-text-primary hidden lg:block"><X size={24} /></button>
                     </div>
                 </div>
 
@@ -406,7 +408,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                             <div className="flex flex-col md:flex-row gap-6">
                                 <div className="w-48 h-48 bg-surface-container rounded-lg flex-shrink-0 overflow-hidden border border-outline/20">
                                     {activeProduct.defaultImageUrl ? (
-                                        <img src={resolveImageUrl(activeProduct.defaultImageUrl)!} className="w-full h-full object-cover" />
+                                        <div 
+                                            className="w-full h-full cursor-zoom-in group relative"
+                                            onClick={() => setLightboxImage({
+                                                url: resolveImageUrl(activeProduct.defaultImageUrl)!,
+                                                alt: activeProduct.name
+                                            })}
+                                        >
+                                            <img src={resolveImageUrl(activeProduct.defaultImageUrl)!} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                        </div>
                                     ) : <div className="w-full h-full flex items-center justify-center text-text-tertiary"><ImageIcon size={48} className="opacity-50"/></div>}
                                 </div>
                                 <div className="flex-1 space-y-2">
@@ -523,7 +533,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                                 </select>
                                                             </td>
                                                         )}
-                                                        <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(costInput)} /></td>
+                                                        <td className="p-2"><input type="number" className="w-full p-1 border border-primary rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
                                                         <td className="p-2">
                                                             <select className="w-full p-1 border border-primary rounded-md text-xs bg-surface-container" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
                                                                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
@@ -552,8 +562,16 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                 ) : (
                                                     <tr key={v.id} className={`hover:bg-surface-container-highest transition-colors ${selectedRowIds.has(v.id) ? 'bg-primary-container/30' : ''}`}>
                                                         <td className="p-2 text-center">
-                                                            <div className="w-10 h-10 bg-surface-variant rounded overflow-hidden mx-auto border border-outline/10">
-                                                                {v.imageUrl ? <img src={resolveImageUrl(v.imageUrl)!} className="w-full h-full object-cover"/> : null}
+                                                            <div 
+                                                                className={`w-10 h-10 bg-surface-variant rounded overflow-hidden mx-auto border border-outline/10 ${v.imageUrl ? 'cursor-zoom-in hover:ring-2 hover:ring-primary/50' : ''}`}
+                                                                onClick={(e) => {
+                                                                    if (v.imageUrl) {
+                                                                        e.stopPropagation();
+                                                                        setLightboxImage({ url: resolveImageUrl(v.imageUrl)!, alt: v.name });
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {v.imageUrl ? <img src={resolveImageUrl(v.imageUrl)!} className="w-full h-full object-cover" /> : null}
                                                             </div>
                                                         </td>
                                                         <td className="p-3 font-medium text-text-primary">{v.name}</td>
@@ -616,7 +634,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                                                             </select>
                                                         </td>
                                                     )}
-                                                    <td className="p-2"><input type="number" className="w-full p-1 border rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(costInput)} /></td>
+                                                    <td className="p-2"><input type="number" className="w-full p-1 border rounded-md text-right bg-surface-container" value={newVariant.unitCost || ''} onChange={e => handleCostChange(e.target.value)} /></td>
                                                     <td className="p-2">
                                                         <select className="w-full p-1 border border-primary rounded-md text-xs bg-surface-container" value={newVariant.pricingUnit || 'SF'} onChange={e => setNewVariant({...newVariant, pricingUnit: e.target.value as any})}>
                                                             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
@@ -637,6 +655,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                 </div>
 
                 {/* MODALS */}
+                {lightboxImage && (
+                    <SimpleLightbox 
+                        imageUrl={lightboxImage.url} 
+                        altText={lightboxImage.alt} 
+                        onClose={() => setLightboxImage(null)} 
+                    />
+                )}
                 {showGenerator && <VariantGeneratorModal productId={activeProduct.id} productType={activeProduct.productType} manufacturerId={activeProduct.manufacturerId} pricingSettings={pricingSettings} onClose={() => setShowGenerator(false)} onSuccess={handleGeneratorSuccess} />}
                 {showImageModal && <VariantImageModal currentPreview={pendingImage.preview} onClose={() => setShowImageModal(false)} onSave={handleImageUpdate} />}
                 

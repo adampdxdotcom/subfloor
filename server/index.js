@@ -47,7 +47,8 @@ import setupRoutes from './routes/setup.js';
 import kbRoutes from './routes/kb.js';
 import calendarFeedRoutes from './routes/calendarFeed.js';
 import emailTemplateRoutes from './routes/email-templates.js';
-import systemRoutes from './routes/system.js'; // Added from diff
+import systemRoutes from './routes/system.js';
+import mediaRoutes from './routes/media.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -260,7 +261,8 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/setup', setupRoutes);
 app.use('/api/kb', kbRoutes);
 app.use('/api/email-templates', emailTemplateRoutes);
-app.use('/api/system', systemRoutes); // Added from diff
+app.use('/api/system', systemRoutes);
+app.use('/api/media', mediaRoutes);
 
 // --- SERVE FRONTEND ---
 const publicPath = path.join(__dirname, 'public');

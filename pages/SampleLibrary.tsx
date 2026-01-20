@@ -155,6 +155,17 @@ const SampleLibrary: React.FC = () => {
     return <div className="flex items-center justify-center h-64 text-text-secondary">Loading library...</div>; 
   }
 
+  // --- EARLY RETURN: DETAIL VIEW ---
+  if (isDetailModalOpen && selectedProduct) {
+    return (
+      <ProductDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={handleCloseDetailModal}
+        product={selectedProduct}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Header & Controls - De-boxed MD3 Style */}
@@ -272,13 +283,6 @@ const SampleLibrary: React.FC = () => {
         </div>
       )}
       
-      {isDetailModalOpen && selectedProduct && (
-        <ProductDetailModal
-          isOpen={isDetailModalOpen}
-          onClose={handleCloseDetailModal}
-          product={selectedProduct}
-        />
-      )}
     </div>
   );
 };

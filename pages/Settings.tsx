@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DownloadCloud, Users, FileSliders, UserCog, Bell, Mail, DollarSign, Brush, Settings as SettingsIcon, Sparkles, ChevronRight, ArrowLeft } from 'lucide-react';
+import { DownloadCloud, Users, FileSliders, UserCog, Bell, Mail, DollarSign, Brush, Settings as SettingsIcon, Sparkles, ChevronRight, ArrowLeft, Image } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
 // Import components
@@ -12,9 +12,10 @@ import UserNotificationSettings from '../components/UserNotificationSettings';
 import SystemEmailSettings from '../components/SystemEmailSettings';
 import PricingConfigurationSection from '../components/PricingConfigurationSection';
 import { ChangelogViewer } from '../components/ChangelogViewer';
+import MediaLibrarySection from '../components/settings/MediaLibrarySection';
 
 // Tab Configuration Types
-type TabId = 'mySettings' | 'notifications' | 'users' | 'data' | 'email' | 'backup' | 'pricing' | 'branding' | 'changelog';
+type TabId = 'mySettings' | 'notifications' | 'users' | 'data' | 'email' | 'backup' | 'pricing' | 'branding' | 'changelog' | 'media';
 
 interface TabDef {
     id: TabId; 
@@ -57,6 +58,7 @@ const SETTINGS_STRUCTURE: CategoryDef[] = [
         id: 'system',
         label: 'System',
         tabs: [
+            { id: 'media', label: 'Media Library', icon: Image, adminOnly: true },
             { id: 'branding', label: 'Branding', icon: Brush, adminOnly: true },
             { id: 'users', label: 'Users', icon: Users, adminOnly: true },
             { id: 'backup', label: 'Backup', icon: DownloadCloud, adminOnly: true },
@@ -99,6 +101,7 @@ const Settings: React.FC = () => {
             case 'data': return <SizeManagement />;
             case 'backup': return <BackupRestoreSection />;
             case 'changelog': return <ChangelogViewer />;
+            case 'media': return <MediaLibrarySection />;
             default: return null;
         }
     };

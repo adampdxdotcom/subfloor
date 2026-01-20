@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useRef } from 'react';
 import { useProjectFiles, useFileMutations, ProjectFile } from '../hooks/usePhotos'; 
-import { Camera, Trash2, X, Maximize2, CheckCircle2, Move, ChevronLeft, ChevronRight, FileText, Download, File as FileIcon, Image as ImageIcon } from 'lucide-react';
+import { Camera, Maximize2, CheckCircle2, Move, FileText, Download, File as FileIcon, Image as ImageIcon } from 'lucide-react';
+import SimpleLightbox from './SimpleLightbox';
 import { Project } from '../types';
 import { toast } from 'react-hot-toast';
 import { getImageUrl } from '../utils/apiConfig';
@@ -17,7 +17,7 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
     const [activeTab, setActiveTab] = useState<'SITE' | 'DOCUMENT'>('SITE');
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [isSelectMode, setIsSelectMode] = useState(false);
-    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+    const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const displayedFiles = (Array.isArray(allFiles) ? allFiles : []).filter((f: ProjectFile) => {
@@ -63,38 +63,15 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
         }
     };
 
-    const photosOnly = displayedFiles; 
-    
-    const handlePhotoClick = (file: ProjectFile, index: number) => {
+    const handlePhotoClick = (file: ProjectFile) => {
         if (isSelectMode) {
             toggleSelection(file.id);
         } else if (activeTab === 'SITE') {
-            setLightboxIndex(index);
+            setLightboxUrl(getImageUrl(file.url));
         } else {
             window.open(getImageUrl(file.url), '_blank');
         }
     };
-
-    const handlePrev = useCallback((e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        setLightboxIndex(prev => (prev !== null && prev > 0 ? prev - 1 : photosOnly.length - 1));
-    }, [photosOnly.length]);
-
-    const handleNext = useCallback((e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        setLightboxIndex(prev => (prev !== null && prev < photosOnly.length - 1 ? prev + 1 : 0));
-    }, [photosOnly.length]);
-
-    useEffect(() => {
-        if (lightboxIndex === null) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'ArrowLeft') handlePrev();
-            if (e.key === 'ArrowRight') handleNext();
-            if (e.key === 'Escape') setLightboxIndex(null);
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [lightboxIndex, handlePrev, handleNext]);
 
     return (
         <div className="h-full flex flex-col overflow-hidden">
@@ -175,12 +152,12 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
                 ) : activeTab === 'SITE' ? (
                     // --- PHOTO GRID VIEW ---
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                        {displayedFiles.map((file: ProjectFile, index: number) => {
+                        {displayedFiles.map((file: ProjectFile) => {
                             const isSelected = selectedIds.has(file.id);
                             return (
                                 <div 
                                     key={file.id} 
-                                    onClick={() => handlePhotoClick(file, index)}
+                                    onClick={() => handlePhotoClick(file)}
                                     className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer group border-2 transition-all ${isSelected ? 'border-primary ring-2 ring-primary/50' : 'border-transparent hover:border-outline/50'}`}
                                 >
                                     <img src={getImageUrl(file.thumbnailUrl || file.url)} alt="Project Site" className="w-full h-full object-cover" loading="lazy" />
@@ -246,21 +223,12 @@ const ProjectFilesSection: React.FC<ProjectFilesSectionProps> = ({ project }) =>
                 )}
             </div>
 
-            {/* Lightbox Modal (Photos Only) */}
-            {lightboxIndex !== null && activeTab === 'SITE' && createPortal(
-                <div 
-                    className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm"
-                    onClick={() => setLightboxIndex(null)}
-                >
-                    <button className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors" onClick={() => setLightboxIndex(null)}><X size={24} /></button>
-                    {photosOnly.length > 1 && <button className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full" onClick={handlePrev}><ChevronLeft size={32} /></button>}
-                    
-                    <img src={getImageUrl(photosOnly[lightboxIndex].url)} alt="Full View" className="max-w-full max-h-full rounded shadow-2xl" onClick={(e) => e.stopPropagation()} />
-                    
-                    {photosOnly.length > 1 && <button className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full" onClick={handleNext}><ChevronRight size={32} /></button>}
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/50 text-sm">{lightboxIndex + 1} / {photosOnly.length}</div>
-                </div>,
-                document.body
+            {lightboxUrl && (
+                <SimpleLightbox 
+                    imageUrl={lightboxUrl} 
+                    onClose={() => setLightboxUrl(null)} 
+                    altText="Project Photo"
+                />
             )}
         </div>
     );

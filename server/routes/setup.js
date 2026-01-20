@@ -1,4 +1,3 @@
-// server/routes/setup.js
 import express from 'express';
 import { isSystemInitialized, updateSystemConfig } from '../lib/setupService.js';
 import EmailPassword from 'supertokens-node/recipe/emailpassword/index.js';

@@ -5,6 +5,17 @@
 // For clean compilation, we define a placeholder type if it's external:
 type ReactGridLayout_Layouts = any; 
 
+export interface MediaAsset {
+  id: string;
+  filePath: string;
+  thumbnailPath?: string | null;
+  fileType: string;
+  category: 'products' | 'avatars' | 'branding' | 'jobs' | 'misc';
+  uploadedBy?: string | null;
+  createdAt: string;
+  usageCount: number;
+}
+
 export const PROJECT_TYPES = [
   'Flooring',
   'Tile',
@@ -181,7 +192,7 @@ export interface Product {
 }
 
 // --- MODIFIED: Sample interface completely overhauled ---
-// @deprecated - Will be replaced by Product & ProductVariant
+/** @deprecated - Will be replaced by Product & ProductVariant */
 export interface Sample {
   id: number;
   manufacturerId: number | null;
@@ -527,8 +538,6 @@ export interface UserPreferences {
   dashboardEmail?: DashboardEmailSettings; // New preferred field
   calendarColor?: string; // New preferred field
 }
-
-// REMOVED UiPreferences as it is now part of UserPreferences
 
 export interface DataContextType extends AppData {
   isLoading: boolean;
