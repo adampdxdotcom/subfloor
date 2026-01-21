@@ -85,6 +85,8 @@ router.get('/aliases', verifySession(), async (req, res) => {
 
 // POST /api/import/aliases - Learn a new rule
 router.post('/aliases', verifySession(), async (req, res) => {
+    console.log("👉 DIAGNOSTIC /aliases body:", req.body); // LOG 1
+
     const { aliasText, mappedSize } = req.body;
     
     // Basic validation
@@ -278,6 +280,11 @@ const calculateRetailPrice = (cost, markup, method = 'Markup') => {
 // Commit changes to the database
 router.post('/execute', verifySession(), async (req, res) => {
     const { previewResults, strategy, defaults } = req.body;
+
+    // LOG 2: Check the incoming payload for an update row
+    const sampleUpdate = previewResults.find(r => r.status === 'update');
+    if (sampleUpdate) console.log("👉 DIAGNOSTIC Update Payload Sample:", JSON.stringify(sampleUpdate, null, 2));
+
     const userId = req.session.getUserId();
     const client = await pool.connect();
 
@@ -308,6 +315,9 @@ router.post('/execute', verifySession(), async (req, res) => {
             // 1. UPDATE EXISTING
             if (row.status === 'update' && row.affectedVariants) {
                 for (const v of row.affectedVariants) {
+                    // LOG 3: Check specific values before SQL
+                    console.log(`👉 DIAGNOSTIC SQL UPDATE: Variant ${v.id}, Size: "${v.newSize}" -> "${cleanText(v.newSize)}"`);
+
                     // Here we blindly update cost/retail based on the preview data
                     // We also safely update specs (Size, Layer, Thickness) if provided
                     await client.query(`
