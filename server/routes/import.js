@@ -5,12 +5,17 @@ import { verifyRole, toCamelCase, logActivity } from '../utils.js';
 
 const router = express.Router();
 
-// --- HELPER: Sanitize String for Postgres ---
-// Removes NULL bytes (0x00) which crash PG
-const cleanString = (str) => {
-    if (str === null || str === undefined) return '';
-    const s = String(str); // Force to string
-    return s.replace(/\0/g, '').trim();
+// Helpers to handle types and ensure "Empty" becomes NULL for COALESCE
+const cleanText = (str) => {
+    if (str === null || str === undefined) return null;
+    const s = String(str).replace(/\0/g, '').trim();
+    return s === '' ? null : s;
+};
+
+const cleanNumber = (val) => {
+    if (val === null || val === undefined || val === '') return null;
+    const num = Number(val);
+    return isNaN(num) ? null : num;
 };
 
 // =================================================================
@@ -96,7 +101,7 @@ router.post('/aliases', verifySession(), async (req, res) => {
             DO UPDATE SET mapped_size = $2
             RETURNING *
         `;
-        const result = await pool.query(query, [cleanString(aliasText), cleanString(mappedSize)]);
+        const result = await pool.query(query, [cleanText(aliasText), cleanText(mappedSize)]);
         res.json(toCamelCase(result.rows[0]));
     } catch (err) {
         console.error('Error saving alias:', err);
@@ -135,7 +140,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                 // 1. Find Parent Product
                 const parentRes = await client.query(
                     `SELECT id, name FROM products WHERE LOWER(name) = LOWER($1) AND is_discontinued = FALSE`, 
-                    [cleanString(productName)]
+                    [cleanText(productName)]
                 );
 
                 if (parentRes.rows.length > 0) {
@@ -181,7 +186,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                          FROM product_variants v 
                          JOIN products p ON v.product_id = p.id 
                          WHERE v.sku = $1`,
-                        [cleanString(sku ? sku.toString() : '')]
+                        [cleanText(sku ? sku.toString() : '')]
                     );
                     
                     if (skuRes.rows.length > 0) {
@@ -211,7 +216,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                          FROM product_variants v 
                          JOIN products p ON v.product_id = p.id 
                          WHERE LOWER(p.name) = LOWER($1) AND LOWER(v.name) = LOWER($2)`,
-                        [cleanString(productName), cleanString(variantName)]
+                        [cleanText(productName), cleanText(variantName)]
                     );
                     
                     if (nameRes.rows.length > 0) {
@@ -310,20 +315,20 @@ router.post('/execute', verifySession(), async (req, res) => {
                         SET 
                             unit_cost = $1, 
                             retail_price = $2,
-                            size = COALESCE(NULLIF($4, ''), size),
-                            carton_size = COALESCE(NULLIF($5, ''), carton_size),
-                            wear_layer = COALESCE(NULLIF($6, ''), wear_layer),
-                            thickness = COALESCE(NULLIF($7, ''), thickness),
+                            size = COALESCE($4, size),
+                            carton_size = COALESCE($5, carton_size),
+                            wear_layer = COALESCE($6, wear_layer),
+                            thickness = COALESCE($7, thickness),
                             updated_at = NOW()
                         WHERE id = $3
                     `, [
                         v.newCost, 
                         v.newRetail || v.oldRetail, 
                         v.id,
-                        cleanString(v.newSize),
-                        cleanString(v.newCartonSize),
-                        cleanString(v.newWearLayer),
-                        cleanString(v.newThickness)
+                        cleanText(v.newSize),
+                        cleanNumber(v.newCartonSize), // Explicitly cast to Number or Null
+                        cleanText(v.newWearLayer),
+                        cleanText(v.newThickness)
                     ]); 
                     updates++;
                 }
@@ -332,9 +337,9 @@ router.post('/execute', verifySession(), async (req, res) => {
             // 2. CREATE NEW
             if (row.status === 'new') {
                 // Clean inputs
-                const pName = cleanString(row.productName);
-                const vName = cleanString(row.variantName) || 'Standard'; // Default if missing
-                const manufName = cleanString(row.manufacturer);
+                const pName = cleanText(row.productName);
+                const vName = cleanText(row.variantName) || 'Standard'; // Default if missing
+                const manufName = cleanText(row.manufacturer);
 
                 // Resolve Manufacturer ID 
                 let manufId = null;
@@ -357,7 +362,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                     productId = parentRes.rows[0].id;
                 } else {
                     // Determine Type: CSV -> Default -> 'Material'
-                    const pType = cleanString(row.productType) || defaults?.productType || 'Material';
+                    const pType = cleanText(row.productType) || defaults?.productType || 'Material';
                     
                     // Create Parent
                     const newParent = await client.query(`
@@ -396,19 +401,19 @@ router.post('/execute', verifySession(), async (req, res) => {
                 `, [
                     productId, 
                     vName, 
-                    cleanString(row.sku), 
-                    cleanString(row.size), 
+                    cleanText(row.sku), 
+                    cleanText(row.size), 
                     row.unitCost || 0, 
                     finalRetailPrice, // Use the calculated price
                     row.cartonSize || null,
                     row.hasSample || false, // Read the checkbox value from the review step
-                    cleanString(row.wearLayer),
-                    cleanString(row.thickness)
+                    cleanText(row.wearLayer),
+                    cleanText(row.thickness)
                 ]);
 
                 // SYNC SIZES: Ensure this size is added to the global "Known Sizes" list
                 if (row.size) {
-                    const cleanSize = cleanString(row.size);
+                    const cleanSize = cleanText(row.size);
                     if (cleanSize) {
                         // Corrected table and column name
                         await client.query(`
