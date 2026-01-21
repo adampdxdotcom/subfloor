@@ -74,22 +74,23 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
             
             // Try simple normalization (e.g. "12 x 24" -> "12x24")
             let extracted = normalizeSize(rawText);
+            
+            // Check if this initial guess is a Known Size
+            let isKnown = knownSizes.some(k => k.label.toLowerCase() === extracted.toLowerCase());
 
             // INTELLIGENCE CHECK:
-            // If normalization failed (returned whole string or empty), check our Aliases/Matchers
-            // This is the "Long Term Memory" kicking in.
-            if (!extracted || extracted === rawText) {
+            // If the simple guess failed to find a match, check our Aliases/Matchers against the RAW text.
+            // This ensures "7.09 X 48.03" triggers the alias even if normalizeSize changed it to "7.09x48.03"
+            if (!isKnown) {
                 for (const known of knownSizes) {
                     // Check if any alias exists inside this text
                     if (known.matchers?.some(alias => rawText.toLowerCase().includes(alias.toLowerCase()))) {
                         extracted = known.label;
+                        isKnown = true;
                         break;
                     }
                 }
             }
-
-            // Check if this final extracted size is a Known Size
-            const isKnown = knownSizes.some(k => k.label.toLowerCase() === extracted.toLowerCase());
 
             return {
                 id: idx.toString(),
