@@ -91,17 +91,13 @@ router.get('/aliases', verifySession(), async (req, res) => {
 
 // POST /api/import/aliases - Learn a new rule
 router.post('/aliases', verifySession(), async (req, res) => {
-    console.log("👉 DIAGNOSTIC /aliases body:", req.body); // LOG 1
-
     const { aliasText, mappedSize } = req.body;
     
-    // Basic validation
     if (!aliasText || !mappedSize) {
         return res.status(400).json({ error: 'Alias text and mapped size are required.' });
     }
 
     try {
-        // Upsert: If we already know this alias, update its mapping
         const query = `
             INSERT INTO size_aliases (alias_text, mapped_size)
             VALUES ($1, $2)
@@ -109,10 +105,49 @@ router.post('/aliases', verifySession(), async (req, res) => {
             DO UPDATE SET mapped_size = $2
             RETURNING *
         `;
-        const result = await pool.query(query, [cleanText(aliasText), cleanText(mappedSize)]);
+        const result = await pool.query(query, [cleanString(aliasText), cleanString(mappedSize)]);
         res.json(toCamelCase(result.rows[0]));
     } catch (err) {
         console.error('Error saving alias:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// =================================================================
+//  PRODUCT NAME ALIASES (The "Name Cleaner" Memory)
+// =================================================================
+
+// GET /api/import/aliases/products - Fetch all naming rules
+router.get('/aliases/products', verifySession(), async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM product_aliases');
+        res.json(toCamelCase(result.rows));
+    } catch (err) {
+        console.error('Error fetching product aliases:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/import/aliases/products - Learn a new naming rule
+router.post('/aliases/products', verifySession(), async (req, res) => {
+    const { aliasText, mappedProductName } = req.body;
+    
+    if (!aliasText || !mappedProductName) {
+        return res.status(400).json({ error: 'Alias text and mapped name are required.' });
+    }
+
+    try {
+        const query = `
+            INSERT INTO product_aliases (alias_text, mapped_product_name)
+            VALUES ($1, $2)
+            ON CONFLICT (alias_text) 
+            DO UPDATE SET mapped_product_name = $2
+            RETURNING *
+        `;
+        const result = await pool.query(query, [cleanString(aliasText), cleanString(mappedProductName)]);
+        res.json(toCamelCase(result.rows[0]));
+    } catch (err) {
+        console.error('Error saving product alias:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -130,9 +165,24 @@ router.post('/preview', verifySession(), async (req, res) => {
     try {
         const results = [];
 
+        // 1. Fetch Product Aliases (System Memory)
+        const aliasRes = await client.query('SELECT alias_text, mapped_product_name FROM product_aliases');
+        const aliasMap = new Map();
+        aliasRes.rows.forEach(r => aliasMap.set(r.alias_text.toLowerCase(), r.mapped_product_name));
+
         // Optimize: In a huge system, we'd bulk fetch. For <5000 rows, looping is fine and safer logic-wise.
         for (const row of mappedRows) {
-            const { productName, variantName, sku, unitCost, retailPrice } = row;
+            let { productName, variantName, sku, unitCost, retailPrice } = row;
+            
+            // AUTO-CLEAN: Check if this productName is a known alias
+            if (productName && aliasMap.has(productName.toLowerCase())) {
+                const cleanName = aliasMap.get(productName.toLowerCase());
+                // Update the local variable so the lookup works
+                productName = cleanName;
+                // Update the row object so the Frontend sees the clean name
+                row.productName = cleanName;
+            }
+
             let action = 'new'; 
             let details = {};
             let affectedVariants = []; // Stores the specific DB rows to update
@@ -160,17 +210,25 @@ router.post('/preview', verifySession(), async (req, res) => {
                     
                     affectedVariants = variantsRes.rows.map(v => {
                         const changes = [];
-                        const isDiff = (a, b) => {
-                            const valA = a === null || a === undefined ? '' : String(a).trim();
-                            const valB = b === null || b === undefined ? '' : String(b).trim();
+                        
+                        // Smart Compare: Handles Numbers (15.00 vs 15) and Strings (Text vs Text)
+                        const isDiff = (dbVal, csvVal) => {
+                            const valA = dbVal === null || dbVal === undefined ? '' : String(dbVal).trim();
+                            const valB = csvVal === null || csvVal === undefined ? '' : String(csvVal).trim();
+                            if (valA === '' && valB === '') return false;
+                            const numA = Number(valA);
+                            const numB = Number(valB);
+                            if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+                                return Math.abs(numA - numB) > 0.001; 
+                            }
                             return valA.toLowerCase() !== valB.toLowerCase();
                         };
 
                         if (Math.abs(Number(v.unit_cost) - Number(unitCost)) > 0.01) changes.push('Cost');
-                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || 'Empty'} -> ${row.size}`);
-                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || 'Empty'} -> ${row.cartonSize}`);
-                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || 'Empty'} -> ${row.wearLayer}`);
-                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || 'Empty'} -> ${row.thickness}`);
+                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
+                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
+                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
+                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
 
                         return {
                             id: v.id,
@@ -214,19 +272,25 @@ router.post('/preview', verifySession(), async (req, res) => {
                     if (skuRes.rows.length > 0) {
                         const v = skuRes.rows[0];
                         matchFound = true;
-                        
                         const changes = [];
-                        const isDiff = (a, b) => {
-                            const valA = a === null || a === undefined ? '' : String(a).trim();
-                            const valB = b === null || b === undefined ? '' : String(b).trim();
+
+                        const isDiff = (dbVal, csvVal) => {
+                            const valA = dbVal === null || dbVal === undefined ? '' : String(dbVal).trim();
+                            const valB = csvVal === null || csvVal === undefined ? '' : String(csvVal).trim();
+                            if (valA === '' && valB === '') return false;
+                            const numA = Number(valA);
+                            const numB = Number(valB);
+                            if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+                                return Math.abs(numA - numB) > 0.001; 
+                            }
                             return valA.toLowerCase() !== valB.toLowerCase();
                         };
 
                         if (Math.abs(Number(v.unit_cost) - Number(unitCost)) > 0.01) changes.push('Cost');
-                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || 'Empty'} -> ${row.size}`);
-                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || 'Empty'} -> ${row.cartonSize}`);
-                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || 'Empty'} -> ${row.wearLayer}`);
-                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || 'Empty'} -> ${row.thickness}`);
+                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
+                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
+                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
+                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
 
                         action = changes.length > 0 ? 'update' : 'match';
                         
@@ -259,19 +323,25 @@ router.post('/preview', verifySession(), async (req, res) => {
                     if (nameRes.rows.length > 0) {
                         const v = nameRes.rows[0];
                         matchFound = true;
-
                         const changes = [];
-                        const isDiff = (a, b) => {
-                            const valA = a === null || a === undefined ? '' : String(a).trim();
-                            const valB = b === null || b === undefined ? '' : String(b).trim();
+
+                        const isDiff = (dbVal, csvVal) => {
+                            const valA = dbVal === null || dbVal === undefined ? '' : String(dbVal).trim();
+                            const valB = csvVal === null || csvVal === undefined ? '' : String(csvVal).trim();
+                            if (valA === '' && valB === '') return false;
+                            const numA = Number(valA);
+                            const numB = Number(valB);
+                            if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+                                return Math.abs(numA - numB) > 0.001; 
+                            }
                             return valA.toLowerCase() !== valB.toLowerCase();
                         };
 
                         if (Math.abs(Number(v.unit_cost) - Number(unitCost)) > 0.01) changes.push('Cost');
-                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || 'Empty'} -> ${row.size}`);
-                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || 'Empty'} -> ${row.cartonSize}`);
-                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || 'Empty'} -> ${row.wearLayer}`);
-                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || 'Empty'} -> ${row.thickness}`);
+                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
+                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
+                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
+                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
 
                         action = changes.length > 0 ? 'update' : 'match';
 
@@ -326,10 +396,6 @@ const calculateRetailPrice = (cost, markup, method = 'Markup') => {
 // Commit changes to the database
 router.post('/execute', verifySession(), async (req, res) => {
     const { previewResults, strategy, defaults } = req.body;
-
-    const sampleUpdate = previewResults.find(r => r.status === 'update');
-    if (sampleUpdate) console.log("👉 DIAGNOSTIC Update Payload Sample:", JSON.stringify(sampleUpdate, null, 2));
-
     const userId = req.session.getUserId();
     const client = await pool.connect();
 
@@ -352,11 +418,8 @@ router.post('/execute', verifySession(), async (req, res) => {
         for (const row of previewResults) {
             if (row.status === 'error' || row.status === 'ignored' || row.status === 'match') continue;
 
-            // 1. UPDATE EXISTING
             if (row.status === 'update' && row.affectedVariants) {
                 for (const v of row.affectedVariants) {
-                    console.log(`👉 DIAGNOSTIC SQL UPDATE: Variant ${v.id}, Size: "${v.newSize}" -> "${cleanText(v.newSize)}"`);
-
                     await client.query(`
                         UPDATE product_variants 
                         SET 
@@ -381,7 +444,6 @@ router.post('/execute', verifySession(), async (req, res) => {
                 }
             }
 
-            // 2. CREATE NEW
             if (row.status === 'new') {
                 const pName = cleanText(row.productName);
                 const vName = cleanText(row.variantName) || 'Standard';

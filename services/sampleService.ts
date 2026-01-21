@@ -6,6 +6,7 @@ const getApiUrl = () => getEndpoint('/api/products');
 // --- NEW: Import/Alias Service Methods ---
 // We point directly to /api/import/aliases for these
 const getAliasUrl = () => getEndpoint('/api/import/aliases');
+const getProductAliasUrl = () => getEndpoint('/api/import/aliases/products');
 
 export const getSizeAliases = async (): Promise<SizeAlias[]> => {
     const response = await fetch(getAliasUrl());
@@ -24,6 +25,29 @@ export const createSizeAlias = async (aliasText: string, mappedSize: string): Pr
     if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to save alias.');
+    }
+    return response.json();
+};
+
+// --- PRODUCT NAME ALIASES ---
+
+export const getProductAliases = async (): Promise<any[]> => {
+    const response = await fetch(getProductAliasUrl());
+    if (!response.ok) {
+        throw new Error('Failed to fetch product aliases.');
+    }
+    return response.json();
+};
+
+export const createProductAlias = async (aliasText: string, mappedProductName: string): Promise<any> => {
+    const response = await fetch(getProductAliasUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aliasText, mappedProductName })
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save product alias.');
     }
     return response.json();
 };

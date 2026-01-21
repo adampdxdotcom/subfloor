@@ -21,11 +21,24 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
 
     // Initialize state when results arrive
     useEffect(() => {
-        setRows(results.map(r => ({ 
+        const processed = results.map(r => ({ 
             ...r, 
             isSkipped: r.status === 'error',
             hasSample: false // Default to false (Catalog Only)
-        })));
+        }));
+
+        // SORT: Errors -> New -> Updates -> Matches
+        processed.sort((a, b) => {
+            const score = (status: string) => {
+                if (status === 'error') return 0;
+                if (status === 'new') return 1;
+                if (status === 'update') return 2;
+                return 3; // match
+            };
+            return score(a.status) - score(b.status);
+        });
+
+        setRows(processed);
     }, [results]);
 
     const handleToggleSkip = (index: number) => {

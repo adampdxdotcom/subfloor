@@ -11,6 +11,7 @@ interface CleanerAnalysisTableProps {
   setKnownSizes: React.Dispatch<React.SetStateAction<KnownSize[]>>;
   onExport: () => void;
   onReset: () => void;
+  mode: 'SIZES' | 'NAMES' | 'PRICES'; // New Prop
 }
 
 interface SelectionState {
@@ -26,7 +27,8 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
   setRows, 
   setKnownSizes, 
   onExport,
-  onReset
+  onReset,
+  mode
 }) => {
   const [filter, setFilter] = useState<'ALL' | 'MATCHED' | 'UNKNOWN'>('ALL');
   const [selection, setSelection] = useState<SelectionState | null>(null);
@@ -47,10 +49,26 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
   }, [rows]);
 
   const filteredRows = useMemo(() => {
-    if (filter === 'ALL') return rows;
-    if (filter === 'MATCHED') return rows.filter(r => r.status === 'MATCHED');
-    return rows.filter(r => r.status === 'UNKNOWN' || r.status === 'NEW');
-  }, [rows, filter]);
+    let result = rows;
+    if (filter === 'MATCHED') result = rows.filter(r => r.status === 'MATCHED');
+    else if (filter === 'UNKNOWN') result = rows.filter(r => r.status === 'UNKNOWN' || r.status === 'NEW');
+
+    // GROUPING LOGIC FOR NAMES MODE
+    if (mode === 'NAMES') {
+        const groups = new Map();
+        result.forEach(row => {
+            const key = row.targetText;
+            if (!groups.has(key)) {
+                groups.set(key, { ...row, count: 1 });
+            } else {
+                groups.get(key).count++;
+            }
+        });
+        return Array.from(groups.values());
+    }
+
+    return result;
+  }, [rows, filter, mode]);
 
   // Clear selection when clicking outside
   useEffect(() => {
@@ -121,29 +139,45 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
   };
 
   const handleAddToKnown = (row: ParsedRow) => {
-    const size = row.extractedSize;
-    if (!size) return;
+    const value = row.extractedSize;
+    if (!value) return;
     
-    const newLabel = size.trim();
-    const newLabelLower = newLabel.toLowerCase();
+    const cleanValue = value.trim();
     
+    // --- MODE: NAMES ---
+    if (mode === 'NAMES') {
+        const aliasText = row.targetText; // The raw messy name
+        
+        // Save to DB
+        sampleService.createProductAlias(aliasText, cleanValue)
+            .then(() => toast.success(`Learned: "${aliasText}" -> "${cleanValue}"`))
+            .catch(() => toast.error("Failed to save naming rule"));
+
+        // Update UI: Find all rows with this exact raw text and update them
+        setRows(prev => prev.map(r => {
+            if (r.targetText === aliasText) {
+                return { ...r, extractedSize: cleanValue, status: 'MATCHED' };
+            }
+            return r;
+        }));
+        return;
+    }
+
+    // --- MODE: SIZES (Legacy Logic) ---
     // Check if this size already exists in our known list
-    const existingIndex = knownSizes.findIndex(k => k.label.toLowerCase() === newLabelLower);
+    const existingIndex = knownSizes.findIndex(k => k.label.toLowerCase() === cleanValue.toLowerCase());
     
     let updatedKnownSizes = [...knownSizes];
     const matchersToAdd: string[] = [];
 
     // If we have a selection source (e.g. "M122") that is different from the final label ("2x2")
-    // we want to add "M122" as a matcher/alias.
-    if (row.selectionSource && row.selectionSource.toLowerCase() !== newLabelLower) {
+    if (row.selectionSource && row.selectionSource.toLowerCase() !== cleanValue.toLowerCase()) {
         matchersToAdd.push(row.selectionSource);
     }
 
     if (existingIndex >= 0) {
         // Size exists! We might be adding a new alias to it.
         const existing = updatedKnownSizes[existingIndex];
-        
-        // Filter out matchers that already exist
         const uniqueNewMatchers = matchersToAdd.filter(m => 
             !existing.matchers?.some(em => em.toLowerCase() === m.toLowerCase()) &&
             m.toLowerCase() !== existing.label.toLowerCase()
@@ -159,37 +193,25 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
         // New Size entirely
         updatedKnownSizes.push({ 
             id: Date.now().toString(), 
-            label: newLabel,
+            label: cleanValue,
             matchers: matchersToAdd 
         });
     }
 
     setKnownSizes(updatedKnownSizes);
     
-    // --- PERSISTENCE: Save to Database ---
-    // 1. Use highlighted text (selectionSource) if available
-    // 2. Fallback to the full cell text (targetText) if user just typed the answer
     const aliasToSave = row.selectionSource || row.targetText;
-    
-    if (aliasToSave && aliasToSave.toLowerCase() !== newLabelLower) {
-        sampleService.createSizeAlias(aliasToSave, newLabel)
-            .then(() => toast.success(`Learned: "${aliasToSave}" = "${newLabel}"`))
-            .catch(err => {
-                console.error("Failed to save alias", err);
-                toast.error("Failed to save rule. Check console.");
-            });
+    if (aliasToSave && aliasToSave.toLowerCase() !== cleanValue.toLowerCase()) {
+        sampleService.createSizeAlias(aliasToSave, cleanValue)
+            .then(() => toast.success(`Learned: "${aliasToSave}" = "${cleanValue}"`))
+            .catch(() => toast.error("Failed to save rule."));
     }
     
-    // Also save the clean size itself if it's new
-    sampleService.createSize(newLabel).catch(() => {}); 
+    sampleService.createSize(cleanValue).catch(() => {}); 
 
-    // --- FRONTEND UPDATE (Immediate Feedback) ---
-    
-    // Auto-update ALL rows (Rescan logic)
-    const scanTargets = [newLabel, ...matchersToAdd];
-    
-    // Prepare regex for standard dimension format if applicable (12x12)
-    const nakedLabel = newLabel.replace(/["']/g, ''); 
+    // Auto-update ALL rows (Rescan logic for sizes)
+    const scanTargets = [cleanValue, ...matchersToAdd];
+    const nakedLabel = cleanValue.replace(/["']/g, ''); 
     const parts = nakedLabel.split('x'); 
     let dimensionRegex: RegExp | null = null;
     if (parts.length === 2 && !isNaN(parseFloat(parts[0]))) {
@@ -197,30 +219,19 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
     }
 
     setRows(prev => prev.map(r => {
-      // 1. If row already has this exact value extracted, mark matched
-      if (r.extractedSize === newLabel) {
-        return { ...r, status: 'MATCHED' };
+      if (r.extractedSize === cleanValue) return { ...r, status: 'MATCHED' };
+      
+      if (r.status === 'NEW' && r.extractedSize?.toLowerCase() === cleanValue.toLowerCase()) {
+         return { ...r, extractedSize: cleanValue, status: 'MATCHED' };
       }
 
-      // 2. If row was manually set (NEW) and matches (case-insensitive)
-      if (r.status === 'NEW' && r.extractedSize?.toLowerCase() === newLabelLower) {
-         return { ...r, extractedSize: newLabel, status: 'MATCHED' };
-      }
-
-      // 3. Scan UNKNOWN or empty rows for the label OR the alias
       if (r.status === 'UNKNOWN' || !r.extractedSize) {
           const textLower = r.targetText.toLowerCase();
-          
-          // Check if any target (label or alias) is in the text
-          const hit = scanTargets.some(t => textLower.includes(t.toLowerCase()));
-          
-          if (hit) {
-               return { ...r, extractedSize: newLabel, status: 'MATCHED' };
+          if (scanTargets.some(t => textLower.includes(t.toLowerCase()))) {
+               return { ...r, extractedSize: cleanValue, status: 'MATCHED' };
           }
-          
-          // Check regex
           if (dimensionRegex && dimensionRegex.test(r.targetText)) {
-              return { ...r, extractedSize: newLabel, status: 'MATCHED' };
+              return { ...r, extractedSize: cleanValue, status: 'MATCHED' };
           }
       }
       return r;
@@ -329,14 +340,16 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden" ref={tableRef}>
+      <div className="flex-1 overflow-hidden" ref={tableRef}>
         {/* Main Table */}
         <div className="flex-1 overflow-auto bg-surface-container">
             <table className="min-w-full divide-y divide-outline/10">
                 <thead className="bg-surface-container sticky top-0 z-10 shadow-sm">
                     <tr>
                         <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Original Description</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider w-48">Extracted Size</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider w-48">
+                            {mode === 'SIZES' ? 'Extracted Size' : mode === 'NAMES' ? 'Mapped Name' : 'Clean Price'}
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider w-32">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-text-secondary uppercase tracking-wider w-32">Actions</th>
                     </tr>
@@ -345,16 +358,40 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                     {filteredRows.map((row) => (
                         <tr key={row.id} className={row.status === 'UNKNOWN' ? 'bg-warning-container/10' : ''}>
                             <td 
-                                className="px-6 py-4 text-sm text-text-primary break-words max-w-md cursor-text"
+                                className="px-6 py-4 text-sm text-text-primary break-words max-w-md cursor-text relative group"
                                 onMouseUp={(e) => handleTextMouseUp(e, row.id)}
                             >
                                 {row.targetText}
+                                {/* Group Count Badge */}
+                                {(row as any).count > 1 && (
+                                    <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-surface-container-highest text-text-secondary border border-outline/10">
+                                        x{(row as any).count}
+                                    </span>
+                                )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                                 <input 
                                     type="text" 
                                     value={row.extractedSize || ''}
-                                    onChange={(e) => handleUpdateRowSize(row.id, e.target.value)}
+                                    onChange={(e) => {
+                                        // If in NAMES mode, updating one row updates ALL with same text
+                                        if (mode === 'NAMES') {
+                                            const newVal = e.target.value;
+                                            setRows(prev => prev.map(r => {
+                                                if (r.targetText === row.targetText) {
+                                                    return { 
+                                                        ...r, 
+                                                        extractedSize: newVal,
+                                                        status: newVal ? 'NEW' : 'UNKNOWN',
+                                                        manualOverride: true 
+                                                    };
+                                                }
+                                                return r;
+                                            }));
+                                        } else {
+                                            handleUpdateRowSize(row.id, e.target.value);
+                                        }
+                                    }}
                                     onDragOver={(e) => {
                                         e.preventDefault();
                                         e.dataTransfer.dropEffect = 'copy';
@@ -369,7 +406,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                                         row.status === 'NEW' ? 'border-primary bg-primary-container/20 text-text-primary' :
                                         'border-outline/20 bg-surface-container-highest text-text-primary'
                                     }`}
-                                    placeholder="?"
+                                    placeholder={mode === 'NAMES' ? 'Map to...' : '?'}
                                 />
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -380,7 +417,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                                 )}
                                 {row.status === 'NEW' && (
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary-container text-primary">
-                                        <AlertCircle className="w-3 h-3 mr-1" /> New Size
+                                        <AlertCircle className="w-3 h-3 mr-1" /> New Entry
                                     </span>
                                 )}
                                 {row.status === 'UNKNOWN' && (
@@ -394,7 +431,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                                     <button 
                                         onClick={() => handleAddToKnown(row)}
                                         className="text-primary hover:text-primary-hover flex items-center text-xs font-bold uppercase tracking-wide"
-                                        title={row.manualOverride ? "Update Known Sizes with this rule" : "Add to Known Sizes list"}
+                                        title={row.manualOverride ? "Update Known rules" : "Add to memory"}
                                     >
                                         {row.manualOverride ? (
                                             <><RefreshCw className="w-3 h-3 mr-1" /> Change Rule</>
@@ -417,7 +454,8 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
             </table>
         </div>
 
-        {/* Sidebar: Known Sizes */}
+        {/* Sidebar: Known Sizes (Only in SIZES mode) */}
+        {mode === 'SIZES' && (
         <div className="w-64 bg-surface-container-high border-l border-outline/10 flex flex-col shadow-xl z-20">
             <div className="p-4 border-b border-outline/10 bg-surface-container-low">
                 <h3 className="font-bold text-text-primary flex items-center gap-2">
@@ -502,6 +540,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                  </form>
              </div>
         </div>
+        )}
       </div>
     </div>
   );
