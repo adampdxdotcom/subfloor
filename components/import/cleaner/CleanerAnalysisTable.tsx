@@ -179,9 +179,9 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                 toast.error("Failed to save rule. Check console.");
             });
     }
+    
     // Also save the clean size itself if it's new
-    // (Note: This usually happens during import, but we can double-ensure here if desired)
-    // sampleService.createSize(newLabel).catch(() => {}); 
+    sampleService.createSize(newLabel).catch(() => {}); 
 
     // --- FRONTEND UPDATE (Immediate Feedback) ---
     
@@ -481,7 +481,11 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                         const form = e.target as HTMLFormElement;
                         const input = form.elements.namedItem('newSize') as HTMLInputElement;
                         if(input.value) {
-                            handleAddToKnown({ extractedSize: input.value } as ParsedRow);
+                            handleAddToKnown({ 
+                                extractedSize: input.value,
+                                targetText: input.value,
+                                status: 'NEW' 
+                            } as ParsedRow);
                             input.value = '';
                         }
                     }}
@@ -502,3 +506,5 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
     </div>
   );
 };
+
+export default CleanerAnalysisTable;
