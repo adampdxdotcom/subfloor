@@ -98,6 +98,7 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
     const activeRows = rows.filter(r => !r.isSkipped);
     const stats = {
         updates: activeRows.filter(r => r.status === 'update').length,
+        matches: activeRows.filter(r => r.status === 'match').length,
         new: activeRows.filter(r => r.status === 'new').length,
         samples: activeRows.filter(r => r.hasSample).length,
         errors: rows.filter(r => r.status === 'error').length
@@ -126,6 +127,9 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                     <div className="flex items-center gap-2 px-3 py-1 bg-success-container text-success rounded-full text-xs font-bold uppercase">
                         <CheckCircle2 size={14} /> {stats.updates} Updates
                     </div>
+                    <div className="flex items-center gap-2 px-3 py-1 bg-surface-container-highest text-text-secondary rounded-full text-xs font-bold uppercase border border-outline/20">
+                        <CheckCircle2 size={14} /> {stats.matches} Matched (No Change)
+                    </div>
                     <div className="flex items-center gap-2 px-3 py-1 bg-primary-container text-primary rounded-full text-xs font-bold uppercase">
                         <PlusCircle size={14} /> {stats.new} New
                     </div>
@@ -143,6 +147,7 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                             <th className="p-3 font-bold w-24">Action</th>
                             <th className="p-3 font-bold">Product Match (Editable)</th>
                             <th className="p-3 font-bold">SKU / Details</th>
+                            <th className="p-3 font-bold">Spec Changes</th>
                             
                             {/* NEW: PHYSICAL SAMPLE COLUMN */}
                             <th className="p-3 font-bold w-48 bg-surface-container-highest/50">
@@ -166,7 +171,7 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                     <tbody className="divide-y divide-outline/10">
                         {/* Top Spacer */}
                         {rowVirtualizer.getVirtualItems().length > 0 && (
-                            <tr><td style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} colSpan={7}></td></tr>
+                            <tr><td style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} colSpan={8}></td></tr>
                         )}
 
                         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -190,11 +195,13 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                                                         ? 'bg-success-container text-success border-success/30'
                                                         : row.status === 'new'
                                                             ? 'bg-primary-container text-primary border-primary/30'
-                                                            : 'bg-error-container text-error border-error/30 cursor-default'
+                                                            : row.status === 'match'
+                                                                ? 'bg-surface-container text-text-tertiary border-outline/20 opacity-70'
+                                                                : 'bg-error-container text-error border-error/30 cursor-default'
                                                 }`}
                                             disabled={row.status === 'error'}
                                         >
-                                            {row.isSkipped ? 'SKIP' : row.status.toUpperCase()}
+                                            {row.isSkipped ? 'SKIP' : row.status === 'match' ? 'MATCH' : row.status.toUpperCase()}
                                         </button>
                                     </td>
                                     <td className="p-3">
@@ -213,6 +220,21 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                                     </td>
                                     <td className="p-3 text-text-secondary font-mono text-xs">{row.sku || '-'}</td>
                                     
+                                    {/* SPEC CHANGES COLUMN */}
+                                    <td className="p-3 text-xs">
+                                        {row.affectedVariants?.length > 0 && row.affectedVariants[0].changes?.length > 0 ? (
+                                            <ul className="list-disc pl-4 space-y-0.5">
+                                                {row.affectedVariants[0].changes
+                                                    .filter((c: string) => c !== 'Cost') // Cost is shown in financial cols
+                                                    .map((c: string, i: number) => (
+                                                        <li key={i} className="text-tertiary font-medium">{c}</li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <span className="text-text-secondary opacity-30">-</span>
+                                        )}
+                                    </td>
+
                                     {/* PHYSICAL SAMPLE CHECKBOX */}
                                     <td className="p-3 bg-surface-container-highest/20 text-center">
                                         <button 
@@ -258,7 +280,7 @@ const ImportReview: React.FC<ImportReviewProps> = ({ results, onExecute, isExecu
                         
                         {/* Bottom Spacer */}
                         {rowVirtualizer.getVirtualItems().length > 0 && (
-                            <tr><td style={{ height: `${rowVirtualizer.getTotalSize() - rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1].end}px` }} colSpan={7}></td></tr>
+                            <tr><td style={{ height: `${rowVirtualizer.getTotalSize() - rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1].end}px` }} colSpan={8}></td></tr>
                         )}
                     </tbody>
                 </table>

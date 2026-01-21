@@ -18,6 +18,12 @@ const cleanNumber = (val) => {
     return isNaN(num) ? null : num;
 };
 
+const cleanString = (str) => {
+    if (str === null || str === undefined) return '';
+    const s = String(str);
+    return s.replace(/\0/g, '').trim();
+};
+
 // =================================================================
 //  PROFILE MANAGEMENT (Saving your mappings)
 // =================================================================
@@ -132,14 +138,12 @@ router.post('/preview', verifySession(), async (req, res) => {
             let affectedVariants = []; // Stores the specific DB rows to update
 
             // --- STRATEGY 1: PRODUCT LINE MATCH ---
-            // "Update the whole family based on the parent name"
             if (strategy === 'product_line_match') {
                 if (!productName) {
                     results.push({ ...row, status: 'error', message: 'Missing Product Name' });
                     continue;
                 }
 
-                // 1. Find Parent Product
                 const parentRes = await client.query(
                     `SELECT id, name FROM products WHERE LOWER(name) = LOWER($1) AND is_discontinued = FALSE`, 
                     [cleanText(productName)]
@@ -147,26 +151,44 @@ router.post('/preview', verifySession(), async (req, res) => {
 
                 if (parentRes.rows.length > 0) {
                     const parent = parentRes.rows[0];
-                    action = 'update';
                     
-                    // 2. Fetch ALL children to show the user what will change
                     const variantsRes = await client.query(
-                        `SELECT id, name, unit_cost, retail_price FROM product_variants WHERE product_id = $1`,
+                        `SELECT id, name, unit_cost, retail_price, size, carton_size, wear_layer, thickness 
+                         FROM product_variants WHERE product_id = $1`,
                         [parent.id]
                     );
                     
-                    affectedVariants = variantsRes.rows.map(v => ({
-                        id: v.id,
-                        name: v.name,
-                        oldCost: v.unit_cost,
-                        newCost: unitCost,
-                        oldRetail: v.retail_price,
-                        newRetail: retailPrice,
-                        newSize: row.size,
-                        newCartonSize: row.cartonSize,
-                        newWearLayer: row.wearLayer,
-                        newThickness: row.thickness
-                    }));
+                    affectedVariants = variantsRes.rows.map(v => {
+                        const changes = [];
+                        const isDiff = (a, b) => {
+                            const valA = a === null || a === undefined ? '' : String(a).trim();
+                            const valB = b === null || b === undefined ? '' : String(b).trim();
+                            return valA.toLowerCase() !== valB.toLowerCase();
+                        };
+
+                        if (Math.abs(Number(v.unit_cost) - Number(unitCost)) > 0.01) changes.push('Cost');
+                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || 'Empty'} -> ${row.size}`);
+                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || 'Empty'} -> ${row.cartonSize}`);
+                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || 'Empty'} -> ${row.wearLayer}`);
+                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || 'Empty'} -> ${row.thickness}`);
+
+                        return {
+                            id: v.id,
+                            name: v.name,
+                            oldCost: v.unit_cost,
+                            newCost: unitCost,
+                            oldRetail: v.retail_price,
+                            newRetail: retailPrice,
+                            newSize: row.size,
+                            newCartonSize: row.cartonSize,
+                            newWearLayer: row.wearLayer,
+                            newThickness: row.thickness,
+                            changes 
+                        };
+                    });
+                    
+                    const hasChanges = affectedVariants.some(v => v.changes.length > 0);
+                    action = hasChanges ? 'update' : 'match';
                     
                     details = {
                         matchType: 'Parent Product',
@@ -177,24 +199,37 @@ router.post('/preview', verifySession(), async (req, res) => {
             } 
             
             // --- STRATEGY 2: VARIANT MATCH ---
-            // "Update specific items by SKU or Exact Name"
             else if (strategy === 'variant_match') {
                 let matchFound = false;
 
-                // A. Try SKU Match (High Confidence)
                 if (sku) {
                     const skuRes = await client.query(
-                        `SELECT v.id, v.name, v.unit_cost, v.retail_price, p.name as product_name 
+                        `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness, p.name as product_name 
                          FROM product_variants v 
                          JOIN products p ON v.product_id = p.id 
                          WHERE v.sku = $1`,
-                        [cleanText(sku ? sku.toString() : '')]
+                        [cleanString(sku ? sku.toString() : '')]
                     );
                     
                     if (skuRes.rows.length > 0) {
                         const v = skuRes.rows[0];
                         matchFound = true;
-                        action = 'update';
+                        
+                        const changes = [];
+                        const isDiff = (a, b) => {
+                            const valA = a === null || a === undefined ? '' : String(a).trim();
+                            const valB = b === null || b === undefined ? '' : String(b).trim();
+                            return valA.toLowerCase() !== valB.toLowerCase();
+                        };
+
+                        if (Math.abs(Number(v.unit_cost) - Number(unitCost)) > 0.01) changes.push('Cost');
+                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || 'Empty'} -> ${row.size}`);
+                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || 'Empty'} -> ${row.cartonSize}`);
+                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || 'Empty'} -> ${row.wearLayer}`);
+                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || 'Empty'} -> ${row.thickness}`);
+
+                        action = changes.length > 0 ? 'update' : 'match';
+                        
                         affectedVariants.push({
                             id: v.id,
                             name: `${v.product_name} - ${v.name}`,
@@ -205,16 +240,16 @@ router.post('/preview', verifySession(), async (req, res) => {
                             newSize: row.size,
                             newCartonSize: row.cartonSize,
                             newWearLayer: row.wearLayer,
-                            newThickness: row.thickness
+                            newThickness: row.thickness,
+                            changes
                         });
                         details = { matchType: 'SKU', matchValue: sku };
                     }
                 }
                 
-                // B. Try Name Match (Lower Confidence)
                 if (!matchFound && productName && variantName) {
                     const nameRes = await client.query(
-                        `SELECT v.id, v.name, v.unit_cost, v.retail_price 
+                        `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness 
                          FROM product_variants v 
                          JOIN products p ON v.product_id = p.id 
                          WHERE LOWER(p.name) = LOWER($1) AND LOWER(v.name) = LOWER($2)`,
@@ -224,7 +259,22 @@ router.post('/preview', verifySession(), async (req, res) => {
                     if (nameRes.rows.length > 0) {
                         const v = nameRes.rows[0];
                         matchFound = true;
-                        action = 'update';
+
+                        const changes = [];
+                        const isDiff = (a, b) => {
+                            const valA = a === null || a === undefined ? '' : String(a).trim();
+                            const valB = b === null || b === undefined ? '' : String(b).trim();
+                            return valA.toLowerCase() !== valB.toLowerCase();
+                        };
+
+                        if (Math.abs(Number(v.unit_cost) - Number(unitCost)) > 0.01) changes.push('Cost');
+                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || 'Empty'} -> ${row.size}`);
+                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || 'Empty'} -> ${row.cartonSize}`);
+                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || 'Empty'} -> ${row.wearLayer}`);
+                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || 'Empty'} -> ${row.thickness}`);
+
+                        action = changes.length > 0 ? 'update' : 'match';
+
                         affectedVariants.push({
                             id: v.id,
                             name: v.name,
@@ -235,7 +285,8 @@ router.post('/preview', verifySession(), async (req, res) => {
                             newSize: row.size,
                             newCartonSize: row.cartonSize,
                             newWearLayer: row.wearLayer,
-                            newThickness: row.thickness
+                            newThickness: row.thickness,
+                            changes
                         });
                         details = { matchType: 'Exact Name Match' };
                     }
@@ -259,29 +310,23 @@ router.post('/preview', verifySession(), async (req, res) => {
     }
 });
 
-// --- HELPER: Pricing Engine Logic ---
 const calculateRetailPrice = (cost, markup, method = 'Markup') => {
     const costNum = Number(cost);
     const markupNum = Number(markup);
-
     if (isNaN(costNum) || costNum <= 0) return 0;
     if (isNaN(markupNum) || markupNum <= 0) return costNum;
-
     if (method === 'Margin') {
-        if (markupNum >= 100) return costNum; // Avoid division by zero/negative
+        if (markupNum >= 100) return costNum;
         return costNum / (1 - markupNum / 100);
     }
-    // Default to Markup
     return costNum * (1 + markupNum / 100);
 };
-
 
 // POST /api/import/execute
 // Commit changes to the database
 router.post('/execute', verifySession(), async (req, res) => {
     const { previewResults, strategy, defaults } = req.body;
 
-    // LOG 2: Check the incoming payload for an update row
     const sampleUpdate = previewResults.find(r => r.status === 'update');
     if (sampleUpdate) console.log("👉 DIAGNOSTIC Update Payload Sample:", JSON.stringify(sampleUpdate, null, 2));
 
@@ -294,32 +339,24 @@ router.post('/execute', verifySession(), async (req, res) => {
         let updates = 0;
         let created = 0;
 
-        // --- PRE-FETCH SYSTEM SETTINGS ---
         const settingsRes = await client.query(`SELECT settings FROM system_preferences WHERE key = 'pricing_settings'`);
-        let globalPricing = { retailMarkup: 0, calculationMethod: 'Markup' }; // Default values
+        let globalPricing = { retailMarkup: 0, calculationMethod: 'Markup' };
         
         if (settingsRes.rows.length > 0 && settingsRes.rows[0].settings) {
-            // Since it's a jsonb column, it should already be an object
             const dbSettings = settingsRes.rows[0].settings;
-            
-            // Merge with defaults to ensure keys always exist, even if DB object is incomplete
             globalPricing = { ...globalPricing, ...dbSettings };
         }
 
-        const vendorCache = {}; // Cache to avoid re-querying vendors
+        const vendorCache = {}; 
 
         for (const row of previewResults) {
-            // Skip errors/ignored
-            if (row.status === 'error' || row.status === 'ignored') continue;
+            if (row.status === 'error' || row.status === 'ignored' || row.status === 'match') continue;
 
             // 1. UPDATE EXISTING
             if (row.status === 'update' && row.affectedVariants) {
                 for (const v of row.affectedVariants) {
-                    // LOG 3: Check specific values before SQL
                     console.log(`👉 DIAGNOSTIC SQL UPDATE: Variant ${v.id}, Size: "${v.newSize}" -> "${cleanText(v.newSize)}"`);
 
-                    // Here we blindly update cost/retail based on the preview data
-                    // We also safely update specs (Size, Layer, Thickness) if provided
                     await client.query(`
                         UPDATE product_variants 
                         SET 
@@ -336,7 +373,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                         v.newRetail || v.oldRetail, 
                         v.id,
                         cleanText(v.newSize),
-                        cleanNumber(v.newCartonSize), // Explicitly cast to Number or Null
+                        cleanNumber(v.newCartonSize),
                         cleanText(v.newWearLayer),
                         cleanText(v.newThickness)
                     ]); 
@@ -346,35 +383,26 @@ router.post('/execute', verifySession(), async (req, res) => {
 
             // 2. CREATE NEW
             if (row.status === 'new') {
-                // Clean inputs
                 const pName = cleanText(row.productName);
-                const vName = cleanText(row.variantName) || 'Standard'; // Default if missing
+                const vName = cleanText(row.variantName) || 'Standard';
                 const manufName = cleanText(row.manufacturer);
 
-                // Resolve Manufacturer ID 
                 let manufId = null;
-                
-                // Priority 1: CSV Name
                 if (manufName) {
                     const manufRes = await client.query(`SELECT id FROM vendors WHERE LOWER(name) = LOWER($1)`, [manufName.toLowerCase()]);
                     if (manufRes.rows.length > 0) manufId = manufRes.rows[0].id;
                 } 
-                // Priority 2: Global Default
                 else if (defaults?.manufacturerId) {
                     manufId = defaults.manufacturerId;
                 }
 
-                // Find or Create Parent
                 let productId;
                 const parentRes = await client.query(`SELECT id FROM products WHERE LOWER(name) = LOWER($1)`, [pName.toLowerCase()]);
                 
                 if (parentRes.rows.length > 0) {
                     productId = parentRes.rows[0].id;
                 } else {
-                    // Determine Type: CSV -> Default -> 'Material'
                     const pType = cleanText(row.productType) || defaults?.productType || 'Material';
-                    
-                    // Create Parent
                     const newParent = await client.query(`
                         INSERT INTO products (name, manufacturer_id, product_type)
                         VALUES ($1, $2, $3)
@@ -383,10 +411,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                     productId = newParent.rows[0].id;
                 }
 
-                // --- PRICING LOGIC ---
                 let finalRetailPrice = row.retailPrice || 0;
-                
-                // If no retail price is provided, calculate it
                 if (!finalRetailPrice && row.unitCost > 0) {
                     let vendorPricing = null;
                     if (manufId) {
@@ -396,15 +421,11 @@ router.post('/execute', verifySession(), async (req, res) => {
                         }
                         vendorPricing = vendorCache[manufId];
                     }
-
-                    // Waterfall: Vendor > Global
                     const markup = vendorPricing?.default_markup || globalPricing.retailMarkup;
                     const method = vendorPricing?.pricing_method || globalPricing.calculationMethod;
-                    
                     finalRetailPrice = calculateRetailPrice(row.unitCost, markup, method);
                 }
 
-                // Create Variant
                 await client.query(`
                     INSERT INTO product_variants (product_id, name, sku, size, unit_cost, retail_price, carton_size, has_sample, wear_layer, thickness)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -414,18 +435,16 @@ router.post('/execute', verifySession(), async (req, res) => {
                     cleanText(row.sku), 
                     cleanText(row.size), 
                     row.unitCost || 0, 
-                    finalRetailPrice, // Use the calculated price
+                    finalRetailPrice, 
                     row.cartonSize || null,
-                    row.hasSample || false, // Read the checkbox value from the review step
+                    row.hasSample || false,
                     cleanText(row.wearLayer),
                     cleanText(row.thickness)
                 ]);
 
-                // SYNC SIZES: Ensure this size is added to the global "Known Sizes" list
                 if (row.size) {
                     const cleanSize = cleanText(row.size);
                     if (cleanSize) {
-                        // Corrected table and column name
                         await client.query(`
                             INSERT INTO standard_sizes (size_value) 
                             VALUES ($1) 
@@ -433,18 +452,15 @@ router.post('/execute', verifySession(), async (req, res) => {
                         `, [cleanSize]);
                     }
                 }
-
                 created++;
             }
         }
 
-        // Log the batch activity
         try {
              await logActivity(userId, 'IMPORT', 'BATCH', 'Multiple', { updates, created, strategy });
         } catch (e) { console.warn("Failed to log import activity", e); }
         
         await client.query('COMMIT');
-        
         res.json({ success: true, updates, created });
 
     } catch (err) {
