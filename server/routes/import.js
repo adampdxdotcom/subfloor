@@ -154,7 +154,11 @@ router.post('/preview', verifySession(), async (req, res) => {
                         oldCost: v.unit_cost,
                         newCost: unitCost,
                         oldRetail: v.retail_price,
-                        newRetail: retailPrice
+                        newRetail: retailPrice,
+                        newSize: row.size,
+                        newCartonSize: row.cartonSize,
+                        newWearLayer: row.wearLayer,
+                        newThickness: row.thickness
                     }));
                     
                     details = {
@@ -190,7 +194,11 @@ router.post('/preview', verifySession(), async (req, res) => {
                             oldCost: v.unit_cost,
                             newCost: unitCost,
                             oldRetail: v.retail_price,
-                            newRetail: retailPrice
+                            newRetail: retailPrice,
+                            newSize: row.size,
+                            newCartonSize: row.cartonSize,
+                            newWearLayer: row.wearLayer,
+                            newThickness: row.thickness
                         });
                         details = { matchType: 'SKU', matchValue: sku };
                     }
@@ -216,7 +224,11 @@ router.post('/preview', verifySession(), async (req, res) => {
                             oldCost: v.unit_cost,
                             newCost: unitCost,
                             oldRetail: v.retail_price,
-                            newRetail: retailPrice
+                            newRetail: retailPrice,
+                            newSize: row.size,
+                            newCartonSize: row.cartonSize,
+                            newWearLayer: row.wearLayer,
+                            newThickness: row.thickness
                         });
                         details = { matchType: 'Exact Name Match' };
                     }
@@ -292,11 +304,27 @@ router.post('/execute', verifySession(), async (req, res) => {
             if (row.status === 'update' && row.affectedVariants) {
                 for (const v of row.affectedVariants) {
                     // Here we blindly update cost/retail based on the preview data
+                    // We also safely update specs (Size, Layer, Thickness) if provided
                     await client.query(`
                         UPDATE product_variants 
-                        SET unit_cost = $1, retail_price = $2, updated_at = NOW()
+                        SET 
+                            unit_cost = $1, 
+                            retail_price = $2,
+                            size = COALESCE(NULLIF($4, ''), size),
+                            carton_size = COALESCE(NULLIF($5, ''), carton_size),
+                            wear_layer = COALESCE(NULLIF($6, ''), wear_layer),
+                            thickness = COALESCE(NULLIF($7, ''), thickness),
+                            updated_at = NOW()
                         WHERE id = $3
-                    `, [v.newCost, v.newRetail || v.oldRetail, v.id]); 
+                    `, [
+                        v.newCost, 
+                        v.newRetail || v.oldRetail, 
+                        v.id,
+                        cleanString(v.newSize),
+                        cleanString(v.newCartonSize),
+                        cleanString(v.newWearLayer),
+                        cleanString(v.newThickness)
+                    ]); 
                     updates++;
                 }
             }
@@ -363,8 +391,8 @@ router.post('/execute', verifySession(), async (req, res) => {
 
                 // Create Variant
                 await client.query(`
-                    INSERT INTO product_variants (product_id, name, sku, size, unit_cost, retail_price, carton_size, has_sample)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    INSERT INTO product_variants (product_id, name, sku, size, unit_cost, retail_price, carton_size, has_sample, wear_layer, thickness)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 `, [
                     productId, 
                     vName, 
@@ -373,7 +401,9 @@ router.post('/execute', verifySession(), async (req, res) => {
                     row.unitCost || 0, 
                     finalRetailPrice, // Use the calculated price
                     row.cartonSize || null,
-                    row.hasSample || false // Read the checkbox value from the review step
+                    row.hasSample || false, // Read the checkbox value from the review step
+                    cleanString(row.wearLayer),
+                    cleanString(row.thickness)
                 ]);
 
                 // SYNC SIZES: Ensure this size is added to the global "Known Sizes" list
