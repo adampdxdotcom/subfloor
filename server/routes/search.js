@@ -108,7 +108,7 @@ router.get('/', verifySession(), async (req, res) => {
         ] = await Promise.all([
             pool.query(productsQuery, [searchQuery]),
             pool.query(customersQuery, [searchQuery]),
-            pool.query(installersResult, [searchQuery]),
+            pool.query(installersQuery, [searchQuery]),
             pool.query(projectsQuery, [searchQuery])
         ]);
 
