@@ -214,10 +214,8 @@ const ImportData: React.FC = () => {
                 <SpreadsheetCleanerModal 
                     onClose={() => setIsCleanerModalOpen(false)}
                     onComplete={handleCleaningComplete}
-                    // @ts-ignore - Prop will be added in next step
-                    initialData={rawData}
-                    // @ts-ignore - Prop will be added in next step
-                    fileName={fileName}
+                    initialData={rawData || undefined}
+                    fileName={fileName || undefined}
                 />
             )}
         </div>

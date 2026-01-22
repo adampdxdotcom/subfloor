@@ -30,8 +30,9 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     // --- EFFECTS ---
     // Initialize from props if provided (The "Step 1.5" flow)
     useEffect(() => {
-        if (initialData && fileName && step === 'upload') {
-            setSheetData({ name: fileName, rows: initialData });
+        // Relaxed check: We don't strictly require fileName to start
+        if (initialData && initialData.length > 0 && step === 'upload') {
+            setSheetData({ name: fileName || 'Uploaded File', rows: initialData });
             setStep('selectColumn');
         }
     }, [initialData, fileName]);
