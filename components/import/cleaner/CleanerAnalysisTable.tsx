@@ -138,7 +138,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
       
       setRows(prev => prev.map(row => {
           if (row.id !== selection.id) return row;
-          // Check if this selected text happens to be a known size already
+          
           const isKnown = knownSizes.some(k => k.label.toLowerCase() === selection!.text.toLowerCase());
           
           return {
@@ -202,7 +202,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
         // Update UI: Find all rows with this exact raw text and update them
         setRows(prev => prev.map(r => {
             if (getRowState(r).targetText === aliasText) {
-                return { ...r, extractedName: cleanValue, nameStatus: 'MATCHED' };
+                return { ...r, extractedName: cleanValue, nameStatus: 'MATCHED', manualOverride: false };
             }
             return r;
         }));
@@ -248,7 +248,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
     
     const aliasToSave = row.sizeSelectionSource || targetText;
     if (aliasToSave && aliasToSave.toLowerCase() !== cleanValue.toLowerCase()) {
-        sampleService.createSizeAlias(aliasToSave, cleanValue)
+        sampleService.createSizeAlias(aliasToSave.trim(), cleanValue)
             .then(() => toast.success(`Learned: "${aliasToSave}" = "${cleanValue}"`))
             .catch(() => toast.error("Failed to save rule."));
     }
@@ -265,16 +265,13 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
     }
 
     setRows(prev => prev.map(r => {
-      const { status, value: rowValue, targetText: rowTarget } = getRowState(r);
-      if (rowValue === cleanValue) return { ...r, sizeStatus: 'MATCHED' };
-      
-      if (status === 'NEW' && rowValue?.toLowerCase() === cleanValue.toLowerCase()) {
-         return { ...r, extractedSize: cleanValue, sizeStatus: 'MATCHED' };
-      }
+      const { status, targetText: rowTarget } = getRowState(r);
+      const textLower = (rowTarget || '').toLowerCase();
+      const aliasLower = (aliasToSave || '').toLowerCase();
 
-      if (status === 'UNKNOWN' || !rowValue) {
-          const textLower = (rowTarget || '').toLowerCase();
-          if (scanTargets.some(t => textLower.includes(t.toLowerCase()))) {
+      // If this row has the exact same messy text we just learned, or contains the alias
+      if (status !== 'MATCHED') {
+          if (textLower === aliasLower || scanTargets.some(t => textLower.includes(t.toLowerCase()))) {
                return { ...r, extractedSize: cleanValue, sizeStatus: 'MATCHED' };
           }
           if (dimensionRegex && dimensionRegex.test(rowTarget || '')) {

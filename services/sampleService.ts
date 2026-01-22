@@ -76,6 +76,14 @@ export const searchProductNames = async (query: string = ''): Promise<string[]> 
     return uniqueNames as string[];
 };
 
+export const getAllProductNames = async (): Promise<string[]> => {
+    const response = await fetch(`${getEndpoint('/api/products')}/names`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch all product names.');
+    }
+    return response.json();
+};
+
 // ----------------------------------------
 
 export interface SizeStat {

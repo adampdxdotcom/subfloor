@@ -80,10 +80,12 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         const fetchBrain = async () => {
             setIsBrainLoading(true);
             try {
-                const stats = await sampleService.getUniqueSizeStats();
-                const aliases = await sampleService.getSizeAliases();
-                const prodAliases = await sampleService.getProductAliases();
-                const prodNames = await sampleService.getAllProductNames();
+                const [allSizes, aliases, prodAliases, prodNames] = await Promise.all([
+                    sampleService.getUniqueSizes(),
+                    sampleService.getSizeAliases(),
+                    sampleService.getProductAliases(),
+                    sampleService.getAllProductNames()
+                ]);
 
                 setKnownProductAliases(prodAliases || []);
 
@@ -99,13 +101,19 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                 matchers.sort((a, b) => b.searchText.length - a.searchText.length);
                 setNameMatchers(matchers);
 
-                if (Array.isArray(stats)) {
-                    const dbSizes: KnownSize[] = stats.map((s: any) => {
-                        const myAliases = aliases.filter(a => a.mappedSize === s.value).map(a => a.aliasText);
-                        return { id: s.value, label: s.value, matchers: myAliases };
-                    });
-                    setKnownSizes(dbSizes);
-                }
+                // Build a unified list of sizes from standard_sizes, active products, and aliases
+                const masterSizeLabels = new Set([
+                    ...(allSizes || []),
+                    ...(aliases || []).map(a => a.mappedSize)
+                ]);
+
+                const dbSizes: KnownSize[] = Array.from(masterSizeLabels).map(sizeLabel => ({
+                    id: sizeLabel,
+                    label: sizeLabel,
+                    matchers: (aliases || []).filter(a => a.mappedSize === sizeLabel).map(a => a.aliasText)
+                }));
+                
+                setKnownSizes(dbSizes);
             } catch (err) {
                 console.error("Failed to load cleaner brain:", err);
             } finally {
@@ -278,24 +286,20 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                         <CleanerAnalysisTable 
                             rows={rows}
                             knownSizes={knownSizes}
-                            setRows={(newRowsOrFn) => {
-                                setRows(prev => {
-                                    const nextRows = typeof newRowsOrFn === 'function' ? newRowsOrFn(prev) : newRowsOrFn;
-                                    const currentCol = columnMap.description;
-                                    if (currentCol) {
-                                        setCleanDataMap(prevMap => {
-                                            let newMap = { ...prevMap };
-                                            nextRows.forEach((r) => {
-                                                const key = r.id;
-                                                if (!newMap[key]) newMap[key] = {};
-                                                if (r.extractedSize) {
-                                                    newMap[key][currentCol] = r.extractedSize;
-                                                }
-                                            });
-                                            return newMap;
-                                        });
-                                    }
-                                    return nextRows;
+                            setRows={(val) => {
+                                const nextRows = typeof val === 'function' ? val(rows) : val;
+                                setRows(nextRows);
+                                
+                                const col = columnMap.description;
+                                if (!col) return;
+                                
+                                setCleanDataMap(prev => {
+                                    const nextMap = { ...prev };
+                                    nextRows.forEach(r => {
+                                        if (!nextMap[r.id]) nextMap[r.id] = {};
+                                        if (r.extractedSize) nextMap[r.id][col] = r.extractedSize;
+                                    });
+                                    return nextMap;
                                 });
                             }}
                             setKnownSizes={setKnownSizes}
@@ -310,24 +314,20 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                         <CleanerAnalysisTable 
                             rows={rows}
                             knownSizes={knownSizes}
-                            setRows={(newRowsOrFn) => {
-                                setRows(prev => {
-                                    const nextRows = typeof newRowsOrFn === 'function' ? newRowsOrFn(prev) : newRowsOrFn;
-                                    const currentCol = columnMap.description;
-                                    if (currentCol) {
-                                        setCleanDataMap(prevMap => {
-                                            let newMap = { ...prevMap };
-                                            nextRows.forEach((r) => {
-                                                const key = r.id;
-                                                if (!newMap[key]) newMap[key] = {};
-                                                if (r.extractedName) {
-                                                    newMap[key][currentCol] = r.extractedName;
-                                                }
-                                            });
-                                            return newMap;
-                                        });
-                                    }
-                                    return nextRows;
+                            setRows={(val) => {
+                                const nextRows = typeof val === 'function' ? val(rows) : val;
+                                setRows(nextRows);
+                                
+                                const col = columnMap.description;
+                                if (!col) return;
+                                
+                                setCleanDataMap(prev => {
+                                    const nextMap = { ...prev };
+                                    nextRows.forEach(r => {
+                                        if (!nextMap[r.id]) nextMap[r.id] = {};
+                                        if (r.extractedName) nextMap[r.id][col] = r.extractedName;
+                                    });
+                                    return nextMap;
                                 });
                             }}
                             setKnownSizes={setKnownSizes}
