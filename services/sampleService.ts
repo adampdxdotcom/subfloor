@@ -51,6 +51,30 @@ export const createProductAlias = async (aliasText: string, mappedProductName: s
     }
     return response.json();
 };
+
+// --- PRODUCT SEARCH (For Cleaner Sidebar) ---
+export const searchProductNames = async (query: string = ''): Promise<string[]> => {
+    const response = await fetch(`${getEndpoint('/api/search')}?q=${encodeURIComponent(query)}&type=products`);
+    if (!response.ok) return [];
+    
+    const data = await response.json();
+    
+    // Handle different response shapes
+    // 1. Empty Search returns a flat array of trending products
+    let rawList = [];
+    if (Array.isArray(data)) {
+        rawList = data;
+    } 
+    // 2. Active Search returns { samples: [...] }
+    else if (data.samples) {
+        rawList = data.samples;
+    }
+
+    // Extract names (API returns 'title', but sometimes 'name' depending on the query source)
+    const uniqueNames = Array.from(new Set(rawList.map((p: any) => p.title || p.name).filter(Boolean)));
+    return uniqueNames as string[];
+};
+
 // ----------------------------------------
 
 export interface SizeStat {

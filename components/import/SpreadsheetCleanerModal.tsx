@@ -30,6 +30,11 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     
     // Analysis State (Master Copy)
     const [rows, setRows] = useState<ParsedRow[]>([]);
+    
+    // WORKBENCH MEMORY: Stores clean values for any column, indexed by Row ID
+    // { "0": { "Column C": "12x24" }, "1": { "Column B": "Coretec" } }
+    const [cleanDataMap, setCleanDataMap] = useState<Record<string, Record<string, string>>>({});
+    
     const [knownSizes, setKnownSizes] = useState<KnownSize[]>([]);
     const [knownProductAliases, setKnownProductAliases] = useState<any[]>([]); 
     const [hasChanges, setHasChanges] = useState(false);
@@ -74,7 +79,8 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         
         const assignedCol = columnMap[cleaningMode];
         if (assignedCol) {
-            handleColumnSelected(assignedCol);
+            setStep('analyze');
+            handleColumnSelected(assignedCol); 
         } else {
             setStep('selectColumn');
         }
@@ -119,48 +125,52 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     const handleColumnSelected = (colKey: string) => {
         if (!sheetData) return;
         
-        // 1. Update the Map
         setColumnMap(prev => ({ ...prev, [cleaningMode]: colKey }));
 
-        // 2. Parse Rows for this specific mode
-        setRows(prevRows => prevRows.map((oldRow) => {
+        setRows(prevRows => prevRows.map((oldRow, idx) => {
             const rowData = oldRow.originalData;
             const rawText = rowData[colKey]?.toString() || '';
             let extracted = '';
             let isKnown = false;
-
-            if (cleaningMode === 'SIZES') {
-                extracted = normalizeSize(rawText);
-                isKnown = knownSizes.some(k => k.label.toLowerCase() === extracted.toLowerCase());
-                if (!isKnown) {
-                    for (const known of knownSizes) {
-                        if (known.matchers?.some(alias => rawText.toLowerCase().includes(alias.toLowerCase()))) {
-                            extracted = known.label;
-                            isKnown = true;
-                            break;
+            
+            const rowId = idx.toString();
+            if (cleanDataMap[rowId] && cleanDataMap[rowId][colKey]) {
+                extracted = cleanDataMap[rowId][colKey];
+                isKnown = true;
+            } else {
+                if (cleaningMode === 'SIZES') {
+                    extracted = normalizeSize(rawText);
+                    isKnown = knownSizes.some(k => k.label.toLowerCase() === extracted.toLowerCase());
+                    if (!isKnown) {
+                        for (const known of knownSizes) {
+                            if (known.matchers?.some(alias => rawText.toLowerCase().includes(alias.toLowerCase()))) {
+                                extracted = known.label;
+                                isKnown = true;
+                                break;
+                            }
                         }
                     }
+                } 
+                else if (cleaningMode === 'NAMES') {
+                    const matchedAlias = knownProductAliases.find(p => p.aliasText.toLowerCase() === rawText.toLowerCase());
+                    if (matchedAlias) {
+                        extracted = matchedAlias.mappedProductName;
+                        isKnown = true;
+                    } else {
+                        extracted = rawText; 
+                        isKnown = false; 
+                    }
                 }
-            } 
-            else if (cleaningMode === 'NAMES') {
-                const matchedAlias = knownProductAliases.find(p => p.aliasText.toLowerCase() === rawText.toLowerCase());
-                if (matchedAlias) {
-                    extracted = matchedAlias.mappedProductName;
-                    isKnown = true;
-                } else {
-                    extracted = rawText; 
-                    isKnown = false; 
+                else if (cleaningMode === 'PRICES') {
+                     const num = parseFloat(rawText.replace(/[^0-9.]/g, ''));
+                     if (!isNaN(num)) {
+                         extracted = num.toFixed(2);
+                         isKnown = true; 
+                     } else {
+                         extracted = rawText;
+                         isKnown = false;
+                     }
                 }
-            }
-            else if (cleaningMode === 'PRICES') {
-                 const num = parseFloat(rawText.replace(/[^0-9.]/g, ''));
-                 if (!isNaN(num)) {
-                     extracted = num.toFixed(2);
-                     isKnown = true; 
-                 } else {
-                     extracted = rawText;
-                     isKnown = false;
-                 }
             }
 
             return {
@@ -178,21 +188,15 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     const handleFinalExport = () => {
         if (!sheetData) { onClose(); return; }
 
-        const activeColumn = columnMap[cleaningMode];
-        
-        if (!activeColumn) {
-             onComplete(sheetData.rows);
-             onClose();
-             return;
-        }
-
         const cleanResult = sheetData.rows.map((originalRow, i) => {
-            const cleanRow = rows[i];
-            const newVal = cleanRow.extractedSize;
-            return {
-                ...originalRow,
-                [activeColumn]: newVal || originalRow[activeColumn]
-            };
+            const updates = cleanDataMap[i] || {};
+            const finalRow = { ...originalRow };
+            
+            Object.keys(updates).forEach(colKey => {
+                finalRow[colKey] = updates[colKey];
+            });
+            
+            return finalRow;
         });
 
         onComplete(cleanResult);
@@ -204,6 +208,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
             setStep('upload');
             setSheetData(null);
             setColumnMap({ SIZES: null, NAMES: null, PRICES: null });
+            setCleanDataMap({});
             setRows([]);
         }
     };
@@ -212,7 +217,6 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-8">
             <div className="w-full max-w-6xl h-full max-h-[90vh] bg-surface-container rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
                 
-                {/* HEADER */}
                 <div className="flex items-center justify-between p-6 border-b border-outline/10 bg-surface-container-high">
                     <div className="flex items-center gap-6">
                         <div>
@@ -224,7 +228,6 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                             </p>
                         </div>
 
-                        {/* MODE SWITCHER */}
                         {step !== 'upload' && (
                             <div className="hidden md:flex bg-surface-container-highest rounded-lg p-1 border border-outline/10">
                                 {(['SIZES', 'NAMES', 'PRICES'] as const).map(mode => (
@@ -292,7 +295,25 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                         <CleanerAnalysisTable 
                             rows={rows}
                             knownSizes={knownSizes}
-                            setRows={setRows}
+                            setRows={(newRowsOrFn) => {
+                                setRows(prev => {
+                                    const nextRows = typeof newRowsOrFn === 'function' ? newRowsOrFn(prev) : newRowsOrFn;
+                                    const currentCol = columnMap[cleaningMode];
+                                    if (currentCol) {
+                                        setCleanDataMap(prevMap => {
+                                            const newMap = { ...prevMap };
+                                            nextRows.forEach((r, i) => {
+                                                if (r.extractedSize) {
+                                                    if (!newMap[i]) newMap[i] = {};
+                                                    newMap[i][currentCol] = r.extractedSize;
+                                                }
+                                            });
+                                            return newMap;
+                                        });
+                                    }
+                                    return nextRows;
+                                });
+                            }}
                             setKnownSizes={setKnownSizes}
                             onExport={handleFinalExport}
                             onReset={handleReset}

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ParsedRow, KnownSize } from '../../../types';
 import * as sampleService from '../../../services/sampleService'; // Import Service
-import { Check, X, AlertCircle, Plus, ArrowRight, Save, MousePointerClick, GripVertical, RefreshCw } from 'lucide-react';
+import { Check, X, AlertCircle, Plus, ArrowRight, Save, MousePointerClick, GripVertical, RefreshCw, Search, Box } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface CleanerAnalysisTableProps {
@@ -37,7 +37,24 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
+  // NAME CLEANER STATE
+  const [productSearch, setProductSearch] = useState('');
+  const [productResults, setProductResults] = useState<string[]>([]);
+
   const tableRef = useRef<HTMLDivElement>(null);
+
+  // Fetch product names for sidebar
+  useEffect(() => {
+      if (mode !== 'NAMES') return;
+      
+      const delayDebounce = setTimeout(() => {
+          sampleService.searchProductNames(productSearch).then(names => {
+              setProductResults(names);
+          });
+      }, 300);
+
+      return () => clearTimeout(delayDebounce);
+  }, [productSearch, mode]);
 
   const stats = useMemo(() => {
     return {
@@ -398,8 +415,25 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                                     }}
                                     onDrop={(e) => {
                                         e.preventDefault();
-                                        const size = e.dataTransfer.getData('application/size');
-                                        if (size) handleUpdateRowSize(row.id, size);
+                                        const value = e.dataTransfer.getData('application/size'); // We reuse this key for both
+                                        if (!value) return;
+
+                                        // LOGIC: Same as onChange
+                                        if (mode === 'NAMES') {
+                                            setRows(prev => prev.map(r => {
+                                                if (r.targetText === row.targetText) {
+                                                    return { 
+                                                        ...r, 
+                                                        extractedSize: value,
+                                                        status: 'NEW', // It's a new mapping
+                                                        manualOverride: true 
+                                                    };
+                                                }
+                                                return r;
+                                            }));
+                                        } else {
+                                            handleUpdateRowSize(row.id, value);
+                                        }
                                     }}
                                     className={`w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary outline-none transition-colors ${
                                         row.status === 'MATCHED' ? 'border-success bg-success-container/20 text-text-primary' :
@@ -539,6 +573,57 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                      </button>
                  </form>
              </div>
+        </div>
+        )}
+
+        {/* Sidebar: Existing Products (Only in NAMES mode) */}
+        {mode === 'NAMES' && (
+        <div className="w-72 bg-surface-container-high border-l border-outline/10 flex flex-col shadow-xl z-20">
+            <div className="p-4 border-b border-outline/10 bg-surface-container-low space-y-3">
+                <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-text-primary flex items-center gap-2">
+                        <Box className="w-4 h-4" /> Existing Products
+                    </h3>
+                    <span className="text-[10px] bg-surface-container-highest px-2 py-0.5 rounded text-text-secondary">
+                        {productResults.length} found
+                    </span>
+                </div>
+                
+                {/* Search Bar */}
+                <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+                    <input 
+                        value={productSearch}
+                        onChange={(e) => setProductSearch(e.target.value)}
+                        placeholder="Search product names..." 
+                        className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-container border border-outline/20 rounded-lg text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                    />
+                </div>
+                <p className="text-xs text-text-secondary">Drag product to row to map.</p>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-2 space-y-1">
+                {productResults.map((name, i) => (
+                    <div 
+                        key={i} 
+                        draggable
+                        onDragStart={(e) => {
+                            e.dataTransfer.setData('application/size', name); // We reuse the drag handler
+                            e.dataTransfer.effectAllowed = 'copy';
+                        }}
+                        className="group flex items-center gap-3 px-3 py-2 text-sm text-text-primary bg-surface-container-highest rounded-lg hover:bg-surface-container hover:text-primary transition-colors cursor-grab active:cursor-grabbing"
+                    >
+                        <GripVertical className="w-3 h-3 text-text-secondary flex-shrink-0 opacity-50 group-hover:opacity-100" />
+                        <span className="truncate font-medium">{name}</span>
+                    </div>
+                ))}
+                
+                {productResults.length === 0 && (
+                    <div className="text-center py-8 text-xs text-text-secondary italic">
+                        No products found matching "{productSearch}"
+                    </div>
+                )}
+            </div>
         </div>
         )}
       </div>

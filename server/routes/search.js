@@ -4,10 +4,36 @@ import { verifySession } from 'supertokens-node/recipe/session/framework/express
 
 const router = express.Router();
 
-// GET /api/search?q=<search_term>
+// GET /api/search?q=<search_term>&type=<optional_type>
 router.get('/', verifySession(), async (req, res) => {
     const searchTerm = req.query.q;
+    const typeFilter = req.query.type; // Check if we are asking for a specific type
 
+    // --- EMPTY SEARCH: Return Recent/Trending (If specifically asked for Products) ---
+    if ((!searchTerm || searchTerm.length < 2) && typeFilter === 'products') {
+        try {
+            const recentProducts = await pool.query(`
+                SELECT DISTINCT ON (p.id)
+                    'product' AS type,
+                    p.id,
+                    p.name AS title,
+                    v.name AS subtitle,
+                    COALESCE(p.default_thumbnail_url, p.default_image_url) AS image
+                FROM products p
+                LEFT JOIN vendors v ON p.manufacturer_id = v.id
+                WHERE p.is_discontinued = FALSE
+                ORDER BY p.id, p.updated_at DESC
+                LIMIT 50
+            `);
+            // Return flat array for the sidebar/cleaner components
+            return res.json(recentProducts.rows); 
+        } catch (err) {
+            console.error("Default product fetch failed:", err);
+            return res.json([]);
+        }
+    }
+
+    // --- STANDARD SEARCH ---
     if (!searchTerm || typeof searchTerm !== 'string' || searchTerm.length < 2) {
         return res.json({ customers: [], installers: [], projects: [], products: [] });
     }
@@ -82,7 +108,7 @@ router.get('/', verifySession(), async (req, res) => {
         ] = await Promise.all([
             pool.query(productsQuery, [searchQuery]),
             pool.query(customersQuery, [searchQuery]),
-            pool.query(installersQuery, [searchQuery]),
+            pool.query(installersResult, [searchQuery]),
             pool.query(projectsQuery, [searchQuery])
         ]);
 
