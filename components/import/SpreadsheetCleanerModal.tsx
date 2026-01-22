@@ -307,6 +307,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                             onReset={handleReset}
                             mode={'SIZES'}
                             knownProductAliases={knownProductAliases}
+                            nameMatchers={nameMatchers}
                         />
                     )}
 
@@ -335,6 +336,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                             onReset={handleReset}
                             mode={'NAMES'}
                             knownProductAliases={knownProductAliases}
+                            nameMatchers={nameMatchers}
                         />
                     )}
                 </div>
