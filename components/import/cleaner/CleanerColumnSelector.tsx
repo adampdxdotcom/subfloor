@@ -1,14 +1,15 @@
 import React from 'react';
 import { ExcelSheetData } from '../../../types';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 
 interface CleanerColumnSelectorProps {
   data: ExcelSheetData;
   onConfirm: (columnKey: string) => void;
   onBack: () => void;
+  isBrainLoading: boolean;
 }
 
-export const CleanerColumnSelector: React.FC<CleanerColumnSelectorProps> = ({ data, onConfirm, onBack }) => {
+export const CleanerColumnSelector: React.FC<CleanerColumnSelectorProps> = ({ data, onConfirm, onBack, isBrainLoading }) => {
   const [selectedCol, setSelectedCol] = React.useState<string | null>(null);
 
   // Preview first 5 rows
@@ -29,15 +30,21 @@ export const CleanerColumnSelector: React.FC<CleanerColumnSelectorProps> = ({ da
                 Back
             </button>
             <button
-            disabled={!selectedCol}
+            disabled={!selectedCol || isBrainLoading}
             onClick={() => selectedCol && onConfirm(selectedCol)}
             className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-bold transition-all ${
-                selectedCol 
+                selectedCol && !isBrainLoading
                 ? 'bg-primary text-on-primary hover:bg-primary-hover shadow-sm' 
                 : 'bg-surface-container-highest text-text-secondary cursor-not-allowed'
             }`}
             >
-            Start Extraction <ArrowRight className="w-4 h-4" />
+            {isBrainLoading ? (
+                <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading Memory...
+                </>
+            ) : (
+                <>Start Extraction <ArrowRight className="w-4 h-4" /></>
+            )}
             </button>
         </div>
       </div>

@@ -37,6 +37,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     const [knownSizes, setKnownSizes] = useState<KnownSize[]>([]);
     const [knownProductAliases, setKnownProductAliases] = useState<any[]>([]); 
     const [nameMatchers, setNameMatchers] = useState<{searchText: string, resultText: string}[]>([]);
+    const [isBrainLoading, setIsBrainLoading] = useState(true); // NEW: Loading state for the "brain"
     const [hasChanges, setHasChanges] = useState(false);
 
     // --- EFFECTS ---
@@ -88,8 +89,10 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         setHasChanges(changes);
     }, [rows]);
 
+    // Load existing brain
     useEffect(() => {
         const fetchBrain = async () => {
+            setIsBrainLoading(true);
             try {
                 const stats = await sampleService.getUniqueSizeStats();
                 const aliases = await sampleService.getSizeAliases();
@@ -106,8 +109,8 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                 prodNames.forEach(name => {
                     matchers.push({ searchText: name.toLowerCase(), resultText: name });
                 });
-                // IMPORTANT: Match longest strings first to avoid sub-string collisions
-                matchers.sort((a, b) => b.searchText.length - a.searchText.length);
+                // IMPORTANT: Sort by length descending to match more specific names first (e.g., "Coretec Pro" before "Coretec")
+                matchers.sort((a, b) => b.searchText.length - a.searchText.length); 
                 setNameMatchers(matchers);
 
                 if (Array.isArray(stats)) {
@@ -119,6 +122,8 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                 }
             } catch (err) {
                 console.error("Failed to load cleaner brain:", err);
+            } finally {
+                setIsBrainLoading(false);
             }
         };
         fetchBrain();
@@ -318,6 +323,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                             data={sheetData} 
                             onConfirm={handleColumnSelected}
                             onBack={() => setStep('upload')}
+                            isBrainLoading={isBrainLoading}
                         />
                     )}
 
