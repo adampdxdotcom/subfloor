@@ -10,8 +10,8 @@ interface CleanerAnalysisTableProps {
   setRows: React.Dispatch<React.SetStateAction<ParsedRow[]>>;
   setKnownSizes: React.Dispatch<React.SetStateAction<KnownSize[]>>;
   onExport: () => void;
-  onReset: () => void;
-  mode: 'SIZES' | 'NAMES' | 'PRICES'; // New Prop
+  onReset: () => void; // Will be removed in a later step
+  mode: 'SIZES' | 'NAMES' | 'PRICES';
   knownProductAliases: any[];
 }
 
@@ -368,21 +368,6 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                 }`}
             >
                 Review Needed ({stats.unknown})
-            </button>
-        </div>
-
-        <div className="flex gap-2">
-             <button 
-                onClick={onExport}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary text-sm font-bold rounded-full hover:bg-primary-hover shadow-sm transition-colors"
-            >
-               Use This Data <ArrowRight className="w-4 h-4" />
-            </button>
-             <button 
-                onClick={onReset}
-                className="flex items-center gap-2 px-3 py-2 border border-outline/20 text-text-secondary text-sm font-bold rounded-full hover:bg-surface-container-highest transition-colors"
-            >
-               Start Over
             </button>
         </div>
       </div>

@@ -43,7 +43,7 @@ export const CleanerColumnSelector: React.FC<CleanerColumnSelectorProps> = ({ da
                     <Loader2 className="w-4 h-4 animate-spin" /> Loading Memory...
                 </>
             ) : (
-                <>Start Extraction <ArrowRight className="w-4 h-4" /></>
+                <>Next: Clean Sizes <ArrowRight className="w-4 h-4" /></>
             )}
             </button>
         </div>
