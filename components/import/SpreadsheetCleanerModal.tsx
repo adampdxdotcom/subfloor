@@ -32,7 +32,25 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     useEffect(() => {
         // Relaxed check: We don't strictly require fileName to start
         if (initialData && initialData.length > 0 && step === 'upload') {
-            setSheetData({ name: fileName || 'Uploaded File', rows: initialData });
+            
+            // CONVERT MATRIX (Array[]) TO SHEET DATA (Objects)
+            // The cleaner expects { headers: [], rows: [{Col: Val}, ...] }
+            const headers = initialData[0] as string[];
+            const body = initialData.slice(1);
+            
+            const objectRows = body.map((rowArr: any[]) => {
+                const obj: any = {};
+                headers.forEach((h, i) => {
+                    obj[h] = rowArr[i];
+                });
+                return obj;
+            });
+
+            setSheetData({ 
+                name: fileName || 'Uploaded File', 
+                headers: headers,
+                rows: objectRows 
+            });
             setStep('selectColumn');
         }
     }, [initialData, fileName]);
@@ -164,13 +182,18 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         if (!targetColumn || (!hasChanges && step !== 'analyze')) {
             if (sheetData) {
                 // Return raw data as objects
-                const headers = sheetData.rows[0];
-                const rawObjects = sheetData.rows.slice(1).map(row => {
-                    const obj: any = {};
-                    headers.forEach((h: any, i: number) => obj[h] = row[i]);
-                    return obj;
-                });
-                onComplete(rawObjects);
+                // If rows is already objects (from initialData flow), just use them
+                // Otherwise (from disk flow), headers is Row 0.
+                const finalObjects = sheetData.headers 
+                    ? sheetData.rows // Structure created in useEffect
+                    : sheetData.rows.slice(1).map(row => { // Raw matrix from disk
+                        const obj: any = {};
+                        const headers = sheetData.rows[0];
+                        headers.forEach((h: any, i: number) => obj[h] = row[i]);
+                        return obj;
+                    });
+
+                onComplete(finalObjects);
             }
             onClose();
             return;
