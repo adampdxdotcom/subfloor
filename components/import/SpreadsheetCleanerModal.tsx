@@ -16,13 +16,14 @@ interface SpreadsheetCleanerModalProps {
 
 export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = ({ onClose, onComplete, initialData, fileName }) => {
     // --- STATE ---
-    const [cleanerStep, setCleanerStep] = useState<'upload' | 'selectColumn' | 'cleanSizes' | 'cleanNames'>('upload');
+    const [cleanerStep, setCleanerStep] = useState<'upload' | 'selectSizeColumn' | 'cleanSizes' | 'selectNameColumn' | 'cleanNames'>('upload');
     
     const [sheetData, setSheetData] = useState<ExcelSheetData | null>(null);
     
     // WORKBENCH STATE: Map each mode to its selected column
-    const [columnMap, setColumnMap] = useState<Record<string, string | null>>({
-        description: null, // A single column for all text-based cleaning
+    const [columnMap, setColumnMap] = useState<{ size: string | null, name: string | null }>({
+        size: null,
+        name: null
     });
     
     // Analysis State (Master Copy)
@@ -65,7 +66,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                 nameStatus: 'UNKNOWN',
             })));
 
-            setCleanerStep('selectColumn');
+            setCleanerStep('selectSizeColumn');
         }
     }, [initialData, fileName]);
 
@@ -129,10 +130,10 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         // This is now handled by the parent ImportData component's "Step 1.5" logic
     };
 
-    const handleColumnSelected = (colKey: string) => {
+    const handleSizeColumnSelected = (colKey: string) => {
         if (!sheetData) return;
         
-        setColumnMap({ description: colKey });
+        setColumnMap(prev => ({ ...prev, size: colKey }));
 
         // --- RUN INITIAL SIZE SCAN ---
         setRows(prevRows => prevRows.map((oldRow, idx) => {
@@ -159,9 +160,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                 ...oldRow,
                 sizeTargetText: rawText,
                 extractedSize: extracted,
-                sizeStatus: status,
-                // Also populate name text for the next step
-                nameTargetText: rawText
+                sizeStatus: status
             };
         }));
 
@@ -169,8 +168,13 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     };
 
     const handleNextFromSizes = () => {
-        const colKey = columnMap.description;
-        if (!colKey) return;
+        setCleanerStep('selectNameColumn');
+    };
+
+    const handleNameColumnSelected = (colKey: string) => {
+        if (!sheetData) return;
+
+        setColumnMap(prev => ({ ...prev, name: colKey }));
 
         // --- RUN INITIAL NAME SCAN ---
         setRows(prevRows => prevRows.map(oldRow => {
@@ -186,7 +190,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                     status = 'MATCHED';
                 }
             }
-            return { ...oldRow, extractedName: extracted, nameStatus: status };
+            return { ...oldRow, nameTargetText: rawText, extractedName: extracted, nameStatus: status };
         }));
 
         setCleanerStep('cleanNames');
@@ -214,7 +218,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         if (confirm("Start over with a new file?")) {
             setCleanerStep('upload');
             setSheetData(null);
-            setColumnMap({ description: null });
+            setColumnMap({ size: null, name: null });
             setCleanDataMap({});
             setRows([]);
         }
@@ -224,9 +228,10 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         const getStepTitle = () => {
             switch (cleanerStep) {
                 case 'upload': return "Step 1: Upload your messy vendor file.";
-                case 'selectColumn': return "Step 2: Identify the description column.";
+                case 'selectSizeColumn': return "Step 2: Select the column containing SIZES.";
                 case 'cleanSizes': return "Step 3: Clean & verify product sizes.";
-                case 'cleanNames': return "Step 4: Clean & verify product names.";
+                case 'selectNameColumn': return "Step 4: Select the column containing PRODUCT NAMES.";
+                case 'cleanNames': return "Step 5: Clean & verify product names.";
                 default: return "";
             }
         };
@@ -273,11 +278,20 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                         </div>
                     )}
 
-                    {cleanerStep === 'selectColumn' && sheetData && (
+                    {cleanerStep === 'selectSizeColumn' && sheetData && (
                         <CleanerColumnSelector 
                             data={sheetData} 
-                            onConfirm={handleColumnSelected}
+                            onConfirm={handleSizeColumnSelected}
                             onBack={() => setCleanerStep('upload')}
+                            isBrainLoading={isBrainLoading}
+                        />
+                    )}
+
+                    {cleanerStep === 'selectNameColumn' && sheetData && (
+                        <CleanerColumnSelector 
+                            data={sheetData} 
+                            onConfirm={handleNameColumnSelected}
+                            onBack={() => setCleanerStep('cleanSizes')}
                             isBrainLoading={isBrainLoading}
                         />
                     )}
@@ -290,7 +304,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                                 const nextRows = typeof val === 'function' ? val(rows) : val;
                                 setRows(nextRows);
                                 
-                                const col = columnMap.description;
+                                const col = columnMap.size;
                                 if (!col) return;
                                 
                                 setCleanDataMap(prev => {
@@ -319,7 +333,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                                 const nextRows = typeof val === 'function' ? val(rows) : val;
                                 setRows(nextRows);
                                 
-                                const col = columnMap.description;
+                                const col = columnMap.name;
                                 if (!col) return;
                                 
                                 setCleanDataMap(prev => {
