@@ -53,7 +53,7 @@ const ImportData: React.FC = () => {
         if (!cleanedObjects || cleanedObjects.length === 0) return;
 
         // Convert JSON Objects back to Matrix for the standard preview
-        const headers = Object.keys(cleanedObjects[0]);
+        const headers = Object.keys(cleanedObjects[0]).filter(k => k && k.trim() !== '' && k !== 'undefined' && k !== 'null');
         const rows = cleanedObjects.map(obj => headers.map(h => obj[h]));
         const matrixData = [headers, ...rows];
 

@@ -54,6 +54,7 @@ export const createProductAlias = async (aliasText: string, mappedProductName: s
 
 // --- PRODUCT SEARCH (For Cleaner Sidebar) ---
 export const searchProductNames = async (query: string = ''): Promise<string[]> => {
+    if (!query || query.trim() === '') return [];
     const response = await fetch(`${getEndpoint('/api/search')}?q=${encodeURIComponent(query)}&type=products`);
     if (!response.ok) return [];
     
@@ -182,7 +183,7 @@ export const updateSample = async (sampleId: number, sampleData: any): Promise<S
 
 // --- NEW: Toggle Discontinued Status ---
 export const toggleSampleDiscontinued = async (sampleId: number, isDiscontinued: boolean): Promise<Sample> => {
-    const response = await fetch(`${getApiUrl()}/${sampleId}/discontinue`, {
+    const response = await fetch(`${getEndpoint('/api/products')}/${sampleId}/discontinue`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isDiscontinued }),
