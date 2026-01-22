@@ -62,8 +62,8 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
             setRows(objectRows.map((r, i) => ({
                 id: i.toString(),
                 originalData: r,
-                targetText: '', 
-                status: 'UNKNOWN',
+                sizeStatus: 'UNKNOWN',
+                nameStatus: 'UNKNOWN',
                 manualOverride: false
             })));
 
@@ -98,7 +98,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
 
                 setKnownProductAliases(prodAliases || []);
 
-                // Build the smart name matcher list
+                // Build the smart name matcher list for auto-scanning
                 const matchers = prodAliases.map(a => ({
                     searchText: a.aliasText.toLowerCase(),
                     resultText: a.mappedProductName
@@ -140,57 +140,76 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
             const rowData = oldRow.originalData;
             const rawText = rowData[colKey]?.toString() || '';
             let extracted = '';
-            let isKnown = false;
+            let status: 'MATCHED' | 'UNKNOWN' | 'NEW' = 'UNKNOWN';
             
-            const rowId = idx.toString();
-            if (cleanDataMap[rowId] && cleanDataMap[rowId][colKey]) {
-                extracted = cleanDataMap[rowId][colKey];
-                isKnown = true;
-            } else {
-                if (cleaningMode === 'SIZES') {
-                    extracted = normalizeSize(rawText);
-                    isKnown = knownSizes.some(k => k.label.toLowerCase() === extracted.toLowerCase());
-                    if (!isKnown) {
-                        for (const known of knownSizes) {
-                            if (known.matchers?.some(alias => rawText.toLowerCase().includes(alias.toLowerCase()))) {
-                                extracted = known.label;
-                                isKnown = true;
-                                break;
-                            }
+            if (cleaningMode === 'SIZES') {
+                extracted = oldRow.extractedSize || normalizeSize(rawText);
+                status = oldRow.sizeStatus || 'UNKNOWN';
+
+                if (status === 'UNKNOWN') { 
+                    const isKnownExact = knownSizes.some(k => k.label.toLowerCase() === extracted.toLowerCase());
+                    if (isKnownExact) {
+                        status = 'MATCHED';
+                    } else {
+                        const bestAlias = knownSizes.find(k => k.matchers?.some(alias => rawText.toLowerCase().includes(alias.toLowerCase())));
+                        if (bestAlias) {
+                            extracted = bestAlias.label;
+                            status = 'MATCHED';
                         }
                     }
-                } 
-                else if (cleaningMode === 'NAMES') {
-                    // Smart "contains" matching
+                }
+                return {
+                    ...oldRow,
+                    sizeTargetText: rawText,
+                    extractedSize: extracted,
+                    sizeStatus: status
+                };
+            } 
+            else if (cleaningMode === 'NAMES') {
+                extracted = oldRow.extractedName || rawText.trim();
+                status = oldRow.nameStatus || 'UNKNOWN';
+
+                if (status === 'UNKNOWN') {
                     const cleanRawText = rawText.trim().toLowerCase();
-                    const bestMatch = nameMatchers.find(m => cleanRawText.includes(m.searchText));
-
-                    if (bestMatch) {
-                        extracted = bestMatch.resultText;
-                        isKnown = true;
+                    const aliasMatch = knownProductAliases.find(p => p.aliasText.toLowerCase() === cleanRawText);
+                    
+                    if (aliasMatch) {
+                        extracted = aliasMatch.mappedProductName;
+                        status = 'MATCHED';
+                    } else {
+                        // Apply smart name matcher logic
+                        const bestMatch = nameMatchers.find(m => cleanRawText.includes(m.searchText));
+                        if (bestMatch) {
+                            extracted = bestMatch.resultText;
+                            status = 'MATCHED';
+                        }
                     }
-
-                    if (!extracted) extracted = rawText.trim();
                 }
-                else if (cleaningMode === 'PRICES') {
-                     const num = parseFloat(rawText.replace(/[^0-9.]/g, ''));
-                     if (!isNaN(num)) {
-                         extracted = num.toFixed(2);
-                         isKnown = true; 
-                     } else {
-                         extracted = rawText;
-                         isKnown = false;
-                     }
+                return {
+                    ...oldRow,
+                    nameTargetText: rawText,
+                    extractedName: extracted,
+                    nameStatus: status
+                };
+            }
+            else if (cleaningMode === 'PRICES') {
+                 const num = parseFloat(rawText.replace(/[^0-9.]/g, ''));
+                 if (!isNaN(num)) {
+                     extracted = num.toFixed(2);
+                     status = 'MATCHED'; 
+                 } else {
+                     extracted = rawText;
+                     status = 'UNKNOWN';
                 }
+                return {
+                    ...oldRow,
+                    priceTargetText: rawText,
+                    extractedPrice: extracted,
+                    priceStatus: status
+                };
             }
 
-            return {
-                ...oldRow,
-                targetText: rawText,
-                extractedSize: extracted || null,
-                status: isKnown ? 'MATCHED' : 'UNKNOWN',
-                manualOverride: false 
-            };
+            return oldRow; 
         }));
 
         setStep('analyze');
@@ -200,7 +219,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         if (!sheetData) { onClose(); return; }
 
         const cleanResult = sheetData.rows.map((originalRow, i) => {
-            const updates = cleanDataMap[i] || {};
+            const updates = cleanDataMap[i.toString()] || {};
             const finalRow = { ...originalRow };
             
             Object.keys(updates).forEach(colKey => {
@@ -306,17 +325,23 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                         <CleanerAnalysisTable 
                             rows={rows}
                             knownSizes={knownSizes}
+                            knownProductAliases={knownProductAliases}
                             setRows={(newRowsOrFn) => {
                                 setRows(prev => {
                                     const nextRows = typeof newRowsOrFn === 'function' ? newRowsOrFn(prev) : newRowsOrFn;
                                     const currentCol = columnMap[cleaningMode];
                                     if (currentCol) {
                                         setCleanDataMap(prevMap => {
-                                            const newMap = { ...prevMap };
-                                            nextRows.forEach((r, i) => {
-                                                if (r.extractedSize) {
-                                                    if (!newMap[i]) newMap[i] = {};
-                                                    newMap[i][currentCol] = r.extractedSize;
+                                            let newMap = { ...prevMap };
+                                            nextRows.forEach((r) => {
+                                                const key = r.id;
+                                                if (!newMap[key]) newMap[key] = {};
+                                                if (cleaningMode === 'SIZES' && r.extractedSize) {
+                                                    newMap[key][currentCol] = r.extractedSize;
+                                                } else if (cleaningMode === 'NAMES' && r.extractedName) {
+                                                    newMap[key][currentCol] = r.extractedName;
+                                                } else if (cleaningMode === 'PRICES' && r.extractedPrice) {
+                                                    newMap[key][currentCol] = r.extractedPrice;
                                                 }
                                             });
                                             return newMap;

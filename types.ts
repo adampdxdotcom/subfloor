@@ -521,12 +521,19 @@ export interface SizeAlias {
 
 export interface ParsedRow {
     id: string;
-    originalData: Record<string, any>; // Keep full original row to re-export later
-    targetText: string; // The specific cell text we are analyzing (Description)
+    originalData: Record<string, any>;
+
+    // --- State per cleaning mode ---
+    sizeTargetText?: string;
+    sizeStatus?: 'MATCHED' | 'UNKNOWN' | 'NEW';
     extractedSize?: string | null;
-    selectionSource?: string; // If manually highlighted, what text was selected?
-    status: 'MATCHED' | 'NEW' | 'UNKNOWN';
-    manualOverride?: boolean; // True if user manually typed/selected something
+    sizeSelectionSource?: string;
+
+    nameTargetText?: string;
+    nameStatus?: 'MATCHED' | 'UNKNOWN' | 'NEW';
+    extractedName?: string | null;
+
+    manualOverride?: boolean;
 }
 
 // --- MODIFIED & CONSOLIDATED: A single, flexible type for all user preferences ---

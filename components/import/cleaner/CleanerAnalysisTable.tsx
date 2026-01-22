@@ -12,6 +12,7 @@ interface CleanerAnalysisTableProps {
   onExport: () => void;
   onReset: () => void;
   mode: 'SIZES' | 'NAMES' | 'PRICES'; // New Prop
+  knownProductAliases: any[];
 }
 
 interface SelectionState {
@@ -28,7 +29,8 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
   setKnownSizes, 
   onExport,
   onReset,
-  mode
+  mode,
+  knownProductAliases
 }) => {
   const [filter, setFilter] = useState<'ALL' | 'MATCHED' | 'UNKNOWN'>('ALL');
   const [selection, setSelection] = useState<SelectionState | null>(null);
@@ -43,11 +45,25 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
 
   const tableRef = useRef<HTMLDivElement>(null);
 
+  const getRowState = (row: ParsedRow) => {
+      if (mode === 'SIZES') {
+          return { targetText: row.sizeTargetText || '', status: row.sizeStatus || 'UNKNOWN', value: row.extractedSize || '' };
+      }
+      if (mode === 'NAMES') {
+          return { targetText: row.nameTargetText || '', status: row.nameStatus || 'UNKNOWN', value: row.extractedName || '' };
+      }
+      if (mode === 'PRICES') {
+          return { targetText: row.priceTargetText || '', status: row.priceStatus || 'UNKNOWN', value: row.extractedPrice || '' };
+      }
+      return { targetText: '', status: 'UNKNOWN', value: '' };
+  };
+
   // Fetch product names for sidebar
   useEffect(() => {
-      if (mode !== 'NAMES') return;
+      if (mode !== 'NAMES') { setProductResults([]); return; }
       
       const delayDebounce = setTimeout(() => {
+          if (!productSearch) { setProductResults([]); return; }
           sampleService.searchProductNames(productSearch).then(names => {
               setProductResults(names);
           });
@@ -56,28 +72,29 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
       return () => clearTimeout(delayDebounce);
   }, [productSearch, mode]);
 
-  const stats = useMemo(() => {
-    return {
-      total: rows.length,
-      matched: rows.filter(r => r.status === 'MATCHED').length,
-      unknown: rows.filter(r => r.status === 'UNKNOWN').length,
-      new: rows.filter(r => r.status === 'NEW').length,
-    };
-  }, [rows]);
+  const stats = useMemo(() => ({
+    total: rows.length,
+    matched: rows.filter(r => getRowState(r).status === 'MATCHED').length,
+    unknown: rows.filter(r => getRowState(r).status === 'UNKNOWN' || getRowState(r).status === 'NEW').length,
+  }), [rows, mode]);
 
   const filteredRows = useMemo(() => {
-    let result = rows;
-    if (filter === 'MATCHED') result = rows.filter(r => r.status === 'MATCHED');
-    else if (filter === 'UNKNOWN') result = rows.filter(r => r.status === 'UNKNOWN' || r.status === 'NEW');
+    let result = rows.filter(row => {
+        const { status } = getRowState(row);
+        if (filter === 'ALL') return true;
+        if (filter === 'MATCHED') return status === 'MATCHED';
+        if (filter === 'UNKNOWN') return status === 'UNKNOWN' || status === 'NEW';
+        return true;
+    });
 
     // GROUPING LOGIC FOR NAMES MODE
     if (mode === 'NAMES') {
         const groups = new Map();
         result.forEach(row => {
-            const key = row.targetText;
-            if (!groups.has(key)) {
+            const key = getRowState(row).targetText;
+            if (key && !groups.has(key)) {
                 groups.set(key, { ...row, count: 1 });
-            } else {
+            } else if (key) {
                 groups.get(key).count++;
             }
         });
@@ -122,13 +139,13 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
       setRows(prev => prev.map(row => {
           if (row.id !== selection.id) return row;
           // Check if this selected text happens to be a known size already
-          const isKnown = knownSizes.some(k => k.label.toLowerCase() === selection.text.toLowerCase());
+          const isKnown = knownSizes.some(k => k.label.toLowerCase() === selection!.text.toLowerCase());
           
           return {
               ...row,
               extractedSize: selection.text, 
-              selectionSource: selection.text, // Track source for aliasing
-              status: isKnown ? 'MATCHED' : 'NEW',
+              sizeSelectionSource: selection.text,
+              sizeStatus: isKnown ? 'MATCHED' : 'NEW',
               manualOverride: true
           }
       }));
@@ -137,51 +154,45 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
       window.getSelection()?.removeAllRanges();
   };
 
-  const handleUpdateRowSize = (id: string, newSize: string) => {
-    setRows(prev => prev.map(row => {
-      if (row.id !== id) return row;
-      
-      const normalizedNew = newSize.toLowerCase().trim();
-      const isKnown = knownSizes.some(k => k.label.toLowerCase() === normalizedNew);
-      
-      return {
-        ...row,
-        extractedSize: newSize, 
-        // CRITICAL: Preserve the selectionSource even if text changes, so we know what "M122" maps to
-        selectionSource: row.selectionSource, 
-        status: isKnown ? 'MATCHED' : 'NEW',
-        manualOverride: true
-      };
-    }));
-  };
-
   const handleUpdateRowValue = (id: string, newValue: string, targetText: string) => {
     if (mode === 'NAMES') {
         setRows(prev => prev.map(r => {
-            if (r.targetText === targetText) {
+            if (getRowState(r).targetText === targetText) {
                 return { 
                     ...r, 
-                    extractedSize: newValue,
-                    status: newValue ? 'NEW' : 'UNKNOWN',
+                    extractedName: newValue,
+                    nameStatus: newValue ? 'NEW' : 'UNKNOWN',
                     manualOverride: true 
                 };
             }
             return r;
         }));
-    } else {
-        handleUpdateRowSize(id, newValue);
+    } else { // SIZES MODE
+        setRows(prev => prev.map(row => {
+            if (row.id !== id) return row;
+            
+            const normalizedNew = newValue.toLowerCase().trim();
+            const isKnown = knownSizes.some(k => k.label.toLowerCase() === normalizedNew);
+            
+            return {
+              ...row,
+              extractedSize: newValue, 
+              sizeStatus: isKnown ? 'MATCHED' : 'NEW',
+              manualOverride: true
+            };
+          }));
     }
   };
 
   const handleAddToKnown = (row: ParsedRow) => {
-    const value = row.extractedSize;
+    const { value, targetText } = getRowState(row);
     if (!value) return;
     
     const cleanValue = value.trim();
     
     // --- MODE: NAMES ---
     if (mode === 'NAMES') {
-        const aliasText = row.targetText; // The raw messy name
+        const aliasText = targetText; // The raw messy name
         
         // Save to DB
         sampleService.createProductAlias(aliasText, cleanValue)
@@ -190,8 +201,8 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
 
         // Update UI: Find all rows with this exact raw text and update them
         setRows(prev => prev.map(r => {
-            if (r.targetText === aliasText) {
-                return { ...r, extractedSize: cleanValue, status: 'MATCHED' };
+            if (getRowState(r).targetText === aliasText) {
+                return { ...r, extractedName: cleanValue, nameStatus: 'MATCHED' };
             }
             return r;
         }));
@@ -206,8 +217,8 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
     const matchersToAdd: string[] = [];
 
     // If we have a selection source (e.g. "M122") that is different from the final label ("2x2")
-    if (row.selectionSource && row.selectionSource.toLowerCase() !== cleanValue.toLowerCase()) {
-        matchersToAdd.push(row.selectionSource);
+    if (row.sizeSelectionSource && row.sizeSelectionSource.toLowerCase() !== cleanValue.toLowerCase()) {
+        matchersToAdd.push(row.sizeSelectionSource);
     }
 
     if (existingIndex >= 0) {
@@ -235,7 +246,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
 
     setKnownSizes(updatedKnownSizes);
     
-    const aliasToSave = row.selectionSource || row.targetText;
+    const aliasToSave = row.sizeSelectionSource || targetText;
     if (aliasToSave && aliasToSave.toLowerCase() !== cleanValue.toLowerCase()) {
         sampleService.createSizeAlias(aliasToSave, cleanValue)
             .then(() => toast.success(`Learned: "${aliasToSave}" = "${cleanValue}"`))
@@ -254,19 +265,20 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
     }
 
     setRows(prev => prev.map(r => {
-      if (r.extractedSize === cleanValue) return { ...r, status: 'MATCHED' };
+      const { status, value: rowValue, targetText: rowTarget } = getRowState(r);
+      if (rowValue === cleanValue) return { ...r, sizeStatus: 'MATCHED' };
       
-      if (r.status === 'NEW' && r.extractedSize?.toLowerCase() === cleanValue.toLowerCase()) {
-         return { ...r, extractedSize: cleanValue, status: 'MATCHED' };
+      if (status === 'NEW' && rowValue?.toLowerCase() === cleanValue.toLowerCase()) {
+         return { ...r, extractedSize: cleanValue, sizeStatus: 'MATCHED' };
       }
 
-      if (r.status === 'UNKNOWN' || !r.extractedSize) {
-          const textLower = r.targetText.toLowerCase();
+      if (status === 'UNKNOWN' || !rowValue) {
+          const textLower = (rowTarget || '').toLowerCase();
           if (scanTargets.some(t => textLower.includes(t.toLowerCase()))) {
-               return { ...r, extractedSize: cleanValue, status: 'MATCHED' };
+               return { ...r, extractedSize: cleanValue, sizeStatus: 'MATCHED' };
           }
-          if (dimensionRegex && dimensionRegex.test(r.targetText)) {
-              return { ...r, extractedSize: cleanValue, status: 'MATCHED' };
+          if (dimensionRegex && dimensionRegex.test(rowTarget || '')) {
+              return { ...r, extractedSize: cleanValue, sizeStatus: 'MATCHED' };
           }
       }
       return r;
@@ -295,7 +307,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
     setKnownSizes(prev => prev.map(k => k.id === id ? { ...k, label: newLabel } : k));
     
     setRows(prev => prev.map(row => {
-        if (row.extractedSize === oldLabel) {
+        if (row.extractedSize === oldLabel) { // Only affects sizes
             return { ...row, extractedSize: newLabel };
         }
         return row;
@@ -355,7 +367,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                     : 'text-text-secondary border-transparent hover:bg-surface-container-highest'
                 }`}
             >
-                Review Needed ({stats.unknown + stats.new})
+                Review Needed ({stats.unknown})
             </button>
         </div>
 
@@ -390,13 +402,15 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                     </tr>
                 </thead>
                 <tbody className="bg-surface-container-high divide-y divide-outline/10">
-                    {filteredRows.map((row) => (
-                        <tr key={row.id} className={`group/row transition-colors ${row.status === 'UNKNOWN' ? 'bg-warning-container/5' : 'hover:bg-surface-container-highest/30'}`}>
+                    {filteredRows.map((row) => {
+                        const { targetText, status, value } = getRowState(row);
+                        return (
+                        <tr key={`${row.id}-${mode}`} className={`group/row transition-colors ${status === 'UNKNOWN' ? 'bg-warning-container/5' : 'hover:bg-surface-container-highest/30'}`}>
                             <td 
                                 className="px-6 py-4 text-sm text-text-primary break-words max-w-md cursor-text relative"
                                 onMouseUp={(e) => handleTextMouseUp(e, row.id)}
                             >
-                                <span className="font-medium opacity-90">{row.targetText}</span>
+                                <span className="font-medium opacity-90">{targetText}</span>
                                 {/* Group Count Badge */}
                                 {(row as any).count > 1 && (
                                     <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-container-highest text-text-secondary border border-outline/10 shadow-sm">
@@ -407,21 +421,21 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                             <td className="px-6 py-4 whitespace-nowrap">
                                 <input 
                                     type="text" 
-                                    value={row.extractedSize || ''}
-                                    onChange={(e) => handleUpdateRowValue(row.id, e.target.value, row.targetText)}
+                                    value={value}
+                                    onChange={(e) => handleUpdateRowValue(row.id, e.target.value, targetText)}
                                     onDragOver={(e) => {
                                         e.preventDefault();
                                         e.dataTransfer.dropEffect = 'copy';
                                     }}
                                     onDrop={(e) => {
                                         e.preventDefault();
-                                        const value = e.dataTransfer.getData('application/size');
-                                        if (value) handleUpdateRowValue(row.id, value, row.targetText);
+                                        const droppedValue = e.dataTransfer.getData('application/size') || e.dataTransfer.getData('application/product-name');
+                                        if (droppedValue) handleUpdateRowValue(row.id, droppedValue, targetText);
                                     }}
                                     className={`w-full px-4 py-2 text-sm border rounded-full focus:ring-2 focus:ring-offset-0 outline-none transition-all shadow-sm ${
-                                        row.status === 'MATCHED' 
+                                        status === 'MATCHED' 
                                             ? 'border-success/30 bg-success-container/30 text-text-primary focus:ring-success/50' 
-                                            : row.status === 'NEW' 
+                                            : status === 'NEW' 
                                                 ? 'border-primary/30 bg-primary-container/30 text-text-primary focus:ring-primary/50' 
                                                 : 'border-transparent bg-surface-container-highest text-text-primary focus:bg-surface-container focus:border-primary/30 focus:ring-primary/50'
                                     }`}
@@ -429,39 +443,39 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                                 />
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                                {row.status === 'MATCHED' && (
+                                {status === 'MATCHED' && (
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-success-container text-success">
                                         <Check className="w-3 h-3 mr-1" /> Match
                                     </span>
                                 )}
-                                {row.status === 'NEW' && (
+                                {status === 'NEW' && (
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary-container text-primary">
                                         <AlertCircle className="w-3 h-3 mr-1" /> New Entry
                                     </span>
                                 )}
-                                {row.status === 'UNKNOWN' && (
+                                {status === 'UNKNOWN' && (
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning-container text-warning">
                                         <X className="w-3 h-3 mr-1" /> Missing
                                     </span>
                                 )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                {(row.status === 'NEW' || (row.status === 'MATCHED' && row.manualOverride)) && (
+                                {(status === 'NEW' || (status === 'MATCHED' && row.manualOverride)) && (
                                     <button 
                                         onClick={() => handleAddToKnown(row)}
                                         className="text-primary hover:text-primary-hover flex items-center text-xs font-bold uppercase tracking-wide"
-                                        title={row.manualOverride ? "Update Known rules" : "Add to memory"}
+                                        title={row.manualOverride ? `Update rule for "${value}"` : `Add "${value}" to memory`}
                                     >
                                         {row.manualOverride ? (
                                             <><RefreshCw className="w-3 h-3 mr-1" /> Change Rule</>
                                         ) : (
-                                            <><Plus className="w-3 h-3 mr-1" /> Add Rule</>
+                                            <><Plus className="w-3 h-3 mr-1" /> Learn Rule</>
                                         )}
                                     </button>
                                 )}
                             </td>
                         </tr>
-                    ))}
+                    )})}
                     {filteredRows.length === 0 && (
                         <tr>
                             <td colSpan={4} className="px-6 py-12 text-center text-text-secondary">
@@ -537,11 +551,11 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                         e.preventDefault();
                         const form = e.target as HTMLFormElement;
                         const input = form.elements.namedItem('newSize') as HTMLInputElement;
-                        if(input.value) {
+                        if (input.value) {
                             handleAddToKnown({ 
-                                extractedSize: input.value,
-                                targetText: input.value,
-                                status: 'NEW' 
+                                id: Date.now().toString(),
+                                originalData: {},
+                                extractedSize: input.value, sizeTargetText: input.value, sizeStatus: 'NEW'
                             } as ParsedRow);
                             input.value = '';
                         }
@@ -591,7 +605,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                         key={i} 
                         draggable
                         onDragStart={(e) => {
-                            e.dataTransfer.setData('application/size', name);
+                            e.dataTransfer.setData('application/product-name', name);
                             e.dataTransfer.effectAllowed = 'copy';
                         }}
                         className="group flex items-center justify-between px-3 py-2 text-sm text-text-primary bg-surface-container-highest rounded-lg hover:bg-surface-container transition-colors cursor-grab active:cursor-grabbing border border-transparent hover:border-outline/10"
