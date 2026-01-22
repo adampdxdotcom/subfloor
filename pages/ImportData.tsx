@@ -53,9 +53,13 @@ const ImportData: React.FC = () => {
         if (!cleanedObjects || cleanedObjects.length === 0) return;
 
         // Convert JSON Objects back to Matrix for the standard preview
-        const headers = Object.keys(cleanedObjects[0]).filter(k => k && k.trim() !== '' && k !== 'undefined' && k !== 'null');
-        const rows = cleanedObjects.map(obj => headers.map(h => obj[h]));
-        const matrixData = [headers, ...rows];
+        // ROBUST FIX: Use the original headers to ensure column order and ignore extra keys.
+        // The rawData state still holds the pre-cleaned matrix at this point.
+        const originalHeaders = rawData ? rawData[0] : Object.keys(cleanedObjects[0]);
+        
+        // Rebuild the rows by looking up values from the cleaned objects using the original header order.
+        const rows = cleanedObjects.map(obj => originalHeaders.map(header => obj[header]));
+        const matrixData = [originalHeaders, ...rows];
 
         // Update raw data and Move to Mapping
         setRawData(matrixData);
