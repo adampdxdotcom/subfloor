@@ -18,15 +18,22 @@ const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded }) => {
         setIsParsing(true);
         try {
             // Use shared service for consistent parsing
-            const data = await readExcelFile(file);
+            const sheetData = await readExcelFile(file);
             
-            if (!data || data.length === 0) {
+            // CONVERSION: Service returns { headers: [], rows: [{}] }
+            // Parent expects raw matrix [ ["Header", "Header"], ["Val", "Val"] ]
+            const rawMatrix = [
+                sheetData.headers,
+                ...sheetData.rows.map((row: any) => sheetData.headers.map(h => row[h]))
+            ];
+
+            if (rawMatrix.length === 0) {
                 toast.error("File appears to be empty.");
                 return;
             }
 
             // IMMEDIATE HANDOFF - No internal preview
-            onDataLoaded(data, file.name);
+            onDataLoaded(rawMatrix, file.name);
         } catch (err: any) {
             console.error(err);
             toast.error(err.message || "Failed to parse file.");
