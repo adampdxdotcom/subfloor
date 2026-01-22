@@ -155,6 +155,24 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
     }));
   };
 
+  const handleUpdateRowValue = (id: string, newValue: string, targetText: string) => {
+    if (mode === 'NAMES') {
+        setRows(prev => prev.map(r => {
+            if (r.targetText === targetText) {
+                return { 
+                    ...r, 
+                    extractedSize: newValue,
+                    status: newValue ? 'NEW' : 'UNKNOWN',
+                    manualOverride: true 
+                };
+            }
+            return r;
+        }));
+    } else {
+        handleUpdateRowSize(id, newValue);
+    }
+  };
+
   const handleAddToKnown = (row: ParsedRow) => {
     const value = row.extractedSize;
     if (!value) return;
@@ -373,15 +391,15 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                 </thead>
                 <tbody className="bg-surface-container-high divide-y divide-outline/10">
                     {filteredRows.map((row) => (
-                        <tr key={row.id} className={row.status === 'UNKNOWN' ? 'bg-warning-container/10' : ''}>
+                        <tr key={row.id} className={`group/row transition-colors ${row.status === 'UNKNOWN' ? 'bg-warning-container/5' : 'hover:bg-surface-container-highest/30'}`}>
                             <td 
-                                className="px-6 py-4 text-sm text-text-primary break-words max-w-md cursor-text relative group"
+                                className="px-6 py-4 text-sm text-text-primary break-words max-w-md cursor-text relative"
                                 onMouseUp={(e) => handleTextMouseUp(e, row.id)}
                             >
-                                {row.targetText}
+                                <span className="font-medium opacity-90">{row.targetText}</span>
                                 {/* Group Count Badge */}
                                 {(row as any).count > 1 && (
-                                    <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-surface-container-highest text-text-secondary border border-outline/10">
+                                    <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-container-highest text-text-secondary border border-outline/10 shadow-sm">
                                         x{(row as any).count}
                                     </span>
                                 )}
@@ -390,57 +408,24 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                                 <input 
                                     type="text" 
                                     value={row.extractedSize || ''}
-                                    onChange={(e) => {
-                                        // If in NAMES mode, updating one row updates ALL with same text
-                                        if (mode === 'NAMES') {
-                                            const newVal = e.target.value;
-                                            setRows(prev => prev.map(r => {
-                                                if (r.targetText === row.targetText) {
-                                                    return { 
-                                                        ...r, 
-                                                        extractedSize: newVal,
-                                                        status: newVal ? 'NEW' : 'UNKNOWN',
-                                                        manualOverride: true 
-                                                    };
-                                                }
-                                                return r;
-                                            }));
-                                        } else {
-                                            handleUpdateRowSize(row.id, e.target.value);
-                                        }
-                                    }}
+                                    onChange={(e) => handleUpdateRowValue(row.id, e.target.value, row.targetText)}
                                     onDragOver={(e) => {
                                         e.preventDefault();
                                         e.dataTransfer.dropEffect = 'copy';
                                     }}
                                     onDrop={(e) => {
                                         e.preventDefault();
-                                        const value = e.dataTransfer.getData('application/size'); // We reuse this key for both
-                                        if (!value) return;
-
-                                        // LOGIC: Same as onChange
-                                        if (mode === 'NAMES') {
-                                            setRows(prev => prev.map(r => {
-                                                if (r.targetText === row.targetText) {
-                                                    return { 
-                                                        ...r, 
-                                                        extractedSize: value,
-                                                        status: 'NEW', // It's a new mapping
-                                                        manualOverride: true 
-                                                    };
-                                                }
-                                                return r;
-                                            }));
-                                        } else {
-                                            handleUpdateRowSize(row.id, value);
-                                        }
+                                        const value = e.dataTransfer.getData('application/size');
+                                        if (value) handleUpdateRowValue(row.id, value, row.targetText);
                                     }}
-                                    className={`w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary outline-none transition-colors ${
-                                        row.status === 'MATCHED' ? 'border-success bg-success-container/20 text-text-primary' :
-                                        row.status === 'NEW' ? 'border-primary bg-primary-container/20 text-text-primary' :
-                                        'border-outline/20 bg-surface-container-highest text-text-primary'
+                                    className={`w-full px-4 py-2 text-sm border rounded-full focus:ring-2 focus:ring-offset-0 outline-none transition-all shadow-sm ${
+                                        row.status === 'MATCHED' 
+                                            ? 'border-success/30 bg-success-container/30 text-text-primary focus:ring-success/50' 
+                                            : row.status === 'NEW' 
+                                                ? 'border-primary/30 bg-primary-container/30 text-text-primary focus:ring-primary/50' 
+                                                : 'border-transparent bg-surface-container-highest text-text-primary focus:bg-surface-container focus:border-primary/30 focus:ring-primary/50'
                                     }`}
-                                    placeholder={mode === 'NAMES' ? 'Map to...' : '?'}
+                                    placeholder={mode === 'NAMES' ? 'Drag or type name...' : '?'}
                                 />
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -576,7 +561,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
         </div>
         )}
 
-        {/* Sidebar: Existing Products (Only in NAMES mode) */}
+        {/* Sidebar: Existing Products (NAMES mode) */}
         {mode === 'NAMES' && (
         <div className="w-72 bg-surface-container-high border-l border-outline/10 flex flex-col shadow-xl z-20">
             <div className="p-4 border-b border-outline/10 bg-surface-container-low space-y-3">
@@ -584,22 +569,20 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                     <h3 className="font-bold text-text-primary flex items-center gap-2">
                         <Box className="w-4 h-4" /> Existing Products
                     </h3>
-                    <span className="text-[10px] bg-surface-container-highest px-2 py-0.5 rounded text-text-secondary">
-                        {productResults.length} found
+                    <span className="text-[10px] bg-surface-container-highest px-2 py-0.5 rounded-full text-text-secondary font-mono">
+                        {productResults.length}
                     </span>
                 </div>
                 
-                {/* Search Bar */}
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+                <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary group-focus-within:text-primary transition-colors" />
                     <input 
                         value={productSearch}
                         onChange={(e) => setProductSearch(e.target.value)}
-                        placeholder="Search product names..." 
-                        className="w-full pl-9 pr-3 py-1.5 text-sm bg-surface-container border border-outline/20 rounded-lg text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                        placeholder="Search products..." 
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-surface-container border border-transparent focus:border-primary/20 rounded-lg text-text-primary focus:bg-surface-container-high focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     />
                 </div>
-                <p className="text-xs text-text-secondary">Drag product to row to map.</p>
             </div>
 
             <div className="overflow-y-auto flex-1 p-2 space-y-1">
@@ -608,19 +591,22 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
                         key={i} 
                         draggable
                         onDragStart={(e) => {
-                            e.dataTransfer.setData('application/size', name); // We reuse the drag handler
+                            e.dataTransfer.setData('application/size', name);
                             e.dataTransfer.effectAllowed = 'copy';
                         }}
-                        className="group flex items-center gap-3 px-3 py-2 text-sm text-text-primary bg-surface-container-highest rounded-lg hover:bg-surface-container hover:text-primary transition-colors cursor-grab active:cursor-grabbing"
+                        className="group flex items-center justify-between px-3 py-2 text-sm text-text-primary bg-surface-container-highest rounded-lg hover:bg-surface-container transition-colors cursor-grab active:cursor-grabbing border border-transparent hover:border-outline/10"
                     >
-                        <GripVertical className="w-3 h-3 text-text-secondary flex-shrink-0 opacity-50 group-hover:opacity-100" />
-                        <span className="truncate font-medium">{name}</span>
+                        <div className="flex items-center flex-1 gap-2 overflow-hidden">
+                            <GripVertical className="w-3 h-3 text-text-secondary flex-shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+                            <span className="font-medium truncate">{name}</span>
+                        </div>
                     </div>
                 ))}
                 
                 {productResults.length === 0 && (
-                    <div className="text-center py-8 text-xs text-text-secondary italic">
-                        No products found matching "{productSearch}"
+                    <div className="flex flex-col items-center justify-center py-12 text-center text-text-secondary px-6">
+                        <Search className="w-8 h-8 mb-2 opacity-20" />
+                        <p className="text-xs">No products found matching "{productSearch}"</p>
                     </div>
                 )}
             </div>
