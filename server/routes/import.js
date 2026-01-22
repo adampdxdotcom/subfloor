@@ -24,6 +24,12 @@ const cleanString = (str) => {
     return s.replace(/\0/g, '').trim();
 };
 
+const normalizeForCompare = (val) => {
+    if (val === null || val === undefined) return '';
+    // Lowercase, remove quotes, remove all whitespace
+    return String(val).toLowerCase().replace(/["']/g, '').replace(/\s+/g, '');
+};
+
 // =================================================================
 //  PROFILE MANAGEMENT (Saving your mappings)
 // =================================================================
@@ -211,24 +217,14 @@ router.post('/preview', verifySession(), async (req, res) => {
                     affectedVariants = variantsRes.rows.map(v => {
                         const changes = [];
                         
-                        // Smart Compare: Handles Numbers (15.00 vs 15) and Strings (Text vs Text)
-                        const isDiff = (dbVal, csvVal) => {
-                            const valA = dbVal === null || dbVal === undefined ? '' : String(dbVal).trim();
-                            const valB = csvVal === null || csvVal === undefined ? '' : String(csvVal).trim();
-                            if (valA === '' && valB === '') return false;
-                            const numA = Number(valA);
-                            const numB = Number(valB);
-                            if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
-                                return Math.abs(numA - numB) > 0.001; 
-                            }
-                            return valA.toLowerCase() !== valB.toLowerCase();
-                        };
+                        const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
+                        const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
 
-                        if (Math.abs(Number(v.unit_cost) - Number(unitCost)) > 0.01) changes.push('Cost');
-                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
-                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
-                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
-                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
+                        if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
+                        if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
+                        if (isTextDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
+                        if (isTextDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
+                        if (isTextDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
 
                         return {
                             id: v.id,
@@ -274,23 +270,14 @@ router.post('/preview', verifySession(), async (req, res) => {
                         matchFound = true;
                         const changes = [];
 
-                        const isDiff = (dbVal, csvVal) => {
-                            const valA = dbVal === null || dbVal === undefined ? '' : String(dbVal).trim();
-                            const valB = csvVal === null || csvVal === undefined ? '' : String(csvVal).trim();
-                            if (valA === '' && valB === '') return false;
-                            const numA = Number(valA);
-                            const numB = Number(valB);
-                            if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
-                                return Math.abs(numA - numB) > 0.001; 
-                            }
-                            return valA.toLowerCase() !== valB.toLowerCase();
-                        };
-
-                        if (Math.abs(Number(v.unit_cost) - Number(unitCost)) > 0.01) changes.push('Cost');
-                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
-                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
-                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
-                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
+                        const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
+                        const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
+                        
+                        if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
+                        if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
+                        if (isTextDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
+                        if (isTextDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
+                        if (isTextDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
 
                         action = changes.length > 0 ? 'update' : 'match';
                         
@@ -325,23 +312,14 @@ router.post('/preview', verifySession(), async (req, res) => {
                         matchFound = true;
                         const changes = [];
 
-                        const isDiff = (dbVal, csvVal) => {
-                            const valA = dbVal === null || dbVal === undefined ? '' : String(dbVal).trim();
-                            const valB = csvVal === null || csvVal === undefined ? '' : String(csvVal).trim();
-                            if (valA === '' && valB === '') return false;
-                            const numA = Number(valA);
-                            const numB = Number(valB);
-                            if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
-                                return Math.abs(numA - numB) > 0.001; 
-                            }
-                            return valA.toLowerCase() !== valB.toLowerCase();
-                        };
-
-                        if (Math.abs(Number(v.unit_cost) - Number(unitCost)) > 0.01) changes.push('Cost');
-                        if (isDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
-                        if (isDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
-                        if (isDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
-                        if (isDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
+                        const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
+                        const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
+                        
+                        if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
+                        if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
+                        if (isTextDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
+                        if (isTextDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
+                        if (isTextDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
 
                         action = changes.length > 0 ? 'update' : 'match';
 

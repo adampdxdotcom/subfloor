@@ -156,7 +156,7 @@ router.get('/discontinued', verifySession(), async (req, res) => {
 });
 
 // =================================================================
-//  SIZE MANAGEMENT (Unchanged)
+//  SIZE MANAGEMENT
 // =================================================================
 router.get('/sizes', verifySession(), async (req, res) => {
     try {
@@ -208,6 +208,23 @@ router.delete('/sizes', verifySession(), verifyRole('Admin'), async (req, res) =
         await pool.query('DELETE FROM standard_sizes WHERE size_value = $1', [value]);
         res.status(200).json({ message: 'Standard size removed.' });
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// --- NEW: Get all product names for the import cleaner ---
+router.get('/names', verifySession(), async (req, res) => {
+    try {
+        const query = `
+            SELECT name FROM products WHERE is_discontinued = FALSE
+            UNION
+            SELECT name FROM product_variants WHERE name IS NOT NULL
+        `;
+        const result = await pool.query(query);
+        // Flatten the array of objects into an array of strings
+        const names = result.rows.map(row => row.name);
+        res.json([...new Set(names)]); // Return unique names
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch product names' });
+    }
 });
 
 
