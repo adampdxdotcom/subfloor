@@ -375,7 +375,7 @@ export const CleanerAnalysisTable: React.FC<CleanerAnalysisTableProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden" ref={tableRef}>
+      <div className="flex flex-1 overflow-hidden relative" ref={tableRef}>
         {/* Main Table */}
         <div className="flex-1 overflow-auto bg-surface-container">
             <table className="min-w-full divide-y divide-outline/10">
