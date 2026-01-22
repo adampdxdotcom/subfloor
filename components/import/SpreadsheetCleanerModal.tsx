@@ -5,7 +5,7 @@ import { CleanerFileUpload } from './cleaner/CleanerFileUpload';
 import { CleanerColumnSelector } from './cleaner/CleanerColumnSelector';
 import { CleanerAnalysisTable } from './cleaner/CleanerAnalysisTable';
 import { ExcelSheetData, ParsedRow, KnownSize } from '../../types';
-import { getCleanedCsvData, normalizeSize } from '../../services/spreadsheetService';
+import { normalizeSize } from '../../services/spreadsheetService';
 
 interface SpreadsheetCleanerModalProps {
     onClose: () => void;
@@ -32,15 +32,14 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     const [rows, setRows] = useState<ParsedRow[]>([]);
     
     // WORKBENCH MEMORY: Stores clean values for any column, indexed by Row ID
-    // { "0": { "Column C": "12x24" }, "1": { "Column B": "Coretec" } }
     const [cleanDataMap, setCleanDataMap] = useState<Record<string, Record<string, string>>>({});
     
     const [knownSizes, setKnownSizes] = useState<KnownSize[]>([]);
     const [knownProductAliases, setKnownProductAliases] = useState<any[]>([]); 
+    const [nameMatchers, setNameMatchers] = useState<{searchText: string, resultText: string}[]>([]);
     const [hasChanges, setHasChanges] = useState(false);
 
     // --- EFFECTS ---
-    // Initialize from props if provided (The "Step 1.5" flow)
     useEffect(() => {
         if (initialData && initialData.length > 0 && step === 'upload') {
             const headers = initialData[0] as string[];
@@ -60,7 +59,6 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                 rows: objectRows 
             });
 
-            // Initialize the master row list
             setRows(objectRows.map((r, i) => ({
                 id: i.toString(),
                 originalData: r,
@@ -73,7 +71,6 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         }
     }, [initialData, fileName]);
 
-    // MODE SWITCHER LOGIC
     useEffect(() => {
         if (step === 'upload') return;
         
@@ -86,20 +83,32 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         }
     }, [cleaningMode]);
 
-    // Track changes
     useEffect(() => {
         const changes = rows.some(r => r.manualOverride);
         setHasChanges(changes);
     }, [rows]);
 
-    // Load existing brain
     useEffect(() => {
         const fetchBrain = async () => {
             try {
                 const stats = await sampleService.getUniqueSizeStats();
                 const aliases = await sampleService.getSizeAliases();
                 const prodAliases = await sampleService.getProductAliases();
+                const prodNames = await sampleService.getAllProductNames();
+
                 setKnownProductAliases(prodAliases || []);
+
+                // Build the smart name matcher list
+                const matchers = prodAliases.map(a => ({
+                    searchText: a.aliasText.toLowerCase(),
+                    resultText: a.mappedProductName
+                }));
+                prodNames.forEach(name => {
+                    matchers.push({ searchText: name.toLowerCase(), resultText: name });
+                });
+                // IMPORTANT: Match longest strings first to avoid sub-string collisions
+                matchers.sort((a, b) => b.searchText.length - a.searchText.length);
+                setNameMatchers(matchers);
 
                 if (Array.isArray(stats)) {
                     const dbSizes: KnownSize[] = stats.map((s: any) => {
@@ -152,14 +161,16 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                     }
                 } 
                 else if (cleaningMode === 'NAMES') {
-                    const matchedAlias = knownProductAliases.find(p => p.aliasText.toLowerCase() === rawText.toLowerCase());
-                    if (matchedAlias) {
-                        extracted = matchedAlias.mappedProductName;
+                    // Smart "contains" matching
+                    const cleanRawText = rawText.trim().toLowerCase();
+                    const bestMatch = nameMatchers.find(m => cleanRawText.includes(m.searchText));
+
+                    if (bestMatch) {
+                        extracted = bestMatch.resultText;
                         isKnown = true;
-                    } else {
-                        extracted = rawText; 
-                        isKnown = false; 
                     }
+
+                    if (!extracted) extracted = rawText.trim();
                 }
                 else if (cleaningMode === 'PRICES') {
                      const num = parseFloat(rawText.replace(/[^0-9.]/g, ''));
