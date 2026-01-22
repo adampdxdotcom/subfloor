@@ -1,12 +1,16 @@
 # Subfloor - Contracting Business Management Suite
 
-![Subfloor Dashboard](placeholder-dashboard.png)
+<p align="center">
+  <img src="https://subfloor.app/wp-content/uploads/2025/12/ChatGPT-Image-Dec-8-2025-07_15_27-AM.png" alt="Subfloor Dashboard" width="200">
+</p>
+
+
 
 > A comprehensive, full-stack web application designed as a management tool for small contracting businesses, such as flooring installers. Subfloor provides a single, centralized platform to track the entire lifecycle of a job, from initial customer inquiry to final completion.
 
 ## About The Project
 
-Subfloor is one-hundred percent written by Google Gemini 2.5 and 3.0. The project was started in late October of 2025. I am not a coder, but I know enough to coax a viable product from Gemini. Although AI wrote the code, I designed every aspect of the project. And to be clear, there is no AI used in the program itself.  The images in the demo app are from Nano Banana and Sora 2.
+Subfloor was started in late October of 2025 and is one-hundred percent written by Google Gemini 2.5 and 3.0. I am not a coder, but I know enough to coax a booting product from Gemini. Although AI wrote the code, I designed every aspect of the project. And to be clear, there is no AI used in the program itself.  The images in the demo app are from Nano Banana and Sora 2.
 
 The program was designed to tackle some basic job tracking, sample checkouts, and customer communication. It bloomed into valuable tool for company knowledge, commnunication and much more.
 
@@ -16,13 +20,24 @@ The application is built on a robust, containerized architecture, ensuring a sta
 
 ## Can You Trust This Project
 
-This project runs completely on your hardware. The code is all here to evaluate. I think that you can trust this project as much as you can trust any other project, but use judgement and evaluate the program as you would any other.
+This project runs completely on your hardware. The code is available for all to evaluate. I think that you can trust this project as somewhat less than you can trust any other project, but use judgement and evaluate the program as you would any other. It's not that the software is inherently dangerous, but using this software in a functioning business environment could result in data loss.
 
 I think the most important thing to keep in mind that there is no support offered for this software. And I might at any time decide to stop development no matter the state of the program.  
 
 ## Can You Contribute
 
 I'm not sure. Feel free to open issues, but I'm not sure of the future of this project. I'll work on it for the time being, but this is completely a learning experience and I'm not sure if I want to integrate other features I might not be able to real world test.  Feel free to go fork yourself and make all the changes you desire.
+
+## Roadmap
+
+At this time, the main goal is to polish existing features and clean up some backend technical debt. However, some feature ideas for the future are:
+
+- iOS app
+- Text notifications for customers
+- Public-facing checkout information for customers
+- Contractor-friendly view for product information
+- Room visualizer / materials PDF generator
+- Quickbooks and Dropbox integration
 
 ---
 
@@ -44,7 +59,7 @@ I'm not sure. Feel free to open issues, but I'm not sure of the future of this p
 
 ✨ **Sample & Inventory Management:**
 - **Inventory 2.0:** Track products by Variant (Color, Size, Finish) with specific packaging data (Cartons/SF).
-- **QR Code System:** Generate QR codes for samples. Scan them with the built-in mobile camera for instant "Check In/Check Out".
+- **QR Code System:** Generate QR codes for samples. Scan them with the built-in mobile camera for instant "Check Out".
 - **Visual Tracking:** See exactly which samples are Overdue, Extended, or Due Today with smart color-coded indicators.
 
 ✨ **Knowledge Base (Wiki):**
@@ -94,20 +109,20 @@ You must have Docker and Docker Compose installed on your machine.
 
 ### Installation
 
-1.  **Clone the repository:**
+1.  **Create a project directory:**
     ```sh
-    git clone https://github.com/adampdxdotcom/subfloor.git
+    mkdir subfloor
     cd subfloor
     ```
 
 2.  **Configure Environment Variables:**
     The application relies on environment variables for database credentials, timezone settings, and API keys. We provide an example file to get you started.
-    
+
     Copy the example file to a real `.env` file:
     ```sh
     cp .env.example .env
     ```
-    
+
     Open the new `.env` file in your text editor and adjust settings before first run.
 
     ```sh
@@ -119,13 +134,42 @@ You must have Docker and Docker Compose installed on your machine.
     SUPERTOKENS_API_KEY=some-long-random-string
     ```
 
-3.  **Build and Run the Application:**
-    This command will build the necessary Docker images and start all services (`app`, `server`, `db`) in the background. The `--build` flag is important for the first run to ensure all dependencies are installed correctly.
-    ```sh
-    docker-compose up --build -d
+3.  **Create `docker-compose.yml`:**
+    Create a `docker-compose.yml` file in this directory with the following contents:
+    ```yaml
+    services:
+      app:
+        image: ghcr.io/adampdxdotcom/subfloor:sha-30a0539eb20236ff1c823b832941e6ba80e4baee
+        container_name: subfloor-app
+        env_file: .env
+        ports:
+          - "5173:5173"
+          - "5075:5075"
+        depends_on:
+          - db
+
+      db:
+        image: postgres:16
+        container_name: subfloor-db
+        environment:
+          POSTGRES_USER: ${DB_USER}
+          POSTGRES_PASSWORD: ${DB_PASSWORD}
+          POSTGRES_DB: ${DB_NAME}
+        volumes:
+          - subfloor-db:/var/lib/postgresql/data
+
+    volumes:
+      subfloor-db:
     ```
 
-4.  **Access the Application:**
+4.  **Pull and Run the Application:**
+    This command will pull the prebuilt image and start all services (`app`, `db`) in the background.
+    ```sh
+    docker compose pull
+    docker compose up -d
+    ```
+
+5.  **Access the Application:**
     Open your web browser and navigate to:
     **[http://localhost:5173](http://localhost:5173)**
 
@@ -136,26 +180,23 @@ You must have Docker and Docker Compose installed on your machine.
 ### Updating
 
 1. **Backup Your Database and Images**
-    Backups are free and only take a few minutes. 
+    Backups are free and only take a few minutes.
 
-2.  **Update the Code**
-    Pull the new files from Git from your instance root.
+2.  **Update Your Containers**
+    Gracefully close the containers, pull the latest image, and restart:
     ```sh
-    git pull
-    ```    
-3.  **Update Your Containers**
-    Gracefully close the containers and rebuild the image.
-    ```sh
-    docker compose down && docker compose up --build -d
+    docker compose down
+    docker compose pull
+    docker compose up -d
     ```
-4.  **Check the Program**
+
+3.  **Check the Program**
     Hard-refresh your browser and/or check your logs
     ```sh
     docker logs --tail 50 subfloor-app
     ```
-
 ---
 
 ## License
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
+Distributed under the MIT License. See `LICENSE` for more information.
