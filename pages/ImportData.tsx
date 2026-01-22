@@ -4,7 +4,7 @@ import FileUploader from '../components/import/FileUploader';
 import ColumnMapper from '../components/import/ColumnMapper';
 import ImportReview from '../components/import/ImportReview';
 import { SpreadsheetCleanerModal } from '../components/import/SpreadsheetCleanerModal'; // Phase 4 Import
-import { CheckCircle2, FileSpreadsheet, Download } from 'lucide-react';
+import { CheckCircle2, FileSpreadsheet, Download, Sparkles } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 
@@ -29,7 +29,10 @@ const ImportData: React.FC = () => {
     const handleDataLoaded = (data: any[][], name: string) => {
         setRawData(data);
         setFileName(name);
-        // Automatically open the cleaner/prep tool
+        // Don't auto-open cleaner yet. Show the "Verify" table first.
+    };
+
+    const handleLaunchCleaner = () => {
         setIsCleanerModalOpen(true);
     };
 
@@ -38,6 +41,11 @@ const ImportData: React.FC = () => {
         if (!rawData || rawData.length < 2) return;
         setRawData(prev => prev ? prev.slice(1) : []);
         toast.success("Top row removed.");
+    };
+
+    const handleResetStep1 = () => {
+        setRawData(null);
+        setFileName(null);
     };
 
     // Phase 4: Handle data coming from the Cleaner Tool
@@ -166,23 +174,90 @@ const ImportData: React.FC = () => {
 
                 {/* CONTENT AREA */}
                 <div className="p-8">
-                    {step === 1 && (
-                        /* STATE 1: UPLOAD ONLY */
+                    {step === 1 && !rawData && (
+                        /* STATE 1A: UPLOAD ONLY */
                         <div className="max-w-2xl mx-auto space-y-8">
-                            
-                            {/* Main Uploader */}
                             <div className="bg-surface-container-low rounded-2xl border border-outline/10 p-1 shadow-sm">
                                 <FileUploader onDataLoaded={handleDataLoaded} />
                             </div>
-
-                            {/* Helper Actions */}
                             <div className="flex flex-col md:flex-row gap-4 justify-center items-center text-center md:text-left">
-                                <button 
-                                    onClick={downloadDummyFile} 
-                                    className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-primary transition-colors"
-                                >
+                                <button onClick={downloadDummyFile} className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-primary transition-colors">
                                     <Download size={16} /> Download Test File
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 1 && rawData && (
+                        /* STATE 1B: VERIFY & LAUNCH WORKBENCH */
+                        <div className="space-y-6 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* Toolbar */}
+                            <div className="bg-surface-container rounded-xl p-4 border border-outline/10 flex flex-wrap gap-4 justify-between items-center shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-success-container rounded-lg text-success">
+                                        <FileSpreadsheet size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-text-primary text-lg">{fileName}</h3>
+                                        <p className="text-sm text-text-secondary">{rawData.length} rows detected</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={handleRemoveTopRow}
+                                        className="px-4 py-2 text-sm font-bold text-error bg-error-container/20 hover:bg-error-container/40 rounded-lg transition-colors border border-error/20"
+                                    >
+                                        Remove Top Row
+                                    </button>
+                                    <div className="h-8 w-px bg-outline/20 mx-2"></div>
+                                    <button 
+                                        onClick={handleResetStep1}
+                                        className="px-4 py-2 text-sm font-bold text-text-secondary hover:bg-surface-container-high rounded-lg transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        onClick={handleLaunchCleaner}
+                                        className="px-6 py-2 text-sm font-bold text-on-primary bg-primary hover:bg-primary-hover rounded-full shadow-md transition-all active:scale-95 flex items-center gap-2"
+                                    >
+                                        Next: Clean Data <Sparkles size={16} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Preview Table - Full Width */}
+                            <div className="bg-surface-container rounded-xl border border-outline/10 overflow-hidden shadow-sm">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-surface-container-high border-b border-outline/10 text-text-secondary uppercase text-xs">
+                                            <tr>
+                                                <th className="p-3 w-12 text-center">#</th>
+                                                {rawData[0]?.map((header: any, i: number) => (
+                                                    <th key={i} className="p-3 font-bold border-r border-outline/5 last:border-0 whitespace-nowrap">
+                                                        {i < 5 ? `Col ${String.fromCharCode(65+i)}` : `Col ${i}`}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-outline/5">
+                                            {rawData.slice(0, 8).map((row, rIdx) => (
+                                                <tr key={rIdx} className="hover:bg-surface-container-high/50 transition-colors">
+                                                    <td className="p-3 text-center text-text-secondary text-xs font-mono border-r border-outline/5">
+                                                        {rIdx + 1}
+                                                    </td>
+                                                    {row.map((cell: any, cIdx: number) => (
+                                                        <td key={cIdx} className="p-3 text-text-primary border-r border-outline/5 last:border-0 max-w-xs truncate">
+                                                            {cell}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="p-3 bg-surface-container-low border-t border-outline/10 text-center text-xs text-text-secondary">
+                                    Showing first 8 rows of {rawData.length}
+                                </div>
                             </div>
                         </div>
                     )}

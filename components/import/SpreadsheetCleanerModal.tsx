@@ -18,23 +18,26 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     // --- STATE ---
     const [step, setStep] = useState<'upload' | 'selectColumn' | 'analyze'>('upload');
     const [cleaningMode, setCleaningMode] = useState<'SIZES' | 'NAMES' | 'PRICES'>('SIZES');
-    const [sheetData, setSheetData] = useState<ExcelSheetData | null>(null);
-    const [targetColumn, setTargetColumn] = useState<string | null>(null);
     
-    // Analysis State
+    const [sheetData, setSheetData] = useState<ExcelSheetData | null>(null);
+    
+    // WORKBENCH STATE: Map each mode to its selected column
+    const [columnMap, setColumnMap] = useState<Record<string, string | null>>({
+        SIZES: null,
+        NAMES: null,
+        PRICES: null
+    });
+    
+    // Analysis State (Master Copy)
     const [rows, setRows] = useState<ParsedRow[]>([]);
     const [knownSizes, setKnownSizes] = useState<KnownSize[]>([]);
-    const [knownProductAliases, setKnownProductAliases] = useState<any[]>([]); // New state for Name memory
+    const [knownProductAliases, setKnownProductAliases] = useState<any[]>([]); 
     const [hasChanges, setHasChanges] = useState(false);
 
     // --- EFFECTS ---
     // Initialize from props if provided (The "Step 1.5" flow)
     useEffect(() => {
-        // Relaxed check: We don't strictly require fileName to start
         if (initialData && initialData.length > 0 && step === 'upload') {
-            
-            // CONVERT MATRIX (Array[]) TO SHEET DATA (Objects)
-            // The cleaner expects { headers: [], rows: [{Col: Val}, ...] }
             const headers = initialData[0] as string[];
             const body = initialData.slice(1);
             
@@ -51,9 +54,31 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                 headers: headers,
                 rows: objectRows 
             });
+
+            // Initialize the master row list
+            setRows(objectRows.map((r, i) => ({
+                id: i.toString(),
+                originalData: r,
+                targetText: '', 
+                status: 'UNKNOWN',
+                manualOverride: false
+            })));
+
             setStep('selectColumn');
         }
     }, [initialData, fileName]);
+
+    // MODE SWITCHER LOGIC
+    useEffect(() => {
+        if (step === 'upload') return;
+        
+        const assignedCol = columnMap[cleaningMode];
+        if (assignedCol) {
+            handleColumnSelected(assignedCol);
+        } else {
+            setStep('selectColumn');
+        }
+    }, [cleaningMode]);
 
     // Track changes
     useEffect(() => {
@@ -61,32 +86,19 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         setHasChanges(changes);
     }, [rows]);
 
-    // Load existing sizes AND aliases from DB on mount
+    // Load existing brain
     useEffect(() => {
         const fetchBrain = async () => {
             try {
-                // 1. Fetch Clean Sizes (e.g. "12x24")
                 const stats = await sampleService.getUniqueSizeStats();
-                
-                // 2. Fetch Size Aliases (e.g. "M122" -> "12x24")
                 const aliases = await sampleService.getSizeAliases();
-
-                // 3. Fetch Product Aliases (e.g. "CORTC" -> "Coretec")
                 const prodAliases = await sampleService.getProductAliases();
                 setKnownProductAliases(prodAliases || []);
 
                 if (Array.isArray(stats)) {
                     const dbSizes: KnownSize[] = stats.map((s: any) => {
-                        // Find all aliases that map to this size
-                        const myAliases = aliases
-                            .filter(a => a.mappedSize === s.value)
-                            .map(a => a.aliasText);
-
-                        return {
-                            id: s.value, 
-                            label: s.value,
-                            matchers: myAliases 
-                        };
+                        const myAliases = aliases.filter(a => a.mappedSize === s.value).map(a => a.aliasText);
+                        return { id: s.value, label: s.value, matchers: myAliases };
                     });
                     setKnownSizes(dbSizes);
                 }
@@ -99,32 +111,27 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
 
     // --- HANDLERS ---
 
-    // Step 1 -> 2
     const handleFileLoaded = (data: ExcelSheetData) => {
         setSheetData(data);
         setStep('selectColumn');
     };
 
-    // Step 2 -> 3
     const handleColumnSelected = (colKey: string) => {
         if (!sheetData) return;
-        setTargetColumn(colKey);
+        
+        // 1. Update the Map
+        setColumnMap(prev => ({ ...prev, [cleaningMode]: colKey }));
 
-        // INITIAL PARSE: Convert raw Excel rows into our analysis format
-        const initialRows: ParsedRow[] = sheetData.rows.map((row, idx) => {
-            const rawText = row[colKey]?.toString() || '';
+        // 2. Parse Rows for this specific mode
+        setRows(prevRows => prevRows.map((oldRow) => {
+            const rowData = oldRow.originalData;
+            const rawText = rowData[colKey]?.toString() || '';
             let extracted = '';
             let isKnown = false;
 
-            // --- STRATEGY: SIZES ---
             if (cleaningMode === 'SIZES') {
-                // Try simple normalization (e.g. "12 x 24" -> "12x24")
                 extracted = normalizeSize(rawText);
-                
-                // Check if this initial guess is a Known Size
                 isKnown = knownSizes.some(k => k.label.toLowerCase() === extracted.toLowerCase());
-
-                // If no match, check Aliases
                 if (!isKnown) {
                     for (const known of knownSizes) {
                         if (known.matchers?.some(alias => rawText.toLowerCase().includes(alias.toLowerCase()))) {
@@ -135,27 +142,21 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                     }
                 }
             } 
-            
-            // --- STRATEGY: NAMES ---
             else if (cleaningMode === 'NAMES') {
-                // Exact match check against known aliases
                 const matchedAlias = knownProductAliases.find(p => p.aliasText.toLowerCase() === rawText.toLowerCase());
                 if (matchedAlias) {
                     extracted = matchedAlias.mappedProductName;
                     isKnown = true;
                 } else {
-                    extracted = rawText; // Default to raw text if unknown
+                    extracted = rawText; 
                     isKnown = false; 
                 }
             }
-            
-            // --- STRATEGY: PRICES ---
             else if (cleaningMode === 'PRICES') {
-                 // Simple Number Cleaning
                  const num = parseFloat(rawText.replace(/[^0-9.]/g, ''));
                  if (!isNaN(num)) {
                      extracted = num.toFixed(2);
-                     isKnown = true; // Technically "Valid", not "Known"
+                     isKnown = true; 
                  } else {
                      extracted = rawText;
                      isKnown = false;
@@ -163,49 +164,38 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
             }
 
             return {
-                id: idx.toString(),
-                originalData: row,
+                ...oldRow,
                 targetText: rawText,
-                extractedSize: extracted || null, // Note: We reuse 'extractedSize' field for all modes to keep it simple
+                extractedSize: extracted || null,
                 status: isKnown ? 'MATCHED' : 'UNKNOWN',
-                manualOverride: false
+                manualOverride: false 
             };
-        });
+        }));
 
-        setRows(initialRows);
         setStep('analyze');
     };
 
-    // Step 3 Completion
     const handleFinalExport = () => {
-        // If we are just skipping (no column selected yet, or no changes)
-        if (!targetColumn || (!hasChanges && step !== 'analyze')) {
-            if (sheetData) {
-                // Return raw data as objects
-                // If rows is already objects (from initialData flow), just use them
-                // Otherwise (from disk flow), headers is Row 0.
-                const finalObjects = sheetData.headers 
-                    ? sheetData.rows // Structure created in useEffect
-                    : sheetData.rows.slice(1).map(row => { // Raw matrix from disk
-                        const obj: any = {};
-                        const headers = sheetData.rows[0];
-                        headers.forEach((h: any, i: number) => obj[h] = row[i]);
-                        return obj;
-                    });
+        if (!sheetData) { onClose(); return; }
 
-                onComplete(finalObjects);
-            }
-            onClose();
-            return;
+        const activeColumn = columnMap[cleaningMode];
+        
+        if (!activeColumn) {
+             onComplete(sheetData.rows);
+             onClose();
+             return;
         }
-        
-        // 1. Generate the clean array of objects
-        const finalData = getCleanedCsvData(rows, targetColumn);
-        
-        // 2. Pass back to parent (ImportData page)
-        onComplete(finalData);
-        
-        // 3. Close modal
+
+        const cleanResult = sheetData.rows.map((originalRow, i) => {
+            const cleanRow = rows[i];
+            const newVal = cleanRow.extractedSize;
+            return {
+                ...originalRow,
+                [activeColumn]: newVal || originalRow[activeColumn]
+            };
+        });
+
+        onComplete(cleanResult);
         onClose();
     };
 
@@ -213,7 +203,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
         if (confirm("Start over with a new file?")) {
             setStep('upload');
             setSheetData(null);
-            setTargetColumn(null);
+            setColumnMap({ SIZES: null, NAMES: null, PRICES: null });
             setRows([]);
         }
     };
@@ -241,13 +231,14 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                                     <button
                                         key={mode}
                                         onClick={() => setCleaningMode(mode)}
-                                        className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${
+                                        className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-bold transition-all ${
                                             cleaningMode === mode 
                                                 ? 'bg-surface-container shadow-sm text-primary' 
                                                 : 'text-text-secondary hover:text-text-primary'
                                         }`}
                                     >
                                         {mode.charAt(0) + mode.slice(1).toLowerCase()}
+                                        {columnMap[mode] && <Check size={12} className="text-success" />}
                                     </button>
                                 ))}
                             </div>
@@ -272,21 +263,16 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                              </button>
                          )}
                     
-                        <button 
-                            onClick={onClose}
-                            className="p-2 rounded-full hover:bg-surface-container-highest text-text-secondary transition-colors"
-                        >
+                        <button onClick={onClose} className="p-2 rounded-full hover:bg-surface-container-highest text-text-secondary transition-colors">
                             <X size={24} />
                         </button>
                     </div>
                 </div>
 
-                {/* CONTENT AREA */}
                 <div className="flex-1 overflow-auto bg-surface-container p-6">
                     {step === 'upload' && (
                         <div className="h-full flex flex-col items-center justify-center">
                             <CleanerFileUpload onFileSelect={(file) => {
-                                // We need to read the file here using the service
                                 import('../../services/spreadsheetService').then(({ readExcelFile }) => {
                                     readExcelFile(file).then(handleFileLoaded).catch(err => alert(err.message));
                                 });
@@ -310,7 +296,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                             setKnownSizes={setKnownSizes}
                             onExport={handleFinalExport}
                             onReset={handleReset}
-                            mode={cleaningMode} // Pass mode down
+                            mode={cleaningMode}
                         />
                     )}
                 </div>
