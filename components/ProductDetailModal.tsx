@@ -29,6 +29,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     const { batchUpdateVariants, duplicateProduct } = useProductMutations();
 
     const activeProduct = (freshProducts || []).find(p => p.id === product.id) || product;
+    
+    // --- DEBUG LOGGING ---
+    useEffect(() => {
+        if (isOpen) {
+            const cacheMatch = (freshProducts || []).find(p => p.id === product.id);
+            console.log("🔍 DEBUG: Product Detail Data Source");
+            console.log("   ID:", product.id);
+            console.log("   1. Props (Stale?):", product.variants[0]?.retailPrice);
+            console.log("   2. React Query Cache:", cacheMatch?.variants[0]?.retailPrice);
+            console.log("   3. Rendered Active:", activeProduct.variants[0]?.retailPrice);
+        }
+    }, [isOpen, freshProducts, product, activeProduct]);
 
     const [isEditingParent, setIsEditingParent] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
