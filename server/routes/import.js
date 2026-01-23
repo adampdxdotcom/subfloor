@@ -571,7 +571,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                         SET 
                             name = COALESCE($8, name),
                             unit_cost = $1, 
-                            retail_price = $2,
+                            retail_price = COALESCE($2, retail_price),
                             size = COALESCE($4, size),
                             carton_size = COALESCE($5, carton_size),
                             wear_layer = COALESCE($6, wear_layer),
@@ -579,8 +579,8 @@ router.post('/execute', verifySession(), async (req, res) => {
                             updated_at = NOW()
                         WHERE id = $3
                     `, [
-                        v.newCost, 
-                        v.newRetail || v.oldRetail, 
+                        cleanNumber(v.newCost), 
+                        cleanNumber(v.newRetail), // Use the calculated price from preview
                         v.id,
                         cleanText(v.newSize),
                         cleanNumber(v.newCartonSize),
@@ -588,7 +588,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                         cleanText(v.newThickness),
                         cleanText(row.variantName)
                     ]); 
-                    console.log(`      * Updated variant ${v.id}. Rows affected: ${variantRes.rowCount}`);
+                    console.log(`      * EXECUTE UPDATE for variant ${v.id}. Rows affected: ${variantRes.rowCount}`);
 
                     // AUTO-RESTORE: If we are updating variants, ensure the parent is visible
                     const parentRes = await client.query(`
