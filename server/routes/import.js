@@ -222,7 +222,7 @@ router.post('/preview', verifySession(), async (req, res) => {
 
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
                         if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
-                        if (isTextDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
+                        if (isNumDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
                         if (isTextDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
                         if (isTextDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
 
@@ -275,7 +275,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                         
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
                         if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
-                        if (isTextDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
+                        if (isNumDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
                         if (isTextDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
                         if (isTextDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
 
@@ -317,7 +317,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                         
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
                         if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
-                        if (isTextDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
+                        if (isNumDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
                         if (isTextDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
                         if (isTextDiff(v.thickness, row.thickness)) changes.push(`Thick: ${v.thickness || '-'} -> ${row.thickness}`);
 
