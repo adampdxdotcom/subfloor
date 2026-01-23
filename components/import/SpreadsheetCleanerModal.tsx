@@ -29,9 +29,6 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     // Analysis State (Master Copy)
     const [rows, setRows] = useState<ParsedRow[]>([]);
     
-    // WORKBENCH MEMORY: Stores clean values for any column, indexed by Row ID
-    const [cleanDataMap, setCleanDataMap] = useState<Record<string, Record<string, string>>>({});
-    
     const [knownSizes, setKnownSizes] = useState<KnownSize[]>([]);
     const [knownProductAliases, setKnownProductAliases] = useState<any[]>([]); 
     const [nameMatchers, setNameMatchers] = useState<{searchText: string, resultText: string}[]>([]);
@@ -199,13 +196,14 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
     const handleFinalExport = () => {
         if (!sheetData) { onClose(); return; }
 
-        const cleanResult = sheetData.rows.map((originalRow, i) => {
-            const updates = cleanDataMap[i.toString()] || {};
+        const cleanResult = sheetData.rows.map((originalRow, idx) => {
             const finalRow = { ...originalRow };
+            const analysisRow = rows[idx];
             
-            Object.keys(updates).forEach(colKey => {
-                finalRow[colKey] = updates[colKey];
-            });
+            if (analysisRow) {
+                if (columnMap.size && analysisRow.extractedSize) finalRow[columnMap.size] = analysisRow.extractedSize;
+                if (columnMap.name && analysisRow.extractedName) finalRow[columnMap.name] = analysisRow.extractedName;
+            }
             
             return finalRow;
         });
@@ -219,7 +217,6 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
             setCleanerStep('upload');
             setSheetData(null);
             setColumnMap({ size: null, name: null });
-            setCleanDataMap({});
             setRows([]);
         }
     };
@@ -300,22 +297,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                         <CleanerAnalysisTable 
                             rows={rows}
                             knownSizes={knownSizes}
-                            setRows={(val) => {
-                                const nextRows = typeof val === 'function' ? val(rows) : val;
-                                setRows(nextRows);
-                                
-                                const col = columnMap.size;
-                                if (!col) return;
-                                
-                                setCleanDataMap(prev => {
-                                    const nextMap = { ...prev };
-                                    nextRows.forEach(r => {
-                                        if (!nextMap[r.id]) nextMap[r.id] = {};
-                                        if (r.extractedSize) nextMap[r.id][col] = r.extractedSize;
-                                    });
-                                    return nextMap;
-                                });
-                            }}
+                            setRows={setRows}
                             setKnownSizes={setKnownSizes}
                             onExport={handleNextFromSizes}
                             onReset={handleReset}
@@ -329,22 +311,7 @@ export const SpreadsheetCleanerModal: React.FC<SpreadsheetCleanerModalProps> = (
                         <CleanerAnalysisTable 
                             rows={rows}
                             knownSizes={knownSizes}
-                            setRows={(val) => {
-                                const nextRows = typeof val === 'function' ? val(rows) : val;
-                                setRows(nextRows);
-                                
-                                const col = columnMap.name;
-                                if (!col) return;
-                                
-                                setCleanDataMap(prev => {
-                                    const nextMap = { ...prev };
-                                    nextRows.forEach(r => {
-                                        if (!nextMap[r.id]) nextMap[r.id] = {};
-                                        if (r.extractedName) nextMap[r.id][col] = r.extractedName;
-                                    });
-                                    return nextMap;
-                                });
-                            }}
+                            setRows={setRows}
                             setKnownSizes={setKnownSizes}
                             onExport={handleFinalExport}
                             onReset={handleReset}

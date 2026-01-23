@@ -221,6 +221,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
 
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
+                        if (isTextDiff(v.name, row.variantName)) changes.push(`Name: ${v.name} -> ${row.variantName}`);
                         if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
                         if (isNumDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
                         if (isTextDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
@@ -274,6 +275,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
                         
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
+                        if (isTextDiff(v.name, row.variantName)) changes.push(`Name: ${v.name} -> ${row.variantName}`);
                         if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
                         if (isNumDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
                         if (isTextDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
@@ -316,6 +318,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
                         
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
+                        if (isTextDiff(v.name, row.variantName)) changes.push(`Name: ${v.name} -> ${row.variantName}`);
                         if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
                         if (isNumDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
                         if (isTextDiff(v.wear_layer, row.wearLayer)) changes.push(`Layer: ${v.wear_layer || '-'} -> ${row.wearLayer}`);
@@ -401,6 +404,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                     await client.query(`
                         UPDATE product_variants 
                         SET 
+                            name = COALESCE($8, name),
                             unit_cost = $1, 
                             retail_price = $2,
                             size = COALESCE($4, size),
@@ -416,7 +420,8 @@ router.post('/execute', verifySession(), async (req, res) => {
                         cleanText(v.newSize),
                         cleanNumber(v.newCartonSize),
                         cleanText(v.newWearLayer),
-                        cleanText(v.newThickness)
+                        cleanText(v.newThickness),
+                        cleanText(row.variantName)
                     ]); 
                     updates++;
                 }
