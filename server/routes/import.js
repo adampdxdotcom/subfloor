@@ -560,19 +560,22 @@ router.post('/execute', verifySession(), async (req, res) => {
                     console.log(`      * Created new parent product: ${productId}`);
                 }
 
-                let finalRetailPrice = row.retailPrice || 0;
-                if (!finalRetailPrice && row.unitCost > 0) {
-                    let vendorPricing = null;
-                    if (manufId) {
-                        if (!vendorCache[manufId]) {
-                             const vendorRes = await client.query(`SELECT default_markup, pricing_method FROM vendors WHERE id = $1`, [manufId]);
-                             vendorCache[manufId] = vendorRes.rows.length > 0 ? vendorRes.rows[0] : null;
-                        }
-                        vendorPricing = vendorCache[manufId];
+                // --- UNIFIED PRICING LOGIC ---
+                // Use spreadsheet retail price if it exists, otherwise calculate it.
+                let finalRetailPrice = cleanNumber(row.retailPrice) || 0;
+                const unitCost = cleanNumber(row.unitCost) || 0;
+
+                if (finalRetailPrice <= 0 && unitCost > 0) {
+                    if (manufId && !vendorCache[manufId]) {
+                        const vendorRes = await client.query(`SELECT default_markup, pricing_method FROM vendors WHERE id = $1`, [manufId]);
+                        vendorCache[manufId] = vendorRes.rows.length > 0 ? vendorRes.rows[0] : null;
                     }
-                    const markup = vendorPricing?.default_markup || globalPricing.retailMarkup;
-                    const method = vendorPricing?.pricing_method || globalPricing.calculationMethod;
-                    finalRetailPrice = calculateRetail(row.unitCost, markup, method);
+
+                    const rules = (manufId && vendorCache[manufId])
+                        ? { markup: vendorCache[manufId].default_markup || globalPricing.retailMarkup, method: vendorCache[manufId].pricing_method || globalPricing.calculationMethod }
+                        : { markup: globalPricing.retailMarkup, method: globalPricing.calculationMethod };
+                    
+                    finalRetailPrice = calculateRetail(unitCost, rules.markup, rules.method);
                 }
 
                 await client.query(`
@@ -583,7 +586,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                     vName, 
                     cleanText(row.sku), 
                     cleanText(row.size), 
-                    row.unitCost || 0, 
+                    unitCost, 
                     finalRetailPrice, 
                     row.cartonSize || null,
                     row.hasSample || false,
