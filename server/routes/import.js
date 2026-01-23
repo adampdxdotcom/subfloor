@@ -314,14 +314,18 @@ router.post('/preview', verifySession(), async (req, res) => {
                 if (sku) {
                     const skuRes = await client.query(
                         `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness, 
-                                p.name as product_name, p.manufacturer_id
+                                p.name as product_name, p.manufacturer_id, v.product_id
                          FROM product_variants v 
                          JOIN products p ON v.product_id = p.id 
                          WHERE v.sku = $1`,
                         [cleanString(sku ? sku.toString() : '')]
                     );
                     
-                    if (skuRes.rows.length > 0) {
+                    // SKIPPING AMBIGUOUS SKUS
+                    if (skuRes.rows.length > 1) {
+                         console.log(`   ⚠️ AMBIGUOUS SKU: "${sku}" matches ${skuRes.rows.length} variants. Skipping SKU match.`);
+                    }
+                    else if (skuRes.rows.length === 1) {
                         const v = skuRes.rows[0];
                         matchFound = true;
                         const changes = [];
@@ -368,18 +372,31 @@ router.post('/preview', verifySession(), async (req, res) => {
                 
                 if (!matchFound && productName && variantName) {
                     const nameRes = await client.query(
-                        `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness, p.manufacturer_id 
+                        `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness, 
+                                p.manufacturer_id, v.size as db_size
                          FROM product_variants v 
                          JOIN products p ON v.product_id = p.id 
                          WHERE LOWER(p.name) = LOWER($1) AND LOWER(v.name) = LOWER($2)`,
                         [cleanText(productName), cleanText(variantName)]
                     );
                     
-                    if (nameRes.rows.length > 0) {
-                        const v = nameRes.rows[0];
+                    // TRIANGULATION: Name Match + Size Disambiguation
+                    let v = null;
+                    if (nameRes.rows.length === 1) {
+                        v = nameRes.rows[0];
+                    } else if (nameRes.rows.length > 1) {
+                        // If spreadsheet has size, use it to break tie
+                        if (row.size) {
+                             const normalizedTarget = normalizeForCompare(row.size);
+                             const exactSizeMatches = nameRes.rows.filter(r => normalizeForCompare(r.db_size) === normalizedTarget);
+                             if (exactSizeMatches.length === 1) v = exactSizeMatches[0];
+                        }
+                    }
+
+                    if (v) {
                         matchFound = true;
                         const changes = [];
-
+                        
                         // Pricing Rules
                         const manufId = v.manufacturer_id;
                         const rules = (manufId && vendorRules[manufId]) 
