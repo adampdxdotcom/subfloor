@@ -14,7 +14,7 @@ const cleanText = (str) => {
 
 const cleanNumber = (val) => {
     if (val === null || val === undefined || val === '') return null;
-    const num = Number(val);
+    const num = Number(String(val).replace(/[^0-9.-]+/g, ""));
     return isNaN(num) ? null : num;
 };
 
@@ -211,7 +211,11 @@ router.post('/preview', verifySession(), async (req, res) => {
 
         // Optimize: In a huge system, we'd bulk fetch. For <5000 rows, looping is fine and safer logic-wise.
         for (const row of mappedRows) {
-            let { productName, variantName, sku, unitCost, retailPrice } = row;
+            let { productName, variantName, sku, unitCost: rawCost, retailPrice: rawRetail } = row;
+            
+            // CLEAN NUMBERS before doing math to prevent NaN errors
+            const unitCost = cleanNumber(rawCost) || 0;
+            const retailPrice = cleanNumber(rawRetail) || 0;
             
             // AUTO-CLEAN: Check if this productName is a known alias
             if (productName && aliasMap.has(productName.toLowerCase())) {
