@@ -209,10 +209,11 @@ router.post('/preview', verifySession(), async (req, res) => {
             vendorRules[v.id] = { markup: v.default_markup, method: v.pricing_method };
         });
 
-        console.log("💰 PRICING DEBUG: Rules Loaded", { globalPricing, vendorCount: Object.keys(vendorRules).length });
+        console.log("\n💰 PRICING RULES LOADED:");
+        console.log("   -> Global:", globalPricing);
 
         // Optimize: In a huge system, we'd bulk fetch. For <5000 rows, looping is fine and safer logic-wise.
-        for (const row of mappedRows) {
+        for (const [index, row] of mappedRows.entries()) {
             let { productName, variantName, sku, unitCost: rawCost, retailPrice: rawRetail } = row;
             
             // CLEAN NUMBERS before doing math to prevent NaN errors
@@ -227,6 +228,8 @@ router.post('/preview', verifySession(), async (req, res) => {
                 // Update the row object so the Frontend sees the clean name
                 row.productName = cleanName;
             }
+
+            console.log(`\n--- 🕵️ Row ${index + 1}: [Product: "${productName}", Variant: "${variantName}", SKU: "${sku || 'N/A'}"] ---`);
 
             let action = 'new'; 
             let details = {};
@@ -254,6 +257,8 @@ router.post('/preview', verifySession(), async (req, res) => {
                         ? { markup: vendorRules[manufId].markup || globalPricing.retailMarkup, method: vendorRules[manufId].method || globalPricing.calculationMethod }
                         : { markup: globalPricing.retailMarkup, method: globalPricing.calculationMethod };
                     
+                    console.log(`   MATCHING: Product Line "${parent.name}" found. Applying rules:`, rules);
+
                     const variantsRes = await client.query(
                         `SELECT id, name, unit_cost, retail_price, size, carton_size, wear_layer, thickness 
                          FROM product_variants WHERE product_id = $1`,
@@ -268,7 +273,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                         const calculatedRetail = calculateRetail(targetCost, rules.markup, rules.method);
                         const finalNewRetail = retailPrice > 0 ? retailPrice : calculatedRetail;
                         
-                        console.log(`   🧮 CALC [${v.name}]: Cost $${targetCost} + ${rules.markup}% = $${calculatedRetail}. DB says: $${v.retail_price}`);
+                        console.log(`     -> Variant "${v.name}": Cost $${targetCost} -> Retail $${finalNewRetail}. (DB price is $${v.retail_price})`);
                         
                         const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
@@ -310,6 +315,7 @@ router.post('/preview', verifySession(), async (req, res) => {
             // --- STRATEGY 2: VARIANT MATCH ---
             else if (strategy === 'variant_match') {
                 let matchFound = false;
+                console.log("   MATCHING: Attempting Variant Match...");
 
                 if (sku) {
                     const skuRes = await client.query(
@@ -323,10 +329,11 @@ router.post('/preview', verifySession(), async (req, res) => {
                     
                     // SKIPPING AMBIGUOUS SKUS
                     if (skuRes.rows.length > 1) {
-                         console.log(`   ⚠️ AMBIGUOUS SKU: "${sku}" matches ${skuRes.rows.length} variants. Skipping SKU match.`);
+                        console.log(`     -> SKU Match: ⚠️ Ambiguous! Found ${skuRes.rows.length} variants for SKU "${sku}". Skipping.`);
                     }
                     else if (skuRes.rows.length === 1) {
                         const v = skuRes.rows[0];
+                        console.log(`     -> SKU Match: ✅ Found unique variant "${v.name}" via SKU "${sku}".`);
                         matchFound = true;
                         const changes = [];
 
@@ -339,6 +346,8 @@ router.post('/preview', verifySession(), async (req, res) => {
                         const targetCost = unitCost > 0 ? unitCost : v.unit_cost;
                         const calculatedRetail = calculateRetail(targetCost, rules.markup, rules.method);
                         const finalNewRetail = retailPrice > 0 ? retailPrice : calculatedRetail;
+
+                        console.log(`       🧮 CALC: Cost $${targetCost} -> Retail $${finalNewRetail}. (DB price is $${v.retail_price})`);
 
                         const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
@@ -371,6 +380,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                 }
                 
                 if (!matchFound && productName && variantName) {
+                    console.log(`     -> Name Match: Searching for Product "${productName}" + Variant "${variantName}"...`);
                     const nameRes = await client.query(
                         `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness, 
                                 p.manufacturer_id, v.size as db_size
@@ -385,15 +395,20 @@ router.post('/preview', verifySession(), async (req, res) => {
                     if (nameRes.rows.length === 1) {
                         v = nameRes.rows[0];
                     } else if (nameRes.rows.length > 1) {
+                        console.log(`       -> Name Match: ⚠️ Ambiguous! Found ${nameRes.rows.length} variants with that name. Trying size tie-breaker...`);
                         // If spreadsheet has size, use it to break tie
                         if (row.size) {
                              const normalizedTarget = normalizeForCompare(row.size);
                              const exactSizeMatches = nameRes.rows.filter(r => normalizeForCompare(r.db_size) === normalizedTarget);
-                             if (exactSizeMatches.length === 1) v = exactSizeMatches[0];
+                             if (exactSizeMatches.length === 1) {
+                                v = exactSizeMatches[0];
+                                console.log(`       -> Size Tie-breaker: ✅ Success! Matched on size "${row.size}".`);
+                             }
                         }
                     }
 
                     if (v) {
+                        console.log(`       -> Name Match: ✅ Found unique variant "${v.name}".`);
                         matchFound = true;
                         const changes = [];
                         
@@ -406,6 +421,8 @@ router.post('/preview', verifySession(), async (req, res) => {
                         const targetCost = unitCost > 0 ? unitCost : v.unit_cost;
                         const calculatedRetail = calculateRetail(targetCost, rules.markup, rules.method);
                         const finalNewRetail = retailPrice > 0 ? retailPrice : calculatedRetail;
+
+                        console.log(`         🧮 CALC: Cost $${targetCost} -> Retail $${finalNewRetail}. (DB price is $${v.retail_price})`);
 
                         const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
@@ -434,6 +451,8 @@ router.post('/preview', verifySession(), async (req, res) => {
                             changes
                         });
                         details = { matchType: 'Exact Name Match' };
+                    } else {
+                        console.log(`     -> Name Match: ❌ No unique match found.`);
                     }
                 }
             }
@@ -444,9 +463,11 @@ router.post('/preview', verifySession(), async (req, res) => {
                 details,
                 affectedVariants
             });
+
+            console.log(`   FINAL ACTION: ${action.toUpperCase()}`);
         }
         
-        console.log(`✅ IMPORT PREVIEW: Completed. ${results.filter(r => r.status === 'update').length} updates found.`);
+        console.log(`\n✅ IMPORT PREVIEW: Completed. ${results.filter(r => r.status === 'update').length} updates found.`);
         res.json(results);
     } catch (err) {
         console.error('Error generating import preview:', err);
