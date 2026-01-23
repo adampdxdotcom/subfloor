@@ -688,4 +688,5 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     );
 };
 
+
 export default ProductDetailModal;
