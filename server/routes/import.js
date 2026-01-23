@@ -452,8 +452,6 @@ router.post('/preview', verifySession(), async (req, res) => {
                 }
 
                 // --- FALLBACK STRATEGY ---
-                // If variant_match failed to find a direct hit, but we have a product name,
-                // let's try a broader search for the product line and iterate.
                 if (!matchFound && productName) {
                     console.log(`     -> No direct match. Falling back to broad Product Line search for "${productName}"...`);
                     const parentRes = await client.query(
@@ -467,10 +465,8 @@ router.post('/preview', verifySession(), async (req, res) => {
                             ? { markup: vendorRules[parent.manufacturer_id].markup || globalPricing.retailMarkup, method: vendorRules[parent.manufacturer_id].method || globalPricing.calculationMethod }
                             : { markup: globalPricing.retailMarkup, method: globalPricing.calculationMethod };
                         
-                        // Find the variants for this product parent
                         const dbVariantsRes = await client.query(`SELECT id, name, size, unit_cost, retail_price FROM product_variants WHERE product_id = $1`, [parent.id]);
                         
-                        // Find the best match based on name + size triangulation
                         const targetVariantName = normalizeForCompare(variantName);
                         const targetSize = normalizeForCompare(row.size);
                         
@@ -532,7 +528,6 @@ router.post('/preview', verifySession(), async (req, res) => {
 });
 
 // POST /api/import/execute
-// Commit changes to the database
 router.post('/execute', verifySession(), async (req, res) => {
     const { previewResults, strategy, defaults } = req.body;
     const userId = req.session.getUserId();
@@ -580,7 +575,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                         WHERE id = $3
                     `, [
                         cleanNumber(v.newCost), 
-                        cleanNumber(v.newRetail), // Use the calculated price from preview
+                        cleanNumber(v.newRetail),
                         v.id,
                         cleanText(v.newSize),
                         cleanNumber(v.newCartonSize),
@@ -590,11 +585,9 @@ router.post('/execute', verifySession(), async (req, res) => {
                     ]); 
                     console.log(`      * EXECUTE UPDATE for variant ${v.id}. Rows affected: ${variantRes.rowCount}`);
 
-                    // AUTO-RESTORE: If we are updating variants, ensure the parent is visible
-                    const parentRes = await client.query(`
+                    await client.query(`
                         UPDATE products SET is_discontinued = FALSE, name = $2 WHERE id = $1
                     `, [row.productId || v.productId, cleanText(row.productName)]);
-                    console.log(`      * Restored parent product. Rows affected: ${parentRes.rowCount}`);
 
                     updates++;
                 }
@@ -619,11 +612,9 @@ router.post('/execute', verifySession(), async (req, res) => {
                 
                 if (parentRes.rows.length > 0) {
                     productId = parentRes.rows[0].id;
-                    // Restore and Rename the parent if it exists (even if archived)
                     await client.query(`
                         UPDATE products SET is_discontinued = FALSE, name = $2 WHERE id = $1
                     `, [productId, pName]);
-                    console.log(`      * Found existing parent: ${productId}. Restored and renamed.`);
                 } else {
                     const pType = cleanText(row.productType) || defaults?.productType || 'Material';
                     const newParent = await client.query(`
@@ -632,11 +623,9 @@ router.post('/execute', verifySession(), async (req, res) => {
                         RETURNING id
                     `, [pName, manufId, pType]);
                     productId = newParent.rows[0].id;
-                    console.log(`      * Created new parent product: ${productId}`);
                 }
 
                 // --- UNIFIED PRICING LOGIC ---
-                // Use spreadsheet retail price if it exists, otherwise calculate it.
                 let finalRetailPrice = cleanNumber(row.retailPrice) || 0;
                 const unitCost = cleanNumber(row.unitCost) || 0;
 
@@ -669,7 +658,6 @@ router.post('/execute', verifySession(), async (req, res) => {
                     cleanText(row.thickness)
                 ]);
 
-                console.log(`      * Created new variant for product ${productId}`);
                 if (row.size) {
                     const cleanSize = cleanText(row.size);
                     if (cleanSize) {
