@@ -158,6 +158,24 @@ router.post('/aliases/products', verifySession(), async (req, res) => {
     }
 });
 
+// --- PRICING HELPERS ---
+const calculateRetail = (cost, markup, method) => {
+    const c = Number(cost);
+    const m = Number(markup);
+    if (isNaN(c) || c <= 0) return 0;
+    if (isNaN(m)) return c;
+
+    let price = 0;
+    if (method === 'Margin') {
+        const decimalMargin = m / 100;
+        if (decimalMargin >= 1) return 0; 
+        price = c / (1 - decimalMargin);
+    } else { // Markup
+        price = c * (1 + m / 100);
+    }
+    return Number(price.toFixed(2));
+};
+
 // =================================================================
 //  IMPORT LOGIC (The Heavy Lifting)
 // =================================================================
@@ -176,6 +194,20 @@ router.post('/preview', verifySession(), async (req, res) => {
         const aliasRes = await client.query('SELECT alias_text, mapped_product_name FROM product_aliases');
         const aliasMap = new Map();
         aliasRes.rows.forEach(r => aliasMap.set(r.alias_text.toLowerCase(), r.mapped_product_name));
+
+        // 2. Fetch Pricing Rules (Global & Vendors)
+        const settingsRes = await client.query(`SELECT settings FROM system_preferences WHERE key = 'pricing_settings'`);
+        let globalPricing = { retailMarkup: 0, calculationMethod: 'Markup' };
+        if (settingsRes.rows.length > 0 && settingsRes.rows[0].settings) {
+            globalPricing = { ...globalPricing, ...settingsRes.rows[0].settings };
+        }
+        
+        // Cache vendor rules: { vendorId: { markup, method } }
+        const vendorRules = {};
+        const vendorRes = await client.query('SELECT id, default_markup, pricing_method FROM vendors');
+        vendorRes.rows.forEach(v => {
+            vendorRules[v.id] = { markup: v.default_markup, method: v.pricing_method };
+        });
 
         // Optimize: In a huge system, we'd bulk fetch. For <5000 rows, looping is fine and safer logic-wise.
         for (const row of mappedRows) {
@@ -208,6 +240,13 @@ router.post('/preview', verifySession(), async (req, res) => {
 
                 if (parentRes.rows.length > 0) {
                     const parent = parentRes.rows[0];
+
+                    // Pricing Rules for this Product Line
+                    const vendorRes = await client.query('SELECT manufacturer_id FROM products WHERE id = $1', [parent.id]);
+                    const manufId = vendorRes.rows[0]?.manufacturer_id;
+                    const rules = (manufId && vendorRules[manufId]) 
+                        ? { markup: vendorRules[manufId].markup || globalPricing.retailMarkup, method: vendorRules[manufId].method || globalPricing.calculationMethod }
+                        : { markup: globalPricing.retailMarkup, method: globalPricing.calculationMethod };
                     
                     const variantsRes = await client.query(
                         `SELECT id, name, unit_cost, retail_price, size, carton_size, wear_layer, thickness 
@@ -217,11 +256,17 @@ router.post('/preview', verifySession(), async (req, res) => {
                     
                     affectedVariants = variantsRes.rows.map(v => {
                         const changes = [];
+
+                        // Calculate Target Retail
+                        const targetCost = unitCost > 0 ? unitCost : v.unit_cost;
+                        const calculatedRetail = calculateRetail(targetCost, rules.markup, rules.method);
+                        const finalNewRetail = retailPrice > 0 ? retailPrice : calculatedRetail;
                         
                         const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
 
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
+                        if (isNumDiff(v.retail_price, finalNewRetail)) changes.push(`Price: $${v.retail_price} -> $${finalNewRetail}${retailPrice > 0 ? '' : ' (Auto)'}`);
                         if (isTextDiff(v.name, row.variantName)) changes.push(`Name: ${v.name} -> ${row.variantName}`);
                         if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
                         if (isNumDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
@@ -234,7 +279,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                             oldCost: v.unit_cost,
                             newCost: unitCost,
                             oldRetail: v.retail_price,
-                            newRetail: retailPrice,
+                            newRetail: finalNewRetail,
                             newSize: row.size,
                             newCartonSize: row.cartonSize,
                             newWearLayer: row.wearLayer,
@@ -260,7 +305,8 @@ router.post('/preview', verifySession(), async (req, res) => {
 
                 if (sku) {
                     const skuRes = await client.query(
-                        `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness, p.name as product_name 
+                        `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness, 
+                                p.name as product_name, p.manufacturer_id
                          FROM product_variants v 
                          JOIN products p ON v.product_id = p.id 
                          WHERE v.sku = $1`,
@@ -272,10 +318,21 @@ router.post('/preview', verifySession(), async (req, res) => {
                         matchFound = true;
                         const changes = [];
 
+                        // Pricing Rules
+                        const manufId = v.manufacturer_id;
+                        const rules = (manufId && vendorRules[manufId]) 
+                            ? { markup: vendorRules[manufId].markup || globalPricing.retailMarkup, method: vendorRules[manufId].method || globalPricing.calculationMethod }
+                            : { markup: globalPricing.retailMarkup, method: globalPricing.calculationMethod };
+
+                        const targetCost = unitCost > 0 ? unitCost : v.unit_cost;
+                        const calculatedRetail = calculateRetail(targetCost, rules.markup, rules.method);
+                        const finalNewRetail = retailPrice > 0 ? retailPrice : calculatedRetail;
+
                         const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
                         
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
+                        if (isNumDiff(v.retail_price, finalNewRetail)) changes.push(`Price: $${v.retail_price} -> $${finalNewRetail}${retailPrice > 0 ? '' : ' (Auto)'}`);
                         if (isTextDiff(v.name, row.variantName)) changes.push(`Name: ${v.name} -> ${row.variantName}`);
                         if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
                         if (isNumDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
@@ -290,7 +347,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                             oldCost: v.unit_cost,
                             newCost: unitCost,
                             oldRetail: v.retail_price,
-                            newRetail: retailPrice,
+                            newRetail: finalNewRetail,
                             newSize: row.size,
                             newCartonSize: row.cartonSize,
                             newWearLayer: row.wearLayer,
@@ -303,7 +360,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                 
                 if (!matchFound && productName && variantName) {
                     const nameRes = await client.query(
-                        `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness 
+                        `SELECT v.id, v.name, v.unit_cost, v.retail_price, v.size, v.carton_size, v.wear_layer, v.thickness, p.manufacturer_id 
                          FROM product_variants v 
                          JOIN products p ON v.product_id = p.id 
                          WHERE LOWER(p.name) = LOWER($1) AND LOWER(v.name) = LOWER($2)`,
@@ -315,10 +372,21 @@ router.post('/preview', verifySession(), async (req, res) => {
                         matchFound = true;
                         const changes = [];
 
+                        // Pricing Rules
+                        const manufId = v.manufacturer_id;
+                        const rules = (manufId && vendorRules[manufId]) 
+                            ? { markup: vendorRules[manufId].markup || globalPricing.retailMarkup, method: vendorRules[manufId].method || globalPricing.calculationMethod }
+                            : { markup: globalPricing.retailMarkup, method: globalPricing.calculationMethod };
+
+                        const targetCost = unitCost > 0 ? unitCost : v.unit_cost;
+                        const calculatedRetail = calculateRetail(targetCost, rules.markup, rules.method);
+                        const finalNewRetail = retailPrice > 0 ? retailPrice : calculatedRetail;
+
                         const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
                         
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
+                        if (isNumDiff(v.retail_price, finalNewRetail)) changes.push(`Price: $${v.retail_price} -> $${finalNewRetail}${retailPrice > 0 ? '' : ' (Auto)'}`);
                         if (isTextDiff(v.name, row.variantName)) changes.push(`Name: ${v.name} -> ${row.variantName}`);
                         if (isTextDiff(v.size, row.size)) changes.push(`Size: ${v.size || '-'} -> ${row.size}`);
                         if (isNumDiff(v.carton_size, row.cartonSize)) changes.push(`Carton: ${v.carton_size || '-'} -> ${row.cartonSize}`);
@@ -333,7 +401,7 @@ router.post('/preview', verifySession(), async (req, res) => {
                             oldCost: v.unit_cost,
                             newCost: unitCost,
                             oldRetail: v.retail_price,
-                            newRetail: retailPrice,
+                            newRetail: finalNewRetail,
                             newSize: row.size,
                             newCartonSize: row.cartonSize,
                             newWearLayer: row.wearLayer,
@@ -362,18 +430,6 @@ router.post('/preview', verifySession(), async (req, res) => {
         client.release();
     }
 });
-
-const calculateRetailPrice = (cost, markup, method = 'Markup') => {
-    const costNum = Number(cost);
-    const markupNum = Number(markup);
-    if (isNaN(costNum) || costNum <= 0) return 0;
-    if (isNaN(markupNum) || markupNum <= 0) return costNum;
-    if (method === 'Margin') {
-        if (markupNum >= 100) return costNum;
-        return costNum / (1 - markupNum / 100);
-    }
-    return costNum * (1 + markupNum / 100);
-};
 
 // POST /api/import/execute
 // Commit changes to the database
@@ -491,7 +547,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                     }
                     const markup = vendorPricing?.default_markup || globalPricing.retailMarkup;
                     const method = vendorPricing?.pricing_method || globalPricing.calculationMethod;
-                    finalRetailPrice = calculateRetailPrice(row.unitCost, markup, method);
+                    finalRetailPrice = calculateRetail(row.unitCost, markup, method);
                 }
 
                 await client.query(`
