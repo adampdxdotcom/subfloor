@@ -3,7 +3,7 @@ import { Product, ProductVariant, PricingSettings, UNITS } from '../types';
 import { X, Edit2, QrCode, Trash2, Plus, Image as ImageIcon, Save, Calculator, CheckSquare, Square, Printer, Copy, ListChecks, Star, Archive, RotateCcw, CopyPlus, ArrowLeft } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '../context/DataContext';
-import { useProductMutations } from '../hooks/useProducts'; 
+import { useProducts, useProductMutations } from '../hooks/useProducts'; 
 import { getPricingSettings } from '../services/preferenceService';
 import { deleteVariant as deleteVariantService } from '../services/productService';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
@@ -24,10 +24,11 @@ interface ProductDetailModalProps {
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose, product }) => {
-    const { products, vendors, updateProduct, deleteProduct, addVariant, updateVariant } = useData();
+    const { vendors, updateProduct, deleteProduct, addVariant, updateVariant } = useData();
+    const { data: freshProducts } = useProducts();
     const { batchUpdateVariants, duplicateProduct } = useProductMutations();
 
-    const activeProduct = products.find(p => p.id === product.id) || product;
+    const activeProduct = (freshProducts || []).find(p => p.id === product.id) || product;
 
     const [isEditingParent, setIsEditingParent] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
