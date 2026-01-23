@@ -167,6 +167,7 @@ router.post('/aliases/products', verifySession(), async (req, res) => {
 router.post('/preview', verifySession(), async (req, res) => {
     const { mappedRows, strategy } = req.body; 
     const client = await pool.connect();
+    console.log(`🔍 IMPORT PREVIEW: Starting preview for ${mappedRows?.length} rows. Strategy: ${strategy}`);
     
     try {
         const results = [];
@@ -352,6 +353,7 @@ router.post('/preview', verifySession(), async (req, res) => {
             });
         }
         
+        console.log(`✅ IMPORT PREVIEW: Completed. ${results.filter(r => r.status === 'update').length} updates found.`);
         res.json(results);
     } catch (err) {
         console.error('Error generating import preview:', err);
@@ -380,11 +382,13 @@ router.post('/execute', verifySession(), async (req, res) => {
     const userId = req.session.getUserId();
     const client = await pool.connect();
 
+    console.log("🚀 IMPORT EXECUTE: Starting transaction for batch processing...");
     try {
         await client.query('BEGIN');
         
         let updates = 0;
         let created = 0;
+        let skipped = 0;
 
         const settingsRes = await client.query(`SELECT settings FROM system_preferences WHERE key = 'pricing_settings'`);
         let globalPricing = { retailMarkup: 0, calculationMethod: 'Markup' };
@@ -397,11 +401,16 @@ router.post('/execute', verifySession(), async (req, res) => {
         const vendorCache = {}; 
 
         for (const row of previewResults) {
-            if (row.status === 'error' || row.status === 'ignored' || row.status === 'match') continue;
+            if (row.status === 'error' || row.status === 'ignored' || row.status === 'match') {
+                skipped++;
+                continue;
+            }
+
+            console.log(`   -> Processing row: ${row.productName} [Status: ${row.status}]`);
 
             if (row.status === 'update' && row.affectedVariants) {
                 for (const v of row.affectedVariants) {
-                    await client.query(`
+                    const variantRes = await client.query(`
                         UPDATE product_variants 
                         SET 
                             name = COALESCE($8, name),
@@ -423,6 +432,14 @@ router.post('/execute', verifySession(), async (req, res) => {
                         cleanText(v.newThickness),
                         cleanText(row.variantName)
                     ]); 
+                    console.log(`      * Updated variant ${v.id}. Rows affected: ${variantRes.rowCount}`);
+
+                    // AUTO-RESTORE: If we are updating variants, ensure the parent is visible
+                    const parentRes = await client.query(`
+                        UPDATE products SET is_discontinued = FALSE, name = $2 WHERE id = $1
+                    `, [row.productId || v.productId, cleanText(row.productName)]);
+                    console.log(`      * Restored parent product. Rows affected: ${parentRes.rowCount}`);
+
                     updates++;
                 }
             }
@@ -446,6 +463,11 @@ router.post('/execute', verifySession(), async (req, res) => {
                 
                 if (parentRes.rows.length > 0) {
                     productId = parentRes.rows[0].id;
+                    // Restore and Rename the parent if it exists (even if archived)
+                    await client.query(`
+                        UPDATE products SET is_discontinued = FALSE, name = $2 WHERE id = $1
+                    `, [productId, pName]);
+                    console.log(`      * Found existing parent: ${productId}. Restored and renamed.`);
                 } else {
                     const pType = cleanText(row.productType) || defaults?.productType || 'Material';
                     const newParent = await client.query(`
@@ -454,6 +476,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                         RETURNING id
                     `, [pName, manufId, pType]);
                     productId = newParent.rows[0].id;
+                    console.log(`      * Created new parent product: ${productId}`);
                 }
 
                 let finalRetailPrice = row.retailPrice || 0;
@@ -487,6 +510,7 @@ router.post('/execute', verifySession(), async (req, res) => {
                     cleanText(row.thickness)
                 ]);
 
+                console.log(`      * Created new variant for product ${productId}`);
                 if (row.size) {
                     const cleanSize = cleanText(row.size);
                     if (cleanSize) {
@@ -506,11 +530,12 @@ router.post('/execute', verifySession(), async (req, res) => {
         } catch (e) { console.warn("Failed to log import activity", e); }
         
         await client.query('COMMIT');
+        console.log(`🏁 IMPORT EXECUTE COMPLETE: ${updates} updates, ${created} created, ${skipped} skipped.`);
         res.json({ success: true, updates, created });
 
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('Error executing import:', err);
+        console.error('❌ IMPORT EXECUTE FAILED:', err);
         res.status(500).json({ error: err.message });
     } finally {
         client.release();
