@@ -209,6 +209,10 @@ router.post('/preview', verifySession(), async (req, res) => {
             vendorRules[v.id] = { markup: v.default_markup, method: v.pricing_method };
         });
 
+        console.log("💰 PRICING DEBUG:");
+        console.log("   Global Settings:", globalPricing);
+        console.log("   Vendor Rules Cache:", vendorRules);
+
         // Optimize: In a huge system, we'd bulk fetch. For <5000 rows, looping is fine and safer logic-wise.
         for (const row of mappedRows) {
             let { productName, variantName, sku, unitCost: rawCost, retailPrice: rawRetail } = row;
@@ -265,6 +269,8 @@ router.post('/preview', verifySession(), async (req, res) => {
                         const targetCost = unitCost > 0 ? unitCost : v.unit_cost;
                         const calculatedRetail = calculateRetail(targetCost, rules.markup, rules.method);
                         const finalNewRetail = retailPrice > 0 ? retailPrice : calculatedRetail;
+                        
+                        console.log(`   🧮 CALC: Cost $${targetCost} + ${rules.markup}% (${rules.method}) = $${calculatedRetail}. Final: $${finalNewRetail}`);
                         
                         const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
                         const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
