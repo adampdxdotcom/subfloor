@@ -212,6 +212,10 @@ router.post('/preview', verifySession(), async (req, res) => {
         console.log("\n💰 PRICING RULES LOADED:");
         console.log("   -> Global:", globalPricing);
 
+        // Define generic diff helpers
+        const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
+        const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
+
         // Optimize: In a huge system, we'd bulk fetch. For <5000 rows, looping is fine and safer logic-wise.
         for (const [index, row] of mappedRows.entries()) {
             let { productName, variantName, sku, unitCost: rawCost, retailPrice: rawRetail } = row;
@@ -275,9 +279,6 @@ router.post('/preview', verifySession(), async (req, res) => {
                         
                         console.log(`     -> Variant "${v.name}": Cost $${targetCost} -> Retail $${finalNewRetail}. (DB price is $${v.retail_price})`);
                         
-                        const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
-                        const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
-
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
                         if (isNumDiff(v.retail_price, finalNewRetail)) changes.push(`Price: $${v.retail_price} -> $${finalNewRetail}${retailPrice > 0 ? '' : ' (Auto)'}`);
                         if (isTextDiff(v.name, row.variantName)) changes.push(`Name: ${v.name} -> ${row.variantName}`);
@@ -349,9 +350,6 @@ router.post('/preview', verifySession(), async (req, res) => {
 
                         console.log(`       🧮 CALC: Cost $${targetCost} -> Retail $${finalNewRetail}. (DB price is $${v.retail_price})`);
 
-                        const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
-                        const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
-                        
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
                         if (isNumDiff(v.retail_price, finalNewRetail)) changes.push(`Price: $${v.retail_price} -> $${finalNewRetail}${retailPrice > 0 ? '' : ' (Auto)'}`);
                         if (isTextDiff(v.name, row.variantName)) changes.push(`Name: ${v.name} -> ${row.variantName}`);
@@ -424,9 +422,6 @@ router.post('/preview', verifySession(), async (req, res) => {
 
                         console.log(`         🧮 CALC: Cost $${targetCost} -> Retail $${finalNewRetail}. (DB price is $${v.retail_price})`);
 
-                        const isNumDiff = (dbVal, csvVal) => Math.abs(Number(dbVal) - Number(csvVal)) > 0.01;
-                        const isTextDiff = (dbVal, csvVal) => normalizeForCompare(dbVal) !== normalizeForCompare(csvVal);
-                        
                         if (isNumDiff(v.unit_cost, unitCost)) changes.push('Cost');
                         if (isNumDiff(v.retail_price, finalNewRetail)) changes.push(`Price: $${v.retail_price} -> $${finalNewRetail}${retailPrice > 0 ? '' : ' (Auto)'}`);
                         if (isTextDiff(v.name, row.variantName)) changes.push(`Name: ${v.name} -> ${row.variantName}`);
@@ -453,6 +448,65 @@ router.post('/preview', verifySession(), async (req, res) => {
                         details = { matchType: 'Exact Name Match' };
                     } else {
                         console.log(`     -> Name Match: ❌ No unique match found.`);
+                    }
+                }
+
+                // --- FALLBACK STRATEGY ---
+                // If variant_match failed to find a direct hit, but we have a product name,
+                // let's try a broader search for the product line and iterate.
+                if (!matchFound && productName) {
+                    console.log(`     -> No direct match. Falling back to broad Product Line search for "${productName}"...`);
+                    const parentRes = await client.query(
+                        `SELECT id, name, manufacturer_id FROM products WHERE LOWER(name) = LOWER($1)`, 
+                        [cleanText(productName)]
+                    );
+
+                    if (parentRes.rows.length > 0) {
+                        const parent = parentRes.rows[0];
+                        const rules = (parent.manufacturer_id && vendorRules[parent.manufacturer_id]) 
+                            ? { markup: vendorRules[parent.manufacturer_id].markup || globalPricing.retailMarkup, method: vendorRules[parent.manufacturer_id].method || globalPricing.calculationMethod }
+                            : { markup: globalPricing.retailMarkup, method: globalPricing.calculationMethod };
+                        
+                        // Find the variants for this product parent
+                        const dbVariantsRes = await client.query(`SELECT id, name, size, unit_cost, retail_price FROM product_variants WHERE product_id = $1`, [parent.id]);
+                        
+                        // Find the best match based on name + size triangulation
+                        const targetVariantName = normalizeForCompare(variantName);
+                        const targetSize = normalizeForCompare(row.size);
+                        
+                        let bestMatch = null;
+                        for (const dbVar of dbVariantsRes.rows) {
+                            if (normalizeForCompare(dbVar.name) === targetVariantName && normalizeForCompare(dbVar.size) === targetSize) {
+                                bestMatch = dbVar;
+                                break;
+                            }
+                        }
+                        
+                        if (bestMatch) {
+                            console.log(`       -> Fallback Success: Matched variant "${bestMatch.name}" by Name+Size.`);
+                            const changes = [];
+                            const targetCost = unitCost > 0 ? unitCost : bestMatch.unit_cost;
+                            const calculatedRetail = calculateRetail(targetCost, rules.markup, rules.method);
+                            const finalNewRetail = retailPrice > 0 ? retailPrice : calculatedRetail;
+
+                            if (isNumDiff(bestMatch.unit_cost, unitCost)) changes.push('Cost');
+                            if (isNumDiff(bestMatch.retail_price, finalNewRetail)) changes.push(`Price: $${bestMatch.retail_price} -> $${finalNewRetail}${retailPrice > 0 ? '' : ' (Auto)'}`);
+
+                            if (changes.length > 0) {
+                                action = 'update';
+                                affectedVariants.push({ 
+                                    id: bestMatch.id, 
+                                    name: bestMatch.name, 
+                                    newCost: unitCost, 
+                                    newRetail: finalNewRetail, 
+                                    changes 
+                                });
+                                details = { matchType: 'Fallback Name+Size' };
+                            } else {
+                                action = 'match';
+                            }
+                            matchFound = true;
+                        }
                     }
                 }
             }
