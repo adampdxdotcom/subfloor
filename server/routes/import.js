@@ -196,7 +196,7 @@ router.post('/preview', verifySession(), async (req, res) => {
         aliasRes.rows.forEach(r => aliasMap.set(r.alias_text.toLowerCase(), r.mapped_product_name));
 
         // 2. Fetch Pricing Rules (Global & Vendors)
-        const settingsRes = await client.query(`SELECT settings FROM system_preferences WHERE key = 'pricing_settings'`);
+        const settingsRes = await client.query(`SELECT settings FROM system_preferences WHERE key = 'pricing'`);
         let globalPricing = { retailMarkup: 0, calculationMethod: 'Markup' };
         if (settingsRes.rows.length > 0 && settingsRes.rows[0].settings) {
             globalPricing = { ...globalPricing, ...settingsRes.rows[0].settings };
@@ -541,7 +541,7 @@ router.post('/execute', verifySession(), async (req, res) => {
         let created = 0;
         let skipped = 0;
 
-        const settingsRes = await client.query(`SELECT settings FROM system_preferences WHERE key = 'pricing_settings'`);
+        const settingsRes = await client.query(`SELECT settings FROM system_preferences WHERE key = 'pricing'`);
         let globalPricing = { retailMarkup: 0, calculationMethod: 'Markup' };
         
         if (settingsRes.rows.length > 0 && settingsRes.rows[0].settings) {
