@@ -203,10 +203,6 @@ app.use(cors({
     credentials: true,
 }));
 
-app.options('*', (req, res) => {
-    res.sendStatus(204);
-});
-
 app.use(express.json({ limit: '50mb' })); 
 app.use('/uploads', express.static(uploadsDir));
 
@@ -266,7 +262,8 @@ app.use('/api/media', mediaRoutes);
 
 // --- SERVE FRONTEND ---
 const publicPath = path.join(__dirname, 'public');
-if (fs.existsSync(publicPath)) {
+// Only serve static frontend in PRODUCTION. In Dev, Vite handles this.
+if (process.env.NODE_ENV === 'production' && fs.existsSync(publicPath)) {
     console.log('📂 Serving static frontend from ./public');
     app.use(express.static(publicPath));
     app.get('*', (req, res, next) => {

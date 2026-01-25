@@ -10,17 +10,20 @@ export default defineConfig(({ mode }) => {
       allowedHosts: true, 
     
       proxy: {
-        '/api': { target: 'http://server:3001', changeOrigin: true },
-        '/auth': { target: 'http://server:3001', changeOrigin: true },
-        '/uploads': { target: 'http://server:3001', changeOrigin: true },
+        '/api': { target: 'http://localhost:3001', changeOrigin: true },
+        // REMOVED /auth proxy: Let React Router handle the Login Page!
+        '/uploads': { target: 'http://localhost:3001', changeOrigin: true },
       },
 
       // --- RESTORE THIS BLOCK ---
+      // Commented out for Local Dev (http://localhost:5173) to prevent connection errors
+      /*
       hmr: {
           host: undefined, // Uses window.location.hostname (dynamic)
           clientPort: 443, // Forces browser to use HTTPS/WSS
           protocol: 'wss' 
       },
+      */
     },
   };
 });
