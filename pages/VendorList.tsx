@@ -3,7 +3,7 @@ import { useVendors, useVendorMutations } from '../hooks/useVendors';
 import { Vendor } from '../types';
 import AddEditVendorModal from '../components/AddEditVendorModal';
 import { toast } from 'react-hot-toast';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, Building, Truck, Search, Layers, Globe, Link as LinkIcon } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
@@ -11,6 +11,7 @@ const VendorList: React.FC = () => {
     const { data: vendors = [] } = useVendors(); 
     const { vendors: allVendors } = useData();
     const vendorMutations = useVendorMutations();
+    const navigate = useNavigate();
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [vendorToEdit, setVendorToEdit] = useState<Vendor | null>(null);
@@ -80,7 +81,11 @@ const VendorList: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredVendors.map(vendor => (
-                    <Link to={`/vendors/${vendor.id}`} key={vendor.id} className="bg-surface-container-high rounded-xl shadow-sm border border-outline/10 p-6 flex flex-col justify-between hover:shadow-md transition-all duration-200 group">
+                    <div 
+                        key={vendor.id} 
+                        onClick={() => navigate(`/vendors/${vendor.id}`)}
+                        className="bg-surface-container-high rounded-xl shadow-sm border border-outline/10 p-6 flex flex-col justify-between hover:shadow-md transition-all duration-200 group cursor-pointer"
+                    >
                         <div>
                             <div className="flex justify-between items-start">
                                 <h2 className="text-xl font-bold text-text-primary mb-2 group-hover:text-primary truncate flex-1 pr-2 transition-colors">{vendor.name}</h2>
@@ -140,7 +145,7 @@ const VendorList: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    </Link>
+                    </div>
                 ))}
             </div>
 

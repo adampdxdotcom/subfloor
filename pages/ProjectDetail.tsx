@@ -242,7 +242,7 @@ const ProjectDetail: React.FC = () => {
                 <div key="job-details" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
                     <LockedWidget isLocked={!isQuoteAccepted} title="Job Financials & Schedule">
                         {isQuoteAccepted ? (
-                        <FinalizeJobSection project={project} job={job} quotes={projectQuotes} changeOrders={projectChangeOrders} saveJobDetails={handleSaveJobDetails} updateProject={handleUpdateProject} />
+                        <FinalizeJobSection project={project} job={job} quotes={projectQuotes} changeOrders={projectChangeOrders} materialOrders={projectOrders} />
                         ) : (
                             <div className="h-full w-full bg-surface/50" />
                         )}

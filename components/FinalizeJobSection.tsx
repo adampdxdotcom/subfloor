@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useInstallers } from '../hooks/useInstallers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { saveJob, updateProject as updateProjectService } from '../services/jobService';
-import { Project, Job, Quote, ChangeOrder, ProjectStatus, QuoteStatus, JobAppointment } from '../types';
-import { Save, Calendar, AlertTriangle, PlusCircle, XCircle, Move, Loader } from 'lucide-react';
+import { Project, Job, Quote, ChangeOrder, ProjectStatus, QuoteStatus, JobAppointment, MaterialOrder } from '../types';
+import { Save, Calendar, AlertTriangle, PlusCircle, XCircle, Move, Loader, CheckCircle, Package } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // --- HELPER FUNCTIONS ---
@@ -20,10 +20,11 @@ interface FinalizeJobSectionProps {
     job: Job | undefined;
     quotes: Quote[];
     changeOrders: ChangeOrder[];
+    materialOrders: MaterialOrder[];
 }
 
 // --- MAIN COMPONENT ---
-const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, quotes, changeOrders }) => {
+const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, quotes, changeOrders, materialOrders }) => {
     const { data: installers = [], isLoading: isLoadingInstallers } = useInstallers();
     const isInitialized = useRef(false);
     const queryClient = useQueryClient();
@@ -35,6 +36,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         contractsReceived: false,
         finalPaymentReceived: false,
         isOnHold: false,
+        isMaterialOnly: false,
         appointments: []
     });
     
@@ -45,6 +47,13 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
         if (acceptedQuotes.length === 0) return false;
         return acceptedQuotes.some(q => q.installationType === 'Managed Installation' || q.installationType === 'Unmanaged Installer');
     }, [acceptedQuotes]);
+    
+    const shouldShowScheduler = useMemo(() => isSchedulingApplicable && !jobDetails.isMaterialOnly, [isSchedulingApplicable, jobDetails.isMaterialOnly]);
+
+    const allMaterialOrdersReceived = useMemo(() => {
+        if (!materialOrders || materialOrders.length === 0) return false;
+        return materialOrders.every(order => !!order.dateReceived);
+    }, [materialOrders]);
 
     const isManagedJob = useMemo(() => {
         return acceptedQuotes.some(q => q.installationType === 'Managed Installation');
@@ -96,6 +105,7 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 contractsReceived: false,
                 finalPaymentReceived: false,
                 isOnHold: false,
+                isMaterialOnly: false,
                 appointments: [{
                     _tempId: tempAppointmentId++,
                     appointmentName: 'Installation',
@@ -192,23 +202,25 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
     });
 
     const handleSave = async () => {
-        const firstAppointment = jobDetails.appointments?.[0];
-        const shouldUpdateStatus = project.status === ProjectStatus.ACCEPTED && isSchedulingApplicable;
-        
-        if (shouldUpdateStatus && (!firstAppointment || !firstAppointment.startDate)) {
-            toast.error("Please enter a Start Date for the first appointment to schedule the job.");
-            return;
-        }
-        
-        if (isSchedulingApplicable && jobDetails.appointments?.some(a => !a.quoteId)) {
-            toast.error("All appointments must be linked to an Accepted Quote (Scope of Work).");
-            return;
-        }
-
-        if (shouldUpdateStatus && isManagedJob) {
-            if (!jobDetails.depositReceived || !jobDetails.contractsReceived) {
-                toast.error("Deposit and Contracts must be marked as received before scheduling a Managed Job.");
+        if (shouldShowScheduler) {
+            const firstAppointment = jobDetails.appointments?.[0];
+            const shouldUpdateStatusToScheduled = project.status === ProjectStatus.ACCEPTED;
+            
+            if (shouldUpdateStatusToScheduled && (!firstAppointment || !firstAppointment.startDate)) {
+                toast.error("Please enter a Start Date for the first appointment to schedule the job.");
                 return;
+            }
+            
+            if (jobDetails.appointments?.some(a => !a.quoteId)) {
+                toast.error("All appointments must be linked to an Accepted Quote (Scope of Work).");
+                return;
+            }
+
+            if (shouldUpdateStatusToScheduled && isManagedJob) {
+                if (!jobDetails.depositReceived || !jobDetails.contractsReceived) {
+                    toast.error("Deposit and Contracts must be marked as received before scheduling a Managed Job.");
+                    return;
+                }
             }
         }
 
@@ -226,13 +238,24 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                 appointments: finalAppointments 
             });
 
-            if (shouldUpdateStatus) {
+            if (shouldShowScheduler && project.status === ProjectStatus.ACCEPTED) {
                 await updateProjectMutation.mutateAsync({ id: project.id, status: ProjectStatus.SCHEDULED });
             }
             toast.success("Job details saved successfully.");
         } catch (error) { 
             toast.error("Failed to save job details. Please try again.");
         }
+    };
+
+    const handleCompleteMaterialOnlyProject = async () => {
+        if (!allMaterialOrdersReceived) {
+            toast.error("All material orders must be marked as received before completing the project.");
+            return;
+        }
+        try {
+            await updateProjectMutation.mutateAsync({ id: project.id, status: ProjectStatus.COMPLETED });
+            toast.success("Project completed successfully.");
+        } catch (error) { toast.error("Failed to complete project."); }
     };
     
     const toggleHold = () => {
@@ -281,8 +304,8 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
             </div>
 
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 flex-grow overflow-hidden">
-                <div className="space-y-6 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-surface-container-highest">
-                    {isSchedulingApplicable && (
+                <div className="space-y-4 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-surface-container-highest">
+                    {shouldShowScheduler ? (
                         <div className="space-y-3">
                             {acceptedQuotes.length === 0 && (
                                 <div className="p-3 bg-error-container text-error border border-error rounded-lg flex items-center gap-2">
@@ -360,6 +383,34 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                                 <PlusCircle size={16} /> Add Appointment
                             </button>
                         </div>
+                    ) : (
+                        <div className="bg-surface-container p-4 rounded-xl border border-outline/20">
+                            <h3 className="font-semibold text-text-primary mb-3">Material Order Status</h3>
+                            {materialOrders.length > 0 ? (
+                                <ul className="space-y-2">
+                                    {materialOrders.map(order => (
+                                        <li key={order.id} className="flex items-center justify-between text-sm p-2 rounded-md bg-surface-container-low">
+                                            <span className="font-medium text-text-secondary">{order.supplierName} (PO: #{order.id})</span>
+                                            {order.dateReceived ? (
+                                                <span className="flex items-center gap-1.5 font-bold text-green-600"><CheckCircle size={14}/> Received</span>
+                                            ) : (
+                                                <span className="text-text-tertiary">Pending</span>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-sm text-text-tertiary">No material orders have been placed for this project.</p>
+                            )}
+                            <button
+                                onClick={handleCompleteMaterialOnlyProject}
+                                disabled={!allMaterialOrdersReceived || updateProjectMutation.isPending}
+                                className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {updateProjectMutation.isPending ? <Loader className="w-5 h-5 animate-spin"/> : <CheckCircle className="w-5 h-5"/>}
+                                Complete Project (Mark as Finished)
+                            </button>
+                        </div>
                     )}
                 </div>
 
@@ -370,29 +421,37 @@ const FinalizeJobSection: React.FC<FinalizeJobSectionProps> = ({ project, job, q
                         <div className="flex justify-between items-center font-bold text-lg border-t-2 border-tertiary/50 pt-2 mt-2"><span className="text-text-primary">Balance Due:</span><span className="text-tertiary">${financialSummary.balanceDue.toFixed(2)}</span></div> 
                     </div>
                 
-                    {isManagedJob && (
-                    <div className="pt-2 space-y-3 flex-grow"> 
-                        <label className={`flex items-center space-x-2 ${isLockedForSchedule ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                            <input type="checkbox" checked={jobDetails.depositReceived || false} onChange={e => handleJobChange('depositReceived', e.target.checked)} disabled={isLockedForSchedule} className="form-checkbox h-5 w-5 text-primary bg-surface-container border-outline/50 rounded focus:ring-primary"/>
-                            <span className="text-text-primary">Deposit Received</span>
-                        </label> 
-                        <label className={`flex items-center space-x-2 ${isLockedForSchedule ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                            <input type="checkbox" checked={jobDetails.contractsReceived || false} onChange={e => handleJobChange('contractsReceived', e.target.checked)} disabled={isLockedForSchedule} className="form-checkbox h-5 w-5 text-primary bg-surface-container border-outline/50 rounded focus:ring-primary"/>
-                            <span className="text-text-primary">Contracts Received</span>
-                        </label> 
-                        
-                        {isLockedForSchedule && (
-                            <label className={`flex items-center space-x-2 ${canReceiveFinalPayment ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`} title={!canReceiveFinalPayment ? `Available after ${finalPaymentUnlockDate?.toLocaleDateString()}` : ''}>
-                                <input type="checkbox" 
-                                    checked={jobDetails.finalPaymentReceived || false} 
-                                    onChange={e => handleJobChange('finalPaymentReceived', e.target.checked)} 
-                                    disabled={!canReceiveFinalPayment}
-                                    className="form-checkbox h-5 w-5 text-primary bg-surface-container border-outline/50 rounded focus:ring-primary"/>
-                                <span className="text-text-primary">Final Payment Received</span>
-                            </label>
+                    <div className="pt-2 space-y-3 flex-grow">
+                        <label className="flex items-center justify-between p-3 bg-surface-container-low rounded-lg cursor-pointer border border-outline/20">
+                            <span className="font-semibold text-text-primary">Material Only Sale</span>
+                            <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={jobDetails.isMaterialOnly || false}
+                                onChange={e => handleJobChange('isMaterialOnly', e.target.checked)}
+                            />
+                            <div className="relative w-11 h-6 bg-surface rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/30 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+
+                        {isManagedJob && !jobDetails.isMaterialOnly && (
+                        <>
+                            <label className={`flex items-center space-x-2 ${isLockedForSchedule ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                <input type="checkbox" checked={jobDetails.depositReceived || false} onChange={e => handleJobChange('depositReceived', e.target.checked)} disabled={isLockedForSchedule} className="form-checkbox h-5 w-5 text-primary bg-surface-container border-outline/50 rounded focus:ring-primary"/>
+                                <span className="text-text-primary">Deposit Received</span>
+                            </label> 
+                            <label className={`flex items-center space-x-2 ${isLockedForSchedule ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                <input type="checkbox" checked={jobDetails.contractsReceived || false} onChange={e => handleJobChange('contractsReceived', e.target.checked)} disabled={isLockedForSchedule} className="form-checkbox h-5 w-5 text-primary bg-surface-container border-outline/50 rounded focus:ring-primary"/>
+                                <span className="text-text-primary">Contracts Received</span>
+                            </label> 
+                            {isLockedForSchedule && (
+                                <label className={`flex items-center space-x-2 ${canReceiveFinalPayment ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`} title={!canReceiveFinalPayment ? `Available after ${finalPaymentUnlockDate?.toLocaleDateString()}` : ''}>
+                                    <input type="checkbox" checked={jobDetails.finalPaymentReceived || false} onChange={e => handleJobChange('finalPaymentReceived', e.target.checked)} disabled={!canReceiveFinalPayment} className="form-checkbox h-5 w-5 text-primary bg-surface-container border-outline/50 rounded focus:ring-primary"/>
+                                    <span className="text-text-primary">Final Payment Received</span>
+                                </label>
+                            )}
+                        </>
                         )}
                     </div>
-                    )}
                 </div>
             </div>
         </div>

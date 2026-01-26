@@ -308,6 +308,7 @@ export interface Job {
   paperworkSignedUrl?: string | null;
   isOnHold: boolean;
   notes?: string | null;
+  isMaterialOnly?: boolean;
   appointments: JobAppointment[];
 }
 

@@ -150,6 +150,53 @@ router.put('/:id', verifySession(), async (req, res) => {
     }
 });
 
+// PATCH /api/projects/:id for partial updates (e.g., just changing status)
+router.patch('/:id', verifySession(), async (req, res) => {
+    const { id } = req.params;
+    const userId = req.session.getUserId();
+    const updates = req.body;
+
+    if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: 'No update fields provided.' });
+    }
+
+    try {
+        const beforeResult = await pool.query('SELECT * FROM projects WHERE id = $1', [id]);
+        if (beforeResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+        const beforeData = toCamelCase(beforeResult.rows[0]);
+
+        const setClauses = [];
+        const values = [];
+        let paramIndex = 1;
+
+        for (const key in updates) {
+            const snakeCaseKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            setClauses.push(`${snakeCaseKey} = $${paramIndex}`);
+            values.push(updates[key]);
+            paramIndex++;
+        }
+        values.push(id);
+
+        const updateQuery = `
+            UPDATE projects 
+            SET ${setClauses.join(', ')}
+            WHERE id = $${paramIndex} 
+            RETURNING *`;
+
+        const result = await pool.query(updateQuery, values);
+        const updatedProject = toCamelCase(result.rows[0]);
+        
+        await logActivity(userId, 'UPDATE', 'PROJECT', id, { before: beforeData, after: updatedProject });
+
+        res.json(updatedProject);
+    } catch (err) {
+        console.error("Project patch failed:", err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // GET /api/projects/:id/history (Unchanged)
 router.get('/:id/history', verifySession(), async (req, res) => {
     const { id } = req.params;

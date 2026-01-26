@@ -21,24 +21,26 @@ export const useJobDetail = (projectId: number, enabled: boolean = true) => {
 export const useJobMutations = () => {
     const queryClient = useQueryClient();
 
+    const saveJobDetailsMutation = useMutation({
+        mutationFn: jobService.saveJob,
+        onSuccess: (data, variables: Partial<Job>) => {
+            queryClient.invalidateQueries({ queryKey: ['jobs'] });
+            // Also invalidate the specific job detail so the UI updates immediately
+            queryClient.invalidateQueries({ queryKey: ['job'] });
+            // Saving job details often updates Project Status (e.g., to SCHEDULED)
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+
+            if (variables.projectId) {
+                queryClient.invalidateQueries({ queryKey: ['project', variables.projectId] });
+                queryClient.invalidateQueries({ queryKey: ['job', variables.projectId] });
+            }
+
+            // NEW: Update Order Dashboard if PO/Customer info changed
+            queryClient.invalidateQueries({ queryKey: ['material_orders'] });
+        },
+    });
+
     return {
-        saveJobDetails: useMutation({
-            mutationFn: jobService.saveJob,
-            onSuccess: (data, variables: Partial<Job>) => {
-                queryClient.invalidateQueries({ queryKey: ['jobs'] });
-                // Also invalidate the specific job detail so the UI updates immediately
-                queryClient.invalidateQueries({ queryKey: ['job'] }); 
-                // Saving job details often updates Project Status (e.g., to SCHEDULED)
-                queryClient.invalidateQueries({ queryKey: ['projects'] });
-                
-                if (variables.projectId) {
-                    queryClient.invalidateQueries({ queryKey: ['project', variables.projectId] });
-                    queryClient.invalidateQueries({ queryKey: ['job', variables.projectId] });
-                }
-                
-                // NEW: Update Order Dashboard if PO/Customer info changed
-                queryClient.invalidateQueries({ queryKey: ['material_orders'] });
-            },
-        }),
+        saveJobDetails: saveJobDetailsMutation.mutateAsync,
     };
 };

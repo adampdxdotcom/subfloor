@@ -13,18 +13,24 @@ export const useProjects = (enabled: boolean = true) => {
 export const useProjectMutations = () => {
     const queryClient = useQueryClient();
 
+    const createProjectMutation = useMutation({
+        mutationFn: projectService.addProject,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    });
+
+    const updateProjectMutation = useMutation({
+        mutationFn: projectService.updateProject,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    });
+
+    const deleteProjectMutation = useMutation({
+        mutationFn: projectService.deleteProject,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    });
+
     return {
-        createProject: useMutation({
-            mutationFn: projectService.addProject,
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
-        }),
-        updateProject: useMutation({
-            mutationFn: projectService.updateProject,
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
-        }),
-        deleteProject: useMutation({
-            mutationFn: projectService.deleteProject,
-            onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
-        }),
+        createProject: createProjectMutation.mutateAsync,
+        updateProject: updateProjectMutation.mutateAsync,
+        deleteProject: deleteProjectMutation.mutateAsync,
     };
 };

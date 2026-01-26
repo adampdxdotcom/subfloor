@@ -36,8 +36,8 @@ export const useInstallerMutations = (onSuccessCallback?: () => void) => {
     });
 
     return {
-        createInstaller,
-        updateInstaller,
-        deleteInstaller,
+        addInstaller: createInstaller.mutateAsync,
+        updateInstaller: updateInstaller.mutateAsync,
+        deleteInstaller: deleteInstaller.mutateAsync,
     };
 };
