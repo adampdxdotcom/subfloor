@@ -74,8 +74,11 @@ const ProjectDetail: React.FC = () => {
     const numericProjectId = useMemo(() => parseInt(routeProjectId || '', 10), [routeProjectId]);
     const project = useMemo(() => projects.find(p => p.id === numericProjectId), [projects, numericProjectId]);
     const job = useMemo(() => jobs.find(j => j.projectId === numericProjectId), [jobs, numericProjectId]);
-    const customer = useMemo(() => customers.find(c => c.id === project?.customerId), [customers, project]);
     
+    // Determine Owner (Customer or Client Installer)
+    const customer = useMemo(() => customers.find(c => c.id === project?.customerId), [customers, project]);
+    const clientInstaller = useMemo(() => installers.find(i => i.id === project?.clientInstallerId), [installers, project]);
+
     const projectQuotes = quotes.filter(q => q.projectId === project?.id);
     const acceptedQuote = projectQuotes.find(q => q.status === 'Accepted');
     const activeInstallerId = acceptedQuote?.installerId || projectQuotes.find(q => q.installerId)?.installerId;
@@ -168,13 +171,19 @@ const ProjectDetail: React.FC = () => {
     const handleOpenEditChangeOrderModal = (changeOrder: ChangeOrder) => { setEditingChangeOrder(changeOrder); };
     
     const handleDeleteProject = async () => {
-        if (!project || !customer) return;
+        if (!project) return;
         if (window.confirm(`Are you sure you want to permanently delete the project "${project.projectName}"?`)) {
             setIsDeleting(true);
             try {
                 await projectMutations.deleteProject(project.id);
                 toast.success('Project deleted successfully.');
-                navigate(`/customers/${customer.id}`); 
+                if (customer) {
+                    navigate(`/customers/${customer.id}`);
+                } else if (clientInstaller) {
+                    navigate(`/installers/${clientInstaller.id}`);
+                } else {
+                    navigate('/projects');
+                }
             } catch (error) {
                 toast.error((error as Error).message || 'Failed to delete project.');
             } finally {
@@ -205,6 +214,7 @@ const ProjectDetail: React.FC = () => {
             <ProjectInfoHeader 
                 project={project} 
                 customer={customer} 
+                clientInstaller={clientInstaller} // NEW
                 activeInstaller={activeInstaller}
                 projectLead={projectLead}
                 currentUser={currentUser}

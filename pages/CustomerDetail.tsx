@@ -59,13 +59,22 @@ const CustomerDetail: React.FC = () => {
               <p className="text-text-secondary">Customer since {formatDate(customer.createdAt, systemBranding?.systemTimezone)}</p>
             </div>
           </div>
-          <button 
-            onClick={() => setIsEditCustomerModalOpen(true)}
-            className="flex items-center bg-surface-container-highest hover:bg-surface-container border border-outline/20 text-text-primary font-medium py-2 px-4 rounded-lg transition-colors"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Edit Customer
-          </button>
+          <div className="flex gap-2">
+            <button 
+                onClick={() => setIsEditCustomerModalOpen(true)}
+                className="flex items-center gap-2 py-2 px-6 bg-surface-container-highest hover:bg-surface-container text-text-primary rounded-full font-semibold transition-all shadow-sm border border-outline/20"
+            >
+                <Edit size={16} />
+                Edit
+            </button>
+            <button 
+                onClick={() => { setInitialProjectName(''); setTransferSampleId(null); setIsProjectModalOpen(true); }}
+                className="flex items-center gap-2 py-2 px-6 bg-primary hover:bg-primary-hover text-on-primary rounded-full font-semibold transition-all shadow-sm"
+            >
+                <PlusCircle size={16} />
+                New Project
+            </button>
+          </div>
         </div>
         <div className="border-t border-outline/10 my-6"></div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-text-secondary">
@@ -79,10 +88,6 @@ const CustomerDetail: React.FC = () => {
       <div>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-text-primary flex items-center gap-3"><Briefcase className="w-6 h-6"/> Projects</h2>
-          <button onClick={() => { setInitialProjectName(''); setTransferSampleId(null); setIsProjectModalOpen(true); }} className="flex items-center bg-primary hover:bg-primary-hover text-on-primary font-semibold py-2 px-4 rounded-full shadow-md transition-colors">
-            <PlusCircle className="w-5 h-5 mr-2" />
-            New Project
-          </button>
         </div>
         <div className="space-y-4">
           {customerProjects.length > 0 ? customerProjects.map(project => (

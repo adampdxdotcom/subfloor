@@ -35,8 +35,8 @@ export const useCustomerMutations = () => {
     });
 
     return {
-        createCustomer: createCustomerMutation,
-        updateCustomer: updateCustomerMutation,
-        deleteCustomer: deleteCustomerMutation,
+        addCustomer: createCustomerMutation.mutateAsync,
+        updateCustomer: updateCustomerMutation.mutateAsync,
+        deleteCustomer: deleteCustomerMutation.mutateAsync,
     };
 };

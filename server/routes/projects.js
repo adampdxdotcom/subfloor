@@ -10,43 +10,52 @@ const router = express.Router();
 // --- MODIFIED: GET /api/projects ---
 router.get('/', verifySession(), async (req, res) => {
   try {
-    const { installerId } = req.query;
+    const { installerId, clientInstallerId } = req.query;
     
-    // This is the query for when an installerId is provided (for the InstallerDetail page)
+    // CASE 1: Fetch projects OWNED by an Installer (Client Role)
+    if (clientInstallerId) {
+       const query = `
+            SELECT 
+                p.*,
+                j.id as job_id,
+                j.is_on_hold
+            FROM projects p
+            LEFT JOIN jobs j ON p.id = j.project_id
+            WHERE p.client_installer_id = $1
+            ORDER BY p.created_at DESC
+        `;
+        const result = await pool.query(query, [clientInstallerId]);
+        res.json(result.rows.map(toCamelCase));
+        return;
+    }
+
+    // CASE 2: Fetch projects ASSIGNED to an Installer (Labor Role)
     if (installerId) {
-        // --- MODIFICATION START ---
-        // This query has been rebuilt to calculate the total project value on the backend.
-        // It now correctly handles quotes with NULL material or labor costs by treating them as 0,
-        // which permanently fixes the "$NaN" bug.
         const query = `
             SELECT
                 p.id AS "projectId",
                 p.project_name AS "projectName",
-                c.full_name AS "customerName",
-                -- Calculate the total value of the project by summing all its accepted quotes.
-                -- COALESCE ensures that if either amount is NULL, it's treated as 0.
+                COALESCE(c.full_name, i.installer_name) AS "customerName",
                 (
                     SELECT SUM(COALESCE(q_inner.materials_amount, 0) + COALESCE(q_inner.labor_amount, 0))
                     FROM quotes q_inner
                     WHERE q_inner.project_id = p.id AND q_inner.status = 'Accepted'
                 ) AS "projectTotal",
-                -- Subquery to get the earliest start date from all appointments for this project
                 (SELECT MIN(start_date) FROM job_appointments WHERE job_id = j.id) AS "scheduledStartDate",
                 (SELECT MAX(end_date) FROM job_appointments WHERE job_id = j.id) AS "scheduledEndDate"
             FROM quotes q
             JOIN projects p ON q.project_id = p.id
-            JOIN customers c ON p.customer_id = c.id
+            LEFT JOIN customers c ON p.customer_id = c.id
+            LEFT JOIN installers i ON p.client_installer_id = i.id
             LEFT JOIN jobs j ON p.id = j.project_id
             WHERE q.installer_id = $1 AND q.status = 'Accepted'
-            GROUP BY p.id, c.full_name, j.id -- Group by project to avoid duplicate project rows
+            GROUP BY p.id, c.full_name, i.installer_name, j.id
             ORDER BY "scheduledStartDate" DESC NULLS LAST, p.created_at DESC;
         `;
-        // --- MODIFICATION END ---
         const result = await pool.query(query, [installerId]);
         res.json(result.rows.map(toCamelCase));
     } else {
-        // This is the query for fetching ALL projects (for the initial data load)
-        // It now includes a join to get basic job info if it exists.
+        // CASE 3: Fetch ALL projects
         const query = `
             SELECT 
                 p.*,
@@ -78,19 +87,30 @@ router.get('/:id', verifySession(), async (req, res) => {
 
 // POST /api/projects (Modified to include manager_id and early job creation)
 router.post('/', verifySession(), async (req, res) => {
-  const { customerId, projectName, projectType, status, finalChoice, installerId, managerId } = req.body;
+  const { customerId, clientInstallerId, projectName, projectType, status, finalChoice, installerId, managerId } = req.body;
   const userId = req.session.getUserId();
-  if (!customerId || !projectName || !projectType) {
-    return res.status(400).json({ error: 'customerId, projectName, and projectType are required.' });
+  
+  if ((!customerId && !clientInstallerId) || !projectName || !projectType) {
+    return res.status(400).json({ error: 'Either customerId or clientInstallerId is required, along with projectName and projectType.' });
   }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    
+    // Determine which client ID to use
     const projectResult = await client.query(
-      `INSERT INTO projects (customer_id, project_name, project_type, status, final_choice, manager_id) 
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      // Default manager to Creator if not provided
-      [customerId, projectName, projectType, status || 'New', finalChoice, managerId || userId]
+      `INSERT INTO projects (customer_id, client_installer_id, project_name, project_type, status, final_choice, manager_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        customerId || null, 
+        clientInstallerId || null, 
+        projectName, 
+        projectType, 
+        status || 'New', 
+        finalChoice, 
+        managerId || userId
+      ]
     );
     const newProject = projectResult.rows[0];
     if (installerId) {

@@ -13,27 +13,29 @@ interface AddProjectModalProps {
     isOpen: boolean;
     onClose: () => void;
     initialCustomer?: Customer | null;
-    initialInstaller?: Installer | null;
+    initialClientInstaller?: Installer | null; // NEW: Installer as Client
+    initialInstaller?: Installer | null; // Installer as Labor
     initialProjectName?: string;
     transferSampleId?: number | null;
 }
 
 const AddProjectModal: React.FC<AddProjectModalProps> = ({ 
-    isOpen, onClose, initialCustomer, initialInstaller, initialProjectName, transferSampleId 
+    isOpen, onClose, initialCustomer, initialClientInstaller, initialInstaller, initialProjectName, transferSampleId 
 }) => {
     const navigate = useNavigate();
     const { data: installers = [] } = useInstallers();
     
     // Mutations
     const { createProject } = useProjectMutations();
-    const { createInstaller } = useInstallerMutations();
-    const { createCustomer } = useCustomerMutations();
+    const { addInstaller } = useInstallerMutations();
+    const { addCustomer } = useCustomerMutations();
 
     // --- VIEW STATE ---
     const [currentView, setCurrentView] = useState<'SELECT_CUSTOMER' | 'CREATE_CUSTOMER' | 'CREATE_PROJECT'>('SELECT_CUSTOMER');
 
     // --- DATA STATE ---
     const [customer, setCustomer] = useState<Customer | null>(null);
+    const [clientInstaller, setClientInstaller] = useState<Installer | null>(null); // NEW
     const [projectName, setProjectName] = useState('');
     const [projectType, setProjectType] = useState<ProjectType>(PROJECT_TYPES[0]);
     
@@ -52,9 +54,15 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
         if (isOpen) {
             if (initialCustomer) {
                 setCustomer(initialCustomer);
+                setClientInstaller(null);
+                setCurrentView('CREATE_PROJECT');
+            } else if (initialClientInstaller) {
+                setClientInstaller(initialClientInstaller);
+                setCustomer(null);
                 setCurrentView('CREATE_PROJECT');
             } else {
                 setCustomer(null);
+                setClientInstaller(null);
                 setCurrentView('SELECT_CUSTOMER');
             }
             
@@ -67,10 +75,11 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
             setNewCustomerEmail('');
             setNewCustomerPhone('');
         }
-    }, [isOpen, initialCustomer, initialInstaller, initialProjectName]);
+    }, [isOpen, initialCustomer, initialClientInstaller, initialInstaller, initialProjectName]);
 
     const handleCustomerSelect = (c: Customer) => {
         setCustomer(c);
+        setClientInstaller(null);
         setCurrentView('CREATE_PROJECT');
     };
 
@@ -82,7 +91,7 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
     const handleCreateCustomer = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const newCust = await createCustomer.mutateAsync({
+            const newCust = await addCustomer({
                 fullName: newCustomerName,
                 email: newCustomerEmail || undefined,
                 phoneNumber: newCustomerPhone || undefined
@@ -97,20 +106,21 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
 
     const handleSubmitProject = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!customer) return;
+        if (!customer && !clientInstaller) return;
         if (!projectName) { toast.error("Project name is required."); return; }
 
         try {
             const projectData = {
                 projectName,
                 projectType,
-                customerId: customer.id,
+                customerId: customer?.id,
+                clientInstallerId: clientInstaller?.id,
                 status: 'New' as const,
                 finalChoice: null,
                 installerId: selectedInstaller ? selectedInstaller.id : undefined
             };
 
-            const createdProject = await createProject.mutateAsync(projectData);
+            const createdProject = await createProject(projectData);
 
             if (transferSampleId) {
                 await sampleService.transferCheckoutsToProject([transferSampleId], createdProject.id);
@@ -128,7 +138,7 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
     const handleSaveNewInstaller = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const newInst = await createInstaller.mutateAsync(newInstallerForm);
+            const newInst = await addInstaller(newInstallerForm);
             setSelectedInstaller(newInst);
             setInstallerSearchTerm(newInst.installerName);
             setIsAddingNewInstaller(false);
@@ -189,12 +199,21 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
                 )}
 
                 {/* VIEW 3: CREATE PROJECT */}
-                {currentView === 'CREATE_PROJECT' && customer && (
+                {currentView === 'CREATE_PROJECT' && (customer || clientInstaller) && (
                     <form onSubmit={handleSubmitProject} className="space-y-4">
-                        {!initialCustomer && (
+                        {!initialCustomer && !initialClientInstaller && (
                             <div className="flex justify-between items-center bg-surface-container p-3 rounded-lg border border-outline/20 text-sm">
-                                <span className="text-text-primary font-bold">{customer.fullName}</span>
-                                <button type="button" onClick={() => { setCustomer(null); setCurrentView('SELECT_CUSTOMER'); }} className="text-primary hover:underline font-medium">Change</button>
+                                <span className="text-text-primary font-bold">
+                                    {customer ? customer.fullName : clientInstaller?.installerName}
+                                </span>
+                                <button type="button" onClick={() => { setCustomer(null); setClientInstaller(null); setCurrentView('SELECT_CUSTOMER'); }} className="text-primary hover:underline font-medium">Change</button>
+                            </div>
+                        )}
+                        {(initialCustomer || initialClientInstaller) && (
+                             <div className="flex justify-between items-center bg-surface-container p-3 rounded-lg border border-outline/20 text-sm">
+                                <span className="text-text-primary font-bold">
+                                    Client: {customer ? customer.fullName : clientInstaller?.installerName}
+                                </span>
                             </div>
                         )}
 

@@ -22,7 +22,9 @@ import {
     Play,
     Download,
     BarChart3,
-    Settings2
+    Settings2,
+    Layers,
+    CheckSquare
 } from 'lucide-react';
 
 // --- LOCAL HELPERS ---
@@ -86,6 +88,18 @@ export default function Reports() {
     
     const [manufacturerFilter, setManufacturerFilter] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
+    const [collapseProductLines, setCollapseProductLines] = useState(false);
+    const [isSelectMode, setIsSelectMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState(new Set<string>());
+    const [columnOrder, setColumnOrder] = useState([
+        'manufacturer',
+        'product',
+        'style_size',
+        'sku',
+        'carton',
+        'cost',
+        'retail'
+    ]);
 
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
     const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
@@ -126,6 +140,26 @@ export default function Reports() {
         setError(null);
         setHiddenColumns([]);
     }, [activeTab]);
+
+    const toggleSelectMode = () => {
+        setIsSelectMode(prev => {
+            if (!prev) { // Entering select mode
+                setSelectedIds(new Set());
+            }
+            return !prev;
+        });
+    };
+
+    const generatePrintTitle = () => {
+        if (activeTab !== 'products') {
+            return activeTab === 'jobs' ? 'Job Pipeline Report' : 'Installer Activity Report';
+        }
+        const mfgName = manufacturerFilter ? vendors.find(v => v.id == manufacturerFilter)?.name : 'All Manufacturers';
+        const typeName = typeFilter || '';
+        const date = new Date().toLocaleDateString();
+
+        return `${mfgName} ${typeName} Prices ${date}`.replace(/\s+/g, ' ').trim();
+    };
 
     const handleApplyFilters = () => {
         fetchData();
@@ -199,7 +233,7 @@ export default function Reports() {
     };
 
     return (
-        <div className="flex h-full bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden">
+        <div className="flex h-full bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden print:block print:shadow-none print:border-none print:h-auto print:overflow-visible">
             
             {/* SIDEBAR - HIDDEN ON PRINT */}
             <div className="w-64 bg-surface-container-low border-r border-outline/10 flex-shrink-0 flex flex-col print:hidden">
@@ -374,6 +408,21 @@ export default function Reports() {
                             )}
                         </div>
 
+                        {activeTab === 'products' && reportData.length > 0 && (
+                            <button
+                                onClick={toggleSelectMode}
+                                className={`h-10 flex items-center gap-2 px-4 border rounded-full shadow-sm text-sm font-medium transition-colors ${
+                                    isSelectMode 
+                                        ? 'bg-primary-container text-primary border-primary/20' 
+                                        : 'bg-surface-container-highest text-text-secondary border-outline/10 hover:bg-surface-container-high'
+                                }`}
+                                title="Toggle selection checkboxes for printing"
+                            >
+                                <CheckSquare className="h-4 w-4" />
+                                <span>{isSelectMode ? 'Cancel Selection' : 'Select Rows'}</span>
+                            </button>
+                        )}
+
                         <div className="flex items-center border border-outline/10 rounded-full bg-surface-container-highest shadow-sm overflow-hidden h-10">
                             {reportData.length > 0 && (
                                 <button 
@@ -382,6 +431,15 @@ export default function Reports() {
                                     title={showChart ? "Hide Chart" : "Show Chart"}
                                 >
                                     <BarChart3 className="h-4 w-4" />
+                                </button>
+                            )}
+                            {activeTab === 'products' && (
+                                <button 
+                                    onClick={() => setCollapseProductLines(!collapseProductLines)}
+                                    className={`p-3 border-r border-outline/10 hover:bg-surface-container-high transition-colors ${collapseProductLines ? 'text-primary bg-primary-container' : 'text-text-secondary'}`}
+                                    title={collapseProductLines ? "Show Variants" : "Collapse Product Lines"}
+                                >
+                                    <Layers className="h-4 w-4" />
                                 </button>
                             )}
                             <button 
@@ -417,12 +475,8 @@ export default function Reports() {
                 <div className="flex-1 overflow-auto p-8 print:p-0 print:overflow-visible bg-surface">
                     
                     <PrintHeader 
-                        title={
-                            activeTab === 'products' ? 'Product Price List' :
-                            activeTab === 'jobs' ? 'Job Pipeline Report' : 
-                            'Installer Activity Report'
-                        } 
-                        dateRange={startDate && endDate ? `${formatDate(startDate)} - ${formatDate(endDate)}` : undefined}
+                        title={generatePrintTitle()} 
+                        dateRange={activeTab !== 'products' && startDate && endDate ? `${formatDate(startDate)} - ${formatDate(endDate)}` : undefined}
                     />
 
                     {error && (
@@ -450,6 +504,12 @@ export default function Reports() {
                                    hiddenColumns={hiddenColumns}
                                    showCost={showCost}
                                    onRowClick={handleRowClick}
+                                   collapseLines={collapseProductLines}
+                                   isSelectMode={isSelectMode}
+                                   selectedIds={selectedIds}
+                                   onSelectionChange={setSelectedIds}
+                                   columnOrder={columnOrder}
+                                   onColumnReorder={setColumnOrder}
                                />
                            )}
                            {reportData.length > 0 && activeTab === 'jobs' && (

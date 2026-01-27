@@ -234,6 +234,7 @@ export interface Sample {
 export interface Project {
   id: number;
   customerId: number;
+  clientInstallerId?: number | null;
   projectName: string;
   projectType: ProjectType;
   status: ProjectStatus;

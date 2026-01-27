@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { CurrentUser, Project, ProjectStatus, Customer, Installer, User } from '../types';
 import { Edit2, Trash2, Save, X, RotateCcw, Calendar, Tag, MapPin, Phone, User as UserIcon, Hammer, Briefcase } from 'lucide-react'; 
 import { useData } from '../context/DataContext'; 
-import { createGravatarHash } from '../utils/cryptoUtils';
 import { formatDate } from '../utils/dateUtils';
 import { getImageUrl } from '../utils/apiConfig';
 
@@ -24,6 +23,7 @@ const getStatusColor = (status: ProjectStatus): string => {
 interface ProjectInfoHeaderProps {
     project: Project;
     customer: Customer | undefined;
+    clientInstaller?: Installer | undefined; // NEW
     activeInstaller?: Installer;
     projectLead?: User;
     currentUser: CurrentUser | null;
@@ -38,7 +38,7 @@ interface ProjectInfoHeaderProps {
 }
 
 const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({ 
-    project, customer, activeInstaller, projectLead, currentUser, updateProject, onEdit,
+    project, customer, clientInstaller, activeInstaller, projectLead, currentUser, updateProject, onEdit,
     onDeleteProject, isDeleting,
     isLayoutEditMode, onSaveLayout, onCancelLayout, onResetLayout 
 }) => {
@@ -63,12 +63,13 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
         setIsStatusDropdownOpen(false);
     };
     
-    const statusOptions = [ ProjectStatus.NEW, ProjectStatus.SAMPLE_CHECKOUT, ProjectStatus.AWAITING_DECISION, ProjectStatus.QUOTING, ProjectStatus.ACCEPTED, ProjectStatus.SCHEDULED, ProjectStatus.COMPLETED, ProjectStatus.CANCELLED, ProjectStatus.CLOSED ];
-    
     // Map Address Link
     const googleMapsUrl = customer?.address 
         ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`
         : '#';
+
+    const owner = customer || clientInstaller;
+    const ownerType = customer ? 'Customer' : 'Installer';
         
     // Format Date
     const formattedDate = formatDate(project.createdAt, systemBranding?.systemTimezone);
@@ -168,21 +169,21 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
 
             {/* ROW 2: Information Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* 1. Customer Info */}
+                {/* 1. Customer/Client Info */}
                 <div className="space-y-1">
                     <h3 className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <UserIcon size={12} /> Customer
+                        <UserIcon size={12} /> {ownerType}
                     </h3>
                     <div className="flex items-start gap-2">
-                        <Link to={`/customers/${customer?.id}`} className="font-semibold text-text-primary text-lg hover:text-primary transition-colors">
-                            {customer?.fullName || 'Unknown Customer'}
+                        <Link to={customer ? `/customers/${customer.id}` : `/installers/${clientInstaller?.id}`} className="font-semibold text-text-primary text-lg hover:text-primary transition-colors">
+                            {customer?.fullName || clientInstaller?.installerName || 'Unknown Client'}
                         </Link>
-                        {customer?.phoneNumber && (
+                        { (customer?.phoneNumber || clientInstaller?.contactPhone) && (
                             <div className="flex items-center text-text-secondary text-sm pt-1">
                                 <span className="mx-2 text-text-tertiary">•</span>
                                 <Phone size={14} className="mr-1 text-text-tertiary" />
-                                <a href={`tel:${customer.phoneNumber}`} className="hover:underline hover:text-primary">
-                                    {customer.phoneNumber}
+                                <a href={`tel:${customer?.phoneNumber || clientInstaller?.contactPhone}`} className="hover:underline hover:text-primary">
+                                    {customer?.phoneNumber || clientInstaller?.contactPhone}
                                 </a>
                             </div>
                         )}
@@ -202,7 +203,7 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
                     )}
                 </div>
 
-                {/* 2. Installer Info */}
+                {/* 2. Assigned Installer Info */}
                 {activeInstaller && (
                     <div className="space-y-1">
                         <h3 className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-2 flex items-center gap-1">

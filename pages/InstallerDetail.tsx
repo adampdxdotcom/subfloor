@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Installer, SampleCheckout } from '../types';
+import { Installer, SampleCheckout, Project } from '../types';
 import { useData } from '../context/DataContext';
-import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History, Layers } from 'lucide-react';
+import { User, Mail, Phone, Briefcase, DollarSign, Calendar as CalendarIcon, Edit, History, Layers, PlusCircle, ChevronRight } from 'lucide-react';
 import AddEditInstallerModal from '../components/AddEditInstallerModal'; 
 import CollapsibleSection from '../components/CollapsibleSection';
 import ActivityHistory from '../components/ActivityHistory';
@@ -46,7 +46,8 @@ const InstallerDetail: React.FC = () => {
     fetchInstallerHistory 
   } = useData();
   
-  const [projects, setProjects] = useState<AssignedProject[]>([]);
+  const [assignedProjects, setAssignedProjects] = useState<AssignedProject[]>([]);
+  const [ownedProjects, setOwnedProjects] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [sampleHistory, setSampleHistory] = useState<SampleCheckout[]>([]);
   
@@ -57,23 +58,33 @@ const InstallerDetail: React.FC = () => {
   const installer = installers.find(i => i.id === parseInt(installerId || ''));
 
   useEffect(() => {
-    const fetchAssignedProjects = async () => {
+    const fetchProjects = async () => {
       if (!installerId) return;
       setIsLoadingProjects(true);
       try {
-        const projectsRes = await fetch(`/api/projects?installerId=${installerId}`);
-        if (!projectsRes.ok) throw new Error('Failed to fetch projects');
-        const projectsData = await projectsRes.json();
-        setProjects(projectsData);
+        // Fetch projects assigned (Labor)
+        const assignedRes = await fetch(`/api/projects?installerId=${installerId}`);
+        if (assignedRes.ok) {
+           const assignedData = await assignedRes.json();
+           setAssignedProjects(assignedData);
+        }
+
+        // Fetch projects owned (Client)
+        const ownedRes = await fetch(`/api/projects?clientInstallerId=${installerId}`);
+        if (ownedRes.ok) {
+            const ownedData = await ownedRes.json();
+            setOwnedProjects(ownedData);
+        }
+
       } catch (error) {
         console.error("Failed to fetch installer projects:", error);
-        toast.error("Could not load assigned projects.");
+        toast.error("Could not load projects.");
       } finally {
         setIsLoadingProjects(false);
       }
     };
 
-    fetchAssignedProjects();
+    fetchProjects();
 
     if (installerId) {
       fetchInstallerHistory(parseInt(installerId));
@@ -107,13 +118,22 @@ const InstallerDetail: React.FC = () => {
               <h1 className="text-3xl font-bold text-text-primary">{installer.installerName}</h1>
             </div>
           </div>
-          <button
-            onClick={() => setIsEditModalOpen(true)}
-            className="flex items-center gap-2 py-2 px-6 bg-primary-container hover:bg-primary text-primary hover:text-on-primary rounded-full font-semibold transition-all shadow-sm"
-          >
-            <Edit size={16} />
-            Edit
-          </button>
+          <div className="flex gap-2">
+             <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="flex items-center gap-2 py-2 px-6 bg-surface-container-highest hover:bg-surface-container text-text-primary rounded-full font-semibold transition-all shadow-sm border border-outline/20"
+            >
+                <Edit size={16} />
+                Edit
+            </button>
+            <button
+                onClick={() => { setTransferSample(null); setIsProjectModalOpen(true); }}
+                className="flex items-center gap-2 py-2 px-6 bg-primary hover:bg-primary-hover text-on-primary rounded-full font-semibold transition-all shadow-sm"
+            >
+                <PlusCircle size={16} />
+                New Project
+            </button>
+          </div>
         </div>
         <div className="border-t border-outline/10 my-6"></div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-text-secondary">
@@ -133,6 +153,33 @@ const InstallerDetail: React.FC = () => {
         </CollapsibleSection>
       </div>
 
+      {/* Owned Projects Section (Client Mode) */}
+      <div>
+        <div className="flex justify-between items-center mb-6 px-1">
+          <h2 className="text-2xl font-bold text-text-primary flex items-center gap-3"><Briefcase className="w-6 h-6"/> Owned Projects</h2>
+        </div>
+        <div className="space-y-4">
+            {isLoadingProjects ? (
+                 <p className="text-text-secondary">Loading projects...</p>
+            ) : ownedProjects.length > 0 ? (
+                ownedProjects.map(project => (
+                    <Link to={`/projects/${project.id}`} key={project.id} className="flex justify-between items-center bg-surface-container-high p-5 rounded-xl border border-outline/10 shadow-sm hover:shadow-md hover:bg-surface-container-highest transition-all group">
+                    <div>
+                        <h3 className="font-semibold text-lg text-text-primary">{project.projectName}</h3>
+                        <p className="text-sm text-text-secondary flex items-center gap-2 mt-1">
+                            <span className={`w-2 h-2 rounded-full ${project.status === 'Completed' ? 'bg-success' : 'bg-primary'}`}></span>
+                            {project.status}
+                        </p>
+                    </div>
+                    <ChevronRight className="w-6 h-6 text-text-secondary group-hover:text-primary transition-colors"/>
+                    </Link>
+                ))
+            ) : (
+                <p className="text-center text-text-secondary py-4 bg-surface-container-low rounded-xl border border-dashed border-outline/20">No projects owned by this installer.</p>
+            )}
+        </div>
+      </div>
+
       {/* Sample History Section */}
       <div>
         <div className="flex justify-between items-center mb-6 px-1">
@@ -149,14 +196,14 @@ const InstallerDetail: React.FC = () => {
       {/* Assigned Projects Section */}
       <div>
         <div className="flex justify-between items-center mb-6 px-1">
-          <h2 className="text-2xl font-bold text-text-primary flex items-center gap-3"><Briefcase className="w-6 h-6"/> Assigned Projects</h2>
+          <h2 className="text-2xl font-bold text-text-primary flex items-center gap-3"><Briefcase className="w-6 h-6"/> Assigned Jobs</h2>
         </div>
 
         <div className="space-y-4">
           {isLoadingProjects ? (
             <p className="text-text-secondary">Loading projects...</p>
-          ) : projects.length > 0 ? (
-            projects.map(project => (
+          ) : assignedProjects.length > 0 ? (
+            assignedProjects.map(project => (
               <div key={project.projectId} className="bg-surface-container-high p-5 rounded-xl border border-outline/10 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-md transition-shadow">
                 <div>
                   <Link to={`/projects/${project.projectId}`} className="text-lg font-bold text-text-primary hover:text-primary transition-colors">
@@ -181,7 +228,7 @@ const InstallerDetail: React.FC = () => {
             ))
           ) : (
             <div className="text-center text-text-secondary bg-surface-container-low p-12 rounded-xl border border-dashed border-outline/20">
-              <p>No accepted projects assigned to this installer yet.</p>
+              <p>No accepted jobs assigned to this installer yet.</p>
             </div>
           )}
         </div>
@@ -199,7 +246,7 @@ const InstallerDetail: React.FC = () => {
       <AddProjectModal
         isOpen={isProjectModalOpen}
         onClose={() => { setIsProjectModalOpen(false); setTransferSample(null); }}
-        initialInstaller={installer}
+        initialClientInstaller={installer} // NEW: Pass as client
         transferSampleId={transferSample?.id}
         initialProjectName={transferSample ? `Project for Sample #${transferSample.id}` : ''}
       />
