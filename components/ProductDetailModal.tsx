@@ -24,9 +24,17 @@ interface ProductDetailModalProps {
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose, product }) => {
-    const { vendors, updateProduct, deleteProduct, addVariant, updateVariant } = useData();
+    const { vendors } = useData();
     const { data: freshProducts } = useProducts();
-    const { batchUpdateVariants, duplicateProduct } = useProductMutations();
+    const { 
+        batchUpdateVariants, 
+        duplicateProduct, 
+        updateProduct, 
+        deleteProduct, 
+        addVariant, 
+        updateVariant,
+        deleteVariant // Added to destructuring
+    } = useProductMutations();
 
     const activeProduct = (freshProducts || []).find(p => p.id === product.id) || product;
     
@@ -73,20 +81,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     // --- LIGHTBOX STATE ---
     const [lightboxImage, setLightboxImage] = useState<{url: string, alt: string} | null>(null);
 
-    const queryClient = useQueryClient();
-
-    const { mutate: deleteVariantMutate } = useMutation({
-        mutationFn: deleteVariantService,
-        onSuccess: () => {
-            toast.success("Variant deleted.");
-            queryClient.invalidateQueries({ queryKey: ['products'] });
-            queryClient.invalidateQueries({ queryKey: ['discontinuedProducts'] });
-        },
-        onError: (error: any) => {
-            toast.error(error.message || "Failed to delete variant.");
-        },
-    });
-
     const triggerPrint = useReactToPrint({
         contentRef: printRef, 
         documentTitle: `Label_${activeProduct.name}`,
@@ -132,14 +126,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     const handleSaveParent = async (formData: FormData) => {
         setIsSaving(true);
         try {
-            await updateProduct(activeProduct.id, formData);
+            await updateProduct.mutateAsync({ id: activeProduct.id, formData });
             setIsEditingParent(false);
         } catch (error) { console.error(error); } finally { setIsSaving(false); }
     };
 
     const handleDeleteParent = async () => {
         if (confirm(`Delete "${activeProduct.name}" and ALL its variants?`)) {
-            try { await deleteProduct(activeProduct.id); onClose(); } catch (e) { console.error(e); }
+            try { await deleteProduct.mutateAsync(activeProduct.id); onClose(); } catch (e) { console.error(e); }
         }
     };
     
@@ -151,7 +145,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
             try {
                 const formData = new FormData();
                 formData.append('isDiscontinued', String(newStatus));
-                await updateProduct(activeProduct.id, formData);
+                await updateProduct.mutateAsync({ id: activeProduct.id, formData });
                 toast.success(`Product ${newStatus ? 'discontinued' : 'restored'}.`);
                 if (newStatus) onClose(); 
             } catch (e) { 
@@ -225,7 +219,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
         try {
             const formData = new FormData();
             formData.append('defaultImageUrl', variantImageUrl);
-            await updateProduct(activeProduct.id, formData);
+            await updateProduct.mutateAsync({ id: activeProduct.id, formData });
             toast.success("Main product image updated!");
         } catch (error) {
             console.error(error);
@@ -272,7 +266,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
     
     const handleDeleteVariant = (variantId: string) => {
         if(!confirm("Delete this variant?")) return;
-        deleteVariantMutate(variantId);
+        deleteVariant.mutate(variantId, {
+            onSuccess: () => toast.success("Variant deleted."),
+            onError: (e: any) => toast.error(e.message || "Failed to delete.")
+        });
     };
 
     const handleCostChange = (costInput: string) => {
@@ -313,7 +310,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
 
         try {
             if (editingVariantId && !editingVariantId.startsWith('NEW_')) {
-                await updateVariant(editingVariantId, formData);
+                await updateVariant.mutateAsync({ variantId: editingVariantId, formData });
                 
                 if (isSelectionMode && selectedRowIds.size > 0) {
                     const updates: any = {};
@@ -334,7 +331,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
                     }
                 } else { toast.success("Variant updated."); }
             } else {
-                await addVariant(activeProduct.id, formData);
+                await addVariant.mutateAsync({ productId: activeProduct.id, formData });
                 toast.success("Variant created.");
             }
             handleCancelEdit();

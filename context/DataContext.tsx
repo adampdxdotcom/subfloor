@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import { useSessionContext } from 'supertokens-auth-react/recipe/session';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUnreadNotificationCount } from '../hooks/useNotifications';
-import { useProducts, useProductMutations } from '../hooks/useProducts';
+import { useProducts } from '../hooks/useProducts';
 import { useCustomers } from '../hooks/useCustomers';
 import { useProjects } from '../hooks/useProjects';
 import { useInstallers } from '../hooks/useInstallers';
@@ -47,7 +47,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- REACT QUERY: Products (Inventory) ---
   const { data: products = [], isLoading: productsLoading } = useProducts(!!currentUser);
-  const productMutations = useProductMutations();
   
   // --- REACT QUERY: Customers ---
   const { data: customers = [], isLoading: customersLoading } = useCustomers(!!currentUser);
@@ -232,86 +231,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await queryClient.invalidateQueries({ queryKey: ['products'] });
     };
 
-    const addProduct = async (formData: FormData) => {
-        try {
-            const newProduct = await productMutations.addProduct.mutateAsync(formData);
-            toast.success('Product created successfully');
-            return newProduct;
-        } catch (error: any) {
-            console.error("Failed to add product", error);
-            toast.error(error.message || 'Failed to add product');
-            throw error;
-        }
-    };
-
-    const updateProduct = async (id: string, formData: FormData) => {
-        try {
-            await productMutations.updateProduct.mutateAsync({ id, formData });
-            toast.success('Product updated successfully');
-        } catch (error: any) {
-            console.error("Failed to update product", error);
-            toast.error(error.message);
-            throw error;
-        }
-    };
-
-    const deleteProduct = async (id: string) => {
-        try {
-            await productMutations.deleteProduct.mutateAsync(id);
-            toast.success('Product deleted successfully');
-        } catch (error: any) {
-            console.error("Failed to delete product", error);
-            toast.error(error.message);
-            throw error;
-        }
-    };
-
-    const addVariant = async (productId: string, formData: FormData) => {
-        try {
-            const newVariant = await productMutations.addVariant.mutateAsync({ productId, formData });
-            toast.success('Variant added successfully');
-            return newVariant;
-        } catch (error: any) {
-            console.error("Failed to add variant", error);
-            toast.error(error.message);
-            throw error;
-        }
-    };
-    
-    const addVariantsBatch = useCallback(async (productId: string, variantsData: any[]) => {
-        try {
-            const newVariants = await productMutations.addVariantsBatch.mutateAsync({ productId, variants: variantsData });
-            toast.success(`Generated ${newVariants.length} variants successfully`);
-        } catch (error: any) {
-            console.error("Failed to batch add variants", error);
-            toast.error(error.message || 'Failed to add variants batch');
-            throw error;
-        }
-    }, [productMutations.addVariantsBatch]);
-
-    const updateVariant = async (variantId: string, formData: FormData) => {
-        try {
-            const updatedVariant = await productMutations.updateVariant.mutateAsync({ variantId, formData });
-            toast.success('Variant updated successfully');
-            return updatedVariant;
-        } catch (error: any) {
-            console.error("Failed to update variant", error);
-            toast.error(error.message);
-            throw error;
-        }
-    };
-
-    const deleteVariant = async (variantId: string, productId: string) => {
-        try {
-            await productMutations.deleteVariant.mutateAsync({ variantId, productId });
-            toast.success('Variant deleted successfully');
-        } catch (error: any) {
-            console.error("Failed to delete variant", error);
-            toast.error(error.message);
-            throw error;
-        }
-    };
-    
     const fetchSamples = fetchProducts; // Alias
     
     const addSample = useCallback(async (sample: any): Promise<any> => {
@@ -601,13 +520,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     toggleSampleDiscontinued,
     
     fetchProducts,
-    addProduct,
-    updateProduct,
-    deleteProduct,
-    addVariant,
-    addVariantsBatch,
-    updateVariant,
-    deleteVariant,
 
     // REMOVED MUTATIONS: addInstaller, updateInstaller, deleteInstaller
     // REMOVED MUTATIONS: addCustomer, updateCustomer, deleteCustomer

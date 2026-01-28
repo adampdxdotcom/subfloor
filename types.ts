@@ -611,13 +611,6 @@ export interface DataContextType extends AppData {
 
   // NEW INVENTORY CRUD
   fetchProducts: () => Promise<void>;
-  addProduct: (formData: FormData) => Promise<Product>;
-  updateProduct: (id: string, formData: FormData) => Promise<void>;
-  deleteProduct: (id: string) => Promise<void>;
-  addVariant: (productId: string, formData: FormData) => Promise<ProductVariant>;
-  addVariantsBatch: (productId: string, variantsData: any[]) => Promise<void>; // New
-  updateVariant: (variantId: string, formData: FormData) => Promise<ProductVariant>;
-  deleteVariant: (variantId: string, productId: string) => Promise<void>;
 
   toggleSampleDiscontinued: (sampleId: number, isDiscontinued: boolean) => Promise<void>;
 }
