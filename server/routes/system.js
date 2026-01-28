@@ -12,18 +12,23 @@ const __dirname = path.dirname(__filename);
 // Helper to read metadata.json
 const getAppMetadata = () => {
   try {
-    // Attempt 1: Up 2 levels (assuming /app/server/routes -> /app)
-    const path1 = path.join(__dirname, '../../metadata.json');
-    
-    // Attempt 2: Up 3 levels (just in case structure is deeper)
-    const path2 = path.join(__dirname, '../../../metadata.json');
+    const potentialPaths = [
+      // 1. Production Docker (Assuming WORKDIR /app)
+      '/app/metadata.json',
+      // 2. Local Dev (Relative to this file in server/routes)
+      path.join(__dirname, '../../metadata.json'),
+      // 3. Current Working Directory (Root fallback)
+      path.join(process.cwd(), 'metadata.json')
+    ];
 
-    if (fs.existsSync(path1)) {
-      return JSON.parse(fs.readFileSync(path1, 'utf-8'));
+    for (const p of potentialPaths) {
+      if (fs.existsSync(p)) {
+        console.log("✅ Found metadata.json at:", p);
+        return JSON.parse(fs.readFileSync(p, 'utf-8'));
+      }
     }
-    if (fs.existsSync(path2)) {
-      return JSON.parse(fs.readFileSync(path2, 'utf-8'));
-    }
+    
+    console.warn("⚠️ metadata.json not found in:", potentialPaths);
 
   } catch (err) {
     console.error('🔥 Failed to read metadata.json:', err);
