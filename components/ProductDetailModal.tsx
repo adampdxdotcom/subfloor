@@ -254,7 +254,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ isOpen, onClose
             unitCost: variant.unitCost, retailPrice: variant.retailPrice,
             wearLayer: variant.wearLayer, thickness: variant.thickness,
             hasSample: variant.hasSample, cartonSize: variant.cartonSize, 
-            uom: variant.uom, pricingUnit: variant.pricingUnit
+            uom: variant.uom || 'SF', pricingUnit: variant.pricingUnit || 'SF'
         });
         setEditingVariantId(variant.id);
         const initialPreview = resolveImageUrl(variant.imageUrl);

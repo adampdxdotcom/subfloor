@@ -21,7 +21,6 @@ import {
     Eye, 
     Play,
     Download,
-    BarChart3,
     Settings2,
     Layers,
     CheckSquare
@@ -43,8 +42,8 @@ const PrintHeader = ({ title, dateRange }: { title: string, dateRange?: string }
             <div className="flex justify-between items-center mb-4">
                 <img src={logoUrl} alt="Logo" className="h-16 object-contain" />
                 <div className="text-right">
-                    <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-                    <p className="text-gray-600 text-sm">Generated: {new Date().toLocaleDateString()}</p>
+                    <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+                    <p className="text-xl text-gray-600 font-medium mt-1">{new Date().toLocaleDateString()}</p>
                     {dateRange && <p className="text-gray-600 text-sm">Period: {dateRange}</p>}
                 </div>
             </div>
@@ -78,7 +77,6 @@ export default function Reports() {
     const navigate = useNavigate();
     
     const [showCost, setShowCost] = useState(false);
-    const [showChart, setShowChart] = useState(true);
     
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -141,6 +139,16 @@ export default function Reports() {
         setHiddenColumns([]);
     }, [activeTab]);
 
+    // Pre-fill Product Type when Manufacturer changes
+    useEffect(() => {
+        if (manufacturerFilter) {
+            const selectedVendor = vendors.find(v => v.id.toString() === manufacturerFilter.toString());
+            if (selectedVendor?.defaultProductType) {
+                setTypeFilter(selectedVendor.defaultProductType);
+            }
+        }
+    }, [manufacturerFilter, vendors]);
+
     const toggleSelectMode = () => {
         setIsSelectMode(prev => {
             if (!prev) { // Entering select mode
@@ -156,9 +164,8 @@ export default function Reports() {
         }
         const mfgName = manufacturerFilter ? vendors.find(v => v.id == manufacturerFilter)?.name : 'All Manufacturers';
         const typeName = typeFilter || '';
-        const date = new Date().toLocaleDateString();
 
-        return `${mfgName} ${typeName} Prices ${date}`.replace(/\s+/g, ' ').trim();
+        return `${mfgName} ${typeName} Prices`.replace(/\s+/g, ' ').trim();
     };
 
     const handleApplyFilters = () => {
@@ -424,16 +431,7 @@ export default function Reports() {
                         )}
 
                         <div className="flex items-center border border-outline/10 rounded-full bg-surface-container-highest shadow-sm overflow-hidden h-10">
-                            {reportData.length > 0 && (
-                                <button 
-                                    onClick={() => setShowChart(!showChart)}
-                                    className={`p-3 border-r border-outline/10 hover:bg-surface-container-high transition-colors ${showChart ? 'text-primary bg-primary-container' : 'text-text-secondary'}`}
-                                    title={showChart ? "Hide Chart" : "Show Chart"}
-                                >
-                                    <BarChart3 className="h-4 w-4" />
-                                </button>
-                            )}
-                            {activeTab === 'products' && (
+                            {activeTab === 'products' && reportData.length > 0 && (
                                 <button 
                                     onClick={() => setCollapseProductLines(!collapseProductLines)}
                                     className={`p-3 border-r border-outline/10 hover:bg-surface-container-high transition-colors ${collapseProductLines ? 'text-primary bg-primary-container' : 'text-text-secondary'}`}
@@ -492,9 +490,6 @@ export default function Reports() {
                         </div>
                     ) : (
                         <div className="min-w-full">
-                           {showChart && reportData.length > 0 && (
-                               <ReportCharts data={getSortedData()} type={activeTab} />
-                           )}
 
                            {reportData.length > 0 && activeTab === 'products' && (
                                <ProductReportTable 

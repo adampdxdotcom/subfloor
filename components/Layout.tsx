@@ -131,7 +131,7 @@ const Layout: React.FC = () => {
                     </div>
                 </header>
                 
-                <main className="flex-1 overflow-y-auto lg:p-8 print:p-0">
+                <main className="flex-1 overflow-y-auto lg:p-8 print:p-0 print:overflow-visible print:h-auto print:block">
                     <Outlet />
                 </main>
             </div>

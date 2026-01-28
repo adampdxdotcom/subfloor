@@ -56,9 +56,16 @@ const ProductReportTable: React.FC<ProductReportTableProps> = ({
             const costs = items.map(i => parseFloat(i.unit_cost) || 0);
             const retails = items.map(i => parseFloat(i.retail_price) || 0);
             
+            // Calculate Group Pricing Unit
+            const uniqueUnits = [...new Set(items.map(i => i.pricing_unit).filter(Boolean))];
+            let groupUnit = null;
+            if (uniqueUnits.length === 1) groupUnit = uniqueUnits[0];
+            else if (uniqueUnits.length > 1) groupUnit = 'Mixed';
+
             return {
                 ...first,
                 isGroup: true,
+                pricing_unit: groupUnit,
                 variant_count: items.length,
                 sku: items.length === 1 ? first.sku : (items.every(i => i.sku === first.sku) ? first.sku : '—'),
                 min_cost: Math.min(...costs),
@@ -150,7 +157,6 @@ const ProductReportTable: React.FC<ProductReportTableProps> = ({
             renderCell: (row: any) => (
                 <td key="prod" className="px-4 py-2 text-gray-900 font-medium">
                     {row.product_name}
-                    <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-1 rounded">{row.product_type}</span>
                 </td>
             )
         },
@@ -191,7 +197,7 @@ const ProductReportTable: React.FC<ProductReportTableProps> = ({
             headerClassName: 'text-red-600 print:text-gray-900',
             renderCell: (row: any) => (
                 <td key="cost" className="px-4 py-2 text-red-600 print:text-gray-900 font-mono">
-                    {row.isGroup ? renderPrice(row.min_cost, row.max_cost, row.uom) : `${formatMoney(row.unit_cost)}${(row.uom && row.uom !== 'null') ? ` / ${row.uom}` : ''}`}
+                    {row.isGroup ? renderPrice(row.min_cost, row.max_cost, row.pricing_unit) : `${formatMoney(row.unit_cost)}${(row.pricing_unit && row.pricing_unit !== 'null') ? ` / ${row.pricing_unit}` : ''}`}
                 </td>
             )
         },
@@ -200,7 +206,7 @@ const ProductReportTable: React.FC<ProductReportTableProps> = ({
             sortKey: 'retail_price',
             renderCell: (row: any) => (
                 <td key="retail" className="px-4 py-2 text-gray-900 font-mono font-bold">
-                    {row.isGroup ? renderPrice(row.min_retail, row.max_retail, row.uom) : `${formatMoney(row.retail_price)}${(row.uom && row.uom !== 'null') ? ` / ${row.uom}` : ''}`}
+                    {row.isGroup ? renderPrice(row.min_retail, row.max_retail, row.pricing_unit) : `${formatMoney(row.retail_price)}${(row.pricing_unit && row.pricing_unit !== 'null') ? ` / ${row.pricing_unit}` : ''}`}
                 </td>
             )
         }
@@ -284,12 +290,6 @@ const ProductReportTable: React.FC<ProductReportTableProps> = ({
                         </tr>
                     );
                 })}
-                {/* Footer Totals for Products */}
-                <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
-                    <td colSpan={10} className="px-4 py-3 text-sm text-gray-600">
-                        Showing {displayData.length} {collapseLines ? 'Product Lines' : 'Variants'}
-                    </td>
-                </tr>
             </tbody>
         </table>
     );

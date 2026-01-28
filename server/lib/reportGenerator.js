@@ -19,7 +19,9 @@ export async function getProductReport({ includeDiscontinued = false, manufactur
         pv.sku,
         pv.unit_cost,
         pv.retail_price,
+        pv.carton_size,
         pv.uom,
+        pv.pricing_unit,
         p.is_discontinued
       FROM product_variants pv
       JOIN products p ON pv.product_id = p.id
