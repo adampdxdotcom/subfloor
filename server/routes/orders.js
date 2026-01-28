@@ -1,3 +1,5 @@
+// server/routes/orders.js
+
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
@@ -30,7 +32,8 @@ const getFullOrderById = async (orderId, client = pool) => {
             mo.order_date, mo.eta_date, mo.date_received, mo.purchaser_type, mo.status, mo.notes, mo.parent_order_id,
             p.project_name,
             COALESCE(j.po_number, q_data.po_number) as po_number,
-            c.full_name as customer_name, c.email as customer_email,
+            COALESCE(c.full_name, i_client.installer_name) as customer_name, 
+            COALESCE(c.email, i_client.contact_email) as customer_email,
             q_data.installer_name, q_data.contact_email as installer_email,
             COALESCE(
                 (SELECT json_agg(json_build_object(
@@ -52,7 +55,8 @@ const getFullOrderById = async (orderId, client = pool) => {
         LEFT JOIN vendors v ON mo.supplier_id = v.id
         JOIN projects p ON mo.project_id = p.id
         LEFT JOIN jobs j ON j.project_id = p.id
-        JOIN customers c ON p.customer_id = c.id
+        LEFT JOIN customers c ON p.customer_id = c.id
+        LEFT JOIN installers i_client ON p.client_installer_id = i_client.id
         -- Attempt to find the assigned installer via an Accepted Quote
         LEFT JOIN LATERAL (
             SELECT i.installer_name, i.contact_email, q.po_number
@@ -78,7 +82,8 @@ router.get('/', verifySession(), async (req, res) => {
             mo.order_date, mo.eta_date, mo.date_received, mo.purchaser_type, mo.status, mo.notes, mo.parent_order_id,
             p.project_name,
             COALESCE(j.po_number, q_data.po_number) as po_number,
-            c.full_name as customer_name, c.email as customer_email,
+            COALESCE(c.full_name, i_client.installer_name) as customer_name, 
+            COALESCE(c.email, i_client.contact_email) as customer_email,
             q_data.installer_name, q_data.contact_email as installer_email,
             COALESCE(
                 (
@@ -102,7 +107,8 @@ router.get('/', verifySession(), async (req, res) => {
         LEFT JOIN vendors v ON mo.supplier_id = v.id
         JOIN projects p ON mo.project_id = p.id
         LEFT JOIN jobs j ON j.project_id = p.id
-        JOIN customers c ON p.customer_id = c.id
+        LEFT JOIN customers c ON p.customer_id = c.id
+        LEFT JOIN installers i_client ON p.client_installer_id = i_client.id
         LEFT JOIN LATERAL (
             SELECT i.installer_name, i.contact_email, q.po_number
             FROM quotes q
