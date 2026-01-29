@@ -93,7 +93,7 @@ router.get('/events', verifySession(), async (req, res) => {
                 'Materials ETA for ' || p.project_name AS "title",
                 mo.eta_date AS "start",
                 mo.eta_date AS "end",
-                c.full_name AS "customerName",
+                COALESCE(c.full_name, i_client.installer_name) AS "customerName",
                 '#8B5CF6' AS "backgroundColor",
                 false AS "isOnHold",
                 NULL AS "projectStatus",
@@ -106,7 +106,8 @@ router.get('/events', verifySession(), async (req, res) => {
                 ) AS "fullEvent"
             FROM material_orders mo
             JOIN projects p ON mo.project_id = p.id
-            JOIN customers c ON p.customer_id = c.id
+            LEFT JOIN customers c ON p.customer_id = c.id
+            LEFT JOIN installers i_client ON p.client_installer_id = i_client.id
             LEFT JOIN vendors v ON mo.supplier_id = v.id
             LEFT JOIN LATERAL (
                 SELECT jsonb_agg(jsonb_build_object(

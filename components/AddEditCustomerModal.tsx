@@ -64,11 +64,12 @@ const validateForm = (
 
 const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClose, customer, initialData, onSaveSuccess }) => {
   const { data: currentUser } = useCurrentUser();
-  const { createCustomer, updateCustomer, deleteCustomer } = useCustomerMutations();
+  const { addCustomer, updateCustomer, deleteCustomer } = useCustomerMutations();
   
   const [formData, setFormData] = useState(initialFormState);
   const [confirmEmail, setConfirmEmail] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const isAdmin = currentUser?.roles.includes('Admin');
   const isEditMode = customer !== null;
@@ -119,14 +120,15 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
     }
 
     const payload = { ...formData, phoneNumber: formData.phoneNumber.replace(/[^\d]/g, '') };
+    setIsSubmitting(true);
 
     try {
         if (isEditMode && customer) {
-          await updateCustomer.mutateAsync({ ...customer, ...payload });
+          await updateCustomer({ ...customer, ...payload });
           toast.success('Customer updated!');
           onClose();
         } else {
-          const newCustomer = await createCustomer.mutateAsync(payload);
+          const newCustomer = await addCustomer(payload);
           toast.success('Customer created!');
           if (onSaveSuccess) {
             onSaveSuccess(newCustomer);
@@ -134,7 +136,9 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
           onClose();
         }
     } catch (err) {
-        // Error toast usually handled by mutation logic
+        console.error(err);
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -142,20 +146,22 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
     if (!customer) return;
 
     if (window.confirm(`Delete ${customer.fullName}?`)) {
+      setIsSubmitting(true);
       try {
-          await deleteCustomer.mutateAsync(customer.id);
+          await deleteCustomer(customer.id);
           toast.success('Customer deleted.');
           onClose();
       } catch (err) {
-          // Error handled by mutation
+          console.error(err);
+      } finally {
+          setIsSubmitting(false);
       }
     }
   };
 
   if (!isOpen) return null;
 
-  const isProcessing = createCustomer.isPending || updateCustomer.isPending || deleteCustomer.isPending;
-  const isSaveDisabled = isProcessing || Object.keys(errors).length > 0;
+  const isSaveDisabled = isSubmitting || Object.keys(errors).length > 0;
 
   return (
     <div className="fixed inset-0 bg-black/75 flex justify-center z-50 overflow-y-auto">
@@ -237,7 +243,7 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
               type="button"
               onClick={onClose}
               className="py-2 px-6 bg-surface hover:bg-surface-container-highest border border-outline/20 rounded-full text-text-primary font-medium transition-colors"
-              disabled={isProcessing}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
@@ -247,10 +253,10 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
                 type="button"
                 onClick={handleDelete}
                 className="py-2 px-6 bg-error-container hover:bg-error/20 text-error rounded-full font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mr-auto transition-colors"
-                disabled={isProcessing}
+                disabled={isSubmitting}
               >
                 <Trash2 size={16} />
-                {deleteCustomer.isPending ? 'Deleting...' : 'Delete'}
+                {isSubmitting ? 'Deleting...' : 'Delete'}
               </button>
             )}
 
@@ -259,7 +265,7 @@ const AddEditCustomerModal: React.FC<EditCustomerModalProps> = ({ isOpen, onClos
               className="py-2 px-6 bg-primary hover:bg-primary-hover rounded-full text-on-primary font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               disabled={isSaveDisabled}
             >
-              {createCustomer.isPending || updateCustomer.isPending ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Add Customer')}
+              {isSubmitting ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Add Customer')}
             </button>
           </div>
         </form>
