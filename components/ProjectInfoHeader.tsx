@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CurrentUser, Project, ProjectStatus, Customer, Installer, User } from '../types';
-import { Edit2, Trash2, Save, X, RotateCcw, Calendar, Tag, MapPin, Phone, User as UserIcon, Hammer, Briefcase } from 'lucide-react'; 
+import { Edit2, Trash2, Save, X, RotateCcw, Calendar, Tag, MapPin, Phone, User as UserIcon, Hammer, Briefcase, Ban, RefreshCw } from 'lucide-react'; 
 import { useData } from '../context/DataContext'; 
 import { formatDate } from '../utils/dateUtils';
 import { getImageUrl } from '../utils/apiConfig';
@@ -23,7 +23,7 @@ const getStatusColor = (status: ProjectStatus): string => {
 interface ProjectInfoHeaderProps {
     project: Project;
     customer: Customer | undefined;
-    clientInstaller?: Installer | undefined; // NEW
+    clientInstaller?: Installer | undefined; 
     activeInstaller?: Installer;
     projectLead?: User;
     currentUser: CurrentUser | null;
@@ -42,7 +42,7 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
     onDeleteProject, isDeleting,
     isLayoutEditMode, onSaveLayout, onCancelLayout, onResetLayout 
 }) => {
-    const { users, systemBranding } = useData(); 
+    const { systemBranding } = useData(); 
     
     const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -61,6 +61,18 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
     const handleStatusChange = (newStatus: ProjectStatus) => {
         updateProject({ id: project.id, status: newStatus });
         setIsStatusDropdownOpen(false);
+    };
+
+    const handleToggleCancel = () => {
+        if (project.status === ProjectStatus.CANCELLED) {
+            if (confirm("Restore this project to Active status?")) {
+                updateProject({ id: project.id, status: ProjectStatus.NEW }); 
+            }
+        } else {
+            if (confirm("Are you sure you want to CANCEL this project? It will be hidden from the calendar and locked.")) {
+                updateProject({ id: project.id, status: ProjectStatus.CANCELLED });
+            }
+        }
     };
     
     // Map Address Link
@@ -125,10 +137,24 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
                         // --- VIEW MODE ACTIONS ---
                         <>
                             {currentUser?.roles?.includes('Admin') && (
-                                <button onClick={onDeleteProject} disabled={isDeleting} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-red-600 hover:bg-red-50 rounded-md transition-colors border border-transparent hover:border-red-100">
-                                    <Trash2 size={16}/>
-                                    {isDeleting ? 'Deleting...' : 'Delete'}
-                                </button>
+                                <>
+                                    <button 
+                                        onClick={handleToggleCancel} 
+                                        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors border border-transparent ${
+                                            project.status === ProjectStatus.CANCELLED 
+                                            ? 'text-green-600 hover:bg-green-50 hover:border-green-100' 
+                                            : 'text-text-secondary hover:text-orange-600 hover:bg-orange-50 hover:border-orange-100'
+                                        }`}
+                                    >
+                                        {project.status === ProjectStatus.CANCELLED ? <RefreshCw size={16} /> : <Ban size={16} />}
+                                        {project.status === ProjectStatus.CANCELLED ? 'Restore' : 'Cancel'}
+                                    </button>
+
+                                    <button onClick={onDeleteProject} disabled={isDeleting} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-red-600 hover:bg-red-50 rounded-md transition-colors border border-transparent hover:border-red-100">
+                                        <Trash2 size={16}/>
+                                        {isDeleting ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                </>
                             )}
                         </>
                     )}
@@ -136,16 +162,11 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
                     {/* Status Dropdown */}
                     <div className="relative" ref={dropdownRef}>
                         <button
-                            // ONLY ALLOW CLICK IF IN EDIT MODE
-                            onClick={() => isLayoutEditMode && setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide transition-all shadow-sm 
-                                ${getStatusColor(project.status)}
-                                ${isLayoutEditMode ? 'cursor-pointer hover:ring-2 ring-primary ring-offset-1' : 'cursor-default'}
-                            `}
+                            onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide transition-all shadow-sm cursor-pointer hover:ring-2 ring-primary ring-offset-1 ${getStatusColor(project.status)}`}
                         >
                             {project.status.replace(/_/g, ' ')}
-                            {/* ONLY SHOW PENCIL IN EDIT MODE */}
-                            {isLayoutEditMode && <Edit2 size={14} className="opacity-70" />}
+                            <Edit2 size={14} className="opacity-70" />
                         </button>
 
                         {isStatusDropdownOpen && (
@@ -167,7 +188,7 @@ const ProjectInfoHeader: React.FC<ProjectInfoHeaderProps> = ({
             
             <div className="h-px bg-border my-4" />
 
-            {/* ROW 2: Information Grid */}
+            {/* Information Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* 1. Customer/Client Info */}
                 <div className="space-y-1">

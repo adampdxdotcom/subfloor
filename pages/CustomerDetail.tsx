@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import { SampleCheckout } from '../types';
+import { SampleCheckout, ProjectStatus } from '../types';
 import { User, Mail, Phone, MapPin, PlusCircle, Edit, Briefcase, ChevronRight, History, Layers } from 'lucide-react';
 import AddEditCustomerModal from '../components/AddEditCustomerModal';
 import CollapsibleSection from '../components/CollapsibleSection';
@@ -24,7 +24,7 @@ const CustomerDetail: React.FC = () => {
   const [isEditCustomerModalOpen, setIsEditCustomerModalOpen] = useState(false);
   
   const customer = customers.find(c => c.id === parseInt(customerId || ''));
-  const customerProjects = projects.filter(p => p.customerId === customer?.id);
+  const customerProjects = projects.filter(p => Number(p.customerId) === customer?.id);
   
   useEffect(() => {
     if (customerId) {
@@ -90,18 +90,29 @@ const CustomerDetail: React.FC = () => {
           <h2 className="text-2xl font-bold text-text-primary flex items-center gap-3"><Briefcase className="w-6 h-6"/> Projects</h2>
         </div>
         <div className="space-y-4">
-          {customerProjects.length > 0 ? customerProjects.map(project => (
-            <Link to={`/projects/${project.id}`} key={project.id} className="flex justify-between items-center bg-surface-container-high p-5 rounded-xl border border-outline/10 shadow-sm hover:shadow-md hover:bg-surface-container-highest transition-all group">
-              <div>
-                <h3 className="font-semibold text-lg text-text-primary">{project.projectName}</h3>
-                <p className="text-sm text-text-secondary flex items-center gap-2 mt-1">
-                    <span className={`w-2 h-2 rounded-full ${project.status === 'Completed' ? 'bg-success' : 'bg-primary'}`}></span>
-                    {project.status}
-                </p>
-              </div>
-              <ChevronRight className="w-6 h-6 text-text-secondary group-hover:text-primary transition-colors"/>
-            </Link>
-          )) : (
+          {customerProjects.length > 0 ? customerProjects.map(project => {
+            const isCancelled = project.status === ProjectStatus.CANCELLED;
+            const isCompleted = project.status === ProjectStatus.COMPLETED;
+            
+            return (
+                <Link 
+                    to={`/projects/${project.id}`} 
+                    key={project.id} 
+                    className={`flex justify-between items-center bg-surface-container-high p-5 rounded-xl border border-outline/10 shadow-sm hover:shadow-md hover:bg-surface-container-highest transition-all group ${isCancelled ? 'opacity-60 grayscale' : ''}`}
+                >
+                  <div>
+                    <h3 className={`font-semibold text-lg ${isCancelled ? 'text-text-secondary line-through' : 'text-text-primary'}`}>
+                        {project.projectName}
+                    </h3>
+                    <p className="text-sm text-text-secondary flex items-center gap-2 mt-1">
+                        <span className={`w-2 h-2 rounded-full ${isCancelled ? 'bg-red-500' : (isCompleted ? 'bg-success' : 'bg-primary')}`}></span>
+                        {isCancelled ? 'Cancelled' : project.status}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-6 h-6 text-text-secondary group-hover:text-primary transition-colors"/>
+                </Link>
+            );
+          }) : (
             <p className="text-center text-text-secondary py-4">No projects for this customer yet.</p>
           )}
         </div>

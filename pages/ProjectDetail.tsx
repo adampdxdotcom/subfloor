@@ -11,7 +11,7 @@ import { useChangeOrderMutations } from '../hooks/useChangeOrderMutations';
 import { useMaterialOrders } from '../hooks/useMaterialOrders';
 import { useMaterialOrderMutations } from '../hooks/useMaterialOrderMutations';
 import { useInstallers, useInstallerMutations } from '../hooks/useInstallers';
-import { Project, Quote, QuoteStatus, ChangeOrder, MaterialOrder } from '../types';
+import { Project, Quote, QuoteStatus, ChangeOrder, MaterialOrder, ProjectStatus } from '../types';
 
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -30,6 +30,7 @@ import JobNotesSection from '../components/JobNotesSection';
 import ProjectPhotosSection from '../components/ProjectPhotosSection';
 import LockedWidget from '../components/LockedWidget';
 import { toast } from 'react-hot-toast';
+import { Ban } from 'lucide-react';
 import * as jobService from '../services/jobService';
 import * as notificationService from '../services/notificationService';
 
@@ -84,6 +85,8 @@ const ProjectDetail: React.FC = () => {
     const activeInstallerId = acceptedQuote?.installerId || projectQuotes.find(q => q.installerId)?.installerId;
     const activeInstaller = useMemo(() => installers.find(i => i.id === activeInstallerId), [installers, activeInstallerId]);
     const projectLead = useMemo(() => users.find(u => u.userId === project?.managerId), [users, project]);
+
+    const isCancelled = project?.status === ProjectStatus.CANCELLED;
 
     const defaultLayouts = useMemo(() => ({
       lg: [
@@ -214,12 +217,12 @@ const ProjectDetail: React.FC = () => {
             <ProjectInfoHeader 
                 project={project} 
                 customer={customer} 
-                clientInstaller={clientInstaller} // NEW
+                clientInstaller={clientInstaller}
                 activeInstaller={activeInstaller}
                 projectLead={projectLead}
                 currentUser={currentUser}
                 updateProject={handleUpdateProject} 
-                onEdit={() => setIsEditProjectModalOpen(true)}
+                onEdit={() => !isCancelled && setIsEditProjectModalOpen(true)}
                 onDeleteProject={handleDeleteProject}
                 isDeleting={isDeleting}
                 isLayoutEditMode={isLayoutEditMode}
@@ -227,6 +230,16 @@ const ProjectDetail: React.FC = () => {
                 onCancelLayout={handleCancelLayout}
                 onResetLayout={handleResetLayout}
             />
+
+            {isCancelled && (
+                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-r shadow-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="bg-red-200 p-2 rounded-full"><Ban size={24} /></div>
+                    <div>
+                        <p className="font-bold text-lg">Project Cancelled</p>
+                        <p className="text-sm opacity-90">This project is inactive and read-only. Restore it to make changes.</p>
+                    </div>
+                </div>
+            )}
             
             <ResponsiveGridLayout
                 className={`layout ${isLayoutEditMode ? 'edit-mode' : ''}`}
@@ -239,7 +252,7 @@ const ProjectDetail: React.FC = () => {
                 isDraggable={isLayoutEditMode}
                 isResizable={isLayoutEditMode}
             >
-                <div key="quotes" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
+                <div key="quotes" className={`bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full ${isCancelled ? 'opacity-60 pointer-events-none grayscale' : ''}`}>
                     <QuotesSection 
                         project={project} projectQuotes={projectQuotes} installers={installers} addQuote={handleAddQuote} 
                         updateQuote={handleUpdateQuote} updateProject={handleUpdateProject} addInstaller={handleAddInstaller} 
@@ -249,7 +262,7 @@ const ProjectDetail: React.FC = () => {
                     />
                 </div>
                 
-                <div key="job-details" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
+                <div key="job-details" className={`bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full ${isCancelled ? 'opacity-60 pointer-events-none grayscale' : ''}`}>
                     <LockedWidget isLocked={!isQuoteAccepted} title="Job Financials & Schedule">
                         {isQuoteAccepted ? (
                         <FinalizeJobSection project={project} job={job} quotes={projectQuotes} changeOrders={projectChangeOrders} materialOrders={projectOrders} />
@@ -259,7 +272,7 @@ const ProjectDetail: React.FC = () => {
                     </LockedWidget>
                 </div>
 
-                <div key="notes" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
+                <div key="notes" className={`bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full ${isCancelled ? 'opacity-60 pointer-events-none grayscale' : ''}`}>
                     {job ? (
                         <JobNotesSection job={job} onSaveNotes={handleSaveNotes} />
                     ) : (
@@ -271,7 +284,7 @@ const ProjectDetail: React.FC = () => {
                     <SampleCheckoutsSection project={project} />
                 </div>
                 
-                <div key="change-orders" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
+                <div key="change-orders" className={`bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full ${isCancelled ? 'opacity-60 pointer-events-none grayscale' : ''}`}>
                     <LockedWidget isLocked={!isQuoteAccepted} title="Change Orders">
                         {isQuoteAccepted ? (
                         <ChangeOrderSection project={project} projectChangeOrders={projectChangeOrders} acceptedQuotes={acceptedQuotes} addChangeOrder={handleAddChangeOrder} onEditChangeOrder={handleOpenEditChangeOrderModal} />
@@ -281,7 +294,7 @@ const ProjectDetail: React.FC = () => {
                     </LockedWidget>
                 </div>
                 
-                <div key="material-orders" className="bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full">
+                <div key="material-orders" className={`bg-surface-container-high rounded-2xl shadow-sm border border-outline/10 overflow-hidden h-full ${isCancelled ? 'opacity-60 pointer-events-none grayscale' : ''}`}>
                     <LockedWidget isLocked={!isQuoteAccepted} title="Material Orders">
                         {isQuoteAccepted ? (
                         <MaterialOrdersSection project={project} orders={projectOrders} isModalOpen={activeModal === 'order'} 

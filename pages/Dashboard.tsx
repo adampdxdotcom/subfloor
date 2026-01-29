@@ -162,11 +162,18 @@ const Dashboard: React.FC = () => {
                 <h2 className="text-2xl font-semibold mb-4 text-text-primary">Projects: {filter}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {projectListGrid.length > 0 ? (
-                        projectListGrid.map(project => (
-                            <Link to={`/projects/${project.id}`} key={project.id}>
-                                <ProjectCarousel title="" projects={[project]} />
-                            </Link>
-                        ))
+                        projectListGrid.map(project => {
+                            const isCancelled = project.status === ProjectStatus.CANCELLED;
+                            return (
+                                <Link 
+                                    to={`/projects/${project.id}`} 
+                                    key={project.id}
+                                    className={isCancelled ? "opacity-60 grayscale block" : "block"}
+                                >
+                                    <ProjectCarousel title="" projects={[project]} />
+                                </Link>
+                            );
+                        })
                     ) : (
                         <p className="text-text-secondary col-span-full text-center py-8">No projects match the filter "{filter}".</p>
                     )}
