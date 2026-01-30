@@ -1,29 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calculator, Plus, Trash2, ArrowRight } from 'lucide-react';
+import { X, Calculator, Plus, ArrowRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import CreatableSelect from 'react-select/creatable';
 import * as sampleService from '../services/sampleService';
 import { useData } from '../context/DataContext';
+import { useProductMutations } from '../hooks/useProducts';
 import { calculatePrice, getActivePricingRules } from '../utils/pricingUtils';
 import { PricingSettings, UNITS, ProductType } from '../types';
 
 interface VariantGeneratorModalProps {
     productId: string;
-    productType: ProductType; // NEW PROP
-    manufacturerId?: number | null; // Passed from parent to look up vendor rules
-    pricingSettings: PricingSettings | null; // Passed from parent
+    productType: ProductType;
+    manufacturerId?: number | null;
+    pricingSettings: PricingSettings | null;
     onClose: () => void;
     onSuccess: (newVariants: any[]) => void;
 }
 
-// Helper to define options for react-select
 interface Option {
     label: string;
     value: string;
 }
 
 const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId, productType, manufacturerId, pricingSettings, onClose, onSuccess }) => {
-    const { vendors, addVariantsBatch } = useData(); // Get the new function
+    const { vendors } = useData();
+    const { addVariantsBatch } = useProductMutations();
 
     // --- 1. Common Data State (Applies to all) ---
     const [commonData, setCommonData] = useState({
@@ -33,16 +34,16 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
         wearLayer: '',
         thickness: '',
         uom: 'SF',
-        pricingUnit: 'SF', // NEW: Defaults to SF
-        sku: '', // New Field
+        pricingUnit: 'SF',
+        sku: '',
         style: '',
         finish: '',
-        hasSample: false // Default to Order Only (User Request)
+        hasSample: false
     });
 
     // --- 2. The Lists State ---
-    const [names, setNames] = useState<readonly Option[]>([]); // e.g. Colors
-    const [sizes, setSizes] = useState<readonly Option[]>([]); // e.g. Sizes
+    const [names, setNames] = useState<readonly Option[]>([]);
+    const [sizes, setSizes] = useState<readonly Option[]>([]);
 
     // --- 3. Preview State ---
     const [preview, setPreview] = useState<any[]>([]);
@@ -69,8 +70,6 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
 
     const loadSizeOptions = async () => {
         try {
-            // Note: Using a different endpoint than the product form to avoid confusion, 
-            // assuming the product form is using /api/products/sizes/stats now.
             const stats = await sampleService.getUniqueSizeStats();
             setSizeOptions(stats.map(s => ({ label: s.value, value: s.value })));
         } catch (err) {
@@ -107,25 +106,20 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
         }
 
         const newPreview: any[] = [];
-        
-        // If one list is empty, treat it as having one "blank" item so we still generate rows
         const nameList = names.length > 0 ? names : [{ label: '', value: '' }];
         const sizeList = sizes.length > 0 ? sizes : [{ label: '', value: '' }];
 
         nameList.forEach(nameOpt => {
             sizeList.forEach(sizeOpt => {
-                // Don't generate if both are empty (prevent 1 blank row)
                 if (!nameOpt.value && !sizeOpt.value) return;
 
                 newPreview.push({
                     name: nameOpt.value,
                     size: sizeOpt.value,
-                    // Copy common data
                     ...commonData,
-                    sku: commonData.sku, // Pass it through
+                    sku: commonData.sku,
                     wearLayer: commonData.wearLayer,
                     thickness: commonData.thickness,
-                    // Ensure numbers are parsed for backend consistency
                     unitCost: parseFloat(commonData.unitCost) || 0,
                     retailPrice: parseFloat(commonData.retailPrice) || 0,
                     cartonSize: parseFloat(commonData.cartonSize) || 0,
@@ -141,18 +135,12 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
     const handleSave = async () => {
         if (preview.length === 0) return;
         try {
-            // Use Context instead of Service
-            await addVariantsBatch(productId, preview);
-            
-            // We don't have the 'created' array return from the context wrapper easily available
-            // unless we modify the wrapper to return it. 
-            // But onSuccess() was just for the toast mostly. 
-            // Let's just call onSuccess with empty array or update signature if needed.
+            await addVariantsBatch.mutateAsync({ productId, variants: preview });
             onSuccess([]); 
             onClose();
         } catch (error: any) {
-            // Toast is handled in context
             console.error(error);
+            toast.error(error.message || 'Failed to generate variants');
         }
     };
 
@@ -204,7 +192,7 @@ const VariantGeneratorModal: React.FC<VariantGeneratorModalProps> = ({ productId
                                     <input type="text" value={commonData.sku} onChange={e => setCommonData({...commonData, sku: e.target.value})} className="w-full p-2 bg-surface border border-border rounded text-text-primary" placeholder="e.g. Base SKU" />
                                 </div>
 
-                                {/* TECH SPECS (LVP Only) */}
+                                {/* TECH SPECS */}
                                 {labels.showTechSpecs && (
                                     <>
                                         <div>

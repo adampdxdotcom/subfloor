@@ -55,12 +55,6 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
     const { addVendor } = useVendorMutations();
     const { addMaterialOrder, updateMaterialOrder } = useMaterialOrderMutations();
     
-    // --- DEBUG LOGGING ---
-    console.log('AddEditMaterialOrderModal Render:', { 
-        addMaterialOrderType: typeof addMaterialOrder,
-        addMaterialOrderValue: addMaterialOrder
-    });
-
     // New: Fetch history directly
     const { data: materialOrderHistory = [] } = useQuery({
         queryKey: ['material_orders', 'history', editingOrder?.id],
@@ -203,11 +197,14 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
 
             let initialSellPrice = '';
             
-            if (pricingSettings && prefillData.variant.unitCost) {
+            // Prioritize stored retail price for customers.
+            if (purchaserType === 'Customer' && prefillData.variant.retailPrice && prefillData.variant.retailPrice > 0) {
+                initialSellPrice = Number(prefillData.variant.retailPrice).toFixed(2);
+            } else if (pricingSettings && prefillData.variant.unitCost) {
                  const rules = getActivePricingRules(vendor, pricingSettings, purchaserType);
                  const price = calculatePrice(Number(prefillData.variant.unitCost), rules.percentage, rules.method);
                  initialSellPrice = price.toFixed(2);
-            } else if (prefillData.variant.retailPrice) {
+            } else if (prefillData.variant.retailPrice) { // Fallback for customer if settings are missing
                 initialSellPrice = Number(prefillData.variant.retailPrice).toFixed(2);
             }
 
@@ -264,12 +261,15 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             let initialSellPrice = '';
             let initialUnit: Unit = selectedSearchItem.variant.pricingUnit || selectedSearchItem.variant.uom || 'SF';
             
-            if (pricingSettings && selectedSearchItem.variant.unitCost) {
+            // Prioritize stored retail price for customers. Calculate for installers or if retail is missing.
+            if (purchaserType === 'Customer' && selectedSearchItem.variant.retailPrice && selectedSearchItem.variant.retailPrice > 0) {
+                initialSellPrice = Number(selectedSearchItem.variant.retailPrice).toFixed(2);
+            } else if (pricingSettings && selectedSearchItem.variant.unitCost) {
                  const vendor = vendors.find(v => v.id === (selectedSearchItem.product.supplierId || selectedSearchItem.product.manufacturerId));
                  const rules = getActivePricingRules(vendor, pricingSettings, purchaserType);
                  const price = calculatePrice(Number(selectedSearchItem.variant.unitCost), rules.percentage, rules.method);
                  initialSellPrice = price.toFixed(2);
-            } else if (selectedSearchItem.variant.retailPrice) {
+            } else if (selectedSearchItem.variant.retailPrice) { // Fallback for customer if settings are missing
                 initialSellPrice = Number(selectedSearchItem.variant.retailPrice).toFixed(2);
             }
 
@@ -370,15 +370,11 @@ const AddEditMaterialOrderModal: React.FC<AddEditMaterialOrderModalProps> = ({ i
             notes: notes
         };
 
-        console.log('Submitting Order:', { editingOrder: !!editingOrder, orderData });
-
         try { 
             if (editingOrder) { 
-                console.log('Calling updateMaterialOrder...');
                 await updateMaterialOrder({ id: editingOrder.id, data: orderData }); 
                 toast.success('Order updated successfully');
             } else { 
-                console.log('Calling addMaterialOrder...');
                 await addMaterialOrder({ ...orderData, projectId: selectedProjectId }); 
                 toast.success('Order created successfully');
             }

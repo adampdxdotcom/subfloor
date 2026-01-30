@@ -19,15 +19,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, pricingSettings, onC
 
     // Helper to calculate display price
     const getDisplayInfo = () => {
-        if (!product.variants || product.variants.length === 0 || !pricingSettings) return null;
-        
-        // Get active vendor
-        const vendorId = product.supplierId || product.manufacturerId;
-        const vendor = vendors.find(v => v.id === vendorId);
-        const rules = getActivePricingRules(vendor, pricingSettings, 'Customer');
+        if (!product.variants || product.variants.length === 0) return null;
 
-        const validVariants = product.variants.filter(v => v.unitCost);
-        const prices = validVariants.map(v => calculatePrice(Number(v.unitCost), rules.percentage, rules.method));
+        // Use stored retailPrice if available, otherwise fall back to calculation (legacy safety)
+        const validVariants = product.variants.filter(v => (v.retailPrice && Number(v.retailPrice) > 0) || (v.unitCost && Number(v.unitCost) > 0));
+        
+        const prices = validVariants.map(v => {
+            if (v.retailPrice && Number(v.retailPrice) > 0) return Number(v.retailPrice);
+            
+            // Fallback: Calculate if retailPrice is missing but cost exists
+            if (pricingSettings && v.unitCost) {
+                const vendorId = product.supplierId || product.manufacturerId;
+                const vendor = vendors.find(vid => vid.id === vendorId);
+                const rules = getActivePricingRules(vendor, pricingSettings, 'Customer');
+                return calculatePrice(Number(v.unitCost), rules.percentage, rules.method);
+            }
+            return 0;
+        }).filter(p => p > 0);
         
         if (prices.length === 0) return null;
         
