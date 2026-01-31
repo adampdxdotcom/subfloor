@@ -122,11 +122,43 @@ html, body {
   .text-on-accent { color: var(--color-on-accent); }
 }
 
-/* === PRINT STYLES REMOVED === */
-/* The previous "visibility: hidden" rule conflicts with react-to-print. */
-/* We keep .print-only for legacy use cases if needed, but the main printing relies on component isolation now. */
+/* === PRINT STYLES === */
 @media screen {
   .print-only { display: none; }
+}
+
+@media print {
+  /* 1. Hide everything using visibility (allows children to be visible) */
+  body * {
+    visibility: hidden;
+  }
+
+  /* 2. Make the print container and all its children visible */
+  .print-only, .print-only * {
+    visibility: visible !important;
+    display: block !important; /* Ensure flex/grid doesn't break layout */
+  }
+
+  /* 3. Position the print container at the top-left of the page */
+  .print-only {
+    position: fixed; /* Fixed works better to escape modal scroll contexts */
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    background: white;
+    z-index: 99999; /* Sit on top of everything */
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  
+  /* 4. Hide scrollbars and margins on body */
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden; 
+  }
 }
 
 /* === COMPONENT OVERRIDES === */

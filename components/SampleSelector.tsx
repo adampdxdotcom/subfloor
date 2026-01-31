@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useData } from '../context/DataContext';
+import { useProducts } from '../hooks/useProducts';
+import { useSampleCheckouts } from '../hooks/useSampleCheckouts';
 import { Product, ProductVariant, SAMPLE_TYPES, SampleType } from '../types';
 import { Layers, ScanLine, X, Search, PlusCircle, ChevronRight, AlertCircle, Lock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -23,7 +24,9 @@ interface SampleSelectorProps {
 }
 
 const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onRequestNewSample, externalSelectedProduct }) => {
-  const { products, sampleCheckouts } = useData();
+  const { data: products = [] } = useProducts();
+  const { data: sampleCheckouts = [] } = useSampleCheckouts();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<CheckoutItem[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -31,6 +34,12 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [interestVariantId, setInterestVariantId] = useState<string>('');
+
+  // Helper type for search results
+  type SearchResult = 
+    | { type: 'variant'; product: Product; variant: ProductVariant } // Direct Physical Sample
+    | { type: 'master'; product: Product; variant: ProductVariant }  // Generic Product Line Match (Board)
+    | { type: 'virtual'; product: Product; physical: ProductVariant; interest: ProductVariant }; // Specific Variant via Board
 
   // INVENTORY CHECK: Set of Variant IDs that are currently OUT
   const checkedOutVariantIds = useMemo(() => {
@@ -43,21 +52,46 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
       return outIds;
   }, [sampleCheckouts]);
 
-  const searchResults = useMemo(() => {
+  const searchResults = useMemo<SearchResult[]>(() => {
     if (searchTerm.length < 2) return [];
     const term = searchTerm.toLowerCase();
-    
-    return products.filter(p => 
-      !p.isDiscontinued &&
-      (
-        p.name.toLowerCase().includes(term) ||
-        p.manufacturerName?.toLowerCase().includes(term) ||
-        p.variants.some(v => 
-            (v.name && v.name.toLowerCase().includes(term)) ||
-            (v.sku && v.sku.toLowerCase().includes(term))
-        )
-      )
-    );
+    const results: SearchResult[] = [];
+
+    products.forEach(p => {
+        if (p.isDiscontinued) return;
+
+        const master = p.variants.find(v => v.isMaster);
+        const pNameMatch = p.name.toLowerCase().includes(term);
+        const manuMatch = (p.manufacturerName || '').toLowerCase().includes(term);
+
+        // Iterate all variants to find text matches
+        p.variants.forEach(v => {
+            if (v.isMaster) return; // Skip master itself in text search
+
+            const matchName = (v.name || '').toLowerCase().includes(term);
+            const matchSku = (v.sku || '').toLowerCase().includes(term);
+
+            if (matchName || matchSku) {
+                if (v.hasSample) {
+                    // Case A: Specific variant HAS a physical sample
+                    results.push({ type: 'variant', product: p, variant: v });
+                } else if (master) {
+                    // Case B: Specific variant matched, NO sample, but can be ordered via Master Board
+                    results.push({ type: 'virtual', product: p, physical: master, interest: v });
+                }
+            }
+        });
+
+        // Case C: Generic Product Match (only if Master Board exists)
+        // We only add this if the Parent Name matches, to avoid cluttering if we already showed specific variants
+        if (master && (pNameMatch || manuMatch)) {
+             // Deduplicate: Don't show generic result if it's covered by specific 'virtual' results? 
+             // Actually, usually helpful to show the "Full Line" option too.
+             results.push({ type: 'master', product: p, variant: master });
+        }
+    });
+
+    return results;
   }, [searchTerm, products]);
 
   useEffect(() => {
@@ -77,15 +111,62 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
       }
   }, [externalSelectedProduct]);
 
-  const handleProductClick = (product: Product) => {
-      setPendingProduct(product);
-      setInterestVariantId('');
-      
-      if (product.variants.length > 0) {
-          const master = product.variants.find(v => v.isMaster);
-          setSelectedVariantId(master ? master.id : product.variants[0].id);
+  const handleResultClick = (result: SearchResult) => {
+      // SCENARIO 1: Direct Add (Physical Sample Exists)
+      if (result.type === 'variant') {
+          if (checkedOutVariantIds.has(String(result.variant.id))) {
+              toast.error("This sample is currently checked out.");
+              return;
+          }
+          
+          const newItem: CheckoutItem = {
+              variantId: result.variant.id,
+              interestVariantId: result.variant.id,
+              productName: result.product.name,
+              variantName: result.variant.name || result.variant.size || 'Default',
+              interestName: result.variant.name || result.variant.size || 'Default',
+              manufacturerName: result.product.manufacturerName || '',
+              sampleType: 'Sample',
+              quantity: 1
+          };
+          addCheckoutItem(newItem);
+          setSearchTerm('');
+      } 
+      // SCENARIO 2: Virtual Add (Variant Interest via Master Board)
+      else if (result.type === 'virtual') {
+          if (checkedOutVariantIds.has(String(result.physical.id))) {
+              toast.error("The Master Board for this item is checked out.");
+              return;
+          }
+
+          const newItem: CheckoutItem = {
+              variantId: result.physical.id, // The Board
+              interestVariantId: result.interest.id, // The Specific Style
+              productName: result.product.name,
+              variantName: result.physical.name || 'Master Board',
+              interestName: result.interest.name || result.interest.size || 'Default',
+              manufacturerName: result.product.manufacturerName || '',
+              sampleType: 'Board',
+              quantity: 1
+          };
+          addCheckoutItem(newItem);
+          setSearchTerm('');
+      }
+      // SCENARIO 3: Generic Master Board (User must pick interest)
+      else {
+          setPendingProduct(result.product);
+          setSelectedVariantId(result.variant.id); // Physical item is the master board
+          setInterestVariantId(''); // User must pick this
+      }
+  };
+
+  const addCheckoutItem = (newItem: CheckoutItem) => {
+      const existingIndex = selectedItems.findIndex(i => i.variantId === newItem.variantId && i.interestVariantId === newItem.interestVariantId);
+      if (existingIndex >= 0) {
+          toast.error("Item already in list.");
       } else {
-          setSelectedVariantId(''); 
+          setSelectedItems(prev => [...prev, newItem]);
+          toast.success(`Added ${newItem.interestName}`);
       }
   };
 
@@ -110,19 +191,11 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
           variantName: variant.name || variant.size || 'Default',
           interestName: interestVariant.name || interestVariant.size || 'Default',
           manufacturerName: pendingProduct.manufacturerName || '',
-          sampleType: 'Board', 
+          sampleType: variant.isMaster ? 'Board' : 'Sample', 
           quantity: 1
       };
 
-      const existingIndex = selectedItems.findIndex(i => i.variantId === newItem.variantId && i.interestVariantId === newItem.interestVariantId);
-      
-      if (existingIndex >= 0) {
-          toast.error("Item already in list.");
-      } else {
-          setSelectedItems(prev => [...prev, newItem]);
-          toast.success(`Added ${newItem.interestName}`);
-      }
-
+      addCheckoutItem(newItem);
       setPendingProduct(null);
       setSearchTerm('');
   };
@@ -237,17 +310,43 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                             </div>
                         )}
                         
-                        {searchResults.map(product => (
+                        {searchResults.map((result, idx) => (
                             <div 
-                                key={product.id} 
-                                onClick={() => handleProductClick(product)}
+                                key={`${result.product.id}-${idx}`} 
+                                onClick={() => handleResultClick(result)}
                                 className="p-3 bg-background hover:bg-surface border border-border rounded-lg cursor-pointer flex justify-between items-center group"
                             >
                                 <div>
-                                    <p className="font-bold text-lg text-text-primary">{product.name}</p>
-                                    <p className="text-xs text-text-secondary">{product.manufacturerName}</p>
+                                    {result.type === 'variant' ? (
+                                        <>
+                                            <p className="font-bold text-md text-text-primary">{result.variant.name}</p>
+                                            <p className="text-xs text-text-secondary">{result.product.name} • {result.variant.size || 'Sample'}</p>
+                                        </>
+                                    ) : result.type === 'virtual' ? (
+                                        <>
+                                            <p className="font-bold text-md text-text-primary">{result.interest.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] bg-tertiary/10 text-tertiary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Via Board</span>
+                                                <p className="text-xs text-text-secondary">{result.product.name}</p>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="font-bold text-lg text-text-primary">{result.product.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Board</span>
+                                                <p className="text-xs text-text-secondary">Full Line Sample</p>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
-                                <ChevronRight size={16} className="text-text-tertiary group-hover:text-primary" />
+                                <div className="flex items-center gap-2">
+                                    {/* Check availability of physical item (variant for 'variant', physical for 'virtual', variant for 'master') */}
+                                    {checkedOutVariantIds.has(String(result.type === 'virtual' ? result.physical.id : result.variant.id)) && (
+                                        <span className="text-xs font-bold text-red-500 bg-red-100 px-2 py-1 rounded-full">OUT</span>
+                                    )}
+                                    <ChevronRight size={16} className="text-text-tertiary group-hover:text-primary" />
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -261,18 +360,24 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                             <h4 className="font-bold text-lg text-text-primary">{pendingProduct.name}</h4>
                             <p className="text-sm text-text-secondary">{pendingProduct.manufacturerName}</p>
                             
-                            <select 
-                                value={selectedVariantId} 
-                                onChange={e => setSelectedVariantId(e.target.value)} 
-                                className="hidden"
-                            >
-                                {pendingProduct.variants
-                                    .filter(v => v.isMaster || v.hasSample)
-                                    .sort((a, b) => (a.isMaster === b.isMaster) ? 0 : a.isMaster ? -1 : 1)
-                                    .map(v => (
-                                        <option key={v.id} value={v.id}>{v.name}</option>
-                                    ))}
-                            </select>
+                            {/* Physical Sample Selector (Visible if multiple samples exist) */}
+                            <div className="mt-2">
+                                <label className="block text-xs font-bold text-text-secondary mb-1">Physical Item</label>
+                                <select 
+                                    value={selectedVariantId} 
+                                    onChange={e => setSelectedVariantId(e.target.value)} 
+                                    className="w-full p-2 bg-surface-container rounded border border-outline/20 text-sm font-medium"
+                                >
+                                    {pendingProduct.variants
+                                        .filter(v => v.isMaster || v.hasSample)
+                                        .sort((a, b) => (a.isMaster === b.isMaster) ? 0 : a.isMaster ? -1 : 1)
+                                        .map(v => (
+                                            <option key={v.id} value={v.id}>
+                                                {v.name} {v.isMaster ? '(Master Board)' : '(Sample)'}
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
                         </div>
 
                         <div className="flex-1 flex flex-col min-h-0">

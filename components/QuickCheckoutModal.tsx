@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { Customer, Project, Product, Installer } from '../types';
 import { X, User, Briefcase, CheckCircle, Calendar, Printer, HardHat } from 'lucide-react';
@@ -6,6 +6,7 @@ import CustomerSelector from './CustomerSelector';
 import ProjectSelector from './ProjectSelector';
 import SampleSelector, { CheckoutItem } from './SampleSelector'; 
 import { toast } from 'react-hot-toast';
+import { useReactToPrint } from 'react-to-print';
 import ModalPortal from './ModalPortal';
 import { PrintableCheckout } from './PrintableCheckout';
 import AddEditCustomerModal from './AddEditCustomerModal';
@@ -46,6 +47,13 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
   const [isAddSampleModalOpen, setIsAddSampleModalOpen] = useState(false);
   const [sampleSearchTerm, setSampleSearchTerm] = useState('');
   const [autoSelectProduct, setAutoSelectProduct] = useState<Product | null>(null);
+
+  // Print Handling
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+      contentRef: printRef,
+      documentTitle: 'Checkout_Summary',
+  });
 
   const handleItemsChange = useCallback((newItems: CheckoutItem[]) => {
     setCheckoutItems(newItems);
@@ -142,13 +150,14 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
       <>
         <div className="fixed inset-0 bg-scrim/60 z-50 overflow-y-auto">
           
-          <div className="print-only">
-            <PrintableCheckout 
-                customer={printableRecipient as Customer} 
-                project={selectedProject}
-                checkoutItems={checkoutItems} 
-                returnDate={expectedReturnDate}
-            />
+          {/* Hidden Print Container */}
+          <div ref={printRef} className="print-only">
+             <PrintableCheckout 
+                 customer={printableRecipient as Customer} 
+                 project={selectedProject}
+                 checkoutItems={checkoutItems} 
+                 returnDate={expectedReturnDate}
+             />
           </div>
 
           <div className="flex min-h-full items-center justify-center p-0 lg:p-4">
@@ -312,7 +321,7 @@ const QuickCheckoutModal: React.FC<QuickCheckoutModalProps> = ({ isOpen, onClose
                   </button>
                   <button
                     type="button"
-                    onClick={() => window.print()}
+                    onClick={() => handlePrint()}
                     className="py-3 px-6 rounded-full bg-tertiary hover:bg-tertiary-hover text-on-tertiary flex items-center gap-2 font-semibold shadow-md transition-all"
                   >
                     <Printer size={18} />
