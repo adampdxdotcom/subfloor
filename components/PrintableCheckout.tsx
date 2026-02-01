@@ -50,6 +50,22 @@ export const PrintableCheckout: React.FC<PrintableCheckoutProps> = ({ customer, 
     return { retailPrice, cartonPrice };
   };
 
+  // Helper: Format Phone Number
+  const formatPhone = (phone: string) => {
+    const cleaned = ('' + phone).replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) return `(${match[1]}) ${match[2]}-${match[3]}`;
+    return phone;
+  };
+
+  // Helper: Format Hours for Single Line
+  const formatHoursSingleLine = (hours: string) => {
+    return hours.split(/\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .join(' | ');
+  };
+
   return (
     // This div is the container for everything that will appear on the printed page.
     <div id="printable-summary" className="p-10 bg-white text-black font-sans text-sm">
@@ -57,6 +73,36 @@ export const PrintableCheckout: React.FC<PrintableCheckoutProps> = ({ customer, 
         <div>
           <h1 className="text-4xl font-bold text-gray-800">{systemBranding?.companyName || 'Subfloor'}</h1>
           <p className="text-gray-600">Sample Checkout Summary</p>
+          
+          {/* Company Contact Info */}
+          <div className="mt-2 text-sm text-gray-500 space-y-0.5">
+            {systemBranding?.companyPhone && (
+                <p>{formatPhone(systemBranding.companyPhone)}</p>
+            )}
+            
+            {systemBranding?.companyAddress && (
+                <p className="whitespace-pre-line leading-tight">{systemBranding.companyAddress}</p>
+            )}
+            
+            {systemBranding?.companyWebsite && (
+                <p>{systemBranding.companyWebsite}</p>
+            )}
+
+
+            {/* Hours Display */}
+            {systemBranding?.companyHours && (
+                <div className={`mt-1 pt-1 ${systemBranding.companyHoursFormat === 'stacked' ? 'block' : 'flex gap-2'}`}>
+                    <span className="font-semibold text-gray-600 text-xs uppercase tracking-wide">Hours:</span>
+                    {systemBranding.companyHoursFormat === 'stacked' ? (
+                        <p className="whitespace-pre-line leading-tight pl-0.5">
+                            {systemBranding.companyHours}
+                        </p>
+                    ) : (
+                         <p>{formatHoursSingleLine(systemBranding.companyHours)}</p>
+                    )}
+                </div>
+            )}
+          </div>
         </div>
         <div className="text-right">
           <p className="font-bold text-base">{recipientName}</p>

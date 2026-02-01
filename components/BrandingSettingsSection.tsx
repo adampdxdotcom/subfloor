@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Brush, Save, Palette, Trash2, Building, Globe, RotateCcw } from 'lucide-react';
+import { Brush, Save, Palette, Trash2, Building, Globe, RotateCcw, MapPin, Phone, Clock, Layout } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../context/DataContext';
 import * as preferenceService from '../services/preferenceService';
@@ -23,6 +23,11 @@ const BrandingSettingsSection: React.FC = () => {
     const { systemBranding, refreshBranding } = useData();
     const [companyName, setCompanyName] = useState('Subfloor'); 
     const [systemTimezone, setSystemTimezone] = useState('America/Los_Angeles');
+    const [companyAddress, setCompanyAddress] = useState('');
+    const [companyPhone, setCompanyPhone] = useState('');
+    const [companyWebsite, setCompanyWebsite] = useState('');
+    const [companyHours, setCompanyHours] = useState('');
+    const [companyHoursFormat, setCompanyHoursFormat] = useState('single_line');
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [faviconFile, setFaviconFile] = useState<File | null>(null);
     const [primaryColor, setPrimaryColor] = useState('#2563eb');
@@ -58,6 +63,11 @@ const BrandingSettingsSection: React.FC = () => {
             setInitialState({
                 companyName: systemBranding.companyName,
                 systemTimezone: systemBranding.systemTimezone,
+                companyAddress: systemBranding.companyAddress || '',
+                companyPhone: systemBranding.companyPhone || '',
+                companyWebsite: systemBranding.companyWebsite || '',
+                companyHours: systemBranding.companyHours || '',
+                companyHoursFormat: systemBranding.companyHoursFormat || 'single_line',
                 primaryColor: systemBranding.primaryColor,
                 secondaryColor: systemBranding.secondaryColor,
                 accentColor: systemBranding.accentColor,
@@ -69,6 +79,11 @@ const BrandingSettingsSection: React.FC = () => {
             });
             if (systemBranding.companyName) setCompanyName(systemBranding.companyName);
             if (systemBranding.systemTimezone) setSystemTimezone(systemBranding.systemTimezone);
+            if (systemBranding.companyAddress) setCompanyAddress(systemBranding.companyAddress);
+            if (systemBranding.companyPhone) setCompanyPhone(systemBranding.companyPhone);
+            if (systemBranding.companyWebsite) setCompanyWebsite(systemBranding.companyWebsite);
+            if (systemBranding.companyHours) setCompanyHours(systemBranding.companyHours);
+            if (systemBranding.companyHoursFormat) setCompanyHoursFormat(systemBranding.companyHoursFormat as any);
             if (systemBranding.primaryColor) setPrimaryColor(systemBranding.primaryColor);
             if (systemBranding.secondaryColor) setSecondaryColor(systemBranding.secondaryColor);
             if (systemBranding.accentColor) setAccentColor(systemBranding.accentColor);
@@ -86,6 +101,11 @@ const BrandingSettingsSection: React.FC = () => {
         
         setCompanyName(initialState.companyName || 'Subfloor');
         setSystemTimezone(initialState.systemTimezone || 'America/Los_Angeles');
+        setCompanyAddress(initialState.companyAddress || '');
+        setCompanyPhone(initialState.companyPhone || '');
+        setCompanyWebsite(initialState.companyWebsite || '');
+        setCompanyHours(initialState.companyHours || '');
+        setCompanyHoursFormat(initialState.companyHoursFormat || 'single_line');
         setPrimaryColor(initialState.primaryColor || '#2563eb');
         setSecondaryColor(initialState.secondaryColor || '#4b5563');
         setAccentColor(initialState.accentColor || '#0d9488');
@@ -145,6 +165,11 @@ const BrandingSettingsSection: React.FC = () => {
         
         formData.append('companyName', companyName);
         formData.append('systemTimezone', systemTimezone);
+        formData.append('companyAddress', companyAddress);
+        formData.append('companyPhone', companyPhone);
+        formData.append('companyWebsite', companyWebsite);
+        formData.append('companyHours', companyHours);
+        formData.append('companyHoursFormat', companyHoursFormat);
 
         formData.append('primaryColor', primaryColor);
         // Auto-calculate text on primary
@@ -191,7 +216,7 @@ const BrandingSettingsSection: React.FC = () => {
             </h2>
             
             {/* Company Details Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-6 mb-6">
                 {/* Company Name Input */}
                 <div className="py-6 border-b border-outline/10 md:border-b-0 md:bg-surface-container-low md:p-6 md:rounded-xl md:border md:border-outline/10">
                     <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
@@ -207,8 +232,104 @@ const BrandingSettingsSection: React.FC = () => {
                     />
                 </div>
 
-                {/* System Timezone Input */}
+                {/* Website Input */}
                 <div className="py-6 border-b border-outline/10 md:border-b-0 md:bg-surface-container-low md:p-6 md:rounded-xl md:border md:border-outline/10">
+                    <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                        <Globe className="w-5 h-5 text-secondary" /> Website URL
+                    </h3>
+                    <p className="text-sm text-text-secondary mb-4">Linked in headers and footers.</p>
+                    <input 
+                        type="text" 
+                        value={companyWebsite}
+                        onChange={(e) => setCompanyWebsite(e.target.value)}
+                        className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary"
+                        placeholder="e.g. www.acmeflooring.com"
+                    />
+                </div>
+
+                {/* Phone Input */}
+                <div className="py-6 border-b border-outline/10 md:border-b-0 md:bg-surface-container-low md:p-6 md:rounded-xl md:border md:border-outline/10">
+                    <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                        <Phone className="w-5 h-5 text-secondary" /> Phone Number
+                    </h3>
+                    <p className="text-sm text-text-secondary mb-4">Primary contact number.</p>
+                    <input 
+                        type="text" 
+                        value={companyPhone}
+                        onChange={(e) => setCompanyPhone(e.target.value)}
+                        className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary"
+                        placeholder="e.g. (555) 123-4567"
+                    />
+                </div>
+
+                {/* Address Input */}
+                <div className="py-6 border-b border-outline/10 md:border-b-0 md:bg-surface-container-low md:p-6 md:rounded-xl md:border md:border-outline/10">
+                    <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-secondary" /> Address
+                    </h3>
+                    <p className="text-sm text-text-secondary mb-4">Displayed on invoices and reports.</p>
+                    <textarea 
+                        value={companyAddress}
+                        onChange={(e) => setCompanyAddress(e.target.value)}
+                        className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary resize-none h-24"
+                        placeholder="123 Main St, Suite 100&#10;City, State 12345"
+                    />
+                </div>
+
+                {/* Business Hours */}
+                <div className="py-6 border-b border-outline/10 md:border-b-0 md:bg-surface-container-low md:p-6 md:rounded-xl md:border md:border-outline/10">
+                    <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-secondary" /> Business Hours
+                    </h3>
+                    <p className="text-sm text-text-secondary mb-4">Free text display of hours.</p>
+                    <textarea 
+                        value={companyHours}
+                        onChange={(e) => setCompanyHours(e.target.value)}
+                        className="w-full p-3 bg-surface-container-highest border-b-2 border-transparent rounded-t-md text-text-primary focus:outline-none focus:border-primary transition-all placeholder:text-text-tertiary resize-none h-24"
+                        placeholder="Mon-Fri: 8am - 5pm&#10;Sat: By Appointment"
+                    />
+                </div>
+
+                {/* Hours Format */}
+                <div className="py-6 border-b border-outline/10 md:border-b-0 md:bg-surface-container-low md:p-6 md:rounded-xl md:border md:border-outline/10">
+                    <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
+                        <Layout className="w-5 h-5 text-secondary" /> Print Format
+                    </h3>
+                    <p className="text-sm text-text-secondary mb-4">How hours appear on printed sheets.</p>
+                    <div className="flex flex-col gap-3">
+                        <label className="flex items-center gap-3 p-3 bg-surface-container-highest rounded-lg cursor-pointer border-2 border-transparent has-[:checked]:border-primary transition-all">
+                            <input 
+                                type="radio" 
+                                name="hoursFormat" 
+                                value="single_line"
+                                checked={companyHoursFormat === 'single_line'}
+                                onChange={(e) => setCompanyHoursFormat(e.target.value)}
+                                className="w-4 h-4 text-primary"
+                            />
+                            <div>
+                                <div className="font-medium text-text-primary">Single Line</div>
+                                <div className="text-xs text-text-secondary">Best for footers (e.g. M-F: 9-5 | Sat: Closed)</div>
+                            </div>
+                        </label>
+                        <label className="flex items-center gap-3 p-3 bg-surface-container-highest rounded-lg cursor-pointer border-2 border-transparent has-[:checked]:border-primary transition-all">
+                            <input 
+                                type="radio" 
+                                name="hoursFormat" 
+                                value="stacked"
+                                checked={companyHoursFormat === 'stacked'}
+                                onChange={(e) => setCompanyHoursFormat(e.target.value)}
+                                className="w-4 h-4 text-primary"
+                            />
+                            <div>
+                                <div className="font-medium text-text-primary">Stacked / Multiline</div>
+                                <div className="text-xs text-text-secondary">Best for dedicated info blocks</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                {/* System Timezone Input */}
+                <div className="md:col-span-2 py-6 border-b border-outline/10 md:border-b-0 md:bg-surface-container-low md:p-6 md:rounded-xl md:border md:border-outline/10">
                     <h3 className="text-lg font-medium text-text-primary mb-2 flex items-center gap-2">
                         <Globe className="w-5 h-5 text-secondary" /> System Timezone
                     </h3>

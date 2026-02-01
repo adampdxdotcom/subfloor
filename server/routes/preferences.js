@@ -289,12 +289,25 @@ router.post('/system/branding', verifySession(), verifyRole('Admin'), upload.fie
         // Handle Company Name
         if (req.body.companyName) updates.companyName = req.body.companyName;
 
+        // Handle Company Contact & Hours
+        if (req.body.companyAddress) updates.companyAddress = req.body.companyAddress;
+        if (req.body.companyPhone) updates.companyPhone = req.body.companyPhone;
+        if (req.body.companyWebsite) updates.companyWebsite = req.body.companyWebsite;
+        if (req.body.companyHours) updates.companyHours = req.body.companyHours;
+        if (req.body.companyHoursFormat) updates.companyHoursFormat = req.body.companyHoursFormat;
+        if (req.body.systemTimezone) updates.systemTimezone = req.body.systemTimezone;
+
         if (req.body.backgroundColor) updates.backgroundColor = req.body.backgroundColor;
         if (req.body.surfaceColor) updates.surfaceColor = req.body.surfaceColor;
         if (req.body.textPrimaryColor) updates.textPrimaryColor = req.body.textPrimaryColor;
         
         // FIX: Add missing textSecondaryColor
         if (req.body.textSecondaryColor) updates.textSecondaryColor = req.body.textSecondaryColor;
+
+        // Handle Status Colors
+        if (req.body.errorColor) updates.errorColor = req.body.errorColor;
+        if (req.body.warningColor) updates.warningColor = req.body.warningColor;
+        if (req.body.successColor) updates.successColor = req.body.successColor;
 
         console.log("Saving Branding Updates:", updates);
 

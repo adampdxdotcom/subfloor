@@ -457,6 +457,11 @@ export interface SystemBranding {
   logoUrl: string | null;
   faviconUrl: string | null;
   companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyWebsite?: string;
+  companyHours?: string;
+  companyHoursFormat?: 'single_line' | 'stacked';
   systemTimezone?: string;
   primaryColor?: string;
   secondaryColor?: string;
@@ -465,6 +470,9 @@ export interface SystemBranding {
   surfaceColor?: string;
   textPrimaryColor?: string;
   textSecondaryColor?: string;
+  errorColor?: string;
+  warningColor?: string;
+  successColor?: string;  
 }
 
 // --- IMPORT TOOL TYPES ---
