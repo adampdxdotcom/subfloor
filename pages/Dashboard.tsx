@@ -10,6 +10,7 @@ import ProjectCarousel from '../components/ProjectCarousel';
 import OrderCarousel from '../components/OrderCarousel';
 import SampleCarousel from '../components/SampleCarousel';
 import SampleDetailModal from '../components/SampleDetailModal';
+import ReprintCheckoutModal from '../components/ReprintCheckoutModal';
 import { useData } from '../context/DataContext';
 
 const Dashboard: React.FC = () => {
@@ -21,6 +22,7 @@ const Dashboard: React.FC = () => {
   const [filter, setFilter] = useState<ProjectStatus | 'All' | 'Recap'>('Recap');
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [reprintCheckoutId, setReprintCheckoutId] = useState<string | number | null>(null);
   
   const [selectedSampleForModal, setSelectedSampleForModal] = useState<any>(null);
   
@@ -112,6 +114,10 @@ const Dashboard: React.FC = () => {
       if (sample) setSelectedSampleForModal(sample);
   };
 
+  const handleReprint = (checkoutId: string | number) => {
+      setReprintCheckoutId(checkoutId);
+  };
+
   return (
     <div className="space-y-6">
         {/* Header Section - De-boxed */}
@@ -153,7 +159,12 @@ const Dashboard: React.FC = () => {
       <div>
           {filter === 'Recap' ? (
             <div>
-                <SampleCarousel title="Active Sample Checkouts" checkouts={activeCheckouts} onItemClick={handleSampleClick} />
+                <SampleCarousel 
+                    title="Active Sample Checkouts" 
+                    checkouts={activeCheckouts} 
+                    onItemClick={handleSampleClick} 
+                    onReprint={handleReprint} // Pass the handler
+                />
                 <OrderCarousel title="Upcoming Deliveries (Next 5 Days)" orders={upcomingOrders} projects={projects} />
                 <ProjectCarousel title="Active Pipeline" projects={activePipelineProjects} />
             </div>
@@ -191,6 +202,12 @@ const Dashboard: React.FC = () => {
         isOpen={!!selectedSampleForModal}
         onClose={() => setSelectedSampleForModal(null)}
         sample={selectedSampleForModal}
+      />
+
+      <ReprintCheckoutModal 
+        isOpen={!!reprintCheckoutId}
+        checkoutId={reprintCheckoutId}
+        onClose={() => setReprintCheckoutId(null)}
       />
     </div>
   );

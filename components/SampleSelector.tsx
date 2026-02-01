@@ -13,8 +13,18 @@ export interface CheckoutItem {
     variantName: string;
     interestName: string;
     manufacturerName?: string;
+    manufacturerId?: string; // Added for precise lookup
     sampleType: SampleType;
     quantity: number;
+    // --- Extended data for printing ---
+    productId: string;
+    productType?: string;
+    size?: string | null;
+    unitCost?: number | null;
+    cartonSize?: number | null;
+    uom?: string | null;
+    pricingUnit?: string | null; // Added for correct price display
+    productUrl?: string | null;
 }
 
 interface SampleSelectorProps {
@@ -127,7 +137,17 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
               interestName: result.variant.name || result.variant.size || 'Default',
               manufacturerName: result.product.manufacturerName || '',
               sampleType: 'Sample',
-              quantity: 1
+              quantity: 1,
+              // --- Extended Data ---
+              productId: result.product.id,
+              productType: (result.product as any).productType,
+              size: result.variant.size,
+              unitCost: result.variant.unitCost,
+              cartonSize: result.variant.cartonSize,
+              uom: result.variant.uom,
+              pricingUnit: result.variant.pricingUnit,
+              productUrl: (result.product as any).productLineUrl, // Fixed field name
+              manufacturerId: result.product.manufacturerId,
           };
           addCheckoutItem(newItem);
           setSearchTerm('');
@@ -147,7 +167,17 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
               interestName: result.interest.name || result.interest.size || 'Default',
               manufacturerName: result.product.manufacturerName || '',
               sampleType: 'Board',
-              quantity: 1
+              quantity: 1,
+              // --- Extended Data ---
+              productId: result.product.id,
+              productType: (result.product as any).productType,
+              size: result.interest.size,
+              unitCost: result.interest.unitCost,
+              cartonSize: result.interest.cartonSize,
+              uom: result.interest.uom,
+              pricingUnit: result.interest.pricingUnit,
+              productUrl: (result.product as any).productLineUrl, // Fixed field name
+              manufacturerId: result.product.manufacturerId,
           };
           addCheckoutItem(newItem);
           setSearchTerm('');
@@ -192,7 +222,17 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
           interestName: interestVariant.name || interestVariant.size || 'Default',
           manufacturerName: pendingProduct.manufacturerName || '',
           sampleType: variant.isMaster ? 'Board' : 'Sample', 
-          quantity: 1
+          quantity: 1,
+          // --- Extended Data ---
+          productId: pendingProduct.id,
+          productType: (pendingProduct as any).productType,
+          size: interestVariant.size,
+          unitCost: interestVariant.unitCost,
+          cartonSize: interestVariant.cartonSize,
+          uom: interestVariant.uom,
+          pricingUnit: interestVariant.pricingUnit,
+          productUrl: (pendingProduct as any).productLineUrl, // Fixed field name
+          manufacturerId: pendingProduct.manufacturerId,
       };
 
       addCheckoutItem(newItem);
@@ -389,7 +429,7 @@ const SampleSelector: React.FC<SampleSelectorProps> = ({ onItemsChange, onReques
                             ) : (
                             <select 
                                 value={interestVariantId} 
-                                onChange={e => setInterestVariantId(e.target.value)} 
+                                onChange={(e) => setInterestVariantId(e.target.value)} 
                                 size={5}
                                 className="w-full flex-1 p-2 bg-background border-2 border-primary/20 focus:border-primary rounded text-text-primary cursor-pointer"
                             >   

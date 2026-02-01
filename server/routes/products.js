@@ -745,7 +745,29 @@ router.delete('/variants/:id', verifySession(), verifyRole('Admin'), async (req,
 // GET /api/products/variants/:id/qr - Generate QR Code for a Variant
 router.get('/variants/:id/qr', async (req, res) => {
     const { id } = req.params;
-    const url = `${process.env.BASE_URL || 'http://localhost:5173'}/scan-result?variantId=${id}`; 
+    const { fallback } = req.query; // Check for explicit target URL
+    
+    // If a fallback (target URL) is provided, use it. Otherwise default to internal scan URL.
+    const url = fallback 
+        ? fallback 
+        : `${process.env.BASE_URL || 'http://localhost:5173'}/scan-result?variantId=${id}`; 
+
+    try {
+        const qrCodeImage = await qrcode.toBuffer(url, { errorCorrectionLevel: 'H', type: 'image/png', margin: 1, color: { dark: "#000000", light: "#FFFFFF" } });
+        res.setHeader('Content-Type', 'image/png');
+        res.send(qrCodeImage);
+    } catch (err) { res.status(500).json('Error generating QR code'); }
+});
+
+// GET /api/products/:productId/variants/:variantId/qr - Specific route for Printable Summary
+router.get('/:productId/variants/:variantId/qr', async (req, res) => {
+    const { variantId } = req.params;
+    const { fallback } = req.query;
+
+    const url = fallback 
+        ? fallback 
+        : `${process.env.BASE_URL || 'http://localhost:5173'}/scan-result?variantId=${variantId}`; 
+
     try {
         const qrCodeImage = await qrcode.toBuffer(url, { errorCorrectionLevel: 'H', type: 'image/png', margin: 1, color: { dark: "#000000", light: "#FFFFFF" } });
         res.setHeader('Content-Type', 'image/png');

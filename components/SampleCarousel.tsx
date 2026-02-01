@@ -2,7 +2,7 @@ import React from 'react';
 import { SampleCheckout, Product } from '../types';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
-import { Clock, Undo2, AlertCircle, Calendar } from 'lucide-react';
+import { Clock, Undo2, AlertCircle, Calendar, Printer } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getImageUrl } from '../utils/apiConfig';
 import { formatDate } from '../utils/dateUtils';
@@ -30,7 +30,7 @@ const useCheckoutDetails = (checkout: SampleCheckout) => {
     return { product, variant, project, customer, installer };
 };
 
-const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick: (p: Product) => void }) => {
+const CheckoutCard = ({ checkout, onClick, onReprint }: { checkout: SampleCheckout, onClick: (p: Product) => void, onReprint?: (id: string | number) => void }) => {
     const { extendSampleCheckout, updateSampleCheckout } = useData();
     const { product, variant, project, customer, installer } = useCheckoutDetails(checkout);
 
@@ -46,6 +46,11 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
         if (confirm(`Return "${variant.name}"?`)) {
             await updateSampleCheckout(checkout);
         }
+    };
+
+    const handleReprintClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onReprint?.(checkout.id);
     };
     
     // Determine due date status styles
@@ -133,7 +138,13 @@ const CheckoutCard = ({ checkout, onClick }: { checkout: SampleCheckout, onClick
                     </div>
 
                     <div className="flex items-center gap-2 justify-end pt-3">
-                        <button onClick={handleExtend} className="text-xs font-medium text-primary hover:bg-primary-container/20 py-2 px-4 rounded-full transition-colors">
+                        {onReprint && (
+                            <button onClick={handleReprintClick} className="p-2 text-text-secondary hover:text-primary hover:bg-surface-container rounded-full transition-colors" title="Reprint Checkout Sheet">
+                                <Printer size={14} />
+                            </button>
+                        )}
+                        <div className="flex-grow" />
+                        <button onClick={handleExtend} className="text-xs font-medium text-primary hover:bg-primary-container/20 py-2 px-3 rounded-full transition-colors">
                             Extend
                         </button>
                         <button onClick={handleReturn} className="text-xs font-bold bg-secondary hover:bg-secondary-hover text-on-secondary py-2 px-4 rounded-full shadow-sm flex items-center gap-1 transition-colors">
@@ -150,9 +161,10 @@ interface SampleCarouselProps {
     title: string;
     checkouts: SampleCheckout[]; 
     onItemClick: (product: Product) => void; 
+    onReprint?: (id: string | number) => void;
 }
 
-const SampleCarousel: React.FC<SampleCarouselProps> = ({ title, checkouts, onItemClick }) => {
+const SampleCarousel: React.FC<SampleCarouselProps> = ({ title, checkouts, onItemClick, onReprint }) => {
     return (
         <div className="mb-12">
             <h2 className="text-2xl font-semibold mb-4 text-text-primary flex items-center gap-2">
@@ -166,7 +178,7 @@ const SampleCarousel: React.FC<SampleCarouselProps> = ({ title, checkouts, onIte
             {checkouts.length > 0 ? (
                 <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                     {checkouts.map(co => (
-                        <CheckoutCard key={co.id} checkout={co} onClick={onItemClick} />
+                        <CheckoutCard key={co.id} checkout={co} onClick={onItemClick} onReprint={onReprint} />
                     ))}
                 </div>
             ) : (

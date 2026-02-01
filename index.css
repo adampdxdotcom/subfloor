@@ -134,13 +134,15 @@ html, body {
   }
 
   /* 2. Make the print container and all its children visible */
-  .print-only, .print-only * {
+  .print-only * {
     visibility: visible !important;
-    display: block !important; /* Ensure flex/grid doesn't break layout */
+    /* NOTE: We DO NOT force 'display: block' here, as it breaks component-level flex/grid layouts. */
   }
 
-  /* 3. Position the print container at the top-left of the page */
+  /* 3. Position and reveal the print container itself */
   .print-only {
+    visibility: visible !important; /* Make the container visible */
+    display: block !important;      /* Ensure the container itself is a block */
     position: fixed; /* Fixed works better to escape modal scroll contexts */
     left: 0;
     top: 0;
@@ -356,4 +358,20 @@ div[style*="z-index: 99999"] {
   background: var(--color-accent);
   box-shadow: 0 0 12px var(--color-accent), 0 0 4px var(--color-accent);
   animation: scanner-laser 2s linear infinite;
+}
+
+@media screen {
+  .print-only { display: none; }
+}
+====
+@media screen {
+  .print-only { 
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+    visibility: hidden;
+  }
 }
