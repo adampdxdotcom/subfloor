@@ -73,23 +73,34 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
 
     const handlePrint = useReactToPrint({
         contentRef: printRef,
-        documentTitle: `Sample_Labels_${new Date().toISOString().slice(0,10)}`,
-        onBeforeGetContent: async () => {
-            setIsGenerating(true);
-            await new Promise(resolve => setTimeout(resolve, 500)); 
-            setIsGenerating(false);
+        onBeforeGetContent: () => {
+            return new Promise<void>((resolve) => {
+                setIsGenerating(true);
+                // Wait for all images to load before printing
+                const images = printRef.current?.querySelectorAll('img') || [];
+                const imagePromises = Array.from(images).map(img => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise(res => {
+                        img.onload = () => res(true);
+                        img.onerror = () => res(true); // Resolve even on error
+                    });
+                });
+                Promise.all(imagePromises).then(() => {
+                    setIsGenerating(false); // Reset loading state here if we are about to resolve
+                    resolve();
+                });
+            });
         },
+        documentTitle: `Sample_Labels_${new Date().toISOString().slice(0,10)}`,
         pageStyle: `
             @page { size: letter; margin: 0.25in; }
             @media print {
-                body { -webkit-print-color-adjust: exact; }
-                .print-grid { 
-                    display: grid !important;
-                    grid-template-columns: repeat(2, 1fr) !important;
-                    grid-auto-rows: 3.33in !important;
-                    gap: 0.16in !important;
+                body { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+                .print-page-container {
+                    box-shadow: none !important;
+                    margin: 0 !important;
+                    page-break-after: always;
                 }
-                .break-inside-avoid { page-break-inside: avoid; }
             }
         `
     });
@@ -100,12 +111,49 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
 
     if (!isOpen) return null;
 
+    // 2. Calculate pages here so they can be passed as props
+    const itemsToPrint = queue.filter(q => q.selected);
+    const ITEMS_PER_PAGE = 6;
+    const pages = [];
+    if (itemsToPrint.length > 0) {
+        for (let i = 0; i < itemsToPrint.length; i += ITEMS_PER_PAGE) {
+            pages.push(itemsToPrint.slice(i, i + ITEMS_PER_PAGE));
+        }
+    }
+
     const selectedCount = queue.filter(i => i.selected).length;
 
     return (
         <div className="fixed inset-0 bg-scrim/80 flex items-center justify-center z-50 p-4">
             <div className="bg-surface-container-high w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-outline/20">
                 
+                {/* Print + Preview Container */}
+                <div ref={printRef} className="w-full print-only">
+                    {pages.map((pageItems, pageIndex) => (
+                        <div 
+                            key={pageIndex}
+                            className="print-page-container bg-white w-[8.5in] h-[11in] p-[0.25in] text-black shadow-2xl"
+                            style={{ pageBreakAfter: 'always', display: 'block' }}
+                        >
+                            <div className="print-grid h-full w-full" style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                gridTemplateRows: 'repeat(3, 1fr)',
+                                gap: '0'
+                            }}>
+                                {pageItems.map(item => (
+                                    <div key={item.id} className="p-2 w-full h-full flex items-center justify-center border border-dashed border-outline/10 break-inside-avoid">
+                                        <PrintableLabel 
+                                            data={item.data} 
+                                            qrUrl={`/api/products/${item.isVariant ? 'variants/' : ''}${item.id}/qr`} 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
                 {/* Header */}
                 <div className="p-4 border-b border-outline/10 flex justify-between items-center shrink-0">
                     <div>
@@ -117,7 +165,7 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
                     <div className="flex gap-3">
                         <button onClick={onClose} className="py-2.5 px-6 rounded-full border border-outline text-text-primary hover:bg-surface-container-highest transition-colors">Cancel</button>
                         <button 
-                            onClick={() => handlePrint()} 
+                            onClick={handlePrint} 
                             disabled={selectedCount === 0 || isGenerating}
                             className="flex items-center gap-2 py-3 px-6 rounded-full bg-primary hover:bg-primary-hover text-on-primary font-semibold shadow-md transition-all disabled:opacity-50"
                         >
@@ -161,24 +209,31 @@ export default function PrintQueueModal({ isOpen, onClose, selectedProducts }: P
                     </div>
 
                     {/* RIGHT: Print Preview */}
-                    <div className="flex-1 bg-surface-variant/30 overflow-y-auto p-8 flex justify-center">
-                        <div className="bg-white shadow-2xl p-[0.25in] min-h-[11in] w-[8.5in] scale-75 origin-top text-black">
-                            {/* This div is referenced by useReactToPrint */}
-                            <div ref={printRef} className="print-grid" style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(2, 1fr)',
-                                gridAutoRows: '3.33in',
-                                gap: '0'
-                            }}>
-                                {queue.filter(q => q.selected).map(item => (
-                                    <div key={item.id} className="p-2 w-full h-full flex items-center justify-center border border-dashed border-outline/10 print:border-none break-inside-avoid">
-                                        <PrintableLabel 
-                                            data={item.data} 
-                                            qrUrl={`/api/products/${item.isVariant ? 'variants/' : ''}${item.id}/qr`} 
-                                        />
+                    <div className="flex-1 bg-surface-variant/30 overflow-y-auto p-8">
+                        {/* Visible Preview */}
+                        <div className="scale-75 origin-top mx-auto w-[8.5in]">
+                            {pages.map((pageItems, pageIndex) => (
+                                <div 
+                                    key={pageIndex} 
+                                    className="print-page-container bg-white shadow-2xl w-full h-[11in] p-[0.25in] text-black mb-8"
+                                >
+                                    <div className="print-grid h-full w-full" style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(2, 1fr)',
+                                        gridTemplateRows: 'repeat(3, 1fr)',
+                                        gap: '0'
+                                    }}>
+                                        {pageItems.map(item => (
+                                            <div key={item.id} className="p-2 w-full h-full flex items-center justify-center border border-dashed border-outline/10 break-inside-avoid">
+                                                <PrintableLabel 
+                                                    data={item.data} 
+                                                    qrUrl={`/api/products/${item.isVariant ? 'variants/' : ''}${item.id}/qr`} 
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
